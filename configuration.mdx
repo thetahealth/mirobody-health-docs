@@ -167,17 +167,44 @@ GOOGLE_API_KEY: 'AIza...'
 ### OpenRouter
 
 ```yaml config.yaml
-# OpenRouter Configuration
-OPENROUTER_API_KEY: 'sk-or-...'
+# Required AI Provider Keys
+OPENROUTER_API_KEY: 'sk-or-...'  # For AI chat and agents
+GOOGLE_API_KEY: 'your_google_key'  # For file processing (Gemini)
 ```
 
+<Info>
+- **OPENROUTER_API_KEY**: Required for AI chat and agent features
+- **GOOGLE_API_KEY**: Required for processing files (PDFs, images, medical records) using Google Gemini
+</Info>
+
 <Steps>
-  <Step title="Get API Key">
+  <Step title="Get OpenRouter API Key">
     1. Sign up at [OpenRouter](https://openrouter.ai/)
     2. Navigate to Keys section
     3. Create a new API key
   </Step>
+  
+  <Step title="Get Google API Key (Gemini)">
+    1. Visit [Google AI Studio](https://aistudio.google.com/)
+    2. Sign in with your Google account
+    3. Click "Get API key" and create a new key
+    
+    <Info>
+    Google Gemini is required for file processing capabilities (PDFs, images, medical records).
+    </Info>
+  </Step>
 </Steps>
+
+### Google Gemini
+
+```yaml config.yaml
+# Google Gemini Configuration (Required for file processing)
+GOOGLE_API_KEY: 'your_google_api_key'
+```
+
+<Warning>
+Google API Key (Gemini) is **required** for processing multimodal files including PDFs, images (PNG, JPEG, HEIC), and audio files. Without this key, file upload and processing features will not work.
+</Warning>
 
 ### Anthropic (Claude)
 

@@ -111,6 +111,25 @@ async def test_data_pull():
         assert "date" in record or "timestamp" in record
 ```
 
+## Local HTTPS Setup for OAuth Development
+
+<Warning>
+Health data providers like WHOOP require HTTPS callback URLs for OAuth authentication due to security requirements.
+</Warning>
+
+During local development, your server typically runs on `http://localhost`, which these providers reject. To test OAuth flows locally, you need to set up a local HTTPS reverse proxy that terminates SSL/TLS and forwards requests to your development server. 
+
+This is accomplished by configuring your system's hosts file to map the production callback domain (e.g., `data-gray.thetahealth.ai`) to `127.0.0.1`, then running a reverse proxy on port 443 that handles HTTPS and proxies to your local HTTP server.
+
+Several tools can provide this functionality, including web servers with reverse proxy capabilities (nginx, Apache), specialized HTTPS proxy tools, or cloud-based tunneling services like ngrok. 
+
+**The general approach:**
+1. Install a local certificate authority tool like `mkcert` to generate trusted SSL certificates for your domain
+2. Configure the proxy to listen on port 443 with your SSL certificate and forward to your local development port (e.g., `localhost:18080`)
+3. Update your hosts file to resolve the callback domain to localhost
+
+This setup allows you to use the exact same callback URL in development as in production, making OAuth integration testing seamless without requiring deployment for every code change.
+
 ## Manual Testing
 
 ### 1. Test OAuth Link

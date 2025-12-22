@@ -191,14 +191,23 @@ After installation, verify everything is working:
     - Custom providers
   </Accordion>
 
-  <Accordion title="Set up AI Chat" icon="robot">
-    To enable AI chat features, add API keys to `config.yaml`:
+  <Accordion title="Set up AI Chat & File Processing" icon="robot">
+    To enable AI features, add API keys to `config.yaml`:
 
     ```yaml
-    OPENROUTER_API_KEY: 'your_openrouter_api_key'
-    GOOGLE_API_KEY (Optional): 'your_google_api_key'
-    OPENAI_API_KEY (Optional): 'your_openai_api_key'
+    # REQUIRED API Keys
+    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # For AI chat/agents
+    GOOGLE_API_KEY: 'your_google_api_key'  # For file processing (Gemini)
+    
+    # Optional
+    OPENAI_API_KEY: 'your_openai_api_key'
     ```
+
+    <Info>
+    - **OPENROUTER_API_KEY**: Required for AI chat and agent features
+    - **GOOGLE_API_KEY**: Required for processing files (PDFs, images, medical records) using Gemini
+    - **OPENAI_API_KEY**: Optional for OpenAI-specific features
+    </Info>
   </Accordion>
 
   <Accordion title="Configure Database Encryption" icon="lock">

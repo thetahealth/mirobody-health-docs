@@ -46,23 +46,25 @@ You can verify your Docker installation by running `docker --version` and `docke
   </Step>
 
   <Step title="Add API keys">
-    Edit `config.yaml` to add your API keys. **OPENROUTER_API_KEY is required** for AI features:
+    Edit `config.yaml` to add your API keys. **Both OPENROUTER_API_KEY and GOOGLE_API_KEY are required**:
 
     ```yaml config.yaml
-    # AI Provider API Keys - OPENROUTER_API_KEY is REQUIRED
-    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # REQUIRED
+    # AI Provider API Keys - REQUIRED
+    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # REQUIRED for AI chat/agents
+    GOOGLE_API_KEY: 'your_google_api_key'  # REQUIRED for file processing (Gemini)
     
     # Optional: Additional AI providers
-    GOOGLE_API_KEY: 'your_google_api_key'
     OPENAI_API_KEY: 'your_openai_api_key'
     ```
 
     <Warning>
-    **OPENROUTER_API_KEY is mandatory** for AI chat and agent features. Get your API key at [OpenRouter](https://openrouter.ai/).
+    **OPENROUTER_API_KEY is required** for AI chat and agent features. Get your API key at [OpenRouter](https://openrouter.ai/).
+    
+    **GOOGLE_API_KEY (Gemini) is required** for processing files like PDFs, images, and medical records. Get your API key at [Google AI Studio](https://aistudio.google.com/).
     </Warning>
     
     <Tip>
-    OpenRouter provides access to multiple LLM providers through a single API, making it the recommended choice for Mirobody Health.
+    OpenRouter provides access to multiple LLM providers through a single API, while Google Gemini handles multimodal file processing.
     </Tip>
   </Step>
 
