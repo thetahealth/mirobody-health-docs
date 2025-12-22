@@ -1,0 +1,317 @@
+---
+title: "Built-in Tools"
+description: "Default health tools provided by Mirobody Health"
+---
+
+## Overview
+
+Mirobody Health includes two essential health tools that enable AI agents to access and analyze user health data securely.
+
+<CardGroup cols={2}>
+  <Card title="get_user_health_profile" icon="user">
+    Retrieve comprehensive user profile and summary
+  </Card>
+  <Card title="get_health_indicator" icon="chart-line">
+    Query specific health metrics and time-series data
+  </Card>
+</CardGroup>
+
+## get_user_health_profile
+
+Retrieves the user's complete health profile including connected devices, summary statistics, and profile information.
+
+### Function Signature
+
+```python
+async def get_user_health_profile(user_info: UserInfo) -> Dict[str, Any]:
+    """
+    Get user health profile including connected devices and summary data
+    
+    Args:
+        user_info: User authentication information (automatically injected)
+        
+    Returns:
+        Dict containing:
+            - profile: User profile information
+            - connected_providers: List of linked health devices
+            - summary: Health data summary and statistics
+    """
+```
+
+### Parameters
+
+<ParamField body="user_info" type="UserInfo" required>
+  User authentication information. This parameter is **automatically provided** by the system when called through MCP. Do not manually pass this parameter.
+</ParamField>
+
+### Response
+
+<ResponseExample>
+```json
+{
+  "profile": {
+    "user_id": "user_123",
+    "name": "John Doe",
+    "version": 1,
+    "last_updated": "2024-01-15T10:30:00Z"
+  },
+  "connected_providers": [
+    {
+      "provider_slug": "theta_garmin",
+      "provider_name": "Garmin",
+      "linked_at": "2024-01-01T00:00:00Z",
+      "last_sync": "2024-01-15T08:00:00Z"
+    },
+    {
+      "provider_slug": "theta_whoop",
+      "provider_name": "Whoop",
+      "linked_at": "2024-01-10T00:00:00Z",
+      "last_sync": "2024-01-15T09:00:00Z"
+    }
+  ],
+  "summary": {
+    "total_indicators": 1543,
+    "data_sources": 2,
+    "date_range": {
+      "first_data": "2024-01-01T00:00:00Z",
+      "last_data": "2024-01-15T10:00:00Z"
+    }
+  }
+}
+```
+</ResponseExample>
+
+### Use Cases
+
+- **Profile Overview**: Display user's health profile in a dashboard
+- **Device Status**: Check which devices are connected and syncing
+- **Data Availability**: Verify what health data is available for analysis
+- **Agent Context**: Provide agents with user context for personalized responses
+
+## get_health_indicator
+
+Retrieves specific health indicator data with optional time range filtering.
+
+### Function Signature
+
+```python
+async def get_health_indicator(
+    user_info: UserInfo,
+    indicator: str,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    limit: Optional[int] = 100
+) -> List[Dict[str, Any]]:
+    """
+    Get health indicator data for a specific metric
+    
+    Args:
+        user_info: User authentication information (automatically injected)
+        indicator: Health indicator name (e.g., "HEART_RATE", "STEPS", "SLEEP_DURATION")
+        start_time: Optional start time filter (ISO 8601 format)
+        end_time: Optional end time filter (ISO 8601 format)
+        limit: Maximum number of records to return (default: 100)
+        
+    Returns:
+        List of health indicator records with values and timestamps
+    """
+```
+
+### Parameters
+
+<ParamField body="user_info" type="UserInfo" required>
+  User authentication information (automatically provided)
+</ParamField>
+
+<ParamField body="indicator" type="string" required>
+  Health indicator name. Examples:
+  - `HEART_RATE`: Heart rate measurements
+  - `DAILY_STEPS`: Daily step count
+  - `SLEEP_DURATION`: Sleep duration
+  - `HRV`: Heart rate variability
+  - `WEIGHT`: Body weight
+  
+  See [Standard Indicators](/providers/overview#standard-health-indicators) for complete list.
+</ParamField>
+
+<ParamField body="start_time" type="string">
+  Start time for filtering data (ISO 8601 format). Example: `2024-01-01T00:00:00Z`
+</ParamField>
+
+<ParamField body="end_time" type="string">
+  End time for filtering data (ISO 8601 format). Example: `2024-01-15T23:59:59Z`
+</ParamField>
+
+<ParamField body="limit" type="integer">
+  Maximum number of records to return. Default: 100, Maximum: 1000
+</ParamField>
+
+### Response
+
+<ResponseExample>
+```json
+[
+  {
+    "indicator": "HEART_RATE",
+    "value": "72",
+    "value_standardized": "72",
+    "start_time": "2024-01-15T10:00:00Z",
+    "end_time": "2024-01-15T10:00:00Z",
+    "source": "garmin",
+    "indicator_id": "hr_12345",
+    "create_time": "2024-01-15T10:05:00Z"
+  },
+  {
+    "indicator": "HEART_RATE",
+    "value": "75",
+    "value_standardized": "75",
+    "start_time": "2024-01-15T10:05:00Z",
+    "end_time": "2024-01-15T10:05:00Z",
+    "source": "garmin",
+    "indicator_id": "hr_12346",
+    "create_time": "2024-01-15T10:10:00Z"
+  }
+]
+```
+</ResponseExample>
+
+### Use Cases
+
+- **Trend Analysis**: Query heart rate data over a week to analyze trends
+- **Comparative Analysis**: Compare sleep duration across different months
+- **Correlation Studies**: Examine relationships between different health metrics
+- **Report Generation**: Pull data for personalized health reports
+
+## Querying Health Data
+
+Both tools query the `theta_ai.th_series_data` table which contains standardized health indicators from all connected devices.
+
+### Available Indicators
+
+<AccordionGroup>
+  <Accordion title="Activity Indicators" icon="person-running">
+    - `DAILY_STEPS`: Step count per day
+    - `DAILY_DISTANCE`: Distance traveled
+    - `DAILY_CALORIES_ACTIVE`: Active calories burned
+    - `DAILY_CALORIES_BASAL`: Basal metabolic rate
+    - `ACTIVE_TIME`: Active time duration
+    - `DAILY_FLOORS_CLIMBED`: Floors climbed
+  </Accordion>
+
+  <Accordion title="Heart Rate Indicators" icon="heart-pulse">
+    - `HEART_RATE`: Instantaneous heart rate
+    - `DAILY_HEART_RATE_RESTING`: Resting heart rate
+    - `DAILY_HEART_RATE_MIN`: Minimum daily heart rate
+    - `DAILY_HEART_RATE_MAX`: Maximum daily heart rate
+    - `DAILY_AVG_HEART_RATE`: Average daily heart rate
+    - `HRV`: Heart rate variability (RMSSD)
+  </Accordion>
+
+  <Accordion title="Sleep Indicators" icon="bed">
+    - `DAILY_SLEEP_DURATION`: Total sleep time
+    - `SLEEP_IN_BED`: Time in bed
+    - `DAILY_AWAKE_TIME`: Time awake during sleep
+    - `DAILY_LIGHT_SLEEP`: Light sleep duration
+    - `DAILY_DEEP_SLEEP`: Deep sleep duration
+    - `DAILY_REM_SLEEP`: REM sleep duration
+    - `SLEEP_EFFICIENCY`: Sleep efficiency percentage
+  </Accordion>
+
+  <Accordion title="Body Metrics" icon="weight-scale">
+    - `WEIGHT`: Body weight
+    - `HEIGHT`: Height
+    - `BMI`: Body mass index
+    - `BODY_FAT_PERCENTAGE`: Body fat percentage
+    - `SKELETAL_MUSCLE_MASS`: Skeletal muscle mass
+  </Accordion>
+</AccordionGroup>
+
+## Example Agent Queries
+
+Here are examples of how AI agents can use these tools:
+
+<Tabs>
+  <Tab title="Profile Query">
+    **User:** "What health devices do I have connected?"
+    
+    **Agent Action:**
+    ```python
+    profile = await get_user_health_profile(user_info)
+    connected = profile["connected_providers"]
+    ```
+    
+    **Response:** "You have 2 devices connected: Garmin (last synced 2 hours ago) and Whoop (last synced 1 hour ago)."
+  </Tab>
+
+  <Tab title="Trend Analysis">
+    **User:** "Show me my heart rate for the past week"
+    
+    **Agent Action:**
+    ```python
+    data = await get_health_indicator(
+        user_info,
+        indicator="HEART_RATE",
+        start_time="2024-01-08T00:00:00Z",
+        end_time="2024-01-15T23:59:59Z"
+    )
+    ```
+    
+    **Response:** "Your average heart rate was 68 bpm. I noticed it was higher on Jan 12 (75 bpm average), which matches your workout day."
+  </Tab>
+
+  <Tab title="Comparison">
+    **User:** "Compare my sleep this week vs last week"
+    
+    **Agent Action:**
+    ```python
+    this_week = await get_health_indicator(
+        user_info,
+        indicator="DAILY_SLEEP_DURATION",
+        start_time="2024-01-08T00:00:00Z",
+        end_time="2024-01-14T23:59:59Z"
+    )
+    
+    last_week = await get_health_indicator(
+        user_info,
+        indicator="DAILY_SLEEP_DURATION",
+        start_time="2024-01-01T00:00:00Z",
+        end_time="2024-01-07T23:59:59Z"
+    )
+    ```
+    
+    **Response:** "This week you averaged 7.5 hours of sleep, compared to 6.8 hours last week - a 10% improvement!"
+  </Tab>
+</Tabs>
+
+## Security
+
+<AccordionGroup>
+  <Accordion title="OAuth Authentication" icon="shield">
+    All user data tools require OAuth authentication. The `user_info` parameter is automatically validated before tool execution.
+  </Accordion>
+
+  <Accordion title="Data Scoping" icon="lock">
+    Tools can only access data for the authenticated user. Cross-user data access is prevented at the database level.
+  </Accordion>
+
+  <Accordion title="Audit Logging" icon="clipboard-list">
+    All tool calls are logged with user ID, timestamp, and parameters for security auditing.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add Custom Tools" icon="plus" href="/tools/adding-tools">
+    Create your own tools in Python
+  </Card>
+  <Card title="MCP Integration" icon="bolt" href="/tools/mcp-integration">
+    Connect to Claude, Cursor, or ChatGPT
+  </Card>
+  <Card title="Tool Examples" icon="code" href="/tools/examples">
+    See more tool implementations
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/mcp/tools">
+    MCP protocol tool documentation
+  </Card>
+</CardGroup>

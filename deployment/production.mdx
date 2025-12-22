@@ -1,0 +1,196 @@
+---
+title: "Production Deployment"
+description: "Best practices for deploying Mirobody Health to production"
+---
+
+## Production Checklist
+
+<AccordionGroup>
+  <Accordion title="Security" icon="shield">
+    - [ ] Use strong, randomly generated keys
+    - [ ] Enable HTTPS/TLS
+    - [ ] Restrict CORS origins
+    - [ ] Use environment variables for secrets
+    - [ ] Enable database encryption
+    - [ ] Set up firewall rules
+  </Accordion>
+
+  <Accordion title="Performance" icon="gauge">
+    - [ ] Configure connection pooling
+    - [ ] Enable Redis persistence
+    - [ ] Set up caching
+    - [ ] Optimize database queries
+    - [ ] Configure rate limiting
+  </Accordion>
+
+  <Accordion title="Monitoring" icon="chart-line">
+    - [ ] Set up logging aggregation
+    - [ ] Configure health checks
+    - [ ] Enable metrics collection
+    - [ ] Set up alerts
+    - [ ] Monitor error rates
+  </Accordion>
+
+  <Accordion title="Backup & Recovery" icon="database">
+    - [ ] Automated database backups
+    - [ ] Test restore procedures
+    - [ ] Backup configuration files
+    - [ ] Document recovery process
+  </Accordion>
+</AccordionGroup>
+
+## Security Configuration
+
+### Generate Secure Keys
+
+```bash
+# Database encryption key (32 characters)
+openssl rand -hex 32
+
+# JWT secret key
+openssl rand -base64 48
+
+# Redis password
+openssl rand -base64 32
+```
+
+### Production config.yaml
+
+```yaml
+# Security
+DATABASE_DECRYPTION_KEY: '[generated-key]'
+JWT_KEY: '[generated-key]'
+REDIS_PASSWORD: '[strong-password]'
+PG_PASSWORD: '[strong-password]'
+
+# HTTPS URLs
+MCP_FRONTEND_URL: 'https://yourdomain.com'
+MCP_PUBLIC_URL: 'https://api.yourdomain.com'
+WHOOP_REDIRECT_URL: 'https://api.yourdomain.com/api/v1/pulse/theta/theta_whoop/callback'
+
+# Strict CORS
+HTTP_HEADERS:
+  Access-Control-Allow-Origin: 'https://yourdomain.com'
+
+# SSL/TLS
+REDIS_SSL: true
+```
+
+## Deployment Architecture
+
+### AWS Example
+
+```
+┌─────────────────────────┐
+│  Route 53 (DNS)         │
+└────────┬────────────────┘
+         │
+┌────────▼────────────────┐
+│  CloudFront (CDN)       │
+└────────┬────────────────┘
+         │
+┌────────▼────────────────┐
+│  ALB (Load Balancer)    │
+└────┬────────────┬───────┘
+     │            │
+┌────▼────┐  ┌───▼─────┐
+│ ECS/EC2 │  │ ECS/EC2 │
+│ API 1   │  │ API 2   │
+└────┬────┘  └───┬─────┘
+     │           │
+     └─────┬─────┘
+           │
+    ┌──────▼──────────┐
+    │                 │
+┌───▼─────────┐  ┌───▼────────────┐
+│ RDS         │  │ ElastiCache    │
+│ PostgreSQL  │  │ Redis          │
+└─────────────┘  └────────────────┘
+```
+
+## Environment Variables
+
+Use environment variables for sensitive configuration:
+
+```bash
+export DATABASE_DECRYPTION_KEY="..."
+export JWT_KEY="..."
+export OPENAI_API_KEY="..."
+export POSTGRES_PASSWORD="..."
+export REDIS_PASSWORD="..."
+```
+
+## Monitoring & Logging
+
+### Logging Configuration
+
+```yaml config.yaml
+LOG_LEVEL: 'INFO'
+LOG_DIR: '/var/log/mirobody'
+```
+
+### Health Check Endpoint
+
+```bash
+# Monitor application health
+curl https://api.yourdomain.com/health
+```
+
+### Metrics to Monitor
+
+- Request latency (p50, p95, p99)
+- Error rate by endpoint
+- Provider sync success rate
+- Database connection pool usage
+- Redis cache hit rate
+- CPU and memory usage
+
+## Backup Strategy
+
+### Database Backups
+
+```bash
+# Daily automated backup
+0 2 * * * pg_dump -h localhost -U holistic_user holistic_db | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
+```
+
+### Configuration Backups
+
+```bash
+# Backup configuration
+tar -czf config-backup-$(date +%Y%m%d).tar.gz config.yaml .env
+```
+
+## Scaling
+
+### Horizontal Scaling
+
+- Deploy multiple API instances behind load balancer
+- Use Redis cluster for distributed caching
+- Database read replicas for read-heavy workloads
+
+### Vertical Scaling
+
+Adjust resources based on load:
+
+```yaml
+# docker-compose.yml
+services:
+  backend:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Security Best Practices" icon="shield" href="/development/security">
+    Advanced security considerations
+  </Card>
+  <Card title="Monitoring Setup" icon="chart-simple" href="/development/monitoring">
+    Set up comprehensive monitoring
+  </Card>
+</CardGroup>

@@ -1,0 +1,305 @@
+---
+title: "Provider Testing"
+description: "Testing strategies for custom provider integrations"
+---
+
+## Overview
+
+Thorough testing ensures your provider integration is reliable, secure, and handles edge cases properly.
+
+## Testing Strategy
+
+<CardGroup cols={3}>
+  <Card title="Unit Tests" icon="vial">
+    Test individual methods in isolation
+  </Card>
+  <Card title="Integration Tests" icon="link">
+    Test OAuth flows end-to-end
+  </Card>
+  <Card title="Manual Testing" icon="hand">
+    Verify in real environment
+  </Card>
+</CardGroup>
+
+## Unit Testing
+
+Test individual provider methods:
+
+```python tests/test_yourprovider.py
+import pytest
+from connect.theta.mirobody_yourprovider.provider_yourprovider import ThetaYourProvider
+
+@pytest.mark.asyncio
+async def test_format_data():
+    """Test data transformation"""
+    provider = ThetaYourProvider.factory()
+    
+    # Mock raw data from vendor
+    raw_data = {
+        "steps": 10000,
+        "date": "2024-01-15",
+        "calories": 450
+    }
+    
+    # Transform data
+    formatted = provider.format_data(raw_data)
+    
+    # Verify transformation
+    assert len(formatted) == 2
+    assert formatted[0].indicator == StandardIndicator.DAILY_STEPS
+    assert formatted[0].value == "10000"
+
+@pytest.mark.asyncio
+async def test_deduplication():
+    """Test duplicate detection"""
+    provider = ThetaYourProvider.factory()
+    
+    # Check if data is already processed
+    is_duplicate = await provider.is_data_already_processed(
+        user_id="test_user",
+        msg_id="unique_record_123"
+    )
+    
+    assert is_duplicate == False
+```
+
+## Integration Testing
+
+Test complete OAuth flows:
+
+```python
+@pytest.mark.asyncio
+async def test_oauth_flow():
+    """Test complete OAuth flow"""
+    provider = ThetaYourProvider.factory()
+    user_id = "test_user_oauth"
+    
+    # Step 1: Initiate link
+    link_result = await provider.link(user_id)
+    assert "link_web_url" in link_result
+    assert "state" in link_result or "oauth_token" in link_result
+    
+    # Step 2: Simulate callback
+    # (Use mock OAuth response)
+    callback_result = await provider.callback(
+        user_id=user_id,
+        code="mock_auth_code",
+        state=link_result.get("state")
+    )
+    
+    assert callback_result["success"] == True
+    
+    # Step 3: Verify tokens stored
+    tokens = await provider._get_tokens(user_id)
+    assert tokens is not None
+
+@pytest.mark.asyncio
+async def test_data_pull():
+    """Test data fetching from API"""
+    provider = ThetaYourProvider.factory()
+    user_id = "test_user_data"
+    
+    # Pull data
+    raw_data = await provider.pull_from_vendor_api(user_id)
+    
+    # Verify data structure
+    assert isinstance(raw_data, list)
+    assert len(raw_data) > 0
+    
+    # Verify required fields
+    for record in raw_data:
+        assert "date" in record or "timestamp" in record
+```
+
+## Manual Testing
+
+### 1. Test OAuth Link
+
+```bash
+# Get authorization URL
+curl "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/link?user_id=manual_test_user"
+```
+
+Visit the returned URL and complete authorization.
+
+### 2. Test Callback
+
+After authorization, verify the callback was successful:
+
+```bash
+# Check provider status
+curl "http://localhost:18080/api/v1/pulse/providers?user_id=manual_test_user"
+```
+
+Expected: Provider shows `"status": "connected"`
+
+### 3. Test Data Pull
+
+```bash
+# Trigger data sync
+curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/sync?user_id=manual_test_user"
+```
+
+### 4. Verify Data
+
+```bash
+# Check database for new records
+psql -d your_db -c "SELECT COUNT(*) FROM theta_ai.health_data_yourprovider WHERE theta_user_id = 'manual_test_user';"
+
+# Check standardized data
+psql -d your_db -c "SELECT indicator, COUNT(*) FROM theta_ai.th_series_data WHERE user_id = 'manual_test_user' GROUP BY indicator;"
+```
+
+## Test Scenarios
+
+<AccordionGroup>
+  <Accordion title="Happy Path" icon="check">
+    Test normal operation:
+    - Fresh OAuth connection
+    - Data fetch with valid tokens
+    - Proper data transformation
+    - Successful database storage
+  </Accordion>
+
+  <Accordion title="Error Handling" icon="triangle-exclamation">
+    Test error scenarios:
+    - Invalid OAuth credentials
+    - Expired tokens
+    - API rate limiting
+    - Network failures
+    - Malformed API responses
+    - Missing required fields
+  </Accordion>
+
+  <Accordion title="Edge Cases" icon="code">
+    Test edge cases:
+    - Empty data responses
+    - Very large datasets
+    - Duplicate records
+    - Time zone conversions
+    - Null/missing values
+  </Accordion>
+</AccordionGroup>
+
+## Mocking External APIs
+
+Use mocks for unit tests:
+
+```python
+from unittest.mock import AsyncMock, patch
+
+@pytest.mark.asyncio
+@patch('aiohttp.ClientSession.post')
+async def test_token_exchange(mock_post):
+    """Test token exchange with mocked API"""
+    # Mock API response
+    mock_response = AsyncMock()
+    mock_response.json.return_value = {
+        "access_token": "mock_token_123",
+        "refresh_token": "mock_refresh_456",
+        "expires_in": 3600
+    }
+    mock_post.return_value.__aenter__.return_value = mock_response
+    
+    provider = ThetaYourProvider.factory()
+    
+    # Test callback with mocked response
+    result = await provider.callback(
+        user_id="test_user",
+        code="mock_code",
+        state="mock_state"
+    )
+    
+    assert result["success"] == True
+```
+
+## Test Data
+
+Create realistic test data:
+
+```python
+# Mock vendor API response
+MOCK_GARMIN_DAILY_DATA = {
+    "summaries": [
+        {
+            "calendarDate": "2024-01-15",
+            "steps": 10543,
+            "distanceInMeters": 8234,
+            "activeKilocalories": 450,
+            "bmrKilocalories": 1650,
+            "floorsClimbed": 12,
+            "activeTimeInSeconds": 5400
+        }
+    ]
+}
+
+MOCK_WHOOP_SLEEP_DATA = {
+    "records": [
+        {
+            "id": "sleep_123",
+            "score": {
+                "total": 85,
+                "efficiency": 92
+            },
+            "duration_millis": 27000000,
+            "stages": {
+                "deep_millis": 7200000,
+                "light_millis": 14400000,
+                "rem_millis": 5400000
+            }
+        }
+    ]
+}
+```
+
+## Continuous Integration
+
+Add provider tests to CI pipeline:
+
+```yaml .github/workflows/test-providers.yml
+name: Test Providers
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+      
+      - name: Run provider tests
+        run: |
+          pytest tests/test_*_provider.py -v
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Provider Integration" icon="puzzle-piece" href="/development/provider-integration">
+    Build a custom provider
+  </Card>
+  <Card title="OAuth Implementation" icon="key" href="/development/oauth-implementation">
+    Implement OAuth flows
+  </Card>
+  <Card title="Testing Guide" icon="flask" href="/development/testing">
+    General testing practices
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/garmin-provider">
+    See real provider code
+  </Card>
+</CardGroup>
+
+<Note>
+For complete testing examples and patterns, see the [Provider Integration Guide](https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md) in the repository.
+</Note>

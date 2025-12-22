@@ -1,33 +1,177 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Introduction"
+description: "Overview of the Mirobody Health API"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Welcome to the API
 
-## Welcome
+The Mirobody Health API provides programmatic access to health device integrations, data retrieval, and AI-powered health insights.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+<Info>
+Base URL: `http://localhost:18080` (development) or `https://your-domain.com` (production)
+</Info>
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+## API Categories
+
+<CardGroup cols={2}>
+  <Card title="Pulse API" icon="heartbeat" href="/api-reference/pulse/providers">
+    Connect health devices and retrieve standardized health data
+  </Card>
+  <Card title="Chat API" icon="comments" href="/api-reference/chat/send-message">
+    Interact with AI health assistants
+  </Card>
+  <Card title="MCP Protocol" icon="bolt" href="/api-reference/mcp/overview">
+    JSON-RPC interface for AI agents and tools
+  </Card>
+</CardGroup>
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Most API endpoints require authentication using JWT tokens:
+
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:18080/api/v1/pulse/providers
+```
+
+<Tip>
+For development and testing, some endpoints may allow unauthenticated access based on configuration.
+</Tip>
+
+## Rate Limiting
+
+API requests are rate-limited per user and per provider:
+
+- **Default**: 100 requests per minute per user
+- **Provider-specific**: Varies by provider (e.g., Garmin: 60 req/min)
+
+<Warning>
+Exceeding rate limits returns a `429 Too Many Requests` response with a `Retry-After` header.
+</Warning>
+
+## Error Responses
+
+All API errors follow a consistent format:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
+{
+  "error": {
+    "code": "INVALID_TOKEN",
+    "message": "The provided access token is invalid or expired",
+    "details": {
+      "provider": "theta_garmin",
+      "timestamp": "2024-01-15T10:30:00Z"
+    }
   }
-]
+}
 ```
+
+### Common Error Codes
+
+| Code | Description | Resolution |
+|------|-------------|------------|
+| `INVALID_TOKEN` | OAuth token invalid or expired | Refresh token or relink account |
+| `PROVIDER_NOT_FOUND` | Provider doesn't exist | Check provider slug |
+| `USER_NOT_LINKED` | User hasn't linked provider | Complete OAuth flow first |
+| `RATE_LIMIT_EXCEEDED` | Too many requests | Wait and retry with backoff |
+| `INTERNAL_ERROR` | Server-side error | Contact support |
+
+## Quick Start
+
+<Steps>
+  <Step title="List available providers">
+    ```bash
+    curl http://localhost:18080/api/v1/pulse/providers
+    ```
+  </Step>
+
+  <Step title="Link a provider">
+    ```bash
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123"
+    ```
+  </Step>
+
+  <Step title="Retrieve health data">
+    ```bash
+    curl "http://localhost:18080/api/v1/pulse/data?user_id=user_123&provider=theta_garmin"
+    ```
+  </Step>
+</Steps>
+
+## SDKs and Libraries
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from mirobody_client import MirobodyClient
+    
+    client = MirobodyClient(base_url="http://localhost:18080")
+    
+    # List providers
+    providers = await client.pulse.list_providers()
+    
+    # Link provider
+    link_url = await client.pulse.link_provider(
+        provider_slug="theta_garmin",
+        user_id="user_123"
+    )
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```bash
+    # List providers
+    curl http://localhost:18080/api/v1/pulse/providers
+    
+    # Link provider
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123"
+    
+    # Get data
+    curl "http://localhost:18080/api/v1/pulse/data?user_id=user_123"
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+SDKs are under development. For now, use direct HTTP requests or the examples above as reference.
+</Note>
+
+## API Versioning
+
+The API uses URL-based versioning:
+
+- **Current**: `/api/v1/...`
+- **Future**: `/api/v2/...` (when available)
+
+<Tip>
+Always use the versioned endpoints to ensure compatibility.
+</Tip>
+
+## Webhooks (Coming Soon)
+
+Subscribe to real-time health data updates:
+
+```json
+{
+  "webhook_url": "https://your-app.com/webhooks/health",
+  "events": ["data.new", "provider.linked"],
+  "provider": "theta_garmin"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Pulse API" icon="heartbeat" href="/api-reference/pulse/providers">
+    Connect and manage health providers
+  </Card>
+  <Card title="Chat API" icon="comments" href="/api-reference/chat/send-message">
+    Integrate AI health assistants
+  </Card>
+  <Card title="MCP Protocol" icon="bolt" href="/api-reference/mcp/overview">
+    Build AI agent integrations
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/garmin-provider">
+    See complete implementation examples
+  </Card>
+</CardGroup>

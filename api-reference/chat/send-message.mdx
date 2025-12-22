@@ -1,0 +1,66 @@
+---
+title: "Send Chat Message"
+description: "Send a message to the AI health assistant and receive a response"
+---
+
+## Endpoint
+
+```
+POST /api/chat
+```
+
+## Overview
+
+Interact with the AI health assistant by sending messages and receiving intelligent responses based on the user's health data.
+
+<Info>
+The chat API supports multiple LLM providers including OpenAI, Google Gemini, Anthropic Claude, and OpenRouter.
+</Info>
+
+## Request
+
+<ParamField body="message" type="string" required>
+  The user's message or question
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  Unique identifier for the user
+</ParamField>
+
+<ParamField body="session_id" type="string">
+  Optional session ID to maintain conversation context
+</ParamField>
+
+<ParamField body="provider" type="string">
+  LLM provider to use: `openai`, `google`, `anthropic`, or `openrouter`. Defaults to configured provider.
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST http://localhost:18080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "How many steps did I take yesterday?",
+    "user_id": "user_123",
+    "session_id": "session_abc"
+  }'
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "response": "Based on your Garmin data, you took 10,543 steps yesterday. That's about 200 steps more than your daily average!",
+  "session_id": "session_abc",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "provider": "openai",
+  "model": "gpt-4"
+}
+```
+</ResponseExample>
+
+<Note>
+The AI assistant has access to the user's connected health data and can answer questions about activity, sleep, heart rate, and other metrics.
+</Note>

@@ -1,0 +1,394 @@
+---
+title: "Installation"
+description: "Detailed installation instructions for Mirobody Health on various platforms"
+---
+
+## Installation Methods
+
+Choose the installation method that best suits your needs:
+
+<Tabs>
+  <Tab title="Docker (Recommended)">
+    Docker deployment is the recommended method for both development and production environments.
+
+    ### Step 1: Install Docker
+
+    <Tabs>
+      <Tab title="macOS">
+        Download and install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop):
+
+        ```bash
+        brew install --cask docker
+        ```
+
+        Start Docker Desktop from your Applications folder.
+      </Tab>
+
+      <Tab title="Linux">
+        Install Docker Engine and Docker Compose:
+
+        ```bash
+        # Ubuntu/Debian
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        
+        # Add your user to docker group
+        sudo usermod -aG docker $USER
+        
+        # Install Docker Compose
+        sudo apt-get install docker-compose-plugin
+        ```
+
+        Log out and back in for group changes to take effect.
+      </Tab>
+
+      <Tab title="Windows">
+        Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop):
+
+        1. Download the installer
+        2. Run the installer
+        3. Enable WSL 2 integration
+        4. Restart your computer
+
+        <Warning>
+        Windows requires WSL 2 for optimal Docker performance.
+        </Warning>
+      </Tab>
+    </Tabs>
+
+    ### Step 2: Clone Repository
+
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+
+    ### Step 3: Configure Environment
+
+    ```bash
+    cp .env_example .env
+    cp config.example.yaml config.yaml
+    ```
+
+    ### Step 4: Deploy
+
+    ```bash
+    ./deploy.sh
+    ```
+
+    <Check>
+    The deployment script will build and start all required services.
+    </Check>
+  </Tab>
+
+  <Tab title="From Source">
+    Build and run from source for development and customization.
+
+    ### Step 1: Clone and Setup
+
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    
+    # Create virtual environment
+    python3.12 -m venv venv
+    source venv/bin/activate
+    ```
+
+    ### Step 2: Install Dependencies
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    ### Step 3: Setup External Services
+
+    Start PostgreSQL and Redis (using Docker for simplicity):
+
+    ```bash
+    docker-compose up -d postgres redis
+    ```
+
+    ### Step 4: Configure
+
+    ```bash
+    cp config.example.yaml config.yaml
+    # Edit config.yaml with your settings
+    ```
+
+    ### Step 5: Initialize Database
+
+    ```bash
+    python -c "from mirobody.utils.db_initializer import initialize_database; import asyncio; asyncio.run(initialize_database())"
+    ```
+
+    ### Step 6: Run
+
+    ```bash
+    python main.py
+    ```
+
+    <Check>
+    Server should start on http://localhost:18080
+    </Check>
+  </Tab>
+</Tabs>
+
+## Verify Installation
+
+After installation, verify everything is working:
+
+<Steps>
+  <Step title="Check service health">
+    ```bash
+    curl http://localhost:18080/health
+    ```
+
+    Expected response:
+
+    ```json
+    {
+      "status": "healthy",
+      "version": "1.0.1",
+      "services": {
+        "database": "connected",
+        "redis": "connected"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="List available providers">
+    ```bash
+    curl http://localhost:18080/api/v1/pulse/providers
+    ```
+
+    Should return a list of available health providers.
+  </Step>
+
+  <Step title="Check logs">
+    View application logs to ensure no errors:
+
+    ```bash
+    # Docker deployment
+    docker-compose logs -f backend
+    
+    # Direct installation
+    # Logs will be in the terminal where you ran main.py
+    ```
+  </Step>
+</Steps>
+
+## Post-Installation Setup
+
+<AccordionGroup>
+  <Accordion title="Configure Data Providers" icon="key">
+    To enable health device integrations, you need OAuth credentials from each provider.
+
+    See the [Configuration guide](/configuration) for detailed instructions on obtaining and setting up OAuth credentials for:
+    - Garmin Connect
+    - Whoop
+    - Custom providers
+  </Accordion>
+
+  <Accordion title="Set up AI Chat" icon="robot">
+    To enable AI chat features, add API keys to `config.yaml`:
+
+    ```yaml
+    OPENROUTER_API_KEY: 'your_openrouter_api_key'
+    GOOGLE_API_KEY (Optional): 'your_google_api_key'
+    OPENAI_API_KEY (Optional): 'your_openai_api_key'
+    ```
+  </Accordion>
+
+  <Accordion title="Configure Database Encryption" icon="lock">
+    For production, set secure encryption keys:
+
+    ```yaml
+    DATABASE_DECRYPTION_KEY: 'your_32_char_encryption_key'
+    JWT_KEY: 'your_secure_jwt_secret'
+    ```
+
+    <Warning>
+    Use strong, randomly generated keys in production. Never commit these to version control.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Set up Cloud Storage (Optional)" icon="cloud">
+    Configure S3-compatible storage for data backups:
+
+    ```yaml
+    S3_KEY: 'your_access_key'
+    S3_TOKEN: 'your_secret_key'
+    S3_REGION: 'us-east-1'
+    S3_BUCKET: 'your-bucket-name'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Directory Structure
+
+After installation, your directory structure will look like this:
+
+```
+mirobody-health/
+├── connect/                    # Provider integrations
+│   ├── __init__.py
+│   └── theta/                 # Theta platform providers
+│       ├── mirobody_garmin_connect/
+│       └── mirobody_whoop/
+├── docker/                     # Docker configuration
+│   ├── docker-compose.yaml
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.base
+│   └── Dockerfile.postgres
+├── shell/                      # Utility scripts
+│   ├── chat_test_commands.sh
+│   └── get_tools.sh
+├── config.yaml                 # Main configuration
+├── .env                       # Environment variables
+├── main.py                    # Application entry point
+├── requirements.txt           # Python dependencies
+├── setup.py                   # Package setup
+└── README.md                  # Documentation
+```
+
+## Troubleshooting Installation
+
+<AccordionGroup>
+  <Accordion title="Docker installation fails" icon="docker">
+    **Problem**: Docker commands fail with permission errors.
+
+    **Solution**:
+    ```bash
+    # Linux: Add user to docker group
+    sudo usermod -aG docker $USER
+    
+    # Log out and back in
+    newgrp docker
+    ```
+  </Accordion>
+
+  <Accordion title="Port conflicts" icon="network-wired">
+    **Problem**: Port 18080 is already in use.
+
+    **Solution**: Change the port in `config.yaml`:
+    ```yaml
+    HTTP_PORT: 18081  # Use any available port
+    ```
+  </Accordion>
+
+  <Accordion title="Database connection fails" icon="database">
+    **Problem**: Cannot connect to PostgreSQL.
+
+    **Solutions**:
+    1. Verify PostgreSQL is running:
+       ```bash
+       docker-compose ps postgres
+       ```
+
+    2. Check connection settings in `config.yaml`:
+       ```yaml
+       PG_HOST: db  # 'db' for Docker, 'localhost' for local install
+       PG_PORT: 5432
+       PG_USER: holistic_user
+       PG_DBNAME: holistic_db
+       ```
+
+    3. Check database logs:
+       ```bash
+       docker-compose logs postgres
+       ```
+  </Accordion>
+
+  <Accordion title="Python version mismatch" icon="python">
+    **Problem**: Python 3.12 not available.
+
+    **Solutions**:
+
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        brew install python@3.12
+        ```
+      </Tab>
+
+      <Tab title="Linux">
+        ```bash
+        # Ubuntu/Debian
+        sudo add-apt-repository ppa:deadsnakes/ppa
+        sudo apt-get update
+        sudo apt-get install python3.12
+        ```
+      </Tab>
+
+      <Tab title="Windows">
+        Download from [python.org](https://www.python.org/downloads/) or use `pyenv`:
+        ```bash
+        pyenv install 3.12
+        pyenv global 3.12
+        ```
+      </Tab>
+    </Tabs>
+  </Accordion>
+
+  <Accordion title="Module import errors" icon="code">
+    **Problem**: `ModuleNotFoundError` when running the application.
+
+    **Solution**:
+    ```bash
+    # Ensure all dependencies are installed
+    pip install -r requirements.txt
+    
+    # Install in development mode
+    pip install -e .
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Uninstallation
+
+<Tabs>
+  <Tab title="Docker">
+    Remove all containers, volumes, and images:
+
+    ```bash
+    # Stop and remove containers
+    docker-compose down
+    
+    # Remove volumes (WARNING: This deletes all data)
+    docker-compose down -v
+    
+    # Remove images
+    docker-compose down --rmi all
+    ```
+  </Tab>
+
+  <Tab title="Source Installation">
+    ```bash
+    # Deactivate virtual environment
+    deactivate
+    
+    # Remove project directory
+    cd ..
+    rm -rf mirobody-health
+    ```
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Configure OAuth providers and customize settings
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Follow the quick start guide to test your installation
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Understand how Mirobody Health works
+  </Card>
+  <Card title="Development" icon="code" href="/development/setup">
+    Set up your development environment
+  </Card>
+</CardGroup>

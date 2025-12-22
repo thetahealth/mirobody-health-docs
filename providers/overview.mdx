@@ -1,0 +1,410 @@
+---
+title: "Provider Overview"
+description: "Understanding the provider system in Mirobody Health and how it integrates with health device APIs"
+---
+
+## What are Providers?
+
+Providers are plugin modules that integrate Mirobody Health with external health and fitness device APIs. Each provider handles OAuth authentication, data fetching, and transformation into a standardized format.
+
+<Frame>
+  <img src="/images/provider-architecture.png" alt="Provider architecture diagram" />
+</Frame>
+
+## Provider Architecture
+
+Mirobody Health uses an extensible provider architecture that makes it easy to add new health device integrations:
+
+```
+BaseThetaProvider (Abstract Base Class)
+    ↓
+ThetaGarminProvider (OAuth1 Implementation)
+ThetaWhoopProvider (OAuth2 Implementation)
+YourCustomProvider (Your Implementation)
+```
+
+### Core Components
+
+<CardGroup cols={2}>
+  <Card title="Authentication Handler" icon="key">
+    Manages OAuth 1.0 or OAuth 2.0 flows for secure user authorization
+  </Card>
+  <Card title="Data Puller" icon="download">
+    Fetches health data from vendor APIs with pagination and rate limiting
+  </Card>
+  <Card title="Data Formatter" icon="arrows-rotate">
+    Transforms vendor-specific data into standardized health indicators
+  </Card>
+  <Card title="Database Service" icon="database">
+    Persists both raw and formatted data for audit trails
+  </Card>
+</CardGroup>
+
+## Available Providers
+
+### Garmin Connect
+
+<Tabs>
+  <Tab title="Overview">
+    **Authentication**: OAuth 1.0  
+    **Status**: Production Ready  
+    **Data Types**: Activities, Sleep, Heart Rate, HRV, Respiration, Stress, Body Composition
+
+    Garmin Connect is one of the most comprehensive health data sources, providing detailed metrics from Garmin wearables and fitness devices.
+  </Tab>
+
+  <Tab title="Supported Data">
+    | Category | Metrics |
+    |----------|---------|
+    | **Activity** | Steps, distance, calories (active & basal), floors climbed, active time |
+    | **Heart Rate** | Min, max, average, resting, time series samples |
+    | **Sleep** | Duration, deep/light/REM sleep, awake time, SpO2, respiration |
+    | **HRV** | Time series HRV values |
+    | **Respiration** | Respiration rate samples |
+    | **Stress** | Stress level measurements |
+    | **Body** | Weight, BMI, body fat percentage, skeletal muscle mass |
+    | **Workouts** | Exercise sessions with duration, intensity, heart rate |
+  </Tab>
+
+  <Tab title="Configuration">
+    ```yaml config.yaml
+    GARMIN_CLIENT_ID: 'your_consumer_key'
+    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
+    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
+    ```
+
+    See [Configuration Guide](/configuration) for detailed setup instructions.
+  </Tab>
+</Tabs>
+
+### Whoop
+
+<Tabs>
+  <Tab title="Overview">
+    **Authentication**: OAuth 2.0  
+    **Status**: Production Ready  
+    **Data Types**: Sleep, Recovery, Cycles, Workouts, Body Measurements
+
+    Whoop provides comprehensive recovery and strain metrics popular with athletes and fitness enthusiasts.
+  </Tab>
+
+  <Tab title="Supported Data">
+    | Category | Metrics |
+    |----------|---------|
+    | **Sleep** | Total in bed, awake time, light/slow-wave/REM sleep, sleep efficiency |
+    | **Recovery** | HRV, resting heart rate, respiratory rate, SpO2, skin temp |
+    | **Cycles** | Strain, kilojoules, average heart rate |
+    | **Workouts** | Activity type, duration, intensity, heart rate zones, calories |
+    | **Body** | Height, weight, max heart rate |
+  </Tab>
+
+  <Tab title="Configuration">
+    ```yaml config.yaml
+    WHOOP_CLIENT_ID: 'your_client_id'
+    WHOOP_CLIENT_SECRET: 'your_client_secret'
+    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
+    WHOOP_SCOPES: 'offline read:recovery read:sleep read:cycles read:profile read:workout read:body_measurement'
+    ```
+
+    See [Configuration Guide](/configuration) for detailed setup instructions.
+  </Tab>
+</Tabs>
+
+## Provider Lifecycle
+
+Understanding the provider lifecycle helps you work with providers effectively:
+
+<Steps>
+  <Step title="Initialization">
+    Providers are automatically discovered and initialized on application startup from directories specified in `THETA_PROVIDER_DIRS`.
+
+    ```yaml config.yaml
+    THETA_PROVIDER_DIRS:
+      - connect/theta
+    ```
+  </Step>
+
+  <Step title="Registration">
+    Each provider's `create_provider()` class method is called to validate configuration and create an instance.
+
+    ```python
+    @classmethod
+    def create_provider(cls, config: Dict[str, Any]) -> Optional['ThetaYourProvider']:
+        if not cls._validate_config(config):
+            return None
+        return cls()
+    ```
+  </Step>
+
+  <Step title="User Linking">
+    When a user initiates linking, the provider's `link()` method generates an OAuth URL.
+
+    ```python
+    async def link(self, request: LinkRequest) -> Dict[str, Any]:
+        # Generate OAuth authorization URL
+        return {"link_web_url": authorization_url}
+    ```
+  </Step>
+
+  <Step title="Authentication">
+    After user authorization, the provider's `callback()` method exchanges tokens and saves credentials.
+
+    ```python
+    async def callback(self, code: str, state: str) -> Dict[str, Any]:
+        # Exchange code for tokens
+        # Save credentials to database
+        # Trigger initial data pull
+        return {"provider_slug": self.info.slug, "stage": "completed"}
+    ```
+  </Step>
+
+  <Step title="Data Synchronization">
+    Periodically or on-demand, the provider pulls data from the vendor API, saves raw data, formats it, and pushes to the platform.
+
+    ```python
+    async def _pull_and_push_for_user(self, credentials: Dict) -> bool:
+        # Pull from vendor API
+        # Save raw data
+        # Format to standard structure
+        # Push to platform
+        pass
+    ```
+  </Step>
+
+  <Step title="Unlinking">
+    When a user unlinks, the provider's `unlink()` method revokes access and removes stored credentials.
+
+    ```python
+    async def unlink(self, user_id: str) -> Dict[str, Any]:
+        # Revoke access at vendor (optional)
+        # Delete credentials from database
+        return {"success": True}
+    ```
+  </Step>
+</Steps>
+
+## Standard Health Indicators
+
+All provider data is transformed into standardized health indicators for consistency across devices:
+
+<AccordionGroup>
+  <Accordion title="Activity Indicators" icon="person-running">
+    - `DAILY_STEPS`: Step count
+    - `DAILY_DISTANCE`: Distance traveled (meters)
+    - `DAILY_CALORIES_ACTIVE`: Active calories burned (kcal)
+    - `DAILY_CALORIES_BASAL`: Basal metabolic rate calories (kcal)
+    - `DAILY_FLOORS_CLIMBED`: Floors climbed (count)
+    - `ACTIVE_TIME`: Active time duration (minutes)
+  </Accordion>
+
+  <Accordion title="Heart Rate Indicators" icon="heart-pulse">
+    - `HEART_RATE`: Instantaneous heart rate (bpm)
+    - `DAILY_HEART_RATE_MIN`: Minimum daily heart rate (bpm)
+    - `DAILY_HEART_RATE_MAX`: Maximum daily heart rate (bpm)
+    - `DAILY_AVG_HEART_RATE`: Average daily heart rate (bpm)
+    - `DAILY_HEART_RATE_RESTING`: Resting heart rate (bpm)
+    - `HRV`: Heart rate variability RMSSD (ms)
+  </Accordion>
+
+  <Accordion title="Sleep Indicators" icon="bed">
+    - `DAILY_SLEEP_DURATION`: Total sleep duration (ms)
+    - `SLEEP_IN_BED`: Time in bed (ms)
+    - `DAILY_AWAKE_TIME`: Time awake during sleep (ms)
+    - `DAILY_LIGHT_SLEEP`: Light sleep duration (ms)
+    - `DAILY_DEEP_SLEEP`: Deep sleep duration (ms)
+    - `DAILY_REM_SLEEP`: REM sleep duration (ms)
+    - `SLEEP_EFFICIENCY`: Sleep efficiency percentage
+  </Accordion>
+
+  <Accordion title="Body Metrics" icon="weight-scale">
+    - `WEIGHT`: Body weight (kg)
+    - `HEIGHT`: Height (m)
+    - `BMI`: Body mass index
+    - `BODY_FAT_PERCENTAGE`: Body fat percentage
+    - `SKELETAL_MUSCLE_MASS`: Skeletal muscle mass (kg)
+  </Accordion>
+
+  <Accordion title="Respiratory Indicators" icon="lungs">
+    - `RESPIRATORY_RATE`: Respiration rate (breaths/min)
+    - `BLOOD_OXYGEN`: SpO2 percentage
+  </Accordion>
+
+  <Accordion title="Workout Indicators" icon="dumbbell">
+    - `WORKOUT_DURATION_LOW`: Low intensity duration (min)
+    - `WORKOUT_DURATION_MEDIUM`: Medium intensity duration (min)
+    - `WORKOUT_DURATION_HIGH`: High intensity duration (min)
+    - `ALTITUDE_GAIN`: Altitude gained (m)
+    - `SPEED`: Average speed (m/s)
+  </Accordion>
+</AccordionGroup>
+
+<Info>
+For a complete list of standard indicators, see the `StandardIndicator` enum in the mirobody framework documentation.
+</Info>
+
+## Provider Requirements
+
+To ensure quality and consistency, all providers must implement:
+
+<Tabs>
+  <Tab title="Required Methods">
+    ```python
+    class ThetaYourProvider(BaseThetaProvider):
+        @classmethod
+        def create_provider(cls, config: Dict) -> Optional['ThetaYourProvider']:
+            """Factory method for provider instantiation"""
+            
+        @property
+        def info(self) -> ProviderInfo:
+            """Provider metadata"""
+            
+        async def link(self, request: Any) -> Dict[str, Any]:
+            """Initiate OAuth flow"""
+            
+        async def callback(self, *args, **kwargs) -> Dict[str, Any]:
+            """Handle OAuth callback"""
+            
+        async def unlink(self, user_id: str) -> Dict[str, Any]:
+            """Unlink user connection"""
+            
+        async def format_data(self, raw_data: Dict) -> StandardPulseData:
+            """Format raw data to standard format"""
+            
+        async def pull_from_vendor_api(self, *args, **kwargs) -> List[Dict]:
+            """Pull data from vendor API"""
+            
+        async def save_raw_data_to_db(self, raw_data: Dict) -> List[Dict]:
+            """Save raw data to database"""
+            
+        async def is_data_already_processed(self, raw_data: Dict) -> bool:
+            """Check if data already processed"""
+            
+        async def _pull_and_push_for_user(self, credentials: Dict) -> bool:
+            """Pull and push data for user"""
+    ```
+  </Tab>
+
+  <Tab title="Database Schema">
+    Each provider needs a database table:
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS theta_ai.health_data_<provider> (
+        id SERIAL PRIMARY KEY,
+        create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_del BOOLEAN DEFAULT FALSE,
+        msg_id VARCHAR(255) UNIQUE NOT NULL,
+        raw_data JSONB NOT NULL,
+        theta_user_id VARCHAR(255) NOT NULL,
+        external_user_id VARCHAR(255)
+    );
+    
+    CREATE INDEX idx_health_data_<provider>_theta_user_id 
+        ON theta_ai.health_data_<provider>(theta_user_id);
+    CREATE INDEX idx_health_data_<provider>_msg_id 
+        ON theta_ai.health_data_<provider>(msg_id);
+    ```
+  </Tab>
+
+  <Tab title="Configuration">
+    Required configuration in `config.yaml`:
+
+    ```yaml
+    # OAuth Credentials (required)
+    <PROVIDER>_CLIENT_ID: "your_client_id"
+    <PROVIDER>_CLIENT_SECRET: "your_client_secret"
+    <PROVIDER>_REDIRECT_URL: "your_callback_url"
+    
+    # OAuth Endpoints (optional, provide defaults in code)
+    <PROVIDER>_AUTH_URL: "https://..."
+    <PROVIDER>_TOKEN_URL: "https://..."
+    <PROVIDER>_API_BASE_URL: "https://..."
+    
+    # OAuth Scopes (optional)
+    <PROVIDER>_SCOPES: "scope1 scope2"
+    ```
+  </Tab>
+</Tabs>
+
+## Provider Discovery
+
+Mirobody Health automatically discovers and loads providers from configured directories:
+
+```python
+# In config.yaml
+THETA_PROVIDER_DIRS:
+  - connect/theta      # Your custom providers
+  - providers/theta    # Additional provider directory
+```
+
+Directory structure:
+
+```
+connect/theta/
+├── mirobody_garmin_connect/
+│   ├── __init__.py
+│   └── provider_garmin.py
+├── mirobody_whoop/
+│   ├── __init__.py
+│   └── provider_whoop.py
+└── mirobody_your_provider/
+    ├── __init__.py
+    └── provider_your_provider.py
+```
+
+<Tip>
+Provider directory names should follow the pattern `mirobody_<provider_name>` for consistency.
+</Tip>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Error Handling" icon="triangle-exclamation">
+    - Always use try-except blocks for external API calls
+    - Log errors with context (user_id, timestamp, error details)
+    - Return empty results on failure, don't crash
+    - Implement exponential backoff for transient errors
+    - Handle rate limiting gracefully
+  </Accordion>
+
+  <Accordion title="Data Validation" icon="check">
+    - Validate OAuth tokens before use
+    - Check data types before conversion
+    - Handle missing or null values gracefully
+    - Verify timestamp formats
+    - Validate units match expected values
+  </Accordion>
+
+  <Accordion title="Performance" icon="gauge-high">
+    - Use async/await for all I/O operations
+    - Implement pagination for large datasets
+    - Limit concurrent requests to vendor APIs
+    - Cache frequently accessed configuration
+    - Use connection pooling for database access
+  </Accordion>
+
+  <Accordion title="Security" icon="shield-halved">
+    - Never log sensitive data (tokens, passwords)
+    - Store credentials encrypted in database
+    - Use HTTPS for all external communications
+    - Validate OAuth state parameters
+    - Implement token refresh for OAuth2
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Integration Guide" icon="book" href="/providers/integration-guide">
+    Complete guide to building a new provider
+  </Card>
+  <Card title="OAuth Flow" icon="key" href="/providers/oauth-flow">
+    Understanding OAuth authentication flows
+  </Card>
+  <Card title="Data Mapping" icon="table" href="/providers/data-mapping">
+    Learn how to map vendor data to standard indicators
+  </Card>
+  <Card title="Testing" icon="flask" href="/providers/testing">
+    Testing strategies for providers
+  </Card>
+</CardGroup>

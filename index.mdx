@@ -1,97 +1,256 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to Mirobody Health"
+description: "A comprehensive health data AI service built on the Mirobody framework for seamless integration with health and fitness devices"
 ---
 
-## Setting up
+## What is Mirobody Health?
 
-Get your documentation site up and running in minutes.
+Mirobody Health is an **open-source AI-native data engine** that bridges rich health context and the latest AI capabilities, enabling deeply personalized and comprehensive health AI experiences.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+It connects to various devices, handles files (lab reports, medical documents), and provides autonomous agent capabilities with MCP/Tools/Skills support, along with out-of-the-box Auth/Frontend/MCP server functions – ideal for managing personal health data with privacy or building customized health AI applications.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Get up and running in under 5 minutes with Docker
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Use Cases & Examples"
+    icon="lightbulb"
+    href="/use-cases"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    See real examples with synthetic health data
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
+    title="Provider Integration"
+    icon="plug"
+    href="/development/provider-integration"
+    >
+    Learn how to integrate new health device providers
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
     href="/api-reference/introduction"
   >
-    Auto-generate API documentation from OpenAPI specifications.
+    Explore the complete API documentation
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+<AccordionGroup>
+  <Accordion title="Integrate External Health Data" icon="link">
+    Connect wearables, devices, and medical records (coming later). Bring Your Own Data Provider (BYOP) in hours using our integration framework. OAuth-secured connections to Garmin, Whoop, and more.
+  </Accordion>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+  <Accordion title="Files, Processed and Managed" icon="file">
+    Supports multimodal documents: PDFs, Excel files, photos (PNG, JPEG, WebP, HEIC, HEIF), and audio (WAV, MP3, AIFF, AAC, OGG, FLAC). Enables agent access to context within files, from lab reports to handwritten notes.
+  </Accordion>
+
+  <Accordion title="Tools, MCPs & Skills, Natively Supported" icon="wrench">
+    Includes health-focused tools out of the box. Add custom tools using Python without complex JSON schemas or manual bindings. Connect to third-party MCPs. Directly load standard Claude Agent Skills (coming later).
+  </Accordion>
+
+  <Accordion title="Chat with the SOTA Agentic Framework" icon="comments">
+    Powerful agent harness replicates Claude Code's autonomous capabilities locally. Leverages tools intelligently and utilizes relevant health context for deep research and insights.
+  </Accordion>
+
+  <Accordion title="MCP Server & ChatGPT App" icon="bolt">
+    Functions as an OAuth-enabled MCP Server connecting to Claude, Cursor, or custom clients. Also operates as a GPT app, enabling capabilities within ChatGPT.
+  </Accordion>
+
+  <Accordion title="Deploy Anywhere with Full Control" icon="server">
+    All components are open-source and run on-premises with full privacy. Bring your own LLM providers via OpenRouter or first-party keys. One-line install with Docker.
+  </Accordion>
+</AccordionGroup>
+
+## Supported Providers
+
+<CardGroup cols={3}>
+  <Card title="Garmin" icon="watch">
+    Activity, sleep, heart rate, HRV, and more
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Whoop" icon="heartbeat">
+    Recovery, sleep, cycles, workouts, body metrics
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Custom Providers" icon="plus">
+    Easy integration guide for adding your own
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Tech Stack
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+Mirobody Health is built with modern, production-ready technologies:
+
+- **Python 3.12+**: Async/await patterns for high performance
+- **FastAPI**: Fast, modern web framework for building APIs
+- **PostgreSQL**: Robust relational database for data storage
+- **Redis**: High-performance caching and session management
+- **Docker**: Containerized deployment for consistency
+- **OAuth 1.0 & 2.0**: Industry-standard authentication protocols
+
+## Who is Mirobody Health For?
+
+<CardGroup cols={2}>
+  <Card title="Individual Users" icon="user">
+    Anyone seeking a private, intelligent platform to manage and understand their health data
+  </Card>
+  <Card title="Developers" icon="code">
+    Developers building health AI applications for themselves or organizations
+  </Card>
+</CardGroup>
+
+## Real-World Examples
+
+<Info>
+All examples below were generated using synthetic health data. Some examples also utilize additional Theta private tools.
+</Info>
+
+### Private Health Data Management & Chat
+
+Organize scattered data from wearables, healthcare portals, PDFs, and paper reports spanning years into one coherent memory. Access your full health context via built-in chat or on external platforms like ChatGPT or Claude.
+
+<AccordionGroup>
+  <Accordion title="Track Health Issues Across Multiple Systems & Years" icon="timeline">
+    Query the same health issue across multiple health systems (even across countries) spanning years:
+
+    <CardGroup cols={2}>
+      <Card title="Knee Pain Progress" icon="link" href="https://test-mirobody.thetahealth.ai/share/5d2d324f-d71b-4bf1-9cd0-8c23e94a272d">
+        Track the progression of knee pain over time across different providers
+      </Card>
+      <Card title="Cardiovascular Disorders" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
+        Monitor cardiovascular health across multiple health systems
+      </Card>
+    </CardGroup>
+  </Accordion>
+
+  <Accordion title="Unified Health Issue Analysis" icon="chart-line">
+    Get comprehensive data for a health issue combining device data, medical records, and more:
+
+    <CardGroup cols={2}>
+      <Card title="Cardiovascular Summary" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
+        Summarize cardiovascular conditions across different data sources
+      </Card>
+      <Card title="Diabetes History & Progress" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
+        Track diabetes history using devices, records, and other sources
+      </Card>
+    </CardGroup>
+  </Accordion>
+
+  <Accordion title="Prepare for Doctor Visits" icon="user-doctor">
+    <Card title="PCP Visit Preparation" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
+      Generate comprehensive summaries and questions for your primary care visit
+    </Card>
+  </Accordion>
+</AccordionGroup>
+
+### Deep Research for Personal Health
+
+Connect personal health data with public knowledge from online searches, tools, or MCPs. Conduct deep health research with reports similar to Gemini/GPT's deep research, but highly tailored to your situation.
+
+<AccordionGroup>
+  <Accordion title="Identify Health Patterns & Drivers" icon="magnifying-glass-chart">
+    Analyze data to discover what helps or harms your health:
+
+    <CardGroup cols={2}>
+      <Card title="Blood Glucose Analysis" icon="link" href="https://test-mirobody.thetahealth.ai/share/24c2a626-63c4-4f5b-b860-dec65cbd69da">
+        Find factors that help or harm your blood glucose levels
+      </Card>
+      <Card title="Symptoms & Feelings Drivers" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
+        Discover the main drivers behind your symptoms and feelings
+      </Card>
+    </CardGroup>
+  </Accordion>
+
+  <Accordion title="Personalized Treatment Research" icon="flask">
+    <Card title="Diabetes Treatment Options" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
+      Research personalized methods (medications, treatments, devices, lifestyle) for diabetes management
+    </Card>
+  </Accordion>
+</AccordionGroup>
+
+### All-in-One Health Data Engine
+
+For developers, Mirobody Health serves as the data engine for AI health applications, providing essential infrastructure so you can focus on creating unique user experiences.
+
+<CardGroup cols={2}>
+  <Card title="Wearable Manufacturers" icon="watch">
+    Integrate your device and instantly offer AI chat features with device data
+  </Card>
+  <Card title="Research Applications" icon="microscope">
+    Add customized tools to deploy subject-facing research apps without extensive development
+  </Card>
+  <Card title="Health Apps" icon="mobile">
+    Build consumer health apps with a complete data and AI backend
+  </Card>
+  <Card title="Enterprise Solutions" icon="building">
+    Contact us for additional enterprise-level support and custom integrations
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Steps>
+  <Step title="Get Started">
+    Follow our [Quick Start guide](/quickstart) to deploy Mirobody Health locally in minutes using Docker.
+  </Step>
+  
+  <Step title="Configure Providers">
+    Set up OAuth credentials for the health providers you want to integrate. See the [Configuration guide](/configuration).
+  </Step>
+  
+  <Step title="Explore the API">
+    Review the [API Reference](/api-reference/introduction) to understand how to link users, pull data, and access health information.
+  </Step>
+  
+  <Step title="Add Custom Providers">
+    Follow the [Provider Integration Guide](/providers/integration-guide) to add support for additional health devices.
+  </Step>
+</Steps>
+
+## Contributing
+
+We welcome contributions! When you add a new device, a new tool, or improve the framework in any way, we would like you to share that with the community.
+
+<CardGroup cols={2}>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/thetahealth/mirobody-health">
+    View source code, report issues, and contribute
+  </Card>
+  <Card title="Contributing Guide" icon="code-pull-request" href="/development/contributing">
+    Learn how to contribute to the project
+  </Card>
+</CardGroup>
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card title="Discord Community" icon="discord">
+    Join our community for discussions and support (Coming Soon)
+  </Card>
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody-health/issues">
+    Report bugs and request features
+  </Card>
+  <Card title="Email Support" icon="envelope" href="mailto:developer@thetahealth.ai">
+    Get technical support from our team
+  </Card>
+</CardGroup>
+
+## Hackathon Coming Soon
+
+We will launch hackathon(s) with prizes in the coming weeks. Potential themes include:
+
+- **Best health application use case**
+- **Tool design challenge**
+- **Best prompts to one-shot device integration**
+
+<Info>
+*Stay tuned for announcement details!*
+</Info>
+
+<Note>
+Mirobody Health is built on the Mirobody framework. For core framework documentation, visit the Mirobody documentation.
+</Note>

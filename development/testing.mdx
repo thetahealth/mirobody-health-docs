@@ -1,0 +1,116 @@
+---
+title: "Testing Guide"
+description: "Testing practices and guidelines for Mirobody Health"
+---
+
+## Testing Philosophy
+
+We believe in comprehensive testing to ensure reliability and maintainability. Our test suite includes:
+
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test component interactions
+- **End-to-End Tests**: Test complete workflows
+
+## Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run specific test file
+pytest tests/test_provider_garmin.py
+
+# Run tests matching pattern
+pytest -k "test_oauth"
+
+# Run with coverage report
+pytest --cov=connect --cov-report=html
+```
+
+## Test Structure
+
+```
+tests/
+├── __init__.py
+├── conftest.py                    # Shared fixtures
+├── test_provider_garmin.py
+├── test_provider_whoop.py
+├── test_data_formatting.py
+└── fixtures/
+    ├── sample_responses.json
+    └── mock_data.py
+```
+
+## Writing Tests
+
+### Unit Test Example
+
+```python
+import pytest
+from connect.theta.mirobody_garmin.provider_garmin import ThetaGarminProvider
+
+@pytest.fixture
+def provider():
+    return ThetaGarminProvider()
+
+@pytest.mark.asyncio
+async def test_provider_info(provider):
+    """Test provider metadata"""
+    info = provider.info
+    assert info.slug == "theta_garmin"
+    assert info.supported is True
+```
+
+### Integration Test Example
+
+```python
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_complete_oauth_flow():
+    """Test complete OAuth flow"""
+    provider = ThetaGarminProvider()
+    
+    # Test link
+    request = MockRequest(user_id="test_user")
+    result = await provider.link(request)
+    assert "link_web_url" in result
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Test Naming" icon="signature">
+    - Use descriptive names: `test_oauth_link_generates_valid_url`
+    - Start with `test_`
+    - Group related tests in classes
+  </Accordion>
+
+  <Accordion title="Fixtures" icon="flask">
+    - Use fixtures for common setup
+    - Keep fixtures simple
+    - Use `autouse=True` sparingly
+  </Accordion>
+
+  <Accordion title="Mocking" icon="mask">
+    - Mock external services
+    - Don't mock what you're testing
+    - Use `aioresponses` for HTTP calls
+  </Accordion>
+
+  <Accordion title="Assertions" icon="check">
+    - Use specific assertions
+    - Test one thing per test
+    - Add helpful failure messages
+  </Accordion>
+</AccordionGroup>
+
+## Continuous Integration
+
+Tests run automatically on every push via GitHub Actions. See `.github/workflows/test.yml` for configuration.
+
+<Tip>
+Write tests for new features before implementing them (TDD approach).
+</Tip>

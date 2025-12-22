@@ -1,0 +1,109 @@
+---
+title: "Contributing"
+description: "Guidelines for contributing to Mirobody Health"
+---
+
+## Welcome Contributors!
+
+We appreciate your interest in contributing to Mirobody Health. This guide will help you get started.
+
+## Ways to Contribute
+
+<CardGroup cols={2}>
+  <Card title="Add Providers" icon="plug">
+    Integrate new health device providers
+  </Card>
+  <Card title="Fix Bugs" icon="bug">
+    Report and fix issues
+  </Card>
+  <Card title="Improve Docs" icon="book">
+    Enhance documentation
+  </Card>
+  <Card title="Add Features" icon="sparkles">
+    Propose and implement new features
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+<Steps>
+  <Step title="Fork the repository">
+    Create your own fork of the Mirobody Health repository
+  </Step>
+
+  <Step title="Set up development environment">
+    Follow the [Development Setup](/development/setup) guide
+  </Step>
+
+  <Step title="Create a branch">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Make your changes">
+    Implement your feature or fix
+  </Step>
+
+  <Step title="Test your changes">
+    ```bash
+    pytest
+    ```
+  </Step>
+
+  <Step title="Commit and push">
+    ```bash
+    git add .
+    git commit -m "Add: description of your changes"
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Create pull request">
+    Open a pull request with a clear description of your changes
+  </Step>
+</Steps>
+
+## Code Style
+
+- Follow PEP 8 guidelines
+- Use `black` for code formatting
+- Use `ruff` for linting
+- Write docstrings for all public methods
+- Add type hints
+
+## Pull Request Guidelines
+
+<AccordionGroup>
+  <Accordion title="Title Format" icon="heading">
+    Use conventional commit format:
+    - `feat:` for new features
+    - `fix:` for bug fixes
+    - `docs:` for documentation
+    - `refactor:` for code refactoring
+    - `test:` for adding tests
+  </Accordion>
+
+  <Accordion title="Description" icon="file-lines">
+    - Explain what the PR does
+    - Why the change is needed
+    - How to test the changes
+    - Link related issues
+  </Accordion>
+
+  <Accordion title="Checklist" icon="list-check">
+    - [ ] Code follows style guidelines
+    - [ ] Tests added/updated
+    - [ ] Documentation updated
+    - [ ] All tests pass
+    - [ ] No linter warnings
+  </Accordion>
+</AccordionGroup>
+
+## Questions?
+
+- Open an issue for questions
+- Join our community discussions
+- Email: developer@thetahealth.ai
+
+Thank you for contributing! 🎉

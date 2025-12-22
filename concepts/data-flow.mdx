@@ -1,0 +1,77 @@
+---
+title: "Data Flow"
+description: "Understanding how health data flows through the Mirobody Health system"
+---
+
+## Data Flow Overview
+
+Health data flows through multiple stages of processing to ensure consistency, quality, and standardization across all providers.
+
+## The Complete Journey
+
+<Steps>
+  <Step title="Data Collection">
+    Provider pulls raw data from vendor API using OAuth-authenticated requests.
+    
+    ```python
+    raw_data = await provider.pull_from_vendor_api(
+        access_token, refresh_token, days=2
+    )
+    ```
+  </Step>
+
+  <Step title="Raw Storage">
+    Original data is stored in database for audit trails and reprocessing.
+    
+    ```python
+    await provider.save_raw_data_to_db(raw_data)
+    ```
+  </Step>
+
+  <Step title="Transformation">
+    Vendor-specific data is transformed into standardized format.
+    
+    ```python
+    formatted_data = await provider.format_data(raw_data)
+    ```
+  </Step>
+
+  <Step title="Platform Upload">
+    Standardized data is uploaded to the Mirobody platform.
+    
+    ```python
+    await push_service.push_data(platform="theta", data=formatted_data)
+    ```
+  </Step>
+
+  <Step title="Availability">
+    Data is now available for querying, analysis, and AI processing.
+  </Step>
+</Steps>
+
+## Data Transformation
+
+The transformation stage converts vendor-specific formats into a standardized `StandardPulseData` format:
+
+```python
+StandardPulseData(
+    metaInfo=StandardPulseMetaInfo(
+        userId="user_123",
+        requestId="req_abc",
+        source="theta",
+        timezone="America/Los_Angeles"
+    ),
+    healthData=[
+        StandardPulseRecord(
+            source="garmin",
+            type="HEART_RATE",
+            timestamp=1705276800000,
+            unit="count/min",
+            value=72.0,
+            timezone="America/Los_Angeles"
+        )
+    ]
+)
+```
+
+For more details on data mapping, see the [Data Mapping Guide](/providers/data-mapping).

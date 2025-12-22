@@ -1,0 +1,96 @@
+---
+title: "MCP Tools"
+description: "Available tools for AI agents via the MCP protocol"
+---
+
+## Tools Overview
+
+MCP tools are functions that AI agents can call to interact with Mirobody Health. Each tool has a defined input schema and returns structured results.
+
+## List Available Tools
+
+```json Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list"
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "get_health_data",
+        "description": "Retrieve health data for a user",
+        "inputSchema": {...}
+      }
+    ]
+  }
+}
+```
+
+## Available Tools
+
+<AccordionGroup>
+  <Accordion title="get_health_data" icon="chart-line">
+    Retrieve health metrics for a specific user.
+
+    **Input Schema:**
+    ```json
+    {
+      "user_id": "string",
+      "data_type": "string (optional)",
+      "start_date": "string (optional)",
+      "end_date": "string (optional)"
+    }
+    ```
+
+    **Example:**
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "get_health_data",
+        "arguments": {
+          "user_id": "user_123",
+          "data_type": "heart_rate"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="link_provider" icon="link">
+    Initiate provider linking for a user.
+
+    **Input Schema:**
+    ```json
+    {
+      "user_id": "string",
+      "provider_slug": "string"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="query_metrics" icon="magnifying-glass-chart">
+    Query aggregated health metrics with filters.
+
+    **Input Schema:**
+    ```json
+    {
+      "user_id": "string",
+      "metric_type": "string",
+      "aggregation": "string",
+      "time_range": "string"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+For more details on using MCP tools, see the [MCP Protocol documentation](https://modelcontextprotocol.io/).

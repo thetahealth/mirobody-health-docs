@@ -1,0 +1,57 @@
+---
+title: "MCP Resources"
+description: "Available resources for AI agents via the MCP protocol"
+---
+
+## Resources Overview
+
+MCP resources are data sources that AI agents can read to understand user context and health information.
+
+## List Available Resources
+
+```json Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "resources/list"
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "resources": [
+      {
+        "uri": "mirobody://user/{user_id}/profile",
+        "name": "User Profile",
+        "description": "User profile and connected providers",
+        "mimeType": "application/json"
+      }
+    ]
+  }
+}
+```
+
+## Available Resources
+
+<AccordionGroup>
+  <Accordion title="User Profile" icon="user">
+    **URI:** `mirobody://user/{user_id}/profile`
+
+    Contains user information and connected provider status.
+  </Accordion>
+
+  <Accordion title="Health Data" icon="heart-pulse">
+    **URI:** `mirobody://user/{user_id}/health/{data_type}`
+
+    Access specific health data types for a user.
+  </Accordion>
+
+  <Accordion title="Provider Info" icon="info-circle">
+    **URI:** `mirobody://providers`
+
+    Information about all available providers.
+  </Accordion>
+</AccordionGroup>

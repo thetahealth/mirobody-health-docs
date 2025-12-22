@@ -1,0 +1,66 @@
+---
+title: "MCP Protocol Overview"
+description: "Introduction to the Model Context Protocol interface"
+---
+
+## What is MCP?
+
+The Model Context Protocol (MCP) is a JSON-RPC 2.0 interface that enables AI agents and applications to interact with Mirobody Health's tools and resources.
+
+<Info>
+MCP endpoint: `http://localhost:18080/mcp`
+</Info>
+
+## Key Concepts
+
+<CardGroup cols={2}>
+  <Card title="Tools" icon="wrench">
+    Functions that AI agents can call to perform actions (e.g., get health data, link providers)
+  </Card>
+  <Card title="Resources" icon="folder">
+    Data sources that agents can access (e.g., user profiles, health metrics)
+  </Card>
+  <Card title="JSON-RPC 2.0" icon="code">
+    Standard protocol for remote procedure calls over HTTP
+  </Card>
+  <Card title="Agents" icon="robot">
+    AI assistants that use tools and resources to help users
+  </Card>
+</CardGroup>
+
+## Example Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list"
+}
+```
+
+## Example Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "get_health_data",
+        "description": "Retrieve health data for a user",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "user_id": {"type": "string"},
+            "data_type": {"type": "string"}
+          },
+          "required": ["user_id"]
+        }
+      }
+    ]
+  }
+}
+```
+
+For detailed MCP documentation, see [MCP Tools](/api-reference/mcp/tools) and [MCP Resources](/api-reference/mcp/resources).

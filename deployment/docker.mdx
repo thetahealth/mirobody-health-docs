@@ -1,0 +1,135 @@
+---
+title: "Docker Deployment"
+description: "Deploy Mirobody Health using Docker and Docker Compose"
+---
+
+## Overview
+
+Docker provides the easiest way to deploy Mirobody Health with all its dependencies in isolated containers.
+
+## Quick Deployment
+
+<Steps>
+  <Step title="Clone repository">
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+  </Step>
+
+  <Step title="Configure">
+    ```bash
+    cp .env_example .env
+    cp config.example.yaml config.yaml
+    # Edit config.yaml with your settings
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    ```bash
+    ./deploy.sh
+    ```
+
+    Or manually:
+    ```bash
+    docker-compose up -d
+    ```
+  </Step>
+
+  <Step title="Verify">
+    ```bash
+    curl http://localhost:18080/health
+    ```
+  </Step>
+</Steps>
+
+## Docker Compose Services
+
+The deployment includes three services:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| backend | 18080 | FastAPI application server |
+| postgres | 5432 | PostgreSQL database |
+| redis | 6379 | Redis cache and session store |
+
+## Configuration
+
+### Environment Variables
+
+```bash .env
+# Database
+POSTGRES_USER=holistic_user
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=holistic_db
+
+# Redis
+REDIS_PASSWORD=your_redis_password
+```
+
+### Docker Compose Override
+
+Create `docker-compose.override.yml` for local customizations:
+
+```yaml docker-compose.override.yml
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "18081:18080"  # Custom port
+```
+
+## Management Commands
+
+```bash
+# View logs
+docker-compose logs -f backend
+
+# Restart service
+docker-compose restart backend
+
+# Stop all services
+docker-compose down
+
+# Rebuild containers
+docker-compose build --no-cache
+
+# Execute command in container
+docker-compose exec backend python -c "print('Hello')"
+```
+
+## Data Persistence
+
+Data is persisted in Docker volumes:
+
+- `pgdata`: PostgreSQL data
+- `redis-data`: Redis persistence
+
+```bash
+# Backup database
+docker-compose exec postgres pg_dump -U holistic_user holistic_db > backup.sql
+
+# Restore database
+docker-compose exec -T postgres psql -U holistic_user holistic_db < backup.sql
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port conflicts" icon="network-wired">
+    Change port in `config.yaml` or `docker-compose.override.yml`
+  </Accordion>
+
+  <Accordion title="Container won't start" icon="circle-exclamation">
+    Check logs: `docker-compose logs backend`
+  </Accordion>
+
+  <Accordion title="Database connection fails" icon="database">
+    Verify PostgreSQL is running: `docker-compose ps postgres`
+  </Accordion>
+</AccordionGroup>
+
+For production deployment, see [Production Deployment](/deployment/production).

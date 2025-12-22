@@ -1,0 +1,308 @@
+---
+title: "Using Providers"
+description: "Connect your Garmin, Whoop, and other health devices to Mirobody Health"
+---
+
+## Overview
+
+Providers allow you to connect your wearable devices and health platforms to Mirobody Health. Once connected, your health data is automatically synced and available for AI analysis.
+
+<CardGroup cols={2}>
+  <Card title="Garmin Connect" icon="heartbeat">
+    Comprehensive fitness and health tracking
+  </Card>
+  <Card title="Whoop" icon="bolt">
+    Recovery, strain, and sleep optimization
+  </Card>
+</CardGroup>
+
+<Note>
+More providers are coming soon. You can also [add custom providers](/development/provider-integration) yourself!
+</Note>
+
+## Connecting a Provider
+
+<Steps>
+  <Step title="Get your device credentials">
+    Obtain API credentials from your health device provider:
+    - **Garmin**: Register at [Garmin Developer Portal](https://developer.garmin.com/)
+    - **Whoop**: Contact Whoop Developer Support for API access
+    
+    <Tip>
+    You'll need these credentials to configure your provider connection.
+    </Tip>
+  </Step>
+
+  <Step title="Configure the provider">
+    Add your credentials to `config.yaml`:
+
+    ```yaml config.yaml
+    # For Garmin
+    GARMIN_CLIENT_ID: 'your_consumer_key'
+    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
+    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
+    
+    # For Whoop
+    WHOOP_CLIENT_ID: 'your_client_id'
+    WHOOP_CLIENT_SECRET: 'your_client_secret'
+    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
+    ```
+  </Step>
+
+  <Step title="Link your account">
+    Use the API to initiate OAuth flow:
+
+    ```bash
+    # Get authorization URL
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=YOUR_USER_ID"
+    ```
+
+    Visit the returned URL to authorize access.
+  </Step>
+
+  <Step title="Verify connection">
+    Check that your provider is linked:
+
+    ```bash
+    curl "http://localhost:18080/api/v1/pulse/providers"
+    ```
+
+    <Check>
+    Your connected provider should show `"status": "connected"`
+    </Check>
+  </Step>
+</Steps>
+
+## Available Providers
+
+### Garmin Connect
+
+<Tabs>
+  <Tab title="Overview">
+    **Authentication**: OAuth 1.0  
+    **Status**: Production Ready  
+    **Data Sync**: Automatic daily sync
+    
+    Garmin Connect provides comprehensive health data from Garmin wearables, including fitness trackers, smartwatches, and cycling computers.
+    
+    <Info>
+    Garmin data includes detailed activity tracking, advanced sleep analysis, and comprehensive heart rate metrics.
+    </Info>
+  </Tab>
+
+  <Tab title="Supported Metrics">
+    | Category | Metrics |
+    |----------|---------|
+    | **Activity** | Steps, distance, calories (active & basal), floors climbed, active time |
+    | **Heart Rate** | Min, max, average, resting, time series samples |
+    | **Sleep** | Duration, deep/light/REM sleep, awake time, SpO2, respiration |
+    | **HRV** | Heart rate variability measurements |
+    | **Respiration** | Respiration rate samples |
+    | **Stress** | Stress level measurements |
+    | **Body** | Weight, BMI, body fat %, skeletal muscle mass |
+    | **Workouts** | Exercise sessions with duration, intensity, heart rate zones |
+  </Tab>
+
+  <Tab title="Setup">
+    **1. Get Garmin Developer Credentials**
+    
+    - Visit [Garmin Developer Portal](https://developer.garmin.com/)
+    - Create an application
+    - Note your Consumer Key and Consumer Secret
+    
+    **2. Configure in Mirobody Health**
+    
+    ```yaml config.yaml
+    GARMIN_CLIENT_ID: 'your_consumer_key'
+    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
+    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
+    ```
+    
+    **3. Link User Account**
+    
+    ```bash
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=YOUR_USER_ID"
+    ```
+    
+    Visit the returned authorization URL to complete the connection.
+  </Tab>
+</Tabs>
+
+### Whoop
+
+<Tabs>
+  <Tab title="Overview">
+    **Authentication**: OAuth 2.0  
+    **Status**: Production Ready  
+    **Data Sync**: Automatic sync with configurable frequency
+    
+    Whoop specializes in recovery, strain, and sleep optimization data, providing insights into training readiness and performance.
+    
+    <Info>
+    Whoop excels in recovery metrics, sleep coaching, and strain tracking for athletes and fitness enthusiasts.
+    </Info>
+  </Tab>
+
+  <Tab title="Supported Metrics">
+    | Category | Metrics |
+    |----------|---------|
+    | **Recovery** | Recovery score, HRV, resting heart rate, respiratory rate |
+    | **Sleep** | Total sleep, sleep stages, efficiency, latency, disturbances |
+    | **Strain** | Day strain, cardiovascular load, activity strain |
+    | **Workouts** | Exercise sessions with strain, calories, heart rate zones |
+    | **Cycles** | Sleep cycles, recovery cycles |
+  </Tab>
+
+  <Tab title="Setup">
+    **1. Get Whoop Developer Access**
+    
+    - Contact [Whoop Developer Support](https://developer.whoop.com/)
+    - Request API access for your application
+    - Receive your Client ID and Client Secret
+    
+    **2. Configure in Mirobody Health**
+    
+    ```yaml config.yaml
+    WHOOP_CLIENT_ID: 'your_client_id'
+    WHOOP_CLIENT_SECRET: 'your_client_secret'
+    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
+    ```
+    
+    **3. Link User Account**
+    
+    ```bash
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_whoop/link?user_id=YOUR_USER_ID"
+    ```
+    
+    Complete OAuth authorization in the browser.
+  </Tab>
+</Tabs>
+
+## Managing Connected Providers
+
+### List All Providers
+
+```bash
+curl http://localhost:18080/api/v1/pulse/providers
+```
+
+### Disconnect a Provider
+
+```bash
+curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "YOUR_USER_ID"}'
+```
+
+## Data Synchronization
+
+Once a provider is connected, data synchronization happens automatically:
+
+<AccordionGroup>
+  <Accordion title="Initial Sync" icon="download">
+    When you first connect a provider, Mirobody Health pulls historical data:
+    - **Garmin**: Last 30 days of data
+    - **Whoop**: Last 30 days of data
+    
+    This may take a few minutes depending on data volume.
+  </Accordion>
+
+  <Accordion title="Ongoing Sync" icon="rotate">
+    After initial sync, data is updated automatically:
+    - **Schedule**: Daily at configured intervals
+    - **Incremental**: Only new data is fetched
+    - **Deduplication**: Prevents duplicate records
+    
+    <Tip>
+    You can also trigger manual syncs via the API if needed.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Data Format" icon="database">
+    All provider data is transformed into standardized indicators:
+    - Consistent naming across providers
+    - Unified units (SI system)
+    - Timestamps in ISO 8601 format
+    - Stored in `theta_ai.th_series_data` table
+    
+    See [Data Format](/concepts/data-flow#standardized-format) for details.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection fails" icon="link-slash">
+    **Problem**: OAuth authorization fails or times out
+    
+    **Solutions**:
+    1. Verify API credentials are correct in `config.yaml`
+    2. Check redirect URL matches exactly (including http/https)
+    3. Ensure Mirobody Health is accessible at the redirect URL
+    4. Review provider's developer console for errors
+    5. Check OAuth token hasn't expired
+  </Accordion>
+
+  <Accordion title="No data after connecting" icon="database">
+    **Problem**: Provider connected but no data appears
+    
+    **Solutions**:
+    1. Wait for initial sync to complete (check logs)
+    2. Verify user has data in their provider account
+    3. Check for API rate limiting issues
+    4. Review sync logs for errors
+    5. Trigger manual sync if needed
+  </Accordion>
+
+  <Accordion title="Data out of sync" icon="clock">
+    **Problem**: Health data is outdated
+    
+    **Solutions**:
+    1. Check sync schedule in configuration
+    2. Verify provider API is accessible
+    3. Review sync logs for failures
+    4. Check for provider API changes or downtime
+    5. Trigger manual resync
+  </Accordion>
+</AccordionGroup>
+
+## Provider Status
+
+Check provider connection status:
+
+```python
+import aiohttp
+
+async def check_provider_status(user_id: str):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"http://localhost:18080/api/v1/pulse/providers",
+            params={"user_id": user_id}
+        ) as resp:
+            data = await resp.json()
+            
+            for provider in data["providers"]:
+                print(f"{provider['name']}: {provider['status']}")
+                if provider['status'] == 'connected':
+                    print(f"  Last sync: {provider.get('last_sync', 'N/A')}")
+
+# Usage
+await check_provider_status("your_user_id")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Guide" icon="gear" href="/configuration">
+    Configure provider credentials
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/pulse/providers">
+    Provider API documentation
+  </Card>
+  <Card title="Provider Examples" icon="code" href="/examples/garmin-provider">
+    See provider usage examples
+  </Card>
+  <Card title="Add Custom Providers" icon="plus" href="/development/provider-integration">
+    Build your own provider integration
+  </Card>
+</CardGroup>

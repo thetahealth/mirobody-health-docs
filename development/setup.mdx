@@ -1,0 +1,147 @@
+---
+title: "Development Setup"
+description: "Set up your local development environment for Mirobody Health"
+---
+
+## Prerequisites
+
+Before setting up your development environment, ensure you have:
+
+<CardGroup cols={2}>
+  <Card title="Python 3.12+" icon="python">
+    Required for running the application
+  </Card>
+  <Card title="Docker & Docker Compose" icon="docker">
+    For running PostgreSQL and Redis
+  </Card>
+  <Card title="Git" icon="git">
+    For version control
+  </Card>
+  <Card title="Code Editor" icon="code">
+    VS Code, PyCharm, or your preferred IDE
+  </Card>
+</CardGroup>
+
+## Quick Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+  </Step>
+
+  <Step title="Create virtual environment">
+    ```bash
+    python3.12 -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    pip install -r requirements.txt
+    pip install -e .  # Install in development mode
+    ```
+  </Step>
+
+  <Step title="Start services">
+    ```bash
+    docker-compose up -d postgres redis
+    ```
+  </Step>
+
+  <Step title="Configure">
+    ```bash
+    cp config.example.yaml config.yaml
+    # Edit config.yaml with your settings
+    ```
+  </Step>
+
+  <Step title="Run the application">
+    ```bash
+    python main.py
+    ```
+
+    Server should start on http://localhost:18080
+  </Step>
+</Steps>
+
+## Development Tools
+
+### Recommended VS Code Extensions
+
+```json .vscode/extensions.json
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.black-formatter",
+    "charliermarsh.ruff",
+    "tamasfe.even-better-toml",
+    "redhat.vscode-yaml"
+  ]
+}
+```
+
+### Code Formatting
+
+```bash
+# Install development dependencies
+pip install black ruff pytest pytest-asyncio
+
+# Format code
+black .
+
+# Lint code
+ruff check .
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=connect --cov-report=html
+
+# Run specific test file
+pytest tests/test_provider_garmin.py
+
+# Run integration tests
+pytest -m integration
+```
+
+## Project Structure
+
+```
+mirobody-health/
+├── connect/                 # Provider integrations
+│   └── theta/
+│       ├── mirobody_garmin_connect/
+│       └── mirobody_whoop/
+├── tests/                   # Test files
+├── config.yaml             # Configuration
+├── main.py                 # Application entry point
+├── requirements.txt        # Dependencies
+└── setup.py               # Package setup
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Learn how to contribute to the project
+  </Card>
+  <Card title="Testing" icon="flask" href="/providers/testing">
+    Write tests for your code
+  </Card>
+  <Card title="Integration Guide" icon="plug" href="/providers/integration-guide">
+    Add a new provider integration
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/deployment/docker">
+    Deploy your changes
+  </Card>
+</CardGroup>

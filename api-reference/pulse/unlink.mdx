@@ -1,0 +1,130 @@
+---
+title: "Unlink Provider"
+description: "Disconnect a user's health device account and revoke access"
+---
+
+## Endpoint
+
+```
+POST /api/v1/pulse/theta/{provider_slug}/unlink
+```
+
+## Overview
+
+Remove the connection between a user and their health device account. This revokes access tokens and deletes stored credentials.
+
+## Request
+
+<ParamField path="provider_slug" type="string" required>
+  The provider slug to unlink (e.g., `theta_garmin`, `theta_whoop`)
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  The unique identifier for the user unlinking their account
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_123"}'
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "success": true,
+  "message": "Successfully unlinked provider",
+  "provider_slug": "theta_garmin",
+  "user_id": "user_123"
+}
+```
+</ResponseExample>
+
+## What Happens
+
+When you unlink a provider:
+
+<Steps>
+  <Step title="Credentials Retrieved">
+    System retrieves stored OAuth credentials for the user
+  </Step>
+
+  <Step title="Access Revoked (Optional)">
+    If supported by the provider, access is revoked at the provider's API
+  </Step>
+
+  <Step title="Credentials Deleted">
+    All stored credentials are removed from the database
+  </Step>
+
+  <Step title="Link Removed">
+    The user-provider link is marked as deleted
+  </Step>
+</Steps>
+
+<Warning>
+This action cannot be undone. The user will need to complete the OAuth flow again to reconnect.
+</Warning>
+
+## Example Usage
+
+<CodeGroup>
+```python Python
+import aiohttp
+
+async def unlink_provider(user_id: str, provider_slug: str):
+    url = f"http://localhost:18080/api/v1/pulse/theta/{provider_slug}/unlink"
+    data = {"user_id": user_id}
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=data) as resp:
+            result = await resp.json()
+            return result
+
+# Unlink provider
+result = await unlink_provider("user_123", "theta_garmin")
+print(f"Unlinked: {result['success']}")
+```
+
+```bash cURL
+curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_123"}'
+```
+</CodeGroup>
+
+## Error Responses
+
+<ResponseExample>
+```json User Not Linked
+{
+  "success": true,
+  "message": "No credentials found",
+  "provider_slug": "theta_garmin",
+  "user_id": "user_123"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Provider Not Found
+{
+  "error": {
+    "code": "PROVIDER_NOT_FOUND",
+    "message": "Provider 'theta_unknown' not found"
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+Even if revoking access at the provider's API fails, the local credentials are still deleted. Users should also revoke access through the provider's website or app for complete disconnection.
+</Note>
+
+<Tip>
+After unlinking, any scheduled data syncs for this user-provider combination are automatically stopped.
+</Tip>

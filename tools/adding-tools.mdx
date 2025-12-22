@@ -1,0 +1,788 @@
+---
+title: "Adding Custom Tools"
+description: "Learn how to create custom tools for AI agents in Mirobody Health"
+---
+
+## Overview
+
+Adding custom tools to Mirobody Health is incredibly simple. Write Python functions, and they automatically become available to AI agents through the MCP protocol.
+
+<Info>
+No JSON schemas, no manual bindings, no complex router configurations required!
+</Info>
+
+## Quick Start
+
+<Steps>
+  <Step title="Create a Python file">
+    Create a new Python file in the `tools/` directory:
+
+    ```bash
+    touch tools/weather_tool.py
+    ```
+  </Step>
+
+  <Step title="Define a Service class">
+    Create a class with a name ending in `Service`:
+
+    ```python tools/weather_tool.py
+    class WeatherService:
+        """Weather information service"""
+        pass
+    ```
+
+    <Check>
+    The class name MUST end with `Service` for auto-discovery.
+    </Check>
+  </Step>
+
+  <Step title="Add methods">
+    Every public method becomes a tool automatically:
+
+    ```python tools/weather_tool.py
+    import aiohttp
+    from typing import Dict
+    
+    class WeatherService:
+        """Weather information service"""
+        
+        async def get_weather(self, location: str) -> Dict:
+            """
+            Get current weather for a location
+            
+            Args:
+                location: City name or coordinates
+                
+            Returns:
+                Weather information including temperature and conditions
+            """
+            # Your implementation here
+            async with aiohttp.ClientSession() as session:
+                # Call weather API
+                pass
+    ```
+  </Step>
+
+  <Step title="Restart the application">
+    Tools are discovered on startup:
+
+    ```bash
+    docker-compose restart backend
+    ```
+
+    Your tool is now available to AI agents!
+  </Step>
+</Steps>
+
+## Tool Structure
+
+### Service Class Pattern
+
+```python
+class YourToolService:
+    """
+    Service description (used in tool discovery)
+    """
+    
+    def __init__(self):
+        """
+        Optional: Initialize with configuration
+        """
+        # Load any required configuration
+        pass
+    
+    async def public_method(self, param: str) -> Dict:
+        """
+        This becomes a tool (public method)
+        
+        Args:
+            param: Parameter description
+            
+        Returns:
+            Result description
+        """
+        # This method is exposed as a tool
+        pass
+    
+    def _private_method(self):
+        """
+        This is NOT exposed (starts with underscore)
+        """
+        # Helper methods starting with _ are private
+        pass
+```
+
+<Warning>
+Only **public methods** (not starting with `_`) are exposed as tools. Use private methods (`_method_name`) for internal helpers.
+</Warning>
+
+## User Data Tools
+
+Tools that access user-specific data must include `user_info: UserInfo` as the first parameter.
+
+### Example: Health Data Tool
+
+```python tools/health_analysis.py
+from mirobody.utils import UserInfo, execute_query
+from typing import Dict, Optional
+
+class HealthAnalysisService:
+    """Health data analysis tools"""
+    
+    async def get_sleep_quality_score(
+        self, 
+        user_info: UserInfo,
+        days: int = 7
+    ) -> Dict:
+        """
+        Calculate sleep quality score based on recent data
+        
+        Args:
+            user_info: User authentication (automatically provided)
+            days: Number of days to analyze (default: 7)
+            
+        Returns:
+            Sleep quality analysis with score and insights
+        """
+        # Query user's sleep data
+        query = """
+            SELECT indicator, value, start_time, end_time
+            FROM theta_ai.th_series_data
+            WHERE user_id = :user_id
+              AND indicator IN ('DAILY_SLEEP_DURATION', 'SLEEP_EFFICIENCY', 'DAILY_DEEP_SLEEP')
+              AND start_time >= NOW() - INTERVAL ':days days'
+              AND deleted = 0
+            ORDER BY start_time DESC
+        """
+        
+        results = await execute_query(
+            query=query,
+            params={"user_id": user_info.user_id, "days": days}
+        )
+        
+        # Analyze and return score
+        sleep_data = self._process_sleep_data(results)
+        score = self._calculate_quality_score(sleep_data)
+        
+        return {
+            "score": score,
+            "period_days": days,
+            "avg_duration_hours": sleep_data["avg_duration"],
+            "avg_efficiency": sleep_data["avg_efficiency"],
+            "insights": self._generate_insights(sleep_data)
+        }
+    
+    def _process_sleep_data(self, results):
+        """Private helper method (not exposed as tool)"""
+        # Process the data
+        pass
+    
+    def _calculate_quality_score(self, data):
+        """Private helper method (not exposed as tool)"""
+        # Calculate score
+        pass
+    
+    def _generate_insights(self, data):
+        """Private helper method (not exposed as tool)"""
+        # Generate insights
+        pass
+```
+
+<Tip>
+The `user_info` parameter enables automatic OAuth authentication and ensures data security. The system validates the user before calling your tool.
+</Tip>
+
+### Security Benefits
+
+When you include `user_info: UserInfo`:
+
+- ✅ Automatic OAuth validation
+- ✅ User data scoped to authenticated user only
+- ✅ Audit logging of all access
+- ✅ No manual authentication code needed
+
+## Public Data Tools
+
+Tools that access public data (not user-specific) don't need `user_info`.
+
+### Example: Public API Tool
+
+```python tools/medical_literature.py
+import aiohttp
+from typing import List, Dict
+
+class MedicalLiteratureService:
+    """Medical literature search tools"""
+    
+    async def search_pubmed(
+        self, 
+        query: str, 
+        max_results: int = 10
+    ) -> List[Dict]:
+        """
+        Search PubMed for medical literature
+        
+        Args:
+            query: Search query
+            max_results: Maximum number of results (default: 10)
+            
+        Returns:
+            List of PubMed articles with titles, abstracts, and links
+        """
+        # Call PubMed API (no authentication needed)
+        async with aiohttp.ClientSession() as session:
+            # Search implementation
+            pass
+    
+    async def get_drug_interactions(
+        self,
+        drug_names: List[str]
+    ) -> Dict:
+        """
+        Check for drug interactions using public databases
+        
+        Args:
+            drug_names: List of drug names to check
+            
+        Returns:
+            Interaction information and severity levels
+        """
+        # Query public drug interaction database
+        pass
+```
+
+<Note>
+Public tools can access external APIs, perform calculations, or query public databases without user authentication.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Descriptive Docstrings" icon="file-lines">
+    Write clear docstrings for your methods. They are passed to AI agents as context:
+
+    ```python
+    async def analyze_workout(self, user_info: UserInfo, workout_id: str) -> Dict:
+        """
+        Analyze workout performance and provide insights
+        
+        This tool examines workout data including heart rate zones,
+        duration, intensity, and calories burned to provide detailed
+        performance analysis and recommendations.
+        
+        Args:
+            user_info: User authentication (auto-provided)
+            workout_id: Unique identifier for the workout
+            
+        Returns:
+            Detailed workout analysis with metrics and suggestions
+        """
+        pass
+    ```
+
+    The docstring helps agents understand **when** and **how** to use your tool.
+  </Accordion>
+
+  <Accordion title="Type Hints" icon="code">
+    Use Python type hints for parameters and return values:
+
+    ```python
+    from typing import List, Dict, Optional
+    
+    async def get_trends(
+        self,
+        user_info: UserInfo,
+        indicators: List[str],
+        period: Optional[str] = "7d"
+    ) -> Dict[str, List[float]]:
+        """Return trends for multiple indicators"""
+        pass
+    ```
+
+    Type hints improve code quality and help generate better tool schemas.
+  </Accordion>
+
+  <Accordion title="Error Handling" icon="triangle-exclamation">
+    Handle errors gracefully and return meaningful messages:
+
+    ```python
+    async def get_data(self, user_info: UserInfo) -> Dict:
+        """Get user data"""
+        try:
+            result = await self._fetch_data(user_info.user_id)
+            if not result:
+                return {
+                    "status": "no_data",
+                    "message": "No data found for this user"
+                }
+            return result
+        except Exception as e:
+            logging.error(f"Error fetching data: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    ```
+  </Accordion>
+
+  <Accordion title="Async Methods" icon="bolt">
+    Use `async def` for all tool methods to avoid blocking:
+
+    ```python
+    # ✅ Good: Async method
+    async def fetch_data(self, param: str) -> Dict:
+        async with aiohttp.ClientSession() as session:
+            # Async I/O operations
+            pass
+    
+    # ❌ Bad: Synchronous method (blocks event loop)
+    def fetch_data(self, param: str) -> Dict:
+        response = requests.get(url)  # Blocks
+        return response.json()
+    ```
+  </Accordion>
+
+  <Accordion title="Configuration" icon="gear">
+    Load configuration in `__init__`:
+
+    ```python
+    from mirobody.utils.config import safe_read_cfg
+    
+    class MyService:
+        def __init__(self):
+            self.api_key = safe_read_cfg("MY_SERVICE_API_KEY")
+            self.base_url = safe_read_cfg("MY_SERVICE_URL") or "https://api.example.com"
+    ```
+
+    Add configuration to `config.yaml`:
+    ```yaml
+    MY_SERVICE_API_KEY: "your_api_key"
+    MY_SERVICE_URL: "https://api.example.com"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Complete Example
+
+Here's a complete example tool for analyzing health trends:
+
+```python tools/trend_analysis.py
+"""
+Health Trend Analysis Tools
+
+Provides tools for analyzing health data trends and generating insights.
+"""
+
+import logging
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+from mirobody.utils import UserInfo, execute_query
+
+class TrendAnalysisService:
+    """Health data trend analysis tools"""
+    
+    def __init__(self):
+        """Initialize the trend analysis service"""
+        self.logger = logging.getLogger(__name__)
+    
+    async def analyze_weekly_trends(
+        self,
+        user_info: UserInfo,
+        indicators: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Analyze weekly trends for specified health indicators
+        
+        Examines the past 7 days of data to identify trends, averages,
+        and anomalies for the requested health indicators.
+        
+        Args:
+            user_info: User authentication information (auto-provided)
+            indicators: List of indicator names to analyze (e.g., ["HEART_RATE", "STEPS"])
+            
+        Returns:
+            Trend analysis with statistics and insights for each indicator
+        """
+        try:
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=7)
+            
+            results = {}
+            
+            for indicator in indicators:
+                # Query data for this indicator
+                query = """
+                    SELECT 
+                        indicator,
+                        value_standardized as value,
+                        start_time
+                    FROM theta_ai.th_series_data
+                    WHERE user_id = :user_id
+                      AND indicator = :indicator
+                      AND start_time >= :start_time
+                      AND start_time <= :end_time
+                      AND deleted = 0
+                    ORDER BY start_time ASC
+                """
+                
+                data = await execute_query(
+                    query=query,
+                    params={
+                        "user_id": user_info.user_id,
+                        "indicator": indicator,
+                        "start_time": start_date,
+                        "end_time": end_date
+                    }
+                )
+                
+                # Analyze the data
+                if data:
+                    results[indicator] = self._analyze_indicator(data)
+                else:
+                    results[indicator] = {
+                        "status": "no_data",
+                        "message": f"No data available for {indicator}"
+                    }
+            
+            return {
+                "period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                    "days": 7
+                },
+                "trends": results
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error analyzing trends: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
+    def _analyze_indicator(self, data: List[Dict]) -> Dict:
+        """Private helper to analyze indicator data"""
+        values = [float(record["value"]) for record in data]
+        
+        return {
+            "count": len(values),
+            "average": sum(values) / len(values),
+            "min": min(values),
+            "max": max(values),
+            "trend": "increasing" if values[-1] > values[0] else "decreasing"
+        }
+```
+
+## Testing Your Tools
+
+### Manual Testing
+
+```python
+# In Python console
+import asyncio
+from tools.trend_analysis import TrendAnalysisService
+from mirobody.utils import UserInfo
+
+async def test():
+    service = TrendAnalysisService()
+    
+    # Create mock user info for testing
+    user_info = UserInfo(user_id="test_user_123")
+    
+    # Test the tool
+    result = await service.analyze_weekly_trends(
+        user_info,
+        indicators=["HEART_RATE", "DAILY_STEPS"]
+    )
+    
+    print(result)
+
+# Run test
+asyncio.run(test())
+```
+
+### Integration Testing
+
+Test through the MCP interface:
+
+```bash
+curl -X POST http://localhost:18080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+  }'
+```
+
+Should list your new tool.
+
+## Tool Discovery
+
+Tools are automatically discovered from directories specified in `config.yaml`:
+
+```yaml config.yaml
+MCP_TOOL_DIRS:
+  - mirobody/pub/tools    # Built-in tools
+  - tools                 # Your custom tools directory
+```
+
+### Discovery Rules
+
+<Tabs>
+  <Tab title="What Gets Discovered">
+    ✅ Classes ending with `Service`  
+    ✅ Public methods (not starting with `_`)  
+    ✅ Async methods (`async def`)  
+    ✅ Methods with proper type hints  
+    ✅ Methods with docstrings  
+  </Tab>
+
+  <Tab title="What Doesn't">
+    ❌ Classes not ending with `Service`  
+    ❌ Private methods (starting with `_`)  
+    ❌ Non-async methods without special handling  
+    ❌ Built-in/magic methods (`__init__`, `__str__`, etc.)  
+  </Tab>
+</Tabs>
+
+## Advanced Examples
+
+### Tool with External API
+
+```python tools/nutrition.py
+import aiohttp
+from mirobody.utils import UserInfo, safe_read_cfg
+from typing import Dict, List
+
+class NutritionService:
+    """Nutrition information and analysis tools"""
+    
+    def __init__(self):
+        # Load API key from config
+        self.api_key = safe_read_cfg("NUTRITION_API_KEY")
+        self.base_url = "https://api.nutritionix.com/v2"
+    
+    async def search_food(self, query: str) -> List[Dict]:
+        """
+        Search for food nutritional information
+        
+        Args:
+            query: Food name or description
+            
+        Returns:
+            List of foods with nutritional data
+        """
+        headers = {
+            "x-app-id": self.api_key,
+            "x-app-key": self.api_key
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{self.base_url}/search/instant",
+                headers=headers,
+                params={"query": query}
+            ) as resp:
+                data = await resp.json()
+                return data.get("common", [])
+    
+    async def log_meal(
+        self,
+        user_info: UserInfo,
+        food_items: List[str],
+        meal_time: str
+    ) -> Dict:
+        """
+        Log a meal for the user
+        
+        Args:
+            user_info: User authentication (auto-provided)
+            food_items: List of food items consumed
+            meal_time: Time of meal (ISO format)
+            
+        Returns:
+            Logged meal with nutritional summary
+        """
+        from mirobody.utils import execute_query
+        
+        # Get nutritional info for each item
+        nutrition_data = []
+        for food in food_items:
+            info = await self.search_food(food)
+            if info:
+                nutrition_data.append(info[0])
+        
+        # Calculate totals
+        total_calories = sum(item.get("calories", 0) for item in nutrition_data)
+        total_protein = sum(item.get("protein", 0) for item in nutrition_data)
+        
+        # Save to database
+        query = """
+            INSERT INTO theta_ai.th_series_data 
+            (user_id, indicator, value, start_time, source, create_time)
+            VALUES (:user_id, 'MEAL_LOG', :value, :meal_time, 'manual', NOW())
+        """
+        
+        await execute_query(
+            query=query,
+            params={
+                "user_id": user_info.user_id,
+                "value": str(total_calories),
+                "meal_time": meal_time
+            }
+        )
+        
+        return {
+            "status": "logged",
+            "meal_time": meal_time,
+            "items": food_items,
+            "total_calories": total_calories,
+            "total_protein": total_protein
+        }
+```
+
+### Tool with Multiple Methods
+
+```python tools/activity_tools.py
+from mirobody.utils import UserInfo, execute_query
+from typing import Dict, List, Optional
+from datetime import datetime, timedelta
+
+class ActivityAnalysisService:
+    """Activity and exercise analysis tools"""
+    
+    async def get_daily_summary(
+        self,
+        user_info: UserInfo,
+        date: Optional[str] = None
+    ) -> Dict:
+        """
+        Get daily activity summary
+        
+        Args:
+            user_info: User authentication (auto-provided)
+            date: Date in YYYY-MM-DD format (default: today)
+            
+        Returns:
+            Daily activity summary with steps, calories, and active time
+        """
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+        
+        query = """
+            SELECT indicator, value_standardized as value
+            FROM theta_ai.th_series_data
+            WHERE user_id = :user_id
+              AND DATE(start_time) = :date
+              AND indicator IN ('DAILY_STEPS', 'DAILY_CALORIES_ACTIVE', 'ACTIVE_TIME')
+              AND deleted = 0
+        """
+        
+        results = await execute_query(
+            query=query,
+            params={"user_id": user_info.user_id, "date": date}
+        )
+        
+        # Format response
+        summary = {indicator: None for indicator in ['DAILY_STEPS', 'DAILY_CALORIES_ACTIVE', 'ACTIVE_TIME']}
+        for record in results:
+            summary[record['indicator']] = float(record['value'])
+        
+        return {
+            "date": date,
+            "steps": summary['DAILY_STEPS'],
+            "active_calories": summary['DAILY_CALORIES_ACTIVE'],
+            "active_minutes": summary['ACTIVE_TIME']
+        }
+    
+    async def compare_periods(
+        self,
+        user_info: UserInfo,
+        indicator: str,
+        period_days: int = 7
+    ) -> Dict:
+        """
+        Compare current period with previous period
+        
+        Args:
+            user_info: User authentication (auto-provided)
+            indicator: Health indicator to compare
+            period_days: Number of days in each period
+            
+        Returns:
+            Comparison with percentage change and trend
+        """
+        # Implementation
+        pass
+    
+    async def get_achievement_status(
+        self,
+        user_info: UserInfo
+    ) -> Dict:
+        """
+        Check user's progress toward health goals
+        
+        Args:
+            user_info: User authentication (auto-provided)
+            
+        Returns:
+            Goal progress and achievement status
+        """
+        # Implementation
+        pass
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Tool not discovered" icon="magnifying-glass">
+    **Problem**: Your tool doesn't appear in tool list
+
+    **Solutions**:
+    1. Ensure class name ends with `Service`
+    2. Verify file is in a directory listed in `MCP_TOOL_DIRS`
+    3. Check for Python syntax errors
+    4. Restart the application
+    5. Check logs for discovery errors
+  </Accordion>
+
+  <Accordion title="Authentication errors" icon="key">
+    **Problem**: Tool fails with authentication error
+
+    **Solutions**:
+    1. Ensure user data tools have `user_info: UserInfo` parameter
+    2. Verify OAuth token is valid
+    3. Check user has necessary permissions
+    4. Review audit logs
+  </Accordion>
+
+  <Accordion title="Database query fails" icon="database">
+    **Problem**: Tool can't query database
+
+    **Solutions**:
+    1. Use `execute_query` utility function
+    2. Check table and column names
+    3. Verify database connection in config
+    4. Test query manually in database
+    5. Check for SQL syntax errors
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tool Examples" icon="code" href="/tools/examples">
+    See more complete tool implementations
+  </Card>
+  <Card title="MCP Integration" icon="bolt" href="/tools/mcp-integration">
+    Connect your tools to AI clients
+  </Card>
+  <Card title="Built-in Tools" icon="wrench" href="/tools/built-in">
+    Reference for default tools
+  </Card>
+  <Card title="Testing" icon="flask" href="/development/testing">
+    Test your custom tools
+  </Card>
+</CardGroup>

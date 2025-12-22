@@ -1,0 +1,139 @@
+---
+title: "Link Provider"
+description: "Initiate OAuth flow to link a user's health device account"
+---
+
+## Endpoint
+
+```
+GET /api/v1/pulse/theta/{provider_slug}/link
+```
+
+## Overview
+
+Start the OAuth authentication flow to connect a user's health device account. This endpoint returns an authorization URL that the user must visit to grant permissions.
+
+## Request
+
+<ParamField path="provider_slug" type="string" required>
+  The provider slug (e.g., `theta_garmin`, `theta_whoop`)
+</ParamField>
+
+<ParamField query="user_id" type="string" required>
+  The unique identifier for the user linking their account
+</ParamField>
+
+<ParamField query="return_url" type="string">
+  Optional URL to redirect to after successful linking
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123&return_url=https://myapp.com/success"
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "link_web_url": "https://connect.garmin.com/oauthConfirm?oauth_token=abc123..."
+}
+```
+</ResponseExample>
+
+## Response Fields
+
+<ResponseField name="link_web_url" type="string" required>
+  OAuth authorization URL that the user should visit in their browser to grant permissions
+</ResponseField>
+
+## OAuth Flow
+
+<Steps>
+  <Step title="Call the link endpoint">
+    Your application calls this endpoint with the user's ID
+  </Step>
+
+  <Step title="Redirect user to authorization URL">
+    Redirect the user to the `link_web_url` in their browser
+  </Step>
+
+  <Step title="User grants permissions">
+    User logs in to their health device account and authorizes access
+  </Step>
+
+  <Step title="Callback processed">
+    Provider redirects back to Mirobody Health, which processes the callback and saves credentials
+  </Step>
+
+  <Step title="Link complete">
+    User can now sync their health data
+  </Step>
+</Steps>
+
+## Example Implementation
+
+<CodeGroup>
+```python Python
+import aiohttp
+
+async def link_provider(user_id: str, provider_slug: str, return_url: str = None):
+    params = {"user_id": user_id}
+    if return_url:
+        params["return_url"] = return_url
+    
+    url = f"http://localhost:18080/api/v1/pulse/theta/{provider_slug}/link"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+            return data["link_web_url"]
+
+# Get authorization URL
+auth_url = await link_provider("user_123", "theta_garmin")
+
+# Redirect user to auth_url in browser
+print(f"Please visit: {auth_url}")
+```
+
+```bash cURL
+# Get the authorization URL
+LINK_URL=$(curl -s "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123" | jq -r '.link_web_url')
+
+echo "Please visit: $LINK_URL"
+```
+</CodeGroup>
+
+## Error Responses
+
+<ResponseExample>
+```json Provider Not Found
+{
+  "error": {
+    "code": "PROVIDER_NOT_FOUND",
+    "message": "Provider 'theta_unknown' not found or not supported"
+  }
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Configuration Error
+{
+  "error": {
+    "code": "PROVIDER_NOT_CONFIGURED",
+    "message": "Provider 'theta_garmin' is not properly configured. Missing OAuth credentials."
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+The authorization URL is time-limited (typically 15 minutes). If the user doesn't complete authorization within this time, they'll need to request a new link.
+</Note>
+
+<Tip>
+Use the `return_url` parameter to redirect users back to a specific page in your application after successful linking.
+</Tip>

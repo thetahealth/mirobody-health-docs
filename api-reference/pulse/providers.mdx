@@ -1,0 +1,113 @@
+---
+title: "List Providers"
+description: "Get a list of all available health device providers"
+---
+
+## Endpoint
+
+```
+GET /api/v1/pulse/providers
+```
+
+## Overview
+
+Retrieve information about all health device providers available in the system, including their configuration status and capabilities.
+
+## Request
+
+<RequestExample>
+```bash cURL
+curl http://localhost:18080/api/v1/pulse/providers
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "providers": [
+    {
+      "slug": "theta_garmin",
+      "name": "Garmin",
+      "description": "Garmin health data integration via OAuth",
+      "logo": "https://static.thetahealth.ai/res/garmin.png",
+      "supported": true,
+      "auth_type": "oauth1",
+      "status": "available"
+    },
+    {
+      "slug": "theta_whoop",
+      "name": "Whoop",
+      "description": "Whoop health data integration via OAuth",
+      "logo": "https://static.thetahealth.ai/res/whoop.png",
+      "supported": true,
+      "auth_type": "oauth2",
+      "status": "available"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+## Response Fields
+
+<ResponseField name="providers" type="array" required>
+  Array of provider objects
+
+  <Expandable title="Provider object">
+    <ResponseField name="slug" type="string" required>
+      Unique provider identifier (e.g., `theta_garmin`)
+    </ResponseField>
+
+    <ResponseField name="name" type="string" required>
+      Display name of the provider
+    </ResponseField>
+
+    <ResponseField name="description" type="string">
+      Provider description and capabilities
+    </ResponseField>
+
+    <ResponseField name="logo" type="string">
+      URL to provider logo image
+    </ResponseField>
+
+    <ResponseField name="supported" type="boolean" required>
+      Whether the provider is currently supported
+    </ResponseField>
+
+    <ResponseField name="auth_type" type="string" required>
+      OAuth version: `oauth1` or `oauth2`
+    </ResponseField>
+
+    <ResponseField name="status" type="string" required>
+      Provider status: `available`, `unavailable`, or `maintenance`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Usage
+
+<CodeGroup>
+```python Python
+import aiohttp
+
+async def list_providers():
+    async with aiohttp.ClientSession() as session:
+        async with session.get("http://localhost:18080/api/v1/pulse/providers") as resp:
+            providers = await resp.json()
+            return providers["providers"]
+
+providers = await list_providers()
+for provider in providers:
+    print(f"{provider['name']}: {provider['status']}")
+```
+
+```bash cURL
+curl http://localhost:18080/api/v1/pulse/providers | jq '.providers[] | {name, status}'
+```
+</CodeGroup>
+
+<Tip>
+Use the `slug` field when linking providers or querying provider-specific data.
+</Tip>

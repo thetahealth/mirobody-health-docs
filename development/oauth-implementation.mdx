@@ -1,0 +1,211 @@
+---
+title: "OAuth Implementation"
+description: "Implementing OAuth 1.0 and OAuth 2.0 flows for provider integrations"
+---
+
+## Overview
+
+Health device providers use OAuth for secure user authorization. Mirobody Health supports both OAuth 1.0 and OAuth 2.0 protocols.
+
+<CardGroup cols={2}>
+  <Card title="OAuth 1.0" icon="key">
+    Used by: Garmin, Fitbit (legacy)
+  </Card>
+  <Card title="OAuth 2.0" icon="lock">
+    Used by: Whoop, Apple Health, most modern APIs
+  </Card>
+</CardGroup>
+
+## OAuth 2.0 Implementation
+
+Most modern health APIs use OAuth 2.0. Here's how to implement it:
+
+### 1. Initiate Authorization
+
+```python
+async def link(self, user_id: str, return_url: str = None) -> Dict:
+    """Initiate OAuth 2.0 authorization"""
+    # Generate state parameter for CSRF protection
+    state = self._generate_state()
+    await self._store_state(user_id, state, return_url)
+    
+    # Build authorization URL
+    auth_params = {
+        "client_id": self.client_id,
+        "response_type": "code",
+        "redirect_uri": self.redirect_url,
+        "scope": self.scopes,
+        "state": state
+    }
+    
+    auth_url = f"{self.auth_url}?{urlencode(auth_params)}"
+    
+    return {
+        "link_web_url": auth_url,
+        "state": state
+    }
+```
+
+### 2. Handle Callback
+
+```python
+async def callback(self, user_id: str, code: str, state: str, **kwargs) -> Dict:
+    """Handle OAuth callback and exchange code for tokens"""
+    # Verify state parameter
+    stored_state = await self._get_stored_state(user_id)
+    if state != stored_state:
+        raise ValueError("Invalid state parameter")
+    
+    # Exchange authorization code for access token
+    token_data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": self.redirect_url,
+        "client_id": self.client_id,
+        "client_secret": self.client_secret
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(self.token_url, data=token_data) as resp:
+            tokens = await resp.json()
+    
+    # Store tokens securely
+    await self._store_tokens(user_id, tokens)
+    
+    return {"success": True, "message": "Provider linked successfully"}
+```
+
+### 3. Token Refresh
+
+```python
+async def _refresh_token(self, user_id: str) -> Dict:
+    """Refresh expired access token"""
+    tokens = await self._get_tokens(user_id)
+    refresh_token = tokens.get("refresh_token")
+    
+    if not refresh_token:
+        raise ValueError("No refresh token available")
+    
+    token_data = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": self.client_id,
+        "client_secret": self.client_secret
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(self.token_url, data=token_data) as resp:
+            new_tokens = await resp.json()
+    
+    # Update stored tokens
+    await self._store_tokens(user_id, new_tokens)
+    
+    return new_tokens
+```
+
+## OAuth 1.0 Implementation
+
+Some providers (like Garmin) use OAuth 1.0:
+
+### 1. Request Token
+
+```python
+async def link(self, user_id: str, return_url: str = None) -> Dict:
+    """Initiate OAuth 1.0 flow"""
+    from requests_oauthlib import OAuth1Session
+    
+    # Store return URL
+    if return_url:
+        await self._store_return_url(user_id, return_url)
+    
+    # Create OAuth1 session
+    oauth = OAuth1Session(
+        client_key=self.client_id,
+        client_secret=self.client_secret,
+        callback_uri=self.redirect_url
+    )
+    
+    # Fetch request token
+    request_token = oauth.fetch_request_token(self.request_token_url)
+    
+    # Store request token temporarily
+    await self._store_request_token(user_id, request_token)
+    
+    # Build authorization URL
+    auth_url = oauth.authorization_url(self.auth_url)
+    
+    return {"link_web_url": auth_url}
+```
+
+### 2. Access Token Exchange
+
+```python
+async def callback(self, user_id: str, oauth_token: str, oauth_verifier: str, **kwargs) -> Dict:
+    """Exchange verifier for access token"""
+    from requests_oauthlib import OAuth1Session
+    
+    # Retrieve request token
+    request_token = await self._get_request_token(user_id)
+    
+    # Create OAuth1 session with request token
+    oauth = OAuth1Session(
+        client_key=self.client_id,
+        client_secret=self.client_secret,
+        resource_owner_key=request_token["oauth_token"],
+        resource_owner_secret=request_token["oauth_token_secret"],
+        verifier=oauth_verifier
+    )
+    
+    # Fetch access token
+    access_token = oauth.fetch_access_token(self.access_token_url)
+    
+    # Store access token
+    await self._store_tokens(user_id, access_token)
+    
+    return {"success": True}
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Token Storage" icon="shield">
+    - **Encrypt tokens** before database storage
+    - Use secure key management (e.g., environment variables)
+    - Never log tokens or credentials
+    - Implement token rotation where supported
+  </Accordion>
+
+  <Accordion title="State Parameters" icon="fingerprint">
+    For OAuth 2.0:
+    - Generate cryptographically random state
+    - Store state temporarily (10-15 minutes TTL)
+    - Verify state in callback
+    - Prevent CSRF attacks
+  </Accordion>
+
+  <Accordion title="Error Handling" icon="triangle-exclamation">
+    - Handle expired tokens gracefully
+    - Retry failed requests with exponential backoff
+    - Log errors without exposing sensitive data
+    - Provide clear error messages to users
+  </Accordion>
+</AccordionGroup>
+
+## Complete Reference
+
+For detailed implementation with all required methods and patterns, see:
+
+<CardGroup cols={2}>
+  <Card title="Full Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
+    Complete provider integration guide in repository
+  </Card>
+  <Card title="Garmin Example" icon="code" href="/examples/garmin-provider">
+    OAuth 1.0 implementation example
+  </Card>
+  <Card title="Whoop Example" icon="code" href="/examples/whoop-provider">
+    OAuth 2.0 implementation example
+  </Card>
+  <Card title="Provider Testing" icon="flask" href="/development/provider-testing">
+    Testing strategies
+  </Card>
+</CardGroup>

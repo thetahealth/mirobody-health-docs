@@ -1,0 +1,155 @@
+---
+title: "Data Mapping"
+description: "Transform vendor-specific health data into standardized indicators"
+---
+
+## Overview
+
+Data mapping transforms vendor-specific JSON responses into Mirobody Health's standardized format. This ensures consistency across all health data sources.
+
+## Standard Format
+
+All health data is transformed into `StandardPulseData` objects:
+
+```python
+from mirobody.pulse.theta.platform.indicator import StandardPulseData, StandardIndicator
+
+data = StandardPulseData(
+    indicator=StandardIndicator.HEART_RATE,
+    value="72",
+    start_time="2024-01-15T10:00:00Z",
+    end_time="2024-01-15T10:00:00Z",
+    source="garmin"
+)
+```
+
+## Mapping Pattern
+
+### Basic Mapping
+
+Map simple values directly:
+
+```python
+INDICATOR_MAPPING = {
+    "daily_steps": StandardIndicator.DAILY_STEPS,
+    "sleep_seconds": StandardIndicator.DAILY_SLEEP_DURATION,
+    "resting_heart_rate": StandardIndicator.DAILY_HEART_RATE_RESTING,
+}
+
+def format_data(self, raw_data: Dict) -> List[StandardPulseData]:
+    """Transform vendor data"""
+    results = []
+    
+    for vendor_key, standard_indicator in INDICATOR_MAPPING.items():
+        if vendor_key in raw_data:
+            results.append(StandardPulseData(
+                indicator=standard_indicator,
+                value=str(raw_data[vendor_key]),
+                start_time=raw_data["date"],
+                end_time=raw_data["date"]
+            ))
+    
+    return results
+```
+
+### Nested Data Mapping
+
+For nested JSON structures:
+
+```python
+def format_sleep_data(self, sleep_response: Dict) -> List[StandardPulseData]:
+    """Map nested sleep data"""
+    results = []
+    sleep_data = sleep_response.get("sleep", {})
+    
+    # Total sleep duration
+    if "total_seconds" in sleep_data:
+        results.append(StandardPulseData(
+            indicator=StandardIndicator.DAILY_SLEEP_DURATION,
+            value=str(sleep_data["total_seconds"] * 1000),  # Convert to ms
+            start_time=sleep_data["start_time"],
+            end_time=sleep_data["end_time"]
+        ))
+    
+    # Sleep stages
+    stages = sleep_data.get("stages", {})
+    if "deep_seconds" in stages:
+        results.append(StandardPulseData(
+            indicator=StandardIndicator.DAILY_DEEP_SLEEP,
+            value=str(stages["deep_seconds"] * 1000),
+            start_time=sleep_data["start_time"],
+            end_time=sleep_data["end_time"]
+        ))
+    
+    return results
+```
+
+### Unit Conversion
+
+Convert vendor units to standard units:
+
+```python
+# Standard units: grams, milliseconds, meters
+UNIT_CONVERSIONS = {
+    "kg_to_grams": lambda x: x * 1000,
+    "seconds_to_ms": lambda x: x * 1000,
+    "minutes_to_ms": lambda x: x * 60 * 1000,
+}
+
+# Example
+weight_kg = raw_data["weight"]
+weight_grams = UNIT_CONVERSIONS["kg_to_grams"](weight_kg)
+```
+
+## Standard Indicators
+
+### Activity Indicators
+
+| Standard Indicator | Unit | Description |
+|-------------------|------|-------------|
+| `DAILY_STEPS` | steps | Total daily steps |
+| `DAILY_DISTANCE` | meters | Distance traveled |
+| `DAILY_CALORIES_ACTIVE` | kcal | Active calories |
+| `DAILY_FLOORS_CLIMBED` | floors | Floors/flights climbed |
+| `ACTIVE_TIME` | milliseconds | Active time duration |
+
+### Sleep Indicators
+
+| Standard Indicator | Unit | Description |
+|-------------------|------|-------------|
+| `DAILY_SLEEP_DURATION` | milliseconds | Total sleep time |
+| `DAILY_DEEP_SLEEP` | milliseconds | Deep sleep duration |
+| `DAILY_LIGHT_SLEEP` | milliseconds | Light sleep duration |
+| `DAILY_REM_SLEEP` | milliseconds | REM sleep duration |
+| `SLEEP_EFFICIENCY` | percentage | Sleep efficiency |
+
+### Heart Rate Indicators
+
+| Standard Indicator | Unit | Description |
+|-------------------|------|-------------|
+| `HEART_RATE` | bpm | Instantaneous HR |
+| `DAILY_HEART_RATE_RESTING` | bpm | Resting HR |
+| `DAILY_AVG_HEART_RATE` | bpm | Average daily HR |
+| `HRV` | ms | Heart rate variability |
+
+## Complete Reference
+
+For the full list of standard indicators and detailed mapping examples:
+
+<Card title="Full Provider Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
+  See complete data mapping patterns, unit conversions, and indicator reference
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Provider Integration" icon="puzzle-piece" href="/development/provider-integration">
+    Build a custom provider
+  </Card>
+  <Card title="Provider Testing" icon="flask" href="/development/provider-testing">
+    Test data transformations
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/garmin-provider">
+    See real mapping code
+  </Card>
+</CardGroup>
