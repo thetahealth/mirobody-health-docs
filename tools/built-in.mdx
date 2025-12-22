@@ -44,42 +44,6 @@ async def get_user_health_profile(user_info: UserInfo) -> Dict[str, Any]:
   User authentication information. This parameter is **automatically provided** by the system when called through MCP. Do not manually pass this parameter.
 </ParamField>
 
-### Response
-
-<ResponseExample>
-```json
-{
-  "profile": {
-    "user_id": "user_123",
-    "name": "John Doe",
-    "version": 1,
-    "last_updated": "2024-01-15T10:30:00Z"
-  },
-  "connected_providers": [
-    {
-      "provider_slug": "theta_garmin",
-      "provider_name": "Garmin",
-      "linked_at": "2024-01-01T00:00:00Z",
-      "last_sync": "2024-01-15T08:00:00Z"
-    },
-    {
-      "provider_slug": "theta_whoop",
-      "provider_name": "Whoop",
-      "linked_at": "2024-01-10T00:00:00Z",
-      "last_sync": "2024-01-15T09:00:00Z"
-    }
-  ],
-  "summary": {
-    "total_indicators": 1543,
-    "data_sources": 2,
-    "date_range": {
-      "first_data": "2024-01-01T00:00:00Z",
-      "last_data": "2024-01-15T10:00:00Z"
-    }
-  }
-}
-```
-</ResponseExample>
 
 ### Use Cases
 
@@ -145,35 +109,6 @@ async def get_health_indicator(
 <ParamField body="limit" type="integer">
   Maximum number of records to return. Default: 100, Maximum: 1000
 </ParamField>
-
-### Response
-
-<ResponseExample>
-```json
-[
-  {
-    "indicator": "HEART_RATE",
-    "value": "72",
-    "value_standardized": "72",
-    "start_time": "2024-01-15T10:00:00Z",
-    "end_time": "2024-01-15T10:00:00Z",
-    "source": "garmin",
-    "indicator_id": "hr_12345",
-    "create_time": "2024-01-15T10:05:00Z"
-  },
-  {
-    "indicator": "HEART_RATE",
-    "value": "75",
-    "value_standardized": "75",
-    "start_time": "2024-01-15T10:05:00Z",
-    "end_time": "2024-01-15T10:05:00Z",
-    "source": "garmin",
-    "indicator_id": "hr_12346",
-    "create_time": "2024-01-15T10:10:00Z"
-  }
-]
-```
-</ResponseExample>
 
 ### Use Cases
 
