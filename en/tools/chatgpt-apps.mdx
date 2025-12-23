@@ -1,0 +1,194 @@
+---
+title: "ChatGPT Apps"
+description: "Connect Mirobody Health capabilities to ChatGPT as a custom app"
+---
+
+## Overview
+
+ChatGPT Apps allow you to extend ChatGPT with custom functionality by connecting to external services. Mirobody Health supports ChatGPT Apps through its MCP endpoint, giving ChatGPT access to health data retrieval, provider connections, and more.
+
+<Info>
+Learn more about ChatGPT Apps in the [official announcement](https://openai.com/index/introducing-apps-in-chatgpt/).
+</Info>
+
+## Prerequisites
+
+Before connecting Mirobody Health to ChatGPT, you need to make your local MCP endpoint publicly accessible:
+
+<Steps>
+  <Step title="Ensure Mirobody Health is running">
+    Your Mirobody Health instance should be running and accessible at `http://localhost:18080/mcp`.
+  </Step>
+
+  <Step title="Expose your local endpoint">
+    Use a tunneling service to make your local endpoint publicly accessible:
+    
+    ```bash
+    # Using ngrok
+    ngrok http 18080
+    
+    # Or using cloudflared
+    cloudflared tunnel --url http://localhost:18080
+    ```
+    
+    This will provide you with a public URL (e.g., `https://abc123.ngrok.io`) that forwards to your local instance.
+  </Step>
+
+  <Step title="Note your public MCP URL">
+    Your public MCP endpoint will be: `https://your-tunnel-domain/mcp`
+    
+    <Warning>
+    Keep this URL secure. Anyone with access to this URL can interact with your Mirobody Health instance.
+    </Warning>
+  </Step>
+</Steps>
+
+## Creating a ChatGPT App
+
+Once your MCP endpoint is publicly accessible, you can create a ChatGPT App:
+
+<Steps>
+  <Step title="Access ChatGPT Apps">
+    Open ChatGPT and navigate to the Apps section. You'll see your existing apps and the option to create new ones.
+
+    <Frame>
+      <img src="/images/ChatGPT App Main.png" alt="ChatGPT Apps main interface showing available apps" />
+    </Frame>
+  </Step>
+
+  <Step title="Enable Developer Mode">
+    Click on "Create your own" or access Developer Mode to start building a custom app. This will open the app creation interface where you can configure your Mirobody Health connection.
+
+    <Frame>
+      <img src="/images/ChatGPT App Dev Mode.png" alt="ChatGPT Developer Mode for creating custom apps" />
+    </Frame>
+  </Step>
+
+  <Step title="Add your MCP endpoint">
+    In the app configuration:
+    
+    1. **Name your app**: Give it a descriptive name like "Mirobody Health"
+    2. **Add MCP endpoint**: Enter your public MCP URL: `https://your-tunnel-domain/mcp`
+    3. **Description** (optional): Add a description of what health capabilities this app provides
+    4. **Test connection**: ChatGPT will validate that it can connect to your MCP endpoint
+
+    <Frame>
+      <img src="/images/ChatGPT App Add New App.png" alt="Adding a new ChatGPT app with MCP endpoint configuration" />
+    </Frame>
+
+    <Tip>
+    ChatGPT will automatically discover all available tools from your Mirobody Health instance once connected.
+    </Tip>
+  </Step>
+
+  <Step title="Authenticate via OAuth">
+    When ChatGPT first connects to your Mirobody Health app, it will automatically redirect you to the login page for OAuth authentication.
+    
+    <Info>
+    Mirobody Health has built-in OAuth support. Simply log in with your credentials when prompted, and the authentication flow will complete automatically.
+    </Info>
+    
+    This OAuth flow ensures secure access to your health data and only needs to be completed once per ChatGPT session.
+  </Step>
+
+  <Step title="Start using your app">
+    Once authenticated, your ChatGPT session can now:
+    - Retrieve user health profiles
+    - Query health data from connected providers
+    - Access any custom tools you've added to Mirobody Health
+    - Use resources exposed through your MCP server
+
+    <Check>
+    Your ChatGPT App is now connected to Mirobody Health!
+    </Check>
+  </Step>
+</Steps>
+
+## Available Capabilities
+
+When connected, ChatGPT will have access to:
+
+<CardGroup cols={2}>
+  <Card title="Health Profile" icon="user">
+    Retrieve comprehensive user health data and connected device information
+  </Card>
+  <Card title="Health Data Query" icon="chart-line">
+    Query specific health indicators and time-series data
+  </Card>
+  <Card title="Custom Tools" icon="wrench">
+    Any custom tools you've added to your Mirobody Health instance
+  </Card>
+  <Card title="MCP Resources" icon="database">
+    Access to resources exposed through your MCP implementation
+  </Card>
+</CardGroup>
+
+## Example Interactions
+
+Once connected, you can ask ChatGPT things like:
+
+```
+"Show me my health profile"
+"What was my heart rate yesterday?"
+"Compare my sleep data from this week to last week"
+"What health devices do I have connected?"
+```
+
+ChatGPT will use your Mirobody Health tools to fetch and analyze the data.
+
+## Security Considerations
+
+<Info>
+**OAuth Authentication Built-in:**
+
+Mirobody Health includes OAuth authentication, which means users must log in before ChatGPT can access their health data. This provides a secure authentication layer for all requests.
+</Info>
+
+<Warning>
+**Additional Security Recommendations:**
+
+- Your public MCP endpoint URL should be kept secure and only shared with trusted services
+- Consider implementing rate limiting at the tunnel level
+- Monitor access logs for unusual activity
+- Only expose your endpoint when actively using it with ChatGPT
+- For production use, consider additional security measures like IP whitelisting
+- OAuth tokens have expiration times - users will need to re-authenticate when tokens expire
+</Warning>
+
+## Troubleshooting
+
+### Connection Failed
+
+If ChatGPT cannot connect to your MCP endpoint:
+
+1. Verify your tunnel is running and accessible
+2. Check that Mirobody Health is running on port 18080
+3. Test the MCP endpoint directly: `curl https://your-tunnel-domain/mcp`
+4. Ensure no firewall is blocking the connection
+
+### Tools Not Appearing
+
+If tools aren't showing up in ChatGPT:
+
+1. Verify your MCP endpoint returns tool definitions
+2. Check Mirobody Health logs for errors
+3. Restart your tunnel and try reconnecting
+4. Ensure your tools are properly registered in Mirobody Health
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Built-in Tools" icon="toolbox" href="/en/tools/built-in">
+    Explore available health tools
+  </Card>
+  <Card title="Adding Custom Tools" icon="plus" href="/en/tools/adding-tools">
+    Create your own custom tools
+  </Card>
+  <Card title="MCP Protocol" icon="network-wired" href="/en/api-reference/mcp/overview">
+    Learn about the MCP protocol
+  </Card>
+  <Card title="Security Best Practices" icon="shield" href="/en/deployment/production">
+    Production deployment guide
+  </Card>
+</CardGroup>
+

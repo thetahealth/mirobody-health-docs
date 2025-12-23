@@ -56,7 +56,8 @@
                   "en/tools/built-in",
                   "en/tools/adding-tools",
                   "en/tools/mcp-integration",
-                  "en/tools/adding-mcps"
+                  "en/tools/adding-mcps",
+                  "en/tools/chatgpt-apps"
                 ]
               }
             ]
@@ -174,7 +175,8 @@
                   "zh/tools/built-in",
                   "zh/tools/adding-tools",
                   "zh/tools/mcp-integration",
-                  "zh/tools/adding-mcps"
+                  "zh/tools/adding-mcps",
+                  "zh/tools/chatgpt-apps"
                 ]
               }
             ]

@@ -1,0 +1,194 @@
+---
+title: "ChatGPT Apps"
+description: "将 Mirobody Health 的能力连接到 ChatGPT 作为自定义应用"
+---
+
+## 概述
+
+ChatGPT Apps 允许你通过连接到外部服务来扩展 ChatGPT 的功能。Mirobody Health 通过其 MCP 端点支持 ChatGPT Apps，让 ChatGPT 能够访问健康数据检索、Provider 连接等功能。
+
+<Info>
+在 [官方公告](https://openai.com/index/introducing-apps-in-chatgpt/) 中了解更多关于 ChatGPT Apps 的信息。
+</Info>
+
+## 前置要求
+
+在将 Mirobody Health 连接到 ChatGPT 之前，你需要让本地 MCP 端点能够被公开访问：
+
+<Steps>
+  <Step title="确保 Mirobody Health 正在运行">
+    你的 Mirobody Health 实例应该正在运行，并可以通过 `http://localhost:18080/mcp` 访问。
+  </Step>
+
+  <Step title="暴露本地端点">
+    使用隧道服务使你的本地端点可以被公开访问：
+    
+    ```bash
+    # 使用 ngrok
+    ngrok http 18080
+    
+    # 或使用 cloudflared
+    cloudflared tunnel --url http://localhost:18080
+    ```
+    
+    这将为你提供一个公开 URL（例如 `https://abc123.ngrok.io`），它会转发到你的本地实例。
+  </Step>
+
+  <Step title="记录你的公开 MCP URL">
+    你的公开 MCP 端点将是：`https://your-tunnel-domain/mcp`
+    
+    <Warning>
+    请保管好此 URL。任何可以访问此 URL 的人都可以与你的 Mirobody Health 实例交互。
+    </Warning>
+  </Step>
+</Steps>
+
+## 创建 ChatGPT App
+
+一旦你的 MCP 端点可以被公开访问，你就可以创建 ChatGPT App 了：
+
+<Steps>
+  <Step title="访问 ChatGPT Apps">
+    打开 ChatGPT 并导航到 Apps 部分。你将看到现有的应用以及创建新应用的选项。
+
+    <Frame>
+      <img src="/images/ChatGPT App Main.png" alt="ChatGPT Apps 主界面显示可用的应用" />
+    </Frame>
+  </Step>
+
+  <Step title="启用开发者模式">
+    点击"创建你自己的"或访问开发者模式以开始构建自定义应用。这将打开应用创建界面，你可以在其中配置 Mirobody Health 连接。
+
+    <Frame>
+      <img src="/images/ChatGPT App Dev Mode.png" alt="用于创建自定义应用的 ChatGPT 开发者模式" />
+    </Frame>
+  </Step>
+
+  <Step title="添加你的 MCP 端点">
+    在应用配置中：
+    
+    1. **命名你的应用**：为其取一个描述性名称，如"Mirobody Health"
+    2. **添加 MCP 端点**：输入你的公开 MCP URL：`https://your-tunnel-domain/mcp`
+    3. **描述**（可选）：添加此应用提供的健康功能的描述
+    4. **测试连接**：ChatGPT 将验证它是否可以连接到你的 MCP 端点
+
+    <Frame>
+      <img src="/images/ChatGPT App Add New App.png" alt="添加新的 ChatGPT 应用并配置 MCP 端点" />
+    </Frame>
+
+    <Tip>
+    ChatGPT 连接后将自动发现你的 Mirobody Health 实例中的所有可用 Tools。
+    </Tip>
+  </Step>
+
+  <Step title="通过 OAuth 认证">
+    当 ChatGPT 首次连接到你的 Mirobody Health 应用时，会自动重定向到登录页面进行 OAuth 认证。
+    
+    <Info>
+    Mirobody Health 已内置 OAuth 支持。只需在提示时使用你的凭据登录，认证流程将自动完成。
+    </Info>
+    
+    这个 OAuth 流程确保了对你健康数据的安全访问，每个 ChatGPT 会话只需完成一次。
+  </Step>
+
+  <Step title="开始使用你的应用">
+    认证完成后，你的 ChatGPT 会话现在可以：
+    - 检索用户健康 profile
+    - 从已连接的 Providers 查询健康数据
+    - 访问你添加到 Mirobody Health 的任何自定义 Tools
+    - 使用通过 MCP server 暴露的 resources
+
+    <Check>
+    你的 ChatGPT App 现在已连接到 Mirobody Health！
+    </Check>
+  </Step>
+</Steps>
+
+## 可用功能
+
+连接后，ChatGPT 将能够访问：
+
+<CardGroup cols={2}>
+  <Card title="健康 Profile" icon="user">
+    检索全面的用户健康数据和已连接设备信息
+  </Card>
+  <Card title="健康数据查询" icon="chart-line">
+    查询特定的健康指标和时间序列数据
+  </Card>
+  <Card title="自定义 Tools" icon="wrench">
+    你添加到 Mirobody Health 实例的任何自定义 Tools
+  </Card>
+  <Card title="MCP Resources" icon="database">
+    通过 MCP 实现暴露的 resources 访问
+  </Card>
+</CardGroup>
+
+## 示例交互
+
+连接后，你可以向 ChatGPT 询问诸如：
+
+```
+"显示我的健康档案"
+"昨天我的心率是多少？"
+"比较本周和上周的睡眠数据"
+"我连接了哪些健康设备？"
+```
+
+ChatGPT 将使用你的 Mirobody Health Tools 来获取和分析数据。
+
+## 安全注意事项
+
+<Info>
+**内置 OAuth 认证：**
+
+Mirobody Health 包含 OAuth 认证功能，这意味着用户必须先登录，ChatGPT 才能访问其健康数据。这为所有请求提供了安全的认证层。
+</Info>
+
+<Warning>
+**其他安全建议：**
+
+- 你的公开 MCP 端点 URL 应该保密，只与可信服务共享
+- 考虑在隧道层面实现速率限制
+- 监控访问日志以发现异常活动
+- 仅在主动使用 ChatGPT 时暴露端点
+- 对于生产环境，建议采取额外的安全措施，如 IP 白名单
+- OAuth tokens 有过期时间 - token 过期时用户需要重新认证
+</Warning>
+
+## 故障排除
+
+### 连接失败
+
+如果 ChatGPT 无法连接到你的 MCP 端点：
+
+1. 验证你的隧道正在运行且可访问
+2. 检查 Mirobody Health 是否在端口 18080 上运行
+3. 直接测试 MCP 端点：`curl https://your-tunnel-domain/mcp`
+4. 确保没有防火墙阻止连接
+
+### Tools 未显示
+
+如果 Tools 未在 ChatGPT 中显示：
+
+1. 验证你的 MCP 端点返回 tool 定义
+2. 检查 Mirobody Health 日志是否有错误
+3. 重启你的隧道并尝试重新连接
+4. 确保你的 Tools 在 Mirobody Health 中正确注册
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="内置 Tools" icon="toolbox" href="/zh/tools/built-in">
+    探索可用的健康 Tools
+  </Card>
+  <Card title="添加自定义 Tools" icon="plus" href="/zh/tools/adding-tools">
+    创建你自己的自定义 Tools
+  </Card>
+  <Card title="MCP 协议" icon="network-wired" href="/zh/api-reference/mcp/overview">
+    了解 MCP 协议
+  </Card>
+  <Card title="安全最佳实践" icon="shield" href="/zh/deployment/production">
+    生产环境部署指南
+  </Card>
+</CardGroup>
+
