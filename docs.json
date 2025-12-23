@@ -28,6 +28,7 @@
             "pages": [
               "concepts/architecture",
               "concepts/providers",
+              "concepts/file-processing",
               "concepts/data-flow"
             ]
           },
@@ -100,7 +101,8 @@
             "pages": [
               "development/setup",
               "development/contributing",
-              "development/testing"
+              "development/testing",
+              "development/file-processing"
             ]
           },
           {

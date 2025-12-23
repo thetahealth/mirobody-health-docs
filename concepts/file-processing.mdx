@@ -1,0 +1,252 @@
+---
+title: "File Processing"
+description: "Upload and process health documents, lab reports, and medical records"
+---
+
+## Overview
+
+Mirobody Health can process various types of health-related files, automatically extracting health indicators and making them available for AI analysis. This allows you to upload lab reports, medical records, and other health documents to build a comprehensive health history.
+
+## Supported File Types
+
+<CardGroup cols={2}>
+  <Card title="PDF Documents" icon="file-pdf">
+    Lab reports, medical records, prescriptions
+  </Card>
+  <Card title="Images" icon="image">
+    JPEG, PNG, GIF, WebP, HEIC - scanned documents and photos
+  </Card>
+  <Card title="Audio Files" icon="microphone">
+    WAV, MP3, AIFF, AAC, OGG, FLAC - voice recordings
+  </Card>
+  <Card title="Genetic Data" icon="dna">
+    Genetic test reports and analysis files
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Upload Your Files">
+    Upload health documents through the web interface or API. Files are securely stored and encrypted.
+  </Step>
+
+  <Step title="Automatic Processing">
+    The system automatically:
+    - Recognizes file type and content
+    - Extracts text and data from documents
+    - Identifies health indicators (lab results, vital signs, etc.)
+  </Step>
+
+  <Step title="Health Indicator Extraction">
+    LLM analyzes your documents to extract:
+    - Lab test results (blood work, metabolic panels, etc.)
+    - Vital signs (blood pressure, heart rate, weight, etc.)
+    - Medical measurements and observations
+    - Test dates and reference ranges
+  </Step>
+
+  <Step title="Query and Analyze">
+    Once processed, you can:
+    - Ask questions about your health data
+    - Track indicators over time
+    - Generate health summaries and reports
+  </Step>
+</Steps>
+
+## Extracted Health Indicators
+
+The system can automatically extract various types of health data:
+
+<AccordionGroup>
+  <Accordion title="Laboratory Tests" icon="flask">
+    - **Complete Blood Count**: WBC, RBC, Hemoglobin, Platelets
+    - **Metabolic Panel**: Glucose, Liver enzymes, Kidney function
+    - **Lipid Panel**: Cholesterol, Triglycerides, HDL, LDL
+    - **Thyroid Function**: TSH, T3, T4
+    - **Tumor Markers**: Various cancer screening markers
+  </Accordion>
+
+  <Accordion title="Physical Measurements" icon="ruler">
+    - Blood pressure (systolic/diastolic)
+    - Heart rate and pulse
+    - Weight and BMI
+    - Height
+    - Temperature
+    - Oxygen saturation (SpO2)
+  </Accordion>
+
+  <Accordion title="Device Data" icon="watch">
+    When combined with connected devices:
+    - Activity and exercise data
+    - Sleep patterns
+    - Heart rate variability
+    - Daily step counts
+  </Accordion>
+</AccordionGroup>
+
+## File Upload
+
+### Via Web Interface
+
+1. Log in to your Mirobody Health instance
+2. Navigate to the chat interface
+3. Click the file upload button
+4. Select your health documents
+5. Add optional notes about the files
+6. Upload and wait for processing to complete
+
+### Via API
+
+For developers integrating file upload:
+
+```bash
+curl -X POST http://localhost:18080/files/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "files=@lab_report.pdf"
+```
+
+<Info>
+For detailed API documentation and WebSocket upload with progress tracking, see the [File Processing Implementation Guide](/development/file-processing).
+</Info>
+
+## Configuration
+
+Enable health indicator extraction in `config.yaml`:
+
+```yaml config.yaml
+# File Processing Configuration
+ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction
+
+# Required for file processing
+GOOGLE_API_KEY: 'your_google_api_key'  # Gemini for multimodal processing
+```
+
+<Warning>
+**GOOGLE_API_KEY is required** for processing files. Without it, file upload will work but automatic indicator extraction and content analysis will not function.
+</Warning>
+
+## Privacy & Security
+
+<AccordionGroup>
+  <Accordion title="Data Encryption" icon="lock">
+    - All uploaded files are encrypted in transit (HTTPS)
+    - Files stored in object storage with encryption
+    - Secure token-based authentication required
+  </Accordion>
+
+  <Accordion title="Data Control" icon="shield">
+    - You own your data completely
+    - Files can be deleted at any time
+    - Cascade deletion removes all associated data
+    - Self-hosted deployment keeps data on your servers
+  </Accordion>
+
+  <Accordion title="Processing" icon="brain">
+    - File processing uses configured LLM providers (Google Gemini)
+    - Extracted data stored in your database only
+    - No data shared with third parties
+  </Accordion>
+</AccordionGroup>
+
+## File Management
+
+### Viewing Files
+
+All uploaded files are accessible through:
+- Chat history with file attachments
+- File list in message details
+- Direct file URLs (with authentication)
+
+### Deleting Files
+
+<Warning>
+Deleting files will also remove all extracted health indicators associated with those files from your health data.
+</Warning>
+
+To delete files:
+1. Navigate to the message containing the files
+2. Select files to delete
+3. Confirm deletion
+
+Files and their associated data are permanently removed from:
+- Object storage
+- Database records
+- Health indicator data
+
+## Best Practices
+
+<Tip>
+**For Large Files**: Upload PDFs and images work best. Multi-page PDFs are processed in parallel for faster results.
+</Tip>
+
+<Tip>
+**For Lab Reports**: Upload the full PDF report rather than screenshots for better extraction accuracy.
+</Tip>
+
+<Tip>
+**Add Context**: Include notes with your uploads (e.g., "Annual physical exam 2024") to make them easier to find later.
+</Tip>
+
+<Tip>
+**Organize by Date**: Name files with dates (YYYY-MM-DD format) for better chronological tracking.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="File upload fails" icon="circle-exclamation">
+    **Solutions**:
+    - Check file size (recommend < 50MB per file)
+    - Verify authentication token is valid
+    - Ensure file type is supported
+    - Check server logs for specific errors
+  </Accordion>
+
+  <Accordion title="No indicators extracted" icon="magnifying-glass">
+    **Solutions**:
+    - Verify `ENABLE_INDICATOR_EXTRACTION: 1` in config
+    - Ensure `GOOGLE_API_KEY` is set and valid
+    - Check if file contains recognizable health data
+    - Try uploading a clearer or higher resolution image
+  </Accordion>
+
+  <Accordion title="Processing takes too long" icon="clock">
+    **Expectations**:
+    - Small files (< 5MB): 10-30 seconds
+    - Large PDFs (> 20MB): 1-3 minutes
+    - Multi-page documents: Longer but processed in parallel
+    
+    If processing exceeds these times, check server resources and logs.
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+For developers and advanced users who need detailed information about:
+- WebSocket upload protocol
+- REST API endpoints and parameters
+- Processing pipeline architecture
+- Data models and schemas
+- Error handling and best practices
+
+<Card title="File Processing Implementation Guide" icon="code" href="/development/file-processing">
+  Complete technical documentation for file upload and processing
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with Mirobody Health
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Configure API keys and settings
+  </Card>
+  <Card title="Data Flow" icon="diagram-project" href="/concepts/data-flow">
+    Understand how data moves through the system
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Explore API endpoints
+  </Card>
+</CardGroup>
