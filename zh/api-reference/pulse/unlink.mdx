@@ -1,0 +1,130 @@
+---
+title: "取消链接 Provider"
+description: "断开用户健康设备账号的连接并撤销访问权限"
+---
+
+## Endpoint
+
+```
+POST /api/v1/pulse/theta/{provider_slug}/unlink
+```
+
+## Overview
+
+移除用户与健康设备账号之间的连接：撤销 access tokens，并删除已存储的凭据。
+
+## Request
+
+<ParamField path="provider_slug" type="string" required>
+  要取消链接的 provider slug（例如 `theta_garmin`、`theta_whoop`）
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  发起取消链接的用户唯一标识
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_123"}'
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "success": true,
+  "message": "Successfully unlinked provider",
+  "provider_slug": "theta_garmin",
+  "user_id": "user_123"
+}
+```
+</ResponseExample>
+
+## What Happens
+
+当你取消链接一个 provider 时：
+
+<Steps>
+  <Step title="读取凭据">
+    系统读取该用户已存储的 OAuth 凭据
+  </Step>
+
+  <Step title="撤销访问（可选）">
+    如果 provider 支持，则会在 provider API 侧撤销访问
+  </Step>
+
+  <Step title="删除凭据">
+    删除数据库中存储的全部凭据
+  </Step>
+
+  <Step title="移除链接关系">
+    用户与 provider 的链接关系会被标记为已删除
+  </Step>
+</Steps>
+
+<Warning>
+该操作不可撤销。用户如需重新连接，需要再次完成 OAuth flow。
+</Warning>
+
+## Example Usage
+
+<CodeGroup>
+```python Python
+import aiohttp
+
+async def unlink_provider(user_id: str, provider_slug: str):
+    url = f"http://localhost:18080/api/v1/pulse/theta/{provider_slug}/unlink"
+    data = {"user_id": user_id}
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=data) as resp:
+            result = await resp.json()
+            return result
+
+# Unlink provider
+result = await unlink_provider("user_123", "theta_garmin")
+print(f"Unlinked: {result['success']}")
+```
+
+```bash cURL
+curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_123"}'
+```
+</CodeGroup>
+
+## Error Responses
+
+<ResponseExample>
+```json User Not Linked
+{
+  "success": true,
+  "message": "No credentials found",
+  "provider_slug": "theta_garmin",
+  "user_id": "user_123"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Provider Not Found
+{
+  "error": {
+    "code": "PROVIDER_NOT_FOUND",
+    "message": "Provider 'theta_unknown' not found"
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+即使在 provider API 侧撤销访问失败，本地凭据仍会被删除。为彻底断开连接，用户也应在 provider 的网站或 app 中撤销访问授权。
+</Note>
+
+<Tip>
+取消链接后，该用户与该 provider 的所有定时同步任务会自动停止。
+</Tip>

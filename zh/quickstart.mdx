@@ -1,0 +1,301 @@
+---
+title: "快速开始"
+description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
+---
+
+## 前置条件
+
+开始之前，请确保已安装以下内容：
+
+<CardGroup cols={2}>
+  <Card title="Docker" icon="docker">
+    版本 20.10 或更高
+  </Card>
+  <Card title="Docker Compose" icon="layer-group">
+    版本 1.29 或更高
+  </Card>
+</CardGroup>
+
+<Check>
+你可以通过运行 `docker --version` 和 `docker-compose --version` 来验证 Docker 是否安装成功。
+</Check>
+
+## 安装步骤
+
+<Steps>
+  <Step title="克隆仓库">
+    将 Mirobody Health 仓库克隆到本地：
+
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+  </Step>
+
+  <Step title="配置文件初始化">
+    根据示例文件创建你的配置文件：
+
+    ```bash
+    cp .env_example .env
+    cp config.example.yaml config.yaml
+    ```
+    
+    <Tip>
+    快速体验时你可以先使用默认配置；生产环境请参考[配置指南](/zh/configuration)。
+    </Tip>
+  </Step>
+
+  <Step title="添加 API keys">
+    编辑 `config.yaml` 填写你的 API keys。**OPENROUTER_API_KEY 和 GOOGLE_API_KEY 都是必填**：
+
+    ```yaml config.yaml
+    # AI Provider API Keys - REQUIRED
+    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # REQUIRED for AI chat/agents
+    GOOGLE_API_KEY: 'your_google_api_key'  # REQUIRED for file processing (Gemini)
+    
+    # Optional: Additional AI providers
+    OPENAI_API_KEY: 'your_openai_api_key'
+    ```
+
+    <Warning>
+    **OPENROUTER_API_KEY 必填**，用于 AI 对话与 agent 功能。请在 [OpenRouter](https://openrouter.ai/) 获取你的 API key。
+    
+    **GOOGLE_API_KEY（Gemini）必填**，用于处理 PDF、图片与医疗记录等文件。请在 [Google AI Studio](https://aistudio.google.com/) 获取你的 API key。
+    </Warning>
+    
+    <Tip>
+    OpenRouter 通过一个 API 提供对多个 LLM provider 的访问；Google Gemini 负责多模态文件处理。
+    </Tip>
+  </Step>
+
+  <Step title="使用 Docker 部署">
+    运行部署脚本启动所有服务：
+
+    ```bash
+    ./deploy.sh
+    ```
+
+    这会启动三个服务：
+    - **Backend API**：端口 18080
+    - **PostgreSQL**：端口 5432
+    - **Redis**：端口 6379
+
+    <Check>
+    等待所有服务启动完成；你会看到日志提示启动成功。
+    </Check>
+  </Step>
+
+  <Step title="验证安装">
+    打开浏览器访问：
+
+    ```
+    http://localhost:18080
+    ```
+
+    你应该能看到 Mirobody Health 的欢迎页面。
+  </Step>
+
+  <Step title="登录">
+    使用默认 demo 账号或 `config.yaml` 中配置的账号登录：
+
+    ``` 
+    demo@mirobody.ai
+    777777
+    ```
+
+    登录后你可以：
+    - **上传文件**：检验报告、医疗记录与健康文档（参见[文件处理](/zh/concepts/file-processing)）
+    - **与 AI 对话**：基于你的健康数据提问
+    - **连接 providers**：链接 Garmin、Whoop 等设备（参见[使用 Providers](/zh/providers/using-providers)）
+  </Step>
+</Steps>
+
+## 测试 API
+
+服务运行后，你可以测试以下 API endpoints：
+
+<Tabs>
+  <Tab title="Health Check">
+    验证服务是否在运行：
+
+    ```bash
+    curl http://localhost:18080/health
+    ```
+  </Tab>
+
+  <Tab title="List Providers">
+    获取可用的健康 providers：
+
+    ```bash
+    curl http://localhost:18080/api/v1/pulse/providers
+    ```
+  </Tab>
+
+  <Tab title="MCP Interface">
+    测试 MCP protocol endpoint：
+
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list"
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+## 可用 Endpoints
+
+部署完成后，可用 endpoints 如下：
+
+<CardGroup cols={2}>
+  <Card title="Web Interface" icon="browser" href="http://localhost:18080">
+    主 Web 界面与文档
+  </Card>
+  <Card title="MCP Protocol" icon="bolt" href="http://localhost:18080/mcp">
+    面向 AI agents 的 JSON-RPC 2.0 接口
+  </Card>
+  <Card title="Chat API" icon="comments" href="http://localhost:18080/api/chat">
+    AI 对话接口 endpoint
+  </Card>
+  <Card title="History" icon="clock-rotate-left" href="http://localhost:18080/api/history">
+    会话历史 endpoint
+  </Card>
+</CardGroup>
+
+## Docker 服务
+
+部署包含三个容器化服务：
+
+| Service | Port | Description |
+|---------|------|-------------|
+| backend | 18080 | FastAPI application server |
+| postgres | 5432 | PostgreSQL database |
+| redis | 6379 | Redis cache and session store |
+
+<Tip>
+你可以用以下命令查看任意服务的日志：
+
+```bash
+docker-compose logs -f backend
+docker-compose logs -f postgres
+docker-compose logs -f redis
+```
+</Tip>
+
+## 常用命令
+
+<AccordionGroup>
+  <Accordion title="停止所有服务" icon="stop">
+    ```bash
+    docker-compose down
+    ```
+  </Accordion>
+
+  <Accordion title="重启服务" icon="rotate">
+    ```bash
+    docker-compose restart
+    ```
+  </Accordion>
+
+  <Accordion title="查看日志" icon="file-lines">
+    ```bash
+    # All services
+    docker-compose logs -f
+    
+    # Specific service
+    docker-compose logs -f backend
+    ```
+  </Accordion>
+
+  <Accordion title="重建容器" icon="hammer">
+    ```bash
+    docker-compose down
+    docker-compose build --no-cache
+    docker-compose up -d
+    ```
+  </Accordion>
+
+  <Accordion title="进入数据库" icon="database">
+    ```bash
+    docker-compose exec postgres psql -U holistic_user -d holistic_db
+    ```
+  </Accordion>
+
+  <Accordion title="进入 Redis CLI" icon="terminal">
+    ```bash
+    docker-compose exec redis redis-cli
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 故障排查
+
+<AccordionGroup>
+  <Accordion title="端口被占用" icon="circle-exclamation">
+    如果 18080 端口已被占用，请编辑 `config.yaml`：
+
+    ```yaml
+    HTTP_PORT: 18081  # Change to an available port
+    ```
+
+    然后重启服务即可。
+  </Accordion>
+
+  <Accordion title="数据库连接失败" icon="database">
+    确保 PostgreSQL 容器在运行：
+
+    ```bash
+    docker-compose ps postgres
+    ```
+
+    查看数据库日志：
+
+    ```bash
+    docker-compose logs postgres
+    ```
+  </Accordion>
+
+  <Accordion title="Redis 连接失败" icon="server">
+    确认 Redis 在运行且可访问：
+
+    ```bash
+    docker-compose exec redis redis-cli ping
+    ```
+
+    正常情况下应返回 `PONG`。
+  </Accordion>
+
+  <Accordion title="deploy.sh 权限不足" icon="lock">
+    给脚本增加可执行权限：
+
+    ```bash
+    chmod +x deploy.sh
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+现在你已经启动了 Mirobody Health：
+
+<CardGroup cols={2}>
+  <Card title="配置 Providers" icon="gear" href="/zh/configuration">
+    为 Garmin、Whoop 等 providers 配置 OAuth 凭据
+  </Card>
+  <Card title="浏览 API" icon="code" href="/zh/api-reference/introduction">
+    了解如何使用 Pulse API 链接用户并获取健康数据
+  </Card>
+  <Card title="理解架构" icon="diagram-project" href="/zh/concepts/architecture">
+    了解 Mirobody Health 如何处理并标准化健康数据
+  </Card>
+  <Card title="添加新 Providers" icon="plus" href="/zh/development/provider-integration">
+    按照指南集成更多健康设备 Provider
+  </Card>
+</CardGroup>
+
+<Note>
+生产环境部署请参考[生产环境部署指南](/zh/deployment/production)，包括安全加固与性能优化建议。
+</Note>

@@ -1,0 +1,57 @@
+---
+title: "获取对话历史"
+description: "获取某个用户会话的对话历史记录"
+---
+
+## Endpoint
+
+```
+GET /api/history
+```
+
+## Overview
+
+获取指定用户（以及可选的 session）对应的对话历史。
+
+## Request
+
+<ParamField query="user_id" type="string" required>
+  用户的唯一标识
+</ParamField>
+
+<ParamField query="session_id" type="string">
+  可选 session ID，用于筛选特定会话
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  返回消息的最大数量（默认：50，最大：100）
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20"
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "history": [
+    {
+      "role": "user",
+      "content": "How many steps did I take yesterday?",
+      "timestamp": "2024-01-15T10:30:00Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on your Garmin data, you took 10,543 steps yesterday.",
+      "timestamp": "2024-01-15T10:30:02Z"
+    }
+  ],
+  "session_id": "session_abc",
+  "total_messages": 2
+}
+```
+</ResponseExample>

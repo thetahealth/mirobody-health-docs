@@ -1,0 +1,135 @@
+---
+title: "Docker 部署"
+description: "使用 Docker 与 Docker Compose 部署 Mirobody Health"
+---
+
+## 概览
+
+Docker 是部署 Mirobody Health 最简单的方式之一：可将所有依赖以隔离容器的形式一并运行。
+
+## 快速部署
+
+<Steps>
+  <Step title="克隆仓库">
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+  </Step>
+
+  <Step title="配置">
+    ```bash
+    cp .env_example .env
+    cp config.example.yaml config.yaml
+    # Edit config.yaml with your settings
+    ```
+  </Step>
+
+  <Step title="部署">
+    ```bash
+    ./deploy.sh
+    ```
+
+    或手动运行：
+    ```bash
+    docker-compose up -d
+    ```
+  </Step>
+
+  <Step title="验证">
+    ```bash
+    curl http://localhost:18080/health
+    ```
+  </Step>
+</Steps>
+
+## Docker Compose 服务
+
+部署包含三个服务：
+
+| Service | Port | Description |
+|---------|------|-------------|
+| backend | 18080 | FastAPI application server |
+| postgres | 5432 | PostgreSQL database |
+| redis | 6379 | Redis cache and session store |
+
+## 配置
+
+### Environment Variables
+
+```bash .env
+# Database
+POSTGRES_USER=holistic_user
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=holistic_db
+
+# Redis
+REDIS_PASSWORD=your_redis_password
+```
+
+### Docker Compose Override
+
+如需本地自定义，可创建 `docker-compose.override.yml`：
+
+```yaml docker-compose.override.yml
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "18081:18080"  # Custom port
+```
+
+## 管理命令
+
+```bash
+# View logs
+docker-compose logs -f backend
+
+# Restart service
+docker-compose restart backend
+
+# Stop all services
+docker-compose down
+
+# Rebuild containers
+docker-compose build --no-cache
+
+# Execute command in container
+docker-compose exec backend python -c "print('Hello')"
+```
+
+## 数据持久化
+
+数据会持久化在 Docker volumes 中：
+
+- `pgdata`: PostgreSQL data
+- `redis-data`: Redis persistence
+
+```bash
+# Backup database
+docker-compose exec postgres pg_dump -U holistic_user holistic_db > backup.sql
+
+# Restore database
+docker-compose exec -T postgres psql -U holistic_user holistic_db < backup.sql
+```
+
+## 故障排查
+
+<AccordionGroup>
+  <Accordion title="Port conflicts" icon="network-wired">
+    在 `config.yaml` 或 `docker-compose.override.yml` 中修改端口
+  </Accordion>
+
+  <Accordion title="Container won't start" icon="circle-exclamation">
+    查看日志：`docker-compose logs backend`
+  </Accordion>
+
+  <Accordion title="Database connection fails" icon="database">
+    确认 PostgreSQL 运行中：`docker-compose ps postgres`
+  </Accordion>
+</AccordionGroup>
+
+生产环境部署请参见[生产环境部署](/zh/deployment/production)。

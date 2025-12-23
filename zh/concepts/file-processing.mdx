@@ -1,0 +1,252 @@
+---
+title: "文件处理"
+description: "上传并处理健康文档、检验报告与医疗记录"
+---
+
+## 概览
+
+Mirobody Health 可以处理多种健康相关文件，自动提取健康指标并用于 AI 分析。你可以上传检验报告、医疗记录等健康文档，从而构建完整的健康历史。
+
+## 支持的文件类型
+
+<CardGroup cols={2}>
+  <Card title="PDF Documents" icon="file-pdf">
+    检验报告、医疗记录、处方等
+  </Card>
+  <Card title="Images" icon="image">
+    JPEG、PNG、GIF、WebP、HEIC——扫描件与照片
+  </Card>
+  <Card title="Audio Files" icon="microphone">
+    WAV、MP3、AIFF、AAC、OGG、FLAC——语音记录
+  </Card>
+  <Card title="Genetic Data" icon="dna">
+    基因检测报告与分析文件
+  </Card>
+</CardGroup>
+
+## 工作原理
+
+<Steps>
+  <Step title="上传文件">
+    通过 Web 界面或 API 上传健康文档。文件会被安全存储并加密。
+  </Step>
+
+  <Step title="自动处理">
+    系统会自动：
+    - 识别文件类型与内容
+    - 从文档中提取文本与数据
+    - 识别健康指标（检验结果、生命体征等）
+  </Step>
+
+  <Step title="健康指标提取">
+    LLM 会分析文档并提取：
+    - 检验结果（血液检查、代谢面板等）
+    - 生命体征（血压、心率、体重等）
+    - 医疗测量值与医生观察记录
+    - 检测日期与参考范围
+  </Step>
+
+  <Step title="查询与分析">
+    处理完成后，你可以：
+    - 针对健康数据提问
+    - 追踪指标随时间的变化
+    - 生成健康摘要与报告
+  </Step>
+</Steps>
+
+## 可提取的健康指标
+
+系统可自动提取多类健康数据：
+
+<AccordionGroup>
+  <Accordion title="Laboratory Tests" icon="flask">
+    - **Complete Blood Count**：WBC、RBC、Hemoglobin、Platelets
+    - **Metabolic Panel**：Glucose、Liver enzymes、Kidney function
+    - **Lipid Panel**：Cholesterol、Triglycerides、HDL、LDL
+    - **Thyroid Function**：TSH、T3、T4
+    - **Tumor Markers**：多种肿瘤筛查指标
+  </Accordion>
+
+  <Accordion title="Physical Measurements" icon="ruler">
+    - 血压（收缩压/舒张压）
+    - 心率与脉搏
+    - 体重与 BMI
+    - 身高
+    - 体温
+    - 血氧饱和度（SpO2）
+  </Accordion>
+
+  <Accordion title="Device Data" icon="watch">
+    当与已连接设备数据结合时：
+    - 活动与运动数据
+    - 睡眠模式
+    - 心率变异性
+    - 每日步数
+  </Accordion>
+</AccordionGroup>
+
+## 文件上传
+
+### Via Web Interface
+
+1. 登录你的 Mirobody Health 实例
+2. 进入对话（chat）界面
+3. 点击文件上传按钮
+4. 选择健康文档
+5. 可选：添加文件备注
+6. 上传并等待处理完成
+
+### Via API
+
+面向需要集成上传能力的开发者：
+
+```bash
+curl -X POST http://localhost:18080/files/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "files=@lab_report.pdf"
+```
+
+<Info>
+更详细的 API 文档（包括带进度跟踪的 WebSocket 上传）请参见[文件处理实现指南](/zh/development/file-processing)。
+</Info>
+
+## 配置
+
+在 `config.yaml` 中启用健康指标提取：
+
+```yaml config.yaml
+# File Processing Configuration
+ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction
+
+# Required for file processing
+GOOGLE_API_KEY: 'your_google_api_key'  # Gemini for multimodal processing
+```
+
+<Warning>
+处理文件需要 **GOOGLE_API_KEY**。缺少该 key 时，文件上传仍可用，但自动指标提取与内容分析无法工作。
+</Warning>
+
+## 隐私与安全
+
+<AccordionGroup>
+  <Accordion title="Data Encryption" icon="lock">
+    - 文件传输全程加密（HTTPS）
+    - 文件存储在对象存储中并加密
+    - 需要安全的 token-based 认证
+  </Accordion>
+
+  <Accordion title="Data Control" icon="shield">
+    - 数据完全归你所有
+    - 文件可随时删除
+    - 级联删除会移除全部关联数据
+    - 自托管部署让数据留在你的服务器上
+  </Accordion>
+
+  <Accordion title="Processing" icon="brain">
+    - 文件处理使用配置的 LLM providers（Google Gemini）
+    - 提取的数据仅存储在你的数据库中
+    - 不与第三方共享数据
+  </Accordion>
+</AccordionGroup>
+
+## 文件管理
+
+### Viewing Files
+
+所有上传的文件可以通过以下方式访问：
+- 带附件的对话历史
+- 消息详情中的文件列表
+- 直接文件 URL（需认证）
+
+### Deleting Files
+
+<Warning>
+删除文件会同时移除与该文件相关的所有已提取健康指标。
+</Warning>
+
+删除文件步骤：
+1. 进入包含该文件的消息
+2. 选择要删除的文件
+3. 确认删除
+
+文件及其关联数据会从以下位置永久删除：
+- 对象存储
+- 数据库记录
+- 健康指标数据
+
+## 最佳实践
+
+<Tip>
+**大文件建议**：优先上传 PDF 与图片。多页 PDF 会并行处理以提升速度。
+</Tip>
+
+<Tip>
+**检验报告建议**：上传完整 PDF 报告而非截图，可获得更高提取准确率。
+</Tip>
+
+<Tip>
+**添加上下文**：上传时附带备注（例如“2024 年体检”），便于后续检索。
+</Tip>
+
+<Tip>
+**按日期组织**：建议用日期（YYYY-MM-DD）给文件命名，便于按时间追踪。
+</Tip>
+
+## 故障排查
+
+<AccordionGroup>
+  <Accordion title="File upload fails" icon="circle-exclamation">
+    **Solutions**:
+    - 检查文件大小（建议单文件 < 50MB）
+    - 确认认证 token 有效
+    - 确认文件类型受支持
+    - 查看 server logs 获取具体错误原因
+  </Accordion>
+
+  <Accordion title="No indicators extracted" icon="magnifying-glass">
+    **Solutions**:
+    - 确认配置中 `ENABLE_INDICATOR_EXTRACTION: 1`
+    - 确认 `GOOGLE_API_KEY` 已配置且有效
+    - 检查文件是否包含可识别的健康数据
+    - 尝试上传更清晰/更高分辨率的图片
+  </Accordion>
+
+  <Accordion title="Processing takes too long" icon="clock">
+    **Expectations**:
+    - 小文件（< 5MB）：10–30 秒
+    - 大 PDF（> 20MB）：1–3 分钟
+    - 多页文档：耗时更长，但会并行处理
+    
+    若明显超过上述时间，请检查 server 资源与日志。
+  </Accordion>
+</AccordionGroup>
+
+## 技术细节
+
+面向需要更深入细节的开发者与高级用户：
+- WebSocket upload protocol
+- REST API endpoints and parameters
+- Processing pipeline architecture
+- Data models and schemas
+- Error handling and best practices
+
+<Card title="File Processing Implementation Guide" icon="code" href="/zh/development/file-processing">
+  文件上传与处理的完整技术文档
+</Card>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/zh/quickstart">
+    开始使用 Mirobody Health
+  </Card>
+  <Card title="Configuration" icon="gear" href="/zh/configuration">
+    配置 API keys 与系统设置
+  </Card>
+  <Card title="Data Flow" icon="diagram-project" href="/zh/concepts/data-flow">
+    了解数据如何在系统中流转
+  </Card>
+  <Card title="API Reference" icon="book" href="/zh/api-reference/introduction">
+    浏览 API endpoints
+  </Card>
+</CardGroup>

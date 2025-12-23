@@ -1,0 +1,147 @@
+---
+title: "开发环境搭建"
+description: "搭建 Mirobody Health 的本地开发环境"
+---
+
+## 前置条件
+
+开始搭建开发环境前，请确保你具备：
+
+<CardGroup cols={2}>
+  <Card title="Python 3.12+" icon="python">
+    运行应用所必需
+  </Card>
+  <Card title="Docker & Docker Compose" icon="docker">
+    用于运行 PostgreSQL 与 Redis
+  </Card>
+  <Card title="Git" icon="git">
+    用于版本控制
+  </Card>
+  <Card title="Code Editor" icon="code">
+    VS Code、PyCharm 或你偏好的 IDE
+  </Card>
+</CardGroup>
+
+## 快速搭建
+
+<Steps>
+  <Step title="克隆仓库">
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+  </Step>
+
+  <Step title="创建虚拟环境">
+    ```bash
+    python3.12 -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+  </Step>
+
+  <Step title="安装依赖">
+    ```bash
+    pip install -r requirements.txt
+    pip install -e .  # Install in development mode
+    ```
+  </Step>
+
+  <Step title="启动服务">
+    ```bash
+    docker-compose up -d postgres redis
+    ```
+  </Step>
+
+  <Step title="配置">
+    ```bash
+    cp config.example.yaml config.yaml
+    # Edit config.yaml with your settings
+    ```
+  </Step>
+
+  <Step title="运行应用">
+    ```bash
+    python main.py
+    ```
+
+    服务应启动于 http://localhost:18080
+  </Step>
+</Steps>
+
+## 开发工具
+
+### Recommended VS Code Extensions
+
+```json .vscode/extensions.json
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.black-formatter",
+    "charliermarsh.ruff",
+    "tamasfe.even-better-toml",
+    "redhat.vscode-yaml"
+  ]
+}
+```
+
+### Code Formatting
+
+```bash
+# Install development dependencies
+pip install black ruff pytest pytest-asyncio
+
+# Format code
+black .
+
+# Lint code
+ruff check .
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=connect --cov-report=html
+
+# Run specific test file
+pytest tests/test_provider_garmin.py
+
+# Run integration tests
+pytest -m integration
+```
+
+## 项目结构
+
+```
+mirobody-health/
+├── connect/                 # Provider integrations
+│   └── theta/
+│       ├── mirobody_garmin_connect/
+│       └── mirobody_whoop/
+├── tests/                   # Test files
+├── config.yaml             # Configuration
+├── main.py                 # Application entry point
+├── requirements.txt        # Dependencies
+└── setup.py               # Package setup
+```
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Contributing" icon="code-pull-request" href="/zh/development/contributing">
+    了解如何为项目做贡献
+  </Card>
+  <Card title="Testing" icon="flask" href="/zh/development/testing">
+    为你的代码编写测试
+  </Card>
+  <Card title="Provider Integration" icon="plug" href="/zh/development/provider-integration">
+    添加新的 Provider 集成
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/zh/deployment/docker">
+    部署你的改动
+  </Card>
+</CardGroup>

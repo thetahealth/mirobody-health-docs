@@ -1,0 +1,185 @@
+---
+title: "Mirobody MCP Server"
+description: "将 Mirobody Health 的 Tools 连接到 Claude、Cursor、ChatGPT 等 MCP clients"
+---
+
+## 概览
+
+Mirobody Health 可作为 **支持 OAuth 的 MCP Server**，把你的所有 Tools 暴露给 Claude Desktop、Cursor 以及自定义 MCP clients 等 AI 客户端。
+
+<Info>
+Model Context Protocol（MCP）是 AI 应用访问 Tools、resources 与上下文的标准接口。
+</Info>
+
+## MCP 配置
+
+### For Claude Desktop & Cursor
+
+将 Mirobody Health 添加到你的 MCP 配置中：
+
+```json ~/Library/Application Support/Claude/claude_desktop_config.json
+{
+  "mcpServers": {
+    "mirobody_mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "universal-mcp-proxy"
+      ],
+      "env": {
+        "UMCP_ENDPOINT": "http://localhost:18080/mcp"
+      }
+    }
+  }
+}
+```
+
+<Tabs>
+  <Tab title="macOS/Linux">
+    Configuration file location:
+    ```bash
+    ~/Library/Application Support/Claude/claude_desktop_config.json
+    ```
+
+    For Cursor:
+    ```bash
+    ~/.cursor/mcp_config.json
+    ```
+  </Tab>
+
+  <Tab title="Windows">
+    Configuration file location:
+    ```powershell
+    %APPDATA%\Claude\claude_desktop_config.json
+    ```
+
+    For Cursor:
+    ```powershell
+    %USERPROFILE%\.cursor\mcp_config.json
+    ```
+  </Tab>
+</Tabs>
+
+### Restart Your Client
+
+更新配置后：
+
+<Steps>
+  <Step title="保存配置文件">
+    确保对 MCP 配置文件的修改已保存
+  </Step>
+
+  <Step title="重启 Claude/Cursor">
+    完全关闭并重新打开 Claude Desktop 或 Cursor
+  </Step>
+
+  <Step title="验证连接">
+    MCP server 应出现在客户端的 MCP servers 列表中
+
+    在 Claude Desktop：点击 MCP 图标查看已连接 servers
+    
+    在 Cursor：在 settings 中查看 MCP 状态
+  </Step>
+
+  <Step title="测试一个 Tool">
+    尝试使用你的某个 Tool：
+    
+    "Can you show me my health profile?"
+    
+    Agent 应调用 `get_user_health_profile` Tool。
+  </Step>
+</Steps>
+
+<Check>
+你应该能在 AI 客户端中看到可用的 Mirobody Health Tools！
+</Check>
+
+## 认证流程
+
+通过 MCP clients 使用 Tools 时，OAuth 认证会自动处理：
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Claude/Cursor
+    participant MirobodyMCP
+    participant MirobodyHealth
+    
+    User->>Claude/Cursor: Ask health question
+    Claude/Cursor->>MirobodyMCP: Call tool via MCP
+    MirobodyMCP->>MirobodyHealth: Forward request
+    MirobodyHealth->>MirobodyHealth: Validate OAuth token
+    MirobodyHealth->>Claude/Cursor: Return health data
+    Claude/Cursor->>User: Answer with health insights
+```
+
+<Note>
+OAuth token 由 Mirobody Health 管理。用户只需认证一次，Tools 即可安全访问其数据。
+</Note>
+
+## 可用 Endpoints
+
+MCP server 暴露以下 endpoint：
+
+**Base URL**: `http://localhost:18080/mcp`
+
+**Protocol**: JSON-RPC 2.0
+
+**Methods**:
+- `tools/list`: 列出所有可用 Tools
+- `tools/call`: 执行指定 Tool
+- `resources/list`: 列出可用 resources
+- `resources/read`: Read a resource
+
+## 面向 ChatGPT
+
+Mirobody Health 也可以作为 GPT app 运行，在 ChatGPT 内启用相关能力。
+
+<Info>
+ChatGPT 集成文档即将发布。GPT app 将允许 ChatGPT 用户通过对话访问其健康数据。
+</Info>
+
+## 自定义 MCP Clients
+
+### Direct HTTP Requests
+
+你可以通过 HTTP 直接调用 Tools：
+
+```bash
+# List all tools
+curl -X POST http://localhost:18080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+  }'
+
+# Call a tool
+curl -X POST http://localhost:18080/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "get_user_health_profile",
+      "arguments": {}
+    }
+  }'
+```
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Built-in Tools" icon="wrench" href="/zh/tools/built-in">
+    浏览默认内置的健康 Tools
+  </Card>
+  <Card title="Add Custom Tools" icon="plus" href="/zh/tools/adding-tools">
+    创建你自己的 Tools
+  </Card>
+  <Card title="MCP API Reference" icon="book" href="/zh/api-reference/mcp/overview">
+    MCP protocol 的详细文档
+  </Card>
+</CardGroup>

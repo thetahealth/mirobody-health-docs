@@ -1,0 +1,139 @@
+---
+title: "链接 Provider"
+description: "发起 OAuth flow，将用户健康设备账号链接到系统"
+---
+
+## Endpoint
+
+```
+GET /api/v1/pulse/theta/{provider_slug}/link
+```
+
+## Overview
+
+发起 OAuth 认证流程，用于连接用户的健康设备账号。该 endpoint 会返回一个授权 URL，用户需要访问该 URL 并授予权限。
+
+## Request
+
+<ParamField path="provider_slug" type="string" required>
+  provider slug（例如 `theta_garmin`、`theta_whoop`）
+</ParamField>
+
+<ParamField query="user_id" type="string" required>
+  发起链接的用户唯一标识
+</ParamField>
+
+<ParamField query="return_url" type="string">
+  可选：链接成功后重定向到的 URL
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123&return_url=https://myapp.com/success"
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "link_web_url": "https://connect.garmin.com/oauthConfirm?oauth_token=abc123..."
+}
+```
+</ResponseExample>
+
+## Response Fields
+
+<ResponseField name="link_web_url" type="string" required>
+  OAuth 授权 URL：用户需要在浏览器中访问该 URL 并授予权限
+</ResponseField>
+
+## OAuth Flow
+
+<Steps>
+  <Step title="调用 link endpoint">
+    你的应用携带用户 ID 调用该 endpoint
+  </Step>
+
+  <Step title="重定向到授权 URL">
+    将用户重定向到 `link_web_url`
+  </Step>
+
+  <Step title="用户授权">
+    用户登录其健康设备账号并完成授权
+  </Step>
+
+  <Step title="处理 callback">
+    Provider 重定向回 Mirobody Health，系统处理 callback 并保存凭据
+  </Step>
+
+  <Step title="链接完成">
+    用户现在可以同步其健康数据
+  </Step>
+</Steps>
+
+## Example Implementation
+
+<CodeGroup>
+```python Python
+import aiohttp
+
+async def link_provider(user_id: str, provider_slug: str, return_url: str = None):
+    params = {"user_id": user_id}
+    if return_url:
+        params["return_url"] = return_url
+    
+    url = f"http://localhost:18080/api/v1/pulse/theta/{provider_slug}/link"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+            return data["link_web_url"]
+
+# Get authorization URL
+auth_url = await link_provider("user_123", "theta_garmin")
+
+# Redirect user to auth_url in browser
+print(f"Please visit: {auth_url}")
+```
+
+```bash cURL
+# Get the authorization URL
+LINK_URL=$(curl -s "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123" | jq -r '.link_web_url')
+
+echo "Please visit: $LINK_URL"
+```
+</CodeGroup>
+
+## Error Responses
+
+<ResponseExample>
+```json Provider Not Found
+{
+  "error": {
+    "code": "PROVIDER_NOT_FOUND",
+    "message": "Provider 'theta_unknown' not found or not supported"
+  }
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Configuration Error
+{
+  "error": {
+    "code": "PROVIDER_NOT_CONFIGURED",
+    "message": "Provider 'theta_garmin' is not properly configured. Missing OAuth credentials."
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+授权 URL 有时效性（通常 15 分钟）。如果用户未在时限内完成授权，需要重新请求新的 link。
+</Note>
+
+<Tip>
+使用 `return_url` 参数可在链接成功后将用户带回你应用中的指定页面。
+</Tip>

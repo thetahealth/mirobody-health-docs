@@ -1,0 +1,77 @@
+---
+title: "数据流（Data Flow）"
+description: "了解健康数据如何在 Mirobody Health 系统中流转"
+---
+
+## 数据流概览
+
+健康数据会经历多个处理阶段，以保证在不同 providers 之间的一致性、质量与标准化。
+
+## 完整流程
+
+<Steps>
+  <Step title="数据采集">
+    Provider 使用 OAuth 认证的请求从 vendor API 拉取 raw 数据。
+    
+    ```python
+    raw_data = await provider.pull_from_vendor_api(
+        access_token, refresh_token, days=2
+    )
+    ```
+  </Step>
+
+  <Step title="Raw 存储">
+    原始数据会存入数据库，用于审计追溯与后续重处理（reprocessing）。
+    
+    ```python
+    await provider.save_raw_data_to_db(raw_data)
+    ```
+  </Step>
+
+  <Step title="转换（Transformation）">
+    将 vendor 特定的数据转换为标准化格式。
+    
+    ```python
+    formatted_data = await provider.format_data(raw_data)
+    ```
+  </Step>
+
+  <Step title="上传到平台">
+    标准化数据会上传到 Mirobody platform。
+    
+    ```python
+    await push_service.push_data(platform="theta", data=formatted_data)
+    ```
+  </Step>
+
+  <Step title="可用性（Availability）">
+    数据现在可以用于查询、分析与 AI 处理。
+  </Step>
+</Steps>
+
+## 数据转换
+
+转换阶段会将 vendor 特定格式转换为标准化的 `StandardPulseData`：
+
+```python
+StandardPulseData(
+    metaInfo=StandardPulseMetaInfo(
+        userId="user_123",
+        requestId="req_abc",
+        source="theta",
+        timezone="America/Los_Angeles"
+    ),
+    healthData=[
+        StandardPulseRecord(
+            source="garmin",
+            type="HEART_RATE",
+            timestamp=1705276800000,
+            unit="count/min",
+            value=72.0,
+            timezone="America/Los_Angeles"
+        )
+    ]
+)
+```
+
+更多关于数据映射（data mapping）的细节请参见[数据映射指南](/zh/development/data-mapping)。

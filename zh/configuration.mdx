@@ -1,0 +1,631 @@
+---
+title: "配置"
+description: "Mirobody Health 完整配置指南：OAuth providers、AI 服务与系统设置"
+---
+
+## 配置概览
+
+Mirobody Health 使用基于 YAML 的配置文件（`config.yaml`）来管理全部系统设置。本指南覆盖所有配置项以及正确的配置方法。
+
+<Info>
+配置变更通常需要重启应用才能生效。
+</Info>
+
+## 配置文件结构
+
+主配置文件为项目根目录下的 `config.yaml`。可从示例文件创建：
+
+```bash
+cp config.example.yaml config.yaml
+```
+
+## OAuth Provider 配置
+
+要集成健康设备 providers，你需要从各 provider 的开发者门户获取 OAuth 凭据。
+
+### Garmin Connect
+
+<Steps>
+  <Step title="注册为 Garmin Developer">
+    1. Visit [Garmin Connect Developer Portal](https://developer.garmin.com/)
+    2. 使用 Garmin 账号登录
+    3. 进入 “Applications” 并创建一个新应用
+    4. 填写应用信息并提交审核
+
+    <Warning>
+    Garmin 的审核流程可能需要数个工作日。
+    </Warning>
+  </Step>
+
+  <Step title="获取 OAuth 凭据">
+    审核通过后你会获得：
+    - **Consumer Key** (Client ID)
+    - **Consumer Secret** (Client Secret)
+  </Step>
+
+  <Step title="配置 Callback URL">
+    在 Garmin 开发者门户中设置 callback URL：
+
+    ```
+    http://your-domain.com/api/v1/pulse/theta/theta_garmin/callback
+    ```
+
+    本地开发环境：
+    ```
+    http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback
+    ```
+  </Step>
+
+  <Step title="写入 config.yaml">
+    ```yaml config.yaml
+    # Garmin OAuth1 Configuration
+    GARMIN_CLIENT_ID: 'your_consumer_key'
+    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
+    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
+    
+    # API Endpoints (usually don't need to change)
+    GARMIN_AUTH_URL: 'https://connect.garmin.com/oauthConfirm/'
+    GARMIN_TOKEN_URL: 'https://connectapi.garmin.com/oauth-service/oauth/request_token'
+    GARMIN_ACCESS_TOKEN_URL: 'https://connectapi.garmin.com/oauth-service/oauth/access_token'
+    GARMIN_API_BASE_URL: 'https://apis.garmin.com/wellness-api/rest'
+    ```
+  </Step>
+</Steps>
+
+### Whoop
+
+<Steps>
+  <Step title="注册为 Whoop Developer">
+    1. Visit [Whoop Developer Portal](https://developer.whoop.com/)
+    2. 创建开发者账号
+    3. 创建一个新应用
+    4. 设置所需 scopes：
+       - `offline` (for refresh tokens)
+       - `read:recovery`
+       - `read:sleep`
+       - `read:cycles`
+       - `read:profile`
+       - `read:workout`
+       - `read:body_measurement`
+  </Step>
+
+  <Step title="获取 OAuth2 凭据">
+    你会获得：
+    - **Client ID**
+    - **Client Secret**
+  </Step>
+
+  <Step title="配置 Redirect URI">
+    在 Whoop 开发者门户中设置 redirect URI：
+
+    ```
+    http://your-domain.com/api/v1/pulse/theta/theta_whoop/callback
+    ```
+
+    本地开发环境：
+    ```
+    http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback
+    ```
+  </Step>
+
+  <Step title="写入 config.yaml">
+    ```yaml config.yaml
+    # Whoop OAuth2 Configuration
+    WHOOP_CLIENT_ID: 'your_client_id'
+    WHOOP_CLIENT_SECRET: 'your_client_secret'
+    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
+    
+    # Scopes (space-separated)
+    WHOOP_SCOPES: 'offline read:recovery read:sleep read:cycles read:profile read:workout read:body_measurement'
+    
+    # API Endpoints (usually don't need to change)
+    WHOOP_AUTH_URL: 'https://api.prod.whoop.com/oauth/oauth2/auth'
+    WHOOP_TOKEN_URL: 'https://api.prod.whoop.com/oauth/oauth2/token'
+    WHOOP_API_BASE_URL: 'https://api.prod.whoop.com/developer/v2'
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+将 client ID 与 secret 留空（`''`）即可禁用该 provider。系统会自动跳过被禁用的 providers。
+</Tip>
+
+## AI Provider 配置
+
+Mirobody Health 支持多个 AI providers，用于对话等功能。
+
+### OpenAI
+
+```yaml config.yaml
+# OpenAI Configuration
+OPENAI_API_KEY: 'sk-...'
+OPENAI_API_KEY_RTC: 'sk-...'  # For real-time API (optional)
+```
+
+<Steps>
+  <Step title="获取 API key">
+    1. Sign up at [OpenAI Platform](https://platform.openai.com/)
+    2. 进入 API Keys 页面
+    3. 创建新的 API key
+  </Step>
+</Steps>
+
+### Google AI (Gemini)
+
+```yaml config.yaml
+# Google AI Configuration
+GOOGLE_API_KEY: 'AIza...'
+```
+
+<Steps>
+  <Step title="获取 API key">
+    1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+    2. 创建新的 API key
+  </Step>
+</Steps>
+
+### OpenRouter
+
+```yaml config.yaml
+# Required AI Provider Keys
+OPENROUTER_API_KEY: 'sk-or-...'  # For AI chat and agents
+GOOGLE_API_KEY: 'your_google_key'  # For file processing (Gemini)
+```
+
+<Info>
+- **OPENROUTER_API_KEY**：AI 对话与 agent 功能必填
+- **GOOGLE_API_KEY**：使用 Google Gemini 处理文件（PDF、图片、医疗记录等）必填
+</Info>
+
+<Steps>
+  <Step title="获取 OpenRouter API key">
+    1. Sign up at [OpenRouter](https://openrouter.ai/)
+    2. 进入 Keys 页面
+    3. 创建新的 API key
+  </Step>
+  
+  <Step title="获取 Google API key（Gemini）">
+    1. Visit [Google AI Studio](https://aistudio.google.com/)
+    2. 使用 Google 账号登录
+    3. 点击 “Get API key” 并创建新的 key
+    
+    <Info>
+    文件处理能力（PDF、图片、医疗记录等）需要 Google Gemini。
+    </Info>
+  </Step>
+</Steps>
+
+### Google Gemini
+
+```yaml config.yaml
+# Google Gemini Configuration (Required for file processing)
+GOOGLE_API_KEY: 'your_google_api_key'
+```
+
+<Warning>
+Google API Key（Gemini）用于处理多模态文件（PDF、图片（PNG、JPEG、HEIC）以及音频文件）是 **必填**。缺少该 key，文件上传与处理功能将无法使用。
+</Warning>
+
+### Anthropic (Claude)
+
+```yaml config.yaml
+# Anthropic Configuration
+ANTHROPIC_API_KEY: 'sk-ant-...'
+```
+
+<Steps>
+  <Step title="获取 API key">
+    1. Sign up at [Anthropic Console](https://console.anthropic.com/)
+    2. 进入 API Keys 页面
+    3. 创建新的 API key
+  </Step>
+</Steps>
+
+## 数据库配置
+
+### PostgreSQL
+
+```yaml config.yaml
+# PostgreSQL Configuration
+PG_HOST: 'db'                    # 'localhost' for non-Docker setup
+PG_PORT: 5432
+PG_USER: 'holistic_user'
+PG_DBNAME: 'holistic_db'
+PG_PASSWORD: 'holistic_password'  # Change in production!
+PG_SCHEMA: 'theta_ai'
+PG_MIN_CONNECTION: 5
+PG_MAX_CONNECTION: 20
+PG_ENCRYPTION_KEY: 'mydatabaseencryptionkey'  # Change in production!
+```
+
+<Warning>
+生产环境请务必使用强密码与独立的加密 key。
+</Warning>
+
+### Redis
+
+```yaml config.yaml
+# Redis Configuration
+REDIS_HOST: 'redis'              # 'localhost' for non-Docker setup
+REDIS_PORT: 6379
+REDIS_DB: 0
+REDIS_PASSWORD: 'your_secure_password_here'  # Change in production!
+REDIS_SSL: false
+REDIS_SSL_CHECK_HOSTNAME: false
+REDIS_SSL_CERT_REQS: 'none'
+```
+
+## Server Configuration
+
+### HTTP Server Settings
+
+```yaml config.yaml
+# HTTP Server Configuration
+HTTP_SERVER_NAME: 'mirobody'
+HTTP_SERVER_VERSION: '1.0.1'
+HTTP_HOST: '0.0.0.0'             # Listen on all interfaces
+HTTP_PORT: 18080                 # Change if port is in use
+HTTP_URI_PREFIX: ''              # Optional URL prefix
+
+# CORS Configuration
+HTTP_HEADERS:
+  Access-Control-Allow-Origin: '*'
+  Access-Control-Allow-Credentials: 'true'
+  Access-Control-Allow-Methods: '*'
+  Access-Control-Allow-Headers: '*'
+  Access-Control-Max-Age: '86400'
+```
+
+<Tip>
+For production, restrict `Access-Control-Allow-Origin` to specific domains instead of `'*'`.
+</Tip>
+
+### Public URLs
+
+```yaml config.yaml
+# Public URLs (adjust for your domain)
+MCP_FRONTEND_URL: 'http://localhost:18080'
+MCP_PUBLIC_URL: 'http://localhost:18080'
+DATA_PUBLIC_URL: 'http://localhost:18080'
+QR_LOGIN_URL: ''                 # Optional QR code login URL
+```
+
+## Security Configuration
+
+### JWT and Encryption
+
+```yaml config.yaml
+# Security Keys
+DATABASE_DECRYPTION_KEY: 'mydatabaseencryptionkey'  # 32 characters minimum
+JWT_KEY: 'myjwtkey'                                 # Strong secret key
+JWT_PRIVATE_KEY: ''                                 # Optional RSA private key
+```
+
+<Warning>
+**Important Security Practices:**
+
+1. Use strong, randomly generated keys
+2. Never commit production keys to version control
+3. Rotate keys periodically
+4. Use environment variables for sensitive values
+</Warning>
+
+### Generating Secure Keys
+
+```bash
+# Generate a random 32-character key
+openssl rand -hex 32
+
+# Generate RSA key pair
+openssl genrsa -out private_key.pem 2048
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+```
+
+### Authentication Providers
+
+<Tabs>
+  <Tab title="Google OAuth">
+    ```yaml config.yaml
+    GOOGLE_CLIENT_ID: 'your_client_id.apps.googleusercontent.com'
+    FIREBASE_PROJECT_ID: 'your_project_id'
+    ```
+
+    Get credentials from [Google Cloud Console](https://console.cloud.google.com/).
+  </Tab>
+
+  <Tab title="Apple Sign In">
+    ```yaml config.yaml
+    APPLE_TEAM_ID: 'your_team_id'
+    APPLE_KEY_ID: 'your_key_id'
+    APPLE_PRIVATE_KEY: 'your_private_key'
+    APPLE_CLIENT_ID: 'com.yourapp.service'
+    APPLE_AUTH_CLIENT_ID: 'com.yourapp.client'
+    ```
+
+    Get credentials from [Apple Developer Portal](https://developer.apple.com/).
+  </Tab>
+</Tabs>
+
+## Logging Configuration
+
+```yaml config.yaml
+# Logging Configuration
+LOG_NAME: ''                     # Leave empty for default
+LOG_DIR: ''                      # Leave empty for stdout
+LOG_LEVEL: 'INFO'                # DEBUG, INFO, WARNING, ERROR, CRITICAL
+```
+
+<Tabs>
+  <Tab title="Log Levels">
+    | Level | Description | Use Case |
+    |-------|-------------|----------|
+    | DEBUG | Detailed information | Development, debugging |
+    | INFO | General information | Production monitoring |
+    | WARNING | Warning messages | Production alerts |
+    | ERROR | Error messages | Production errors |
+    | CRITICAL | Critical failures | System failures |
+  </Tab>
+
+  <Tab title="Example Configuration">
+    For development:
+    ```yaml
+    LOG_LEVEL: 'DEBUG'
+    LOG_DIR: './logs'
+    ```
+
+    For production:
+    ```yaml
+    LOG_LEVEL: 'INFO'
+    LOG_DIR: '/var/log/mirobody'
+    ```
+  </Tab>
+</Tabs>
+
+## Cloud Storage (Optional)
+
+Configure S3-compatible storage for backups and assets:
+
+```yaml config.yaml
+# S3 Configuration
+S3_KEY: 'your_access_key'
+S3_TOKEN: 'your_secret_key'
+S3_REGION: 'us-east-1'
+S3_BUCKET: 'your-bucket-name'
+S3_PREFIX: 'mirobody/'
+S3_CDN: 'https://cdn.yourdomain.com'
+```
+
+<Info>
+S3 configuration is optional. The system works without cloud storage.
+</Info>
+
+## MCP Protocol Configuration
+
+```yaml config.yaml
+# MCP Tool and Resource Directories
+MCP_TOOL_DIRS:
+  - 'mirobody/pub/tools'
+  - 'tools'                      # Optional custom tools directory
+
+MCP_RESOURCE_DIRS:
+  - 'mirobody/pub/resources'
+
+# Agent Directories
+AGENT_DIRS:
+  - 'mirobody/pub/agents'
+
+# Provider Directories
+THETA_PROVIDER_DIRS:
+  - 'connect/theta'              # Your custom providers
+```
+
+## Email Configuration (Optional)
+
+For sending email notifications and codes:
+
+```yaml config.yaml
+# Email Configuration
+EMAIL_FROM: 'noreply@yourdomain.com'
+EMAIL_FROM_NAME: 'Mirobody Health'
+EMAIL_TEMPLATE: ''               # Path to email templates
+EMAIL_SMTP_PASS: 'your_smtp_password'
+
+# Predefined verification codes (development only)
+EMAIL_PREDEFINE_CODES:
+  demo@mirobody.ai: '777777'
+```
+
+<Warning>
+Never use predefined codes in production!
+</Warning>
+
+## Additional API Services
+
+### Serper (Web Search)
+
+```yaml config.yaml
+SERPER_API_KEY: ''               # From serper.dev
+```
+
+### E2B (Code Execution)
+
+```yaml config.yaml
+E2B_API_KEY: ''                  # From e2b.dev
+```
+
+### FAL (AI Generation)
+
+```yaml config.yaml
+FAL_KEY: ''                      # From fal.ai
+```
+
+## OAuth Behavior Configuration
+
+```yaml config.yaml
+# OAuth temporary state TTL (seconds)
+OAUTH_TEMP_TTL_SECONDS: 900      # 15 minutes
+
+# Provider-specific settings
+WHOOP_MAX_DETAIL_RECORDS: 50     # Max records to fetch in detail
+WHOOP_CONCURRENT_REQUESTS: 5     # Concurrent API requests
+WHOOP_REQUEST_TIMEOUT: 30        # Request timeout in seconds
+```
+
+## Tool Management
+
+```yaml config.yaml
+# Allowed/Disallowed MCP Tools
+ALLOWED_TOOLS_SYNERGY:
+  - tool_name_1
+  - tool_name_2
+
+DISALLOWED_TOOLS_SYNERGY:
+  - dangerous_tool
+```
+
+<Info>
+Leave these arrays empty to allow all tools by default.
+</Info>
+
+## Environment-Specific Configuration
+
+<Tabs>
+  <Tab title="Development">
+    ```yaml config.yaml
+    # Development Settings
+    LOG_LEVEL: 'DEBUG'
+    HTTP_HOST: '0.0.0.0'
+    HTTP_PORT: 18080
+    
+    # Use local services
+    PG_HOST: 'localhost'
+    REDIS_HOST: 'localhost'
+    
+    # Relaxed CORS
+    HTTP_HEADERS:
+      Access-Control-Allow-Origin: '*'
+    ```
+  </Tab>
+
+  <Tab title="Production">
+    ```yaml config.yaml
+    # Production Settings
+    LOG_LEVEL: 'INFO'
+    HTTP_HOST: '0.0.0.0'
+    HTTP_PORT: 443
+    
+    # Use production services
+    PG_HOST: 'your-db-host.rds.amazonaws.com'
+    REDIS_HOST: 'your-redis.cache.amazonaws.com'
+    
+    # Strict CORS
+    HTTP_HEADERS:
+      Access-Control-Allow-Origin: 'https://yourdomain.com'
+    
+    # Strong security
+    DATABASE_DECRYPTION_KEY: '[generated-secure-key]'
+    JWT_KEY: '[generated-secure-key]'
+    REDIS_PASSWORD: '[strong-password]'
+    PG_PASSWORD: '[strong-password]'
+    
+    # SSL/TLS
+    REDIS_SSL: true
+    ```
+  </Tab>
+</Tabs>
+
+## Configuration Validation
+
+After updating `config.yaml`, validate your configuration:
+
+<Steps>
+  <Step title="Check syntax">
+    ```bash
+    python -c "import yaml; yaml.safe_load(open('config.yaml'))"
+    ```
+
+    No output means the YAML syntax is valid.
+  </Step>
+
+  <Step title="Test database connection">
+    ```bash
+    docker-compose exec backend python -c "
+    from mirobody.utils.config import global_config
+    import asyncio
+    
+    async def test():
+        cfg = global_config()
+        db = await cfg.get_db()
+        print('Database connection: OK')
+    
+    asyncio.run(test())
+    "
+    ```
+  </Step>
+
+  <Step title="Test Redis connection">
+    ```bash
+    docker-compose exec redis redis-cli ping
+    ```
+
+    Should return `PONG`.
+  </Step>
+</Steps>
+
+## Configuration Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Environment Variables" icon="code">
+    For sensitive values, use environment variables:
+
+    ```yaml config.yaml
+    OPENAI_API_KEY: ${OPENAI_API_KEY}
+    PG_PASSWORD: ${POSTGRES_PASSWORD}
+    ```
+
+    Then set in `.env`:
+    ```bash .env
+    OPENAI_API_KEY=sk-...
+    POSTGRES_PASSWORD=secure_password
+    ```
+  </Accordion>
+
+  <Accordion title="Version Control" icon="git">
+    - ✅ Commit `config.example.yaml`
+    - ❌ Never commit `config.yaml` with real credentials
+    - ✅ Add `config.yaml` to `.gitignore`
+    - ✅ Document all required configuration keys
+  </Accordion>
+
+  <Accordion title="Security" icon="shield">
+    - Use strong, randomly generated keys
+    - Rotate credentials periodically
+    - Limit CORS origins in production
+    - Enable SSL/TLS for external connections
+    - Use secrets management (AWS Secrets Manager, HashiCorp Vault, etc.)
+  </Accordion>
+
+  <Accordion title="Performance" icon="gauge">
+    - Adjust database connection pool sizes based on load
+    - Configure appropriate timeouts
+    - Tune Redis cache settings
+    - Monitor and adjust concurrent request limits
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/zh/quickstart">
+    Test your configuration with the quick start guide
+  </Card>
+  <Card title="Provider Integration" icon="plug" href="/zh/providers/integration-guide">
+    Learn how to integrate additional health providers
+  </Card>
+  <Card title="API Reference" icon="code" href="/zh/api-reference/introduction">
+    Explore the API endpoints
+  </Card>
+  <Card title="Production Deployment" icon="server" href="/zh/deployment/production">
+    Deploy to production with security best practices
+  </Card>
+</CardGroup>

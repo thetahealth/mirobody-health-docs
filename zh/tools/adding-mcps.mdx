@@ -1,0 +1,59 @@
+---
+title: "添加自定义 MCPs"
+description: "连接第三方 MCP servers 以扩展 AI agent 能力"
+---
+
+## 概览
+
+Mirobody Health 可以连接外部 MCP servers，让你的 AI agents 访问成千上万的 Tools 与资源。这能解锁文件系统访问、GitHub 集成、数据库查询等能力。
+
+<Info>
+Model Context Protocol（MCP）是一个开放标准，用于让 AI assistants 安全连接外部数据源与 Tools。了解更多请访问 [modelcontextprotocol.io](https://modelcontextprotocol.io)。
+</Info>
+
+## 添加一个 MCP Server
+
+通过 Web 界面向 Mirobody Health 添加自定义 MCP 非常简单。
+
+<Steps>
+  <Step title="进入 Drive 页面">
+    打开 Mirobody Health Web 界面，进入用于管理 MCP 连接的 Drive 页面。
+  </Step>
+
+  <Step title="点击 Add MCP">
+    点击 “Add” 按钮开始添加新的 MCP server。
+
+    <Frame>
+      <img src="/images/add-mcp.png" alt="Add MCP button in the Drive interface" />
+    </Frame>
+  </Step>
+
+  <Step title="配置 MCP 信息">
+    填写 MCP server 的配置：
+    - **Name**：该 MCP server 的显示名称
+    - **Command**：启动 MCP server 的命令（例如 `npx`、`uvx`、`docker`）
+    - **Arguments**：命令参数与 MCP package/server 路径
+    - **Environment Variables**：所需环境变量（API keys、tokens 等）
+
+    <Frame>
+      <img src="/images/add-mcp-detail.png" alt="MCP configuration form with server details" />
+    </Frame>
+
+    <Tip>
+    大多数 MCP servers 遵循模式：`npx -y @modelcontextprotocol/server-name`
+    </Tip>
+  </Step>
+
+  <Step title="保存并连接">
+    点击 “Save” 添加 MCP server。Mirobody Health 会自动：
+    - 校验配置
+    - 启动 MCP server 进程
+    - 注册可用 tools 与 resources
+    - 让 AI agents 可直接使用
+
+    <Check>
+    MCP server 已连接完成，其 tools 已对 AI agents 可用！
+    </Check>
+  </Step>
+</Steps>
+

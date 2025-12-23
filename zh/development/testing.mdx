@@ -1,0 +1,116 @@
+---
+title: "测试指南"
+description: "Mirobody Health 的测试规范与实践"
+---
+
+## 测试理念
+
+我们相信全面的测试是可靠性与可维护性的基础。测试套件包括：
+
+- **Unit Tests**：隔离测试单个组件
+- **Integration Tests**：测试组件间交互
+- **End-to-End Tests**：测试完整工作流
+
+## 运行测试
+
+```bash
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run specific test file
+pytest tests/test_provider_garmin.py
+
+# Run tests matching pattern
+pytest -k "test_oauth"
+
+# Run with coverage report
+pytest --cov=connect --cov-report=html
+```
+
+## 测试结构
+
+```
+tests/
+├── __init__.py
+├── conftest.py                    # Shared fixtures
+├── test_provider_garmin.py
+├── test_provider_whoop.py
+├── test_data_formatting.py
+└── fixtures/
+    ├── sample_responses.json
+    └── mock_data.py
+```
+
+## 编写测试
+
+### Unit Test Example
+
+```python
+import pytest
+from connect.theta.mirobody_garmin.provider_garmin import ThetaGarminProvider
+
+@pytest.fixture
+def provider():
+    return ThetaGarminProvider()
+
+@pytest.mark.asyncio
+async def test_provider_info(provider):
+    """Test provider metadata"""
+    info = provider.info
+    assert info.slug == "theta_garmin"
+    assert info.supported is True
+```
+
+### Integration Test Example
+
+```python
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_complete_oauth_flow():
+    """Test complete OAuth flow"""
+    provider = ThetaGarminProvider()
+    
+    # Test link
+    request = MockRequest(user_id="test_user")
+    result = await provider.link(request)
+    assert "link_web_url" in result
+```
+
+## 最佳实践
+
+<AccordionGroup>
+  <Accordion title="Test Naming" icon="signature">
+    - 使用描述性名称：`test_oauth_link_generates_valid_url`
+    - 以 `test_` 开头
+    - 将相关测试按类分组
+  </Accordion>
+
+  <Accordion title="Fixtures" icon="flask">
+    - 使用 fixtures 复用公共 setup
+    - fixtures 保持简单
+    - 谨慎使用 `autouse=True`
+  </Accordion>
+
+  <Accordion title="Mocking" icon="mask">
+    - Mock 外部服务
+    - 不要 mock 正在被测试的对象
+    - HTTP 调用建议使用 `aioresponses`
+  </Accordion>
+
+  <Accordion title="Assertions" icon="check">
+    - 使用明确的 assertions
+    - 每个测试只验证一件事
+    - 添加有帮助的失败提示
+  </Accordion>
+</AccordionGroup>
+
+## 持续集成（CI）
+
+测试会通过 GitHub Actions 在每次 push 时自动运行。配置见 `.github/workflows/test.yml`。
+
+<Tip>
+在实现新功能之前先编写测试（TDD）。
+</Tip>

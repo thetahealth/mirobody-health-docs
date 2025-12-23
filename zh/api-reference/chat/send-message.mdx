@@ -1,0 +1,66 @@
+---
+title: "发送对话消息"
+description: "向 AI 健康助手发送消息并获取回复"
+---
+
+## Endpoint
+
+```
+POST /api/chat
+```
+
+## Overview
+
+通过发送消息与 AI 健康助手交互，并基于用户健康数据获得智能回复。
+
+<Info>
+Chat API 支持多个 LLM providers，包括 OpenAI、Google Gemini、Anthropic Claude 与 OpenRouter。
+</Info>
+
+## Request
+
+<ParamField body="message" type="string" required>
+  用户的消息或问题
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  用户的唯一标识
+</ParamField>
+
+<ParamField body="session_id" type="string">
+  可选 session ID，用于保持对话上下文
+</ParamField>
+
+<ParamField body="provider" type="string">
+  使用的 LLM provider：`openai`、`google`、`anthropic` 或 `openrouter`。默认使用配置中的 provider。
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST http://localhost:18080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "How many steps did I take yesterday?",
+    "user_id": "user_123",
+    "session_id": "session_abc"
+  }'
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "response": "Based on your Garmin data, you took 10,543 steps yesterday. That's about 200 steps more than your daily average!",
+  "session_id": "session_abc",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "provider": "openai",
+  "model": "gpt-4"
+}
+```
+</ResponseExample>
+
+<Note>
+AI 助手可以访问用户已连接的健康数据，并回答有关活动、睡眠、心率等指标的问题。
+</Note>

@@ -1,0 +1,196 @@
+---
+title: "生产环境部署"
+description: "将 Mirobody Health 部署到生产环境的最佳实践"
+---
+
+## 生产检查清单
+
+<AccordionGroup>
+  <Accordion title="安全（Security）" icon="shield">
+    - [ ] 使用强度高且随机生成的 keys（密钥）
+    - [ ] 启用 HTTPS/TLS
+    - [ ] 限制 CORS origins（允许来源）
+    - [ ] 使用环境变量管理 secrets（敏感配置）
+    - [ ] 启用数据库加密
+    - [ ] 配置防火墙规则
+  </Accordion>
+
+  <Accordion title="性能（Performance）" icon="gauge">
+    - [ ] 配置 connection pooling（连接池）
+    - [ ] 启用 Redis 持久化
+    - [ ] 配置缓存
+    - [ ] 优化数据库查询
+    - [ ] 配置 rate limiting（限流）
+  </Accordion>
+
+  <Accordion title="监控（Monitoring）" icon="chart-line">
+    - [ ] 配置日志聚合
+    - [ ] 配置 health checks（健康检查）
+    - [ ] 启用指标采集（metrics）
+    - [ ] 配置告警（alerts）
+    - [ ] 监控错误率
+  </Accordion>
+
+  <Accordion title="备份与恢复（Backup & Recovery）" icon="database">
+    - [ ] 自动化数据库备份
+    - [ ] 演练恢复流程
+    - [ ] 备份配置文件
+    - [ ] 文档化恢复过程
+  </Accordion>
+</AccordionGroup>
+
+## 安全配置
+
+### 生成安全的 Keys
+
+```bash
+# Database encryption key (32 characters)
+openssl rand -hex 32
+
+# JWT secret key
+openssl rand -base64 48
+
+# Redis password
+openssl rand -base64 32
+```
+
+### 生产环境 config.yaml
+
+```yaml
+# Security
+DATABASE_DECRYPTION_KEY: '[generated-key]'
+JWT_KEY: '[generated-key]'
+REDIS_PASSWORD: '[strong-password]'
+PG_PASSWORD: '[strong-password]'
+
+# HTTPS URLs
+MCP_FRONTEND_URL: 'https://yourdomain.com'
+MCP_PUBLIC_URL: 'https://api.yourdomain.com'
+WHOOP_REDIRECT_URL: 'https://api.yourdomain.com/api/v1/pulse/theta/theta_whoop/callback'
+
+# Strict CORS
+HTTP_HEADERS:
+  Access-Control-Allow-Origin: 'https://yourdomain.com'
+
+# SSL/TLS
+REDIS_SSL: true
+```
+
+## 部署架构
+
+### AWS 示例
+
+```
+┌─────────────────────────┐
+│  Route 53 (DNS)         │
+└────────┬────────────────┘
+         │
+┌────────▼────────────────┐
+│  CloudFront (CDN)       │
+└────────┬────────────────┘
+         │
+┌────────▼────────────────┐
+│  ALB (Load Balancer)    │
+└────┬────────────┬───────┘
+     │            │
+┌────▼────┐  ┌───▼─────┐
+│ ECS/EC2 │  │ ECS/EC2 │
+│ API 1   │  │ API 2   │
+└────┬────┘  └───┬─────┘
+     │           │
+     └─────┬─────┘
+           │
+    ┌──────▼──────────┐
+    │                 │
+┌───▼─────────┐  ┌───▼────────────┐
+│ RDS         │  │ ElastiCache    │
+│ PostgreSQL  │  │ Redis          │
+└─────────────┘  └────────────────┘
+```
+
+## 环境变量（Environment Variables）
+
+使用环境变量管理敏感配置：
+
+```bash
+export DATABASE_DECRYPTION_KEY="..."
+export JWT_KEY="..."
+export OPENAI_API_KEY="..."
+export POSTGRES_PASSWORD="..."
+export REDIS_PASSWORD="..."
+```
+
+## 监控与日志（Monitoring & Logging）
+
+### 日志配置
+
+```yaml config.yaml
+LOG_LEVEL: 'INFO'
+LOG_DIR: '/var/log/mirobody'
+```
+
+### 健康检查接口（Health Check Endpoint）
+
+```bash
+# Monitor application health
+curl https://api.yourdomain.com/health
+```
+
+### 监控指标（Metrics）
+
+- 请求延迟（p50、p95、p99）
+- 按 endpoint 统计的错误率
+- Providers 同步成功率
+- 数据库连接池使用率
+- Redis cache 命中率
+- CPU 与内存使用率
+
+## 备份策略
+
+### 数据库备份
+
+```bash
+# Daily automated backup
+0 2 * * * pg_dump -h localhost -U holistic_user holistic_db | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
+```
+
+### 配置备份
+
+```bash
+# Backup configuration
+tar -czf config-backup-$(date +%Y%m%d).tar.gz config.yaml .env
+```
+
+## 扩容与伸缩（Scaling）
+
+### 水平扩展（Horizontal Scaling）
+
+- 在 load balancer 后部署多个 API 实例
+- 使用 Redis cluster 做分布式缓存
+- 读多写少场景使用数据库只读副本（read replicas）
+
+### 垂直扩展（Vertical Scaling）
+
+根据负载调整资源：
+
+```yaml
+# docker-compose.yml
+services:
+  backend:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+```
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Docker 部署" icon="docker" href="/zh/deployment/docker">
+    使用 Docker 部署与运维
+  </Card>
+  <Card title="配置" icon="gear" href="/zh/configuration">
+    生产环境关键配置项
+  </Card>
+</CardGroup>

@@ -1,0 +1,113 @@
+---
+title: "列出 Providers"
+description: "获取系统中所有可用的健康设备 providers 列表"
+---
+
+## Endpoint
+
+```
+GET /api/v1/pulse/providers
+```
+
+## Overview
+
+获取系统中所有可用健康设备 providers 的信息，包括配置状态与能力描述。
+
+## Request
+
+<RequestExample>
+```bash cURL
+curl http://localhost:18080/api/v1/pulse/providers
+```
+</RequestExample>
+
+## Response
+
+<ResponseExample>
+```json Success
+{
+  "providers": [
+    {
+      "slug": "theta_garmin",
+      "name": "Garmin",
+      "description": "Garmin health data integration via OAuth",
+      "logo": "https://static.thetahealth.ai/res/garmin.png",
+      "supported": true,
+      "auth_type": "oauth1",
+      "status": "available"
+    },
+    {
+      "slug": "theta_whoop",
+      "name": "Whoop",
+      "description": "Whoop health data integration via OAuth",
+      "logo": "https://static.thetahealth.ai/res/whoop.png",
+      "supported": true,
+      "auth_type": "oauth2",
+      "status": "available"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+## Response Fields
+
+<ResponseField name="providers" type="array" required>
+  provider objects 数组
+
+  <Expandable title="Provider object">
+    <ResponseField name="slug" type="string" required>
+      provider 的唯一标识（例如 `theta_garmin`）
+    </ResponseField>
+
+    <ResponseField name="name" type="string" required>
+      provider 的显示名称
+    </ResponseField>
+
+    <ResponseField name="description" type="string">
+      provider 描述与能力
+    </ResponseField>
+
+    <ResponseField name="logo" type="string">
+      provider logo 图片 URL
+    </ResponseField>
+
+    <ResponseField name="supported" type="boolean" required>
+      是否为当前支持的 provider
+    </ResponseField>
+
+    <ResponseField name="auth_type" type="string" required>
+      OAuth 版本：`oauth1` 或 `oauth2`
+    </ResponseField>
+
+    <ResponseField name="status" type="string" required>
+      provider 状态：`available`、`unavailable` 或 `maintenance`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Usage
+
+<CodeGroup>
+```python Python
+import aiohttp
+
+async def list_providers():
+    async with aiohttp.ClientSession() as session:
+        async with session.get("http://localhost:18080/api/v1/pulse/providers") as resp:
+            providers = await resp.json()
+            return providers["providers"]
+
+providers = await list_providers()
+for provider in providers:
+    print(f"{provider['name']}: {provider['status']}")
+```
+
+```bash cURL
+curl http://localhost:18080/api/v1/pulse/providers | jq '.providers[] | {name, status}'
+```
+</CodeGroup>
+
+<Tip>
+在链接 provider 或查询 provider 相关数据时，请使用 `slug` 字段。
+</Tip>

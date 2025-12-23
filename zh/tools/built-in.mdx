@@ -1,0 +1,252 @@
+---
+title: "内置 Tools"
+description: "Mirobody Health 默认提供的健康 tools"
+---
+
+## 概览
+
+Mirobody Health 默认包含两个关键的健康 tools，使 AI agents 能够安全访问并分析用户健康数据。
+
+<CardGroup cols={2}>
+  <Card title="get_user_health_profile" icon="user">
+    获取完整用户 profile 与摘要信息
+  </Card>
+  <Card title="get_health_indicator" icon="chart-line">
+    查询指定健康指标与时间序列数据
+  </Card>
+</CardGroup>
+
+## get_user_health_profile
+
+获取用户完整健康 profile，包括已连接设备、摘要统计与 profile 信息。
+
+### Function Signature
+
+```python
+async def get_user_health_profile(user_info: UserInfo) -> Dict[str, Any]:
+    """
+    Get user health profile including connected devices and summary data
+    
+    Args:
+        user_info: User authentication information (automatically injected)
+        
+    Returns:
+        Dict containing:
+            - profile: User profile information
+            - connected_providers: List of linked health devices
+            - summary: Health data summary and statistics
+    """
+```
+
+### Parameters
+
+<ParamField body="user_info" type="UserInfo" required>
+  用户认证信息。通过 MCP 调用时该参数会由系统 **自动提供**，无需手动传入。
+</ParamField>
+
+
+### Use Cases
+
+- **Profile Overview**：在 dashboard 中展示用户健康 profile
+- **Device Status**：检查哪些设备已连接并在同步
+- **Data Availability**：确认有哪些健康数据可用于分析
+- **Agent Context**：为 agent 提供用户上下文以生成更个性化的回答
+
+## get_health_indicator
+
+获取指定健康指标数据，并支持可选的时间范围过滤。
+
+### Function Signature
+
+```python
+async def get_health_indicator(
+    user_info: UserInfo,
+    indicator: str,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    limit: Optional[int] = 100
+) -> List[Dict[str, Any]]:
+    """
+    Get health indicator data for a specific metric
+    
+    Args:
+        user_info: User authentication information (automatically injected)
+        indicator: Health indicator name (e.g., "HEART_RATE", "STEPS", "SLEEP_DURATION")
+        start_time: Optional start time filter (ISO 8601 format)
+        end_time: Optional end time filter (ISO 8601 format)
+        limit: Maximum number of records to return (default: 100)
+        
+    Returns:
+        List of health indicator records with values and timestamps
+    """
+```
+
+### Parameters
+
+<ParamField body="user_info" type="UserInfo" required>
+  User authentication information (automatically provided)
+</ParamField>
+
+<ParamField body="indicator" type="string" required>
+  健康指标名称。示例：
+  - `HEART_RATE`: Heart rate measurements
+  - `DAILY_STEPS`: Daily step count
+  - `SLEEP_DURATION`: Sleep duration
+  - `HRV`: Heart rate variability
+  - `WEIGHT`: Body weight
+  
+  完整列表请参见[标准指标](/zh/providers/overview#standard-health-indicators)。
+</ParamField>
+
+<ParamField body="start_time" type="string">
+  过滤数据的起始时间（ISO 8601 格式）。例如：`2024-01-01T00:00:00Z`
+</ParamField>
+
+<ParamField body="end_time" type="string">
+  过滤数据的结束时间（ISO 8601 格式）。例如：`2024-01-15T23:59:59Z`
+</ParamField>
+
+<ParamField body="limit" type="integer">
+  返回记录的最大数量。默认：100，最大：1000
+</ParamField>
+
+### Use Cases
+
+- **Trend Analysis**：查询一周的心率数据并分析趋势
+- **Comparative Analysis**：对比不同月份的睡眠时长
+- **Correlation Studies**：分析不同健康指标之间的关系
+- **Report Generation**：拉取数据生成个性化健康报告
+
+## 查询健康数据
+
+这两个 tools 都会查询 `theta_ai.th_series_data` 表，该表包含来自所有已连接设备的标准化健康指标。
+
+### Available Indicators
+
+<AccordionGroup>
+  <Accordion title="Activity Indicators" icon="person-running">
+    - `DAILY_STEPS`: 每日步数
+    - `DAILY_DISTANCE`: 行走距离
+    - `DAILY_CALORIES_ACTIVE`: 活动消耗热量
+    - `DAILY_CALORIES_BASAL`: 基础代谢
+    - `ACTIVE_TIME`: 活动时长
+    - `DAILY_FLOORS_CLIMBED`: 爬楼层数
+  </Accordion>
+
+  <Accordion title="Heart Rate Indicators" icon="heart-pulse">
+    - `HEART_RATE`: 瞬时心率
+    - `DAILY_HEART_RATE_RESTING`: 静息心率
+    - `DAILY_HEART_RATE_MIN`: 当日最低心率
+    - `DAILY_HEART_RATE_MAX`: 当日最高心率
+    - `DAILY_AVG_HEART_RATE`: 当日平均心率
+    - `HRV`: 心率变异性（RMSSD）
+  </Accordion>
+
+  <Accordion title="Sleep Indicators" icon="bed">
+    - `DAILY_SLEEP_DURATION`: 总睡眠时长
+    - `SLEEP_IN_BED`: 在床时间
+    - `DAILY_AWAKE_TIME`: 睡眠期间清醒时间
+    - `DAILY_LIGHT_SLEEP`: 浅睡时长
+    - `DAILY_DEEP_SLEEP`: 深睡时长
+    - `DAILY_REM_SLEEP`: REM 睡眠时长
+    - `SLEEP_EFFICIENCY`: 睡眠效率（百分比）
+  </Accordion>
+
+  <Accordion title="Body Metrics" icon="weight-scale">
+    - `WEIGHT`: 体重
+    - `HEIGHT`: 身高
+    - `BMI`: 体重指数
+    - `BODY_FAT_PERCENTAGE`: 体脂率
+    - `SKELETAL_MUSCLE_MASS`: 骨骼肌量
+  </Accordion>
+</AccordionGroup>
+
+## Agent 查询示例
+
+以下示例展示 AI agents 如何使用这些 tools：
+
+<Tabs>
+  <Tab title="查询 Profile">
+    **User:** "What health devices do I have connected?"
+    
+    **Agent Action:**
+    ```python
+    profile = await get_user_health_profile(user_info)
+    connected = profile["connected_providers"]
+    ```
+    
+    **Response:** "You have 2 devices connected: Garmin (last synced 2 hours ago) and Whoop (last synced 1 hour ago)."
+  </Tab>
+
+  <Tab title="趋势分析">
+    **User:** "Show me my heart rate for the past week"
+    
+    **Agent Action:**
+    ```python
+    data = await get_health_indicator(
+        user_info,
+        indicator="HEART_RATE",
+        start_time="2024-01-08T00:00:00Z",
+        end_time="2024-01-15T23:59:59Z"
+    )
+    ```
+    
+    **Response:** "Your average heart rate was 68 bpm. I noticed it was higher on Jan 12 (75 bpm average), which matches your workout day."
+  </Tab>
+
+  <Tab title="对比分析">
+    **User:** "Compare my sleep this week vs last week"
+    
+    **Agent Action:**
+    ```python
+    this_week = await get_health_indicator(
+        user_info,
+        indicator="DAILY_SLEEP_DURATION",
+        start_time="2024-01-08T00:00:00Z",
+        end_time="2024-01-14T23:59:59Z"
+    )
+    
+    last_week = await get_health_indicator(
+        user_info,
+        indicator="DAILY_SLEEP_DURATION",
+        start_time="2024-01-01T00:00:00Z",
+        end_time="2024-01-07T23:59:59Z"
+    )
+    ```
+    
+    **Response:** "This week you averaged 7.5 hours of sleep, compared to 6.8 hours last week - a 10% improvement!"
+  </Tab>
+</Tabs>
+
+## 安全
+
+<AccordionGroup>
+  <Accordion title="OAuth Authentication" icon="shield">
+    所有用户数据相关 tools 都需要 OAuth 认证。执行 tool 之前会自动校验 `user_info` 参数。
+  </Accordion>
+
+  <Accordion title="Data Scoping" icon="lock">
+    Tools 只能访问当前认证用户的数据；数据库层面会阻止跨用户的数据访问。
+  </Accordion>
+
+  <Accordion title="Audit Logging" icon="clipboard-list">
+    所有 tool 调用都会记录 user ID、timestamp 与参数，用于安全审计。
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Add Custom Tools" icon="plus" href="/zh/tools/adding-tools">
+    用 Python 创建你自己的 tools
+  </Card>
+  <Card title="MCP Integration" icon="bolt" href="/zh/tools/mcp-integration">
+    连接到 Claude、Cursor 或 ChatGPT
+  </Card>
+  <Card title="Adding MCPs" icon="plug" href="/zh/tools/adding-mcps">
+    添加并配置第三方 MCP servers
+  </Card>
+  <Card title="API Reference" icon="book" href="/zh/api-reference/mcp/tools">
+    MCP protocol 的 tools 文档
+  </Card>
+</CardGroup>

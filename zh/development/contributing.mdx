@@ -1,0 +1,109 @@
+---
+title: "贡献指南"
+description: "为 Mirobody Health 做贡献的指南与规范"
+---
+
+## 欢迎贡献者！
+
+感谢你有兴趣为 Mirobody Health 做贡献。本指南将帮助你快速开始。
+
+## 贡献方式
+
+<CardGroup cols={2}>
+  <Card title="新增 Providers" icon="plug">
+    集成新的健康设备 Providers
+  </Card>
+  <Card title="修复 Bugs" icon="bug">
+    反馈并修复问题
+  </Card>
+  <Card title="完善文档" icon="book">
+    改进与补充文档
+  </Card>
+  <Card title="新增功能" icon="sparkles">
+    提出并实现新功能
+  </Card>
+</CardGroup>
+
+## 开始贡献
+
+<Steps>
+  <Step title="Fork 仓库">
+    Fork 一份你自己的 Mirobody Health 仓库
+  </Step>
+
+  <Step title="搭建开发环境">
+    按照[开发环境搭建](/zh/development/setup)进行配置
+  </Step>
+
+  <Step title="创建分支">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="完成修改">
+    实现你的功能或修复
+  </Step>
+
+  <Step title="测试修改">
+    ```bash
+    pytest
+    ```
+  </Step>
+
+  <Step title="提交并推送">
+    ```bash
+    git add .
+    git commit -m "Add: description of your changes"
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="创建 Pull Request">
+    创建一个 Pull Request，并清晰描述你的改动内容
+  </Step>
+</Steps>
+
+## 代码风格
+
+- Follow PEP 8 guidelines
+- Use `black` for code formatting
+- Use `ruff` for linting
+- Write docstrings for all public methods
+- Add type hints
+
+## Pull Request 规范
+
+<AccordionGroup>
+  <Accordion title="标题格式" icon="heading">
+    使用 conventional commit 格式：
+    - `feat:` for new features
+    - `fix:` for bug fixes
+    - `docs:` for documentation
+    - `refactor:` for code refactoring
+    - `test:` for adding tests
+  </Accordion>
+
+  <Accordion title="描述内容" icon="file-lines">
+    - 说明 PR 做了什么
+    - 为什么需要这个改动
+    - 如何测试这些改动
+    - 链接相关 issues
+  </Accordion>
+
+  <Accordion title="Checklist" icon="list-check">
+    - [ ] 代码符合风格规范
+    - [ ] 新增/更新测试
+    - [ ] 更新文档
+    - [ ] 所有测试通过
+    - [ ] 无 linter warnings
+  </Accordion>
+</AccordionGroup>
+
+## 有问题？
+
+- 可以通过 issue 提问
+- 加入社区讨论
+- Email：developer@thetahealth.ai
+
+感谢你的贡献！

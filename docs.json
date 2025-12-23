@@ -9,116 +9,239 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "tabs": [
+    "languages": [
       {
-        "tab": "Documentation",
-        "groups": [
+        "language": "en",
+        "tabs": [
           {
-            "group": "Getting Started",
-            "pages": [
-              "index",
-              "use-cases",
-              "quickstart",
-              "installation",
-              "configuration"
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "en/index",
+                  "en/use-cases",
+                  "en/quickstart",
+                  "en/installation",
+                  "en/configuration"
+                ]
+              },
+              {
+                "group": "Core Concepts",
+                "pages": [
+                  "en/concepts/architecture",
+                  "en/concepts/providers",
+                  "en/concepts/file-processing",
+                  "en/concepts/data-flow"
+                ]
+              },
+              {
+                "group": "Using Providers",
+                "pages": [
+                  "en/providers/using-providers",
+                  "en/providers/overview"
+                ]
+              },
+              {
+                "group": "Provider Examples",
+                "pages": [
+                  "en/examples/garmin-provider",
+                  "en/examples/whoop-provider"
+                ]
+              },
+              {
+                "group": "Tools & MCP",
+                "pages": [
+                  "en/tools/overview",
+                  "en/tools/built-in",
+                  "en/tools/adding-tools",
+                  "en/tools/mcp-integration",
+                  "en/tools/adding-mcps"
+                ]
+              }
             ]
           },
           {
-            "group": "Core Concepts",
-            "pages": [
-              "concepts/architecture",
-              "concepts/providers",
-              "concepts/file-processing",
-              "concepts/data-flow"
+            "tab": "API Reference",
+            "groups": [
+              {
+                "group": "Overview",
+                "pages": [
+                  "en/api-reference/introduction"
+                ]
+              },
+              {
+                "group": "Pulse API",
+                "pages": [
+                  "en/api-reference/pulse/link",
+                  "en/api-reference/pulse/callback",
+                  "en/api-reference/pulse/unlink",
+                  "en/api-reference/pulse/providers"
+                ]
+              },
+              {
+                "group": "Chat API",
+                "pages": [
+                  "en/api-reference/chat/send-message",
+                  "en/api-reference/chat/history"
+                ]
+              },
+              {
+                "group": "MCP Protocol",
+                "pages": [
+                  "en/api-reference/mcp/overview",
+                  "en/api-reference/mcp/tools",
+                  "en/api-reference/mcp/resources"
+                ]
+              }
             ]
           },
           {
-            "group": "Using Providers",
-            "pages": [
-              "providers/using-providers",
-              "providers/overview"
-            ]
-          },
-          {
-            "group": "Provider Examples",
-            "pages": [
-              "examples/garmin-provider",
-              "examples/whoop-provider"
-            ]
-          },
-          {
-            "group": "Tools & MCP",
-            "pages": [
-              "tools/overview",
-              "tools/built-in",
-              "tools/adding-tools",
-              "tools/mcp-integration",
-              "tools/adding-mcps"
+            "tab": "Development",
+            "groups": [
+              {
+                "group": "Developer Guide",
+                "pages": [
+                  "en/development/setup",
+                  "en/development/contributing",
+                  "en/development/testing",
+                  "en/development/file-processing"
+                ]
+              },
+              {
+                "group": "Provider Development",
+                "pages": [
+                  "en/development/provider-integration",
+                  "en/development/oauth-implementation",
+                  "en/development/data-mapping",
+                  "en/development/provider-testing"
+                ]
+              },
+              {
+                "group": "Deployment",
+                "pages": [
+                  "en/deployment/docker",
+                  "en/deployment/production"
+                ]
+              }
             ]
           }
         ]
       },
       {
-        "tab": "API Reference",
-        "groups": [
+        "language": "zh",
+        "tabs": [
           {
-            "group": "Overview",
-            "pages": [
-              "api-reference/introduction"
+            "tab": "文档",
+            "groups": [
+              {
+                "group": "快速开始",
+                "pages": [
+                  "zh/index",
+                  "zh/use-cases",
+                  "zh/quickstart",
+                  "zh/installation",
+                  "zh/configuration"
+                ]
+              },
+              {
+                "group": "核心概念",
+                "pages": [
+                  "zh/concepts/architecture",
+                  "zh/concepts/providers",
+                  "zh/concepts/file-processing",
+                  "zh/concepts/data-flow"
+                ]
+              },
+              {
+                "group": "使用 Providers",
+                "pages": [
+                  "zh/providers/using-providers",
+                  "zh/providers/overview"
+                ]
+              },
+              {
+                "group": "Providers 示例",
+                "pages": [
+                  "zh/examples/garmin-provider",
+                  "zh/examples/whoop-provider"
+                ]
+              },
+              {
+                "group": "Tools 与 MCP",
+                "pages": [
+                  "zh/tools/overview",
+                  "zh/tools/built-in",
+                  "zh/tools/adding-tools",
+                  "zh/tools/mcp-integration",
+                  "zh/tools/adding-mcps"
+                ]
+              }
             ]
           },
           {
-            "group": "Pulse API",
-            "pages": [
-              "api-reference/pulse/link",
-              "api-reference/pulse/callback",
-              "api-reference/pulse/unlink",
-              "api-reference/pulse/providers"
+            "tab": "API 引用",
+            "groups": [
+              {
+                "group": "概览",
+                "pages": [
+                  "zh/api-reference/introduction"
+                ]
+              },
+              {
+                "group": "Pulse API",
+                "pages": [
+                  "zh/api-reference/pulse/link",
+                  "zh/api-reference/pulse/callback",
+                  "zh/api-reference/pulse/unlink",
+                  "zh/api-reference/pulse/providers"
+                ]
+              },
+              {
+                "group": "对话 API",
+                "pages": [
+                  "zh/api-reference/chat/send-message",
+                  "zh/api-reference/chat/history"
+                ]
+              },
+              {
+                "group": "MCP 协议",
+                "pages": [
+                  "zh/api-reference/mcp/overview",
+                  "zh/api-reference/mcp/tools",
+                  "zh/api-reference/mcp/resources"
+                ]
+              }
             ]
           },
           {
-            "group": "Chat API",
-            "pages": [
-              "api-reference/chat/send-message",
-              "api-reference/chat/history"
-            ]
-          },
-          {
-            "group": "MCP Protocol",
-            "pages": [
-              "api-reference/mcp/overview",
-              "api-reference/mcp/tools",
-              "api-reference/mcp/resources"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Development",
-        "groups": [
-          {
-            "group": "Developer Guide",
-            "pages": [
-              "development/setup",
-              "development/contributing",
-              "development/testing",
-              "development/file-processing"
-            ]
-          },
-          {
-            "group": "Provider Development",
-            "pages": [
-              "development/provider-integration",
-              "development/oauth-implementation",
-              "development/data-mapping",
-              "development/provider-testing"
-            ]
-          },
-          {
-            "group": "Deployment",
-            "pages": [
-              "deployment/docker",
-              "deployment/production"
+            "tab": "开发",
+            "groups": [
+              {
+                "group": "开发者指南",
+                "pages": [
+                  "zh/development/setup",
+                  "zh/development/contributing",
+                  "zh/development/testing",
+                  "zh/development/file-processing"
+                ]
+              },
+              {
+                "group": "Providers 开发",
+                "pages": [
+                  "zh/development/provider-integration",
+                  "zh/development/oauth-implementation",
+                  "zh/development/data-mapping",
+                  "zh/development/provider-testing"
+                ]
+              },
+              {
+                "group": "部署",
+                "pages": [
+                  "zh/deployment/docker",
+                  "zh/deployment/production"
+                ]
+              }
             ]
           }
         ]
@@ -163,7 +286,7 @@
     "primary": {
       "type": "button",
       "label": "Get Started",
-      "href": "/quickstart"
+      "href": "/en/quickstart"
     }
   },
   "contextual": {

@@ -1,0 +1,403 @@
+---
+title: "安装"
+description: "在不同平台上安装 Mirobody Health 的详细指南"
+---
+
+## 安装方式
+
+选择最适合你需求的安装方式：
+
+<Tabs>
+  <Tab title="Docker (Recommended)">
+    Docker 部署适用于开发与生产环境，也是推荐方式。
+
+    ### Step 1：安装 Docker
+
+    <Tabs>
+      <Tab title="macOS">
+        下载并安装 [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop)：
+
+        ```bash
+        brew install --cask docker
+        ```
+
+        从 Applications 文件夹启动 Docker Desktop。
+      </Tab>
+
+      <Tab title="Linux">
+        安装 Docker Engine 与 Docker Compose：
+
+        ```bash
+        # Ubuntu/Debian
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        
+        # Add your user to docker group
+        sudo usermod -aG docker $USER
+        
+        # Install Docker Compose
+        sudo apt-get install docker-compose-plugin
+        ```
+
+        退出并重新登录使用户组变更生效。
+      </Tab>
+
+      <Tab title="Windows">
+        Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop):
+
+        1. Download the installer
+        2. Run the installer
+        3. Enable WSL 2 integration
+        4. Restart your computer
+
+        <Warning>
+        Windows 需要 WSL 2 才能获得最佳 Docker 性能。
+        </Warning>
+      </Tab>
+    </Tabs>
+
+    ### Step 2：克隆仓库
+
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    ```
+
+    ### Step 3：配置环境
+
+    ```bash
+    cp .env_example .env
+    cp config.example.yaml config.yaml
+    ```
+
+    ### Step 4：部署
+
+    ```bash
+    ./deploy.sh
+    ```
+
+    <Check>
+    部署脚本会构建并启动所需的全部服务。
+    </Check>
+  </Tab>
+
+  <Tab title="From Source">
+    从源码构建运行，适用于开发与深度定制。
+
+    ### Step 1：克隆并初始化
+
+    ```bash
+    git clone https://github.com/thetahealth/mirobody-health.git
+    cd mirobody-health
+    
+    # Create virtual environment
+    python3.12 -m venv venv
+    source venv/bin/activate
+    ```
+
+    ### Step 2：安装依赖
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    ### Step 3：启动外部服务
+
+    启动 PostgreSQL 与 Redis（为简单起见使用 Docker）：
+
+    ```bash
+    docker-compose up -d postgres redis
+    ```
+
+    ### Step 4：配置
+
+    ```bash
+    cp config.example.yaml config.yaml
+    # Edit config.yaml with your settings
+    ```
+
+    ### Step 5：初始化数据库
+
+    ```bash
+    python -c "from mirobody.utils.db_initializer import initialize_database; import asyncio; asyncio.run(initialize_database())"
+    ```
+
+    ### Step 6：运行
+
+    ```bash
+    python main.py
+    ```
+
+    <Check>
+    服务应启动于 http://localhost:18080
+    </Check>
+  </Tab>
+</Tabs>
+
+## 验证安装
+
+安装完成后，请验证各项功能是否正常：
+
+<Steps>
+  <Step title="检查服务健康状态">
+    ```bash
+    curl http://localhost:18080/health
+    ```
+
+    期望响应：
+
+    ```json
+    {
+      "status": "healthy",
+      "version": "1.0.1",
+      "services": {
+        "database": "connected",
+        "redis": "connected"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="列出可用 providers">
+    ```bash
+    curl http://localhost:18080/api/v1/pulse/providers
+    ```
+
+    应返回可用健康 providers 列表。
+  </Step>
+
+  <Step title="查看日志">
+    查看应用日志，确保没有错误：
+
+    ```bash
+    # Docker deployment
+    docker-compose logs -f backend
+    
+    # Direct installation
+    # 日志会输出在运行 main.py 的终端中
+    ```
+  </Step>
+</Steps>
+
+## 安装后配置
+
+<AccordionGroup>
+  <Accordion title="配置数据 Providers" icon="key">
+    要启用健康设备集成，你需要为每个 provider 准备 OAuth 凭据。
+
+    获取与配置 OAuth 凭据的详细说明请参见[配置指南](/zh/configuration)，包括：
+    - Garmin Connect
+    - Whoop
+    - 自定义 providers
+  </Accordion>
+
+  <Accordion title="启用 AI 对话与文件处理" icon="robot">
+    要启用 AI 功能，请在 `config.yaml` 中添加 API keys：
+
+    ```yaml
+    # REQUIRED API Keys
+    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # For AI chat/agents
+    GOOGLE_API_KEY: 'your_google_api_key'  # For file processing (Gemini)
+    
+    # Optional
+    OPENAI_API_KEY: 'your_openai_api_key'
+    ```
+
+    <Info>
+    - **OPENROUTER_API_KEY**：AI 对话与 agent 功能必填
+    - **GOOGLE_API_KEY**：使用 Gemini 处理文件（PDF、图片、医疗记录等）必填
+    - **OPENAI_API_KEY**：可选，仅用于 OpenAI 相关特性
+    </Info>
+  </Accordion>
+
+  <Accordion title="配置数据库加密" icon="lock">
+    生产环境请设置安全的加密 key：
+
+    ```yaml
+    DATABASE_DECRYPTION_KEY: 'your_32_char_encryption_key'
+    JWT_KEY: 'your_secure_jwt_secret'
+    ```
+
+    <Warning>
+    生产环境请使用强度高且随机生成的 key，切勿提交到版本控制系统。
+    </Warning>
+  </Accordion>
+
+  <Accordion title="配置云存储（可选）" icon="cloud">
+    配置兼容 S3 的存储用于数据备份：
+
+    ```yaml
+    S3_KEY: 'your_access_key'
+    S3_TOKEN: 'your_secret_key'
+    S3_REGION: 'us-east-1'
+    S3_BUCKET: 'your-bucket-name'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 目录结构
+
+安装完成后，目录结构大致如下：
+
+```
+mirobody-health/
+├── connect/                    # Provider integrations
+│   ├── __init__.py
+│   └── theta/                 # Theta platform providers
+│       ├── mirobody_garmin_connect/
+│       └── mirobody_whoop/
+├── docker/                     # Docker configuration
+│   ├── docker-compose.yaml
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.base
+│   └── Dockerfile.postgres
+├── shell/                      # Utility scripts
+│   ├── chat_test_commands.sh
+│   └── get_tools.sh
+├── config.yaml                 # Main configuration
+├── .env                       # Environment variables
+├── main.py                    # Application entry point
+├── requirements.txt           # Python dependencies
+├── setup.py                   # Package setup
+└── README.md                  # Documentation
+```
+
+## 安装问题排查
+
+<AccordionGroup>
+  <Accordion title="Docker 安装/运行失败" icon="docker">
+    **Problem**：Docker 命令因权限问题失败。
+
+    **Solution**：
+    ```bash
+    # Linux: Add user to docker group
+    sudo usermod -aG docker $USER
+    
+    # Log out and back in
+    newgrp docker
+    ```
+  </Accordion>
+
+  <Accordion title="端口冲突" icon="network-wired">
+    **Problem**：端口 18080 已被占用。
+
+    **Solution**：在 `config.yaml` 中修改端口：
+    ```yaml
+    HTTP_PORT: 18081  # Use any available port
+    ```
+  </Accordion>
+
+  <Accordion title="数据库连接失败" icon="database">
+    **Problem**：无法连接 PostgreSQL。
+
+    **Solutions**：
+    1. 确认 PostgreSQL 正在运行：
+       ```bash
+       docker-compose ps postgres
+       ```
+
+    2. 检查 `config.yaml` 中的连接配置：
+       ```yaml
+       PG_HOST: db  # 'db' for Docker, 'localhost' for local install
+       PG_PORT: 5432
+       PG_USER: holistic_user
+       PG_DBNAME: holistic_db
+       ```
+
+    3. 查看数据库日志：
+       ```bash
+       docker-compose logs postgres
+       ```
+  </Accordion>
+
+  <Accordion title="Python 版本不匹配" icon="python">
+    **Problem**：系统没有 Python 3.12。
+
+    **Solutions**：
+
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        brew install python@3.12
+        ```
+      </Tab>
+
+      <Tab title="Linux">
+        ```bash
+        # Ubuntu/Debian
+        sudo add-apt-repository ppa:deadsnakes/ppa
+        sudo apt-get update
+        sudo apt-get install python3.12
+        ```
+      </Tab>
+
+      <Tab title="Windows">
+        从 [python.org](https://www.python.org/downloads/) 下载或使用 `pyenv`：
+        ```bash
+        pyenv install 3.12
+        pyenv global 3.12
+        ```
+      </Tab>
+    </Tabs>
+  </Accordion>
+
+  <Accordion title="模块导入错误" icon="code">
+    **Problem**：运行应用时出现 `ModuleNotFoundError`。
+
+    **Solution**：
+    ```bash
+    # Ensure all dependencies are installed
+    pip install -r requirements.txt
+    
+    # Install in development mode
+    pip install -e .
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 卸载
+
+<Tabs>
+  <Tab title="Docker">
+    删除所有容器、卷与镜像：
+
+    ```bash
+    # Stop and remove containers
+    docker-compose down
+    
+    # Remove volumes (WARNING: This deletes all data)
+    docker-compose down -v
+    
+    # Remove images
+    docker-compose down --rmi all
+    ```
+  </Tab>
+
+  <Tab title="Source Installation">
+    ```bash
+    # Deactivate virtual environment
+    deactivate
+    
+    # Remove project directory
+    cd ..
+    rm -rf mirobody-health
+    ```
+  </Tab>
+</Tabs>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/zh/configuration">
+    配置 OAuth providers 并自定义系统设置
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/zh/quickstart">
+    按照快速开始指南验证安装
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/zh/concepts/architecture">
+    了解 Mirobody Health 的工作原理
+  </Card>
+  <Card title="Development" icon="code" href="/zh/development/setup">
+    搭建开发环境
+  </Card>
+</CardGroup>

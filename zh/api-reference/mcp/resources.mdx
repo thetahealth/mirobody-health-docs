@@ -1,0 +1,57 @@
+---
+title: "MCP 资源"
+description: "通过 MCP protocol 提供给 AI agents 的可用 resources"
+---
+
+## Resources 概览
+
+MCP resources 是 AI agents 可读取的数据源，用于理解用户上下文与健康信息。
+
+## 列出可用 Resources
+
+```json Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "resources/list"
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "resources": [
+      {
+        "uri": "mirobody://user/{user_id}/profile",
+        "name": "User Profile",
+        "description": "User profile and connected providers",
+        "mimeType": "application/json"
+      }
+    ]
+  }
+}
+```
+
+## 可用 Resources
+
+<AccordionGroup>
+  <Accordion title="User Profile" icon="user">
+    **URI:** `mirobody://user/{user_id}/profile`
+
+    包含用户信息以及已连接 provider 的状态。
+  </Accordion>
+
+  <Accordion title="Health Data" icon="heart-pulse">
+    **URI:** `mirobody://user/{user_id}/health/{data_type}`
+
+    访问用户的特定健康数据类型。
+  </Accordion>
+
+  <Accordion title="Provider Info" icon="info-circle">
+    **URI:** `mirobody://providers`
+
+    所有可用 providers 的信息。
+  </Accordion>
+</AccordionGroup>

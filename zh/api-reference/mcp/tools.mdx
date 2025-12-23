@@ -1,0 +1,96 @@
+---
+title: "MCP Tools"
+description: "通过 MCP protocol 提供给 AI agents 的可用 tools"
+---
+
+## Tools 概览
+
+MCP tools 是 AI agents 可调用的 functions，用于与 Mirobody Health 交互。每个 tool 都有明确的 input schema，并返回结构化结果。
+
+## 列出可用 Tools
+
+```json Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list"
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "get_health_data",
+        "description": "Retrieve health data for a user",
+        "inputSchema": {...}
+      }
+    ]
+  }
+}
+```
+
+## 可用 Tools
+
+<AccordionGroup>
+  <Accordion title="get_health_data" icon="chart-line">
+    获取指定用户的健康指标数据。
+
+    **Input Schema:**
+    ```json
+    {
+      "user_id": "string",
+      "data_type": "string (optional)",
+      "start_date": "string (optional)",
+      "end_date": "string (optional)"
+    }
+    ```
+
+    **Example:**
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "get_health_data",
+        "arguments": {
+          "user_id": "user_123",
+          "data_type": "heart_rate"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="link_provider" icon="link">
+    为用户发起 provider 链接流程。
+
+    **Input Schema:**
+    ```json
+    {
+      "user_id": "string",
+      "provider_slug": "string"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="query_metrics" icon="magnifying-glass-chart">
+    使用过滤条件查询聚合后的健康指标。
+
+    **Input Schema:**
+    ```json
+    {
+      "user_id": "string",
+      "metric_type": "string",
+      "aggregation": "string",
+      "time_range": "string"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+更多关于 MCP tools 的说明请参见 [MCP Protocol documentation](https://modelcontextprotocol.io/)。
