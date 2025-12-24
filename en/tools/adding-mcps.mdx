@@ -31,17 +31,13 @@ Adding custom MCPs to Mirobody Health is incredibly simple through the web inter
   <Step title="Configure MCP details">
     Fill in the MCP server configuration:
     - **Name**: A friendly name for this MCP server
-    - **Command**: The command to run the MCP server (e.g., `npx`, `uvx`, `docker`)
-    - **Arguments**: Command arguments and the MCP package/server path
-    - **Environment Variables**: Any required environment variables (API keys, tokens, etc.)
+    - **MCP Server URL**: The HTTP URL where your MCP server is accessible (e.g., `https://your-domain.com/mcp`)
+    - **Token** (optional): Authentication token if your MCP server requires token-based authentication
 
     <Frame>
       <img src="/images/add-mcp-detail.png" alt="MCP configuration form with server details" />
     </Frame>
 
-    <Tip>
-    Most MCP servers follow the pattern: `npx -y @modelcontextprotocol/server-name`
-    </Tip>
   </Step>
 
   <Step title="Save and connect">

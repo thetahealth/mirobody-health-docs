@@ -31,17 +31,12 @@ Model Context Protocol（MCP）是一个开放标准，用于让 AI assistants �
   <Step title="配置 MCP 信息">
     填写 MCP server 的配置：
     - **Name**：该 MCP server 的显示名称
-    - **Command**：启动 MCP server 的命令（例如 `npx`、`uvx`、`docker`）
-    - **Arguments**：命令参数与 MCP package/server 路径
-    - **Environment Variables**：所需环境变量（API keys、tokens 等）
+    - **MCP Server URL**：MCP server 的 HTTP 访问地址（例如 `https://your-domain.com/mcp`）
+    - **Token**（可选）：如果 MCP server 需要基于 token 的身份验证
 
     <Frame>
       <img src="/images/add-mcp-detail.png" alt="MCP configuration form with server details" />
     </Frame>
-
-    <Tip>
-    大多数 MCP servers 遵循模式：`npx -y @modelcontextprotocol/server-name`
-    </Tip>
   </Step>
 
   <Step title="保存并连接">
