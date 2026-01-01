@@ -1,66 +1,291 @@
 ---
-title: "MCP Protocol 概览"
+title: "MCP 协议概览"
 description: "Model Context Protocol 接口简介"
 ---
 
 ## 什么是 MCP？
 
-Model Context Protocol（MCP）是一个 JSON-RPC 2.0 接口，使 AI agents 与应用能够与 Mirobody Health 的 tools 与 resources 交互。
+Model Context Protocol (MCP) 是一个 JSON-RPC 2.0 接口，使 AI agent 和应用程序能够发现 Mirobody Health 的工具（tools）和资源（resources）并与之交互。它为 LLM 访问健康数据、调用函数和检索上下文信息提供了一种标准化方式。
 
 <Info>
-MCP endpoint: `http://localhost:18080/mcp`
+**MCP 端点**: `http://localhost:18080/mcp` (公开) 或 `http://localhost:18080/mcp/{user_secret}` (用户特定)
+
+**协议版本**: `2025-06-18`
 </Info>
 
-## Key Concepts
+## 核心概念
 
 <CardGroup cols={2}>
-  <Card title="Tools" icon="wrench">
-    AI agents 可调用的 functions，用于执行动作（例如获取健康数据、链接 providers）
+  <Card title="工具 (Tools)" icon="wrench">
+    执行操作的可调用函数（例如：获取健康数据、渲染图表、链接提供商）
   </Card>
-  <Card title="Resources" icon="folder">
-    Agents 可访问的数据源（例如用户 profiles、健康指标）
+  <Card title="资源 (Resources)" icon="folder">
+    提供上下文的只读数据源（例如：用户个人资料、图表模板、上传表单）
   </Card>
   <Card title="JSON-RPC 2.0" icon="code">
-    基于 HTTP 的远程过程调用标准协议
+    具有请求/响应格式的远程过程调用标准协议
   </Card>
-  <Card title="Agents" icon="robot">
-    使用 tools 与 resources 帮助用户的 AI assistants
+  <Card title="身份验证" icon="lock">
+    基于 JWT 的身份验证，具有可选的用于工具授权的 OAuth 流程
   </Card>
 </CardGroup>
 
-## Example Request
+## MCP 方法
 
-```json
+MCP 服务支持以下标准方法：
+
+| 方法 | 描述 |
+|--------|-------------|
+| `initialize` | 握手以建立协议版本和能力 |
+| `tools/list` | 列出所有可用工具 |
+| `tools/call` | 执行特定工具 |
+| `resources/list` | 列出所有可用资源 |
+| `resources/read` | 读取特定资源 |
+| `prompts/list` | 列出可用提示词模板 |
+| `prompts/get` | 获取特定提示词模板 |
+
+## 身份验证
+
+MCP 端点支持两种身份验证模式：
+
+<Tabs>
+  <Tab title="JWT 令牌 (推荐)">
+    在 Authorization 标头中传递 JWT 令牌：
+
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list"
+      }'
+    ```
+  </Tab>
+
+  <Tab title="用户密钥 URL">
+    使用用户特定的 MCP URL（适用于 Claude Desktop 等 MCP 客户端）：
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": {
+          "url": "http://localhost:18080/mcp/user_abc123xyz"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+某些工具需要身份验证。如果在没有有效凭据的情况下调用，它们会返回一个用于用户授权的 OAuth 流程 URL。
+</Warning>
+
+## 示例：初始化
+
+<CodeGroup>
+```json 请求
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "method": "tools/list"
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "clientInfo": {
+      "name": "MyHealthApp",
+      "version": "1.0.0"
+    }
+  }
 }
 ```
 
-## Example Response
-
-```json
+```json 响应
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
+    "protocolVersion": "2025-06-18",
+    "serverInfo": {
+      "name": "Theta MCP Server",
+      "version": "1.0.0"
+    },
+    "capabilities": {
+      "tools": {},
+      "resources": {},
+      "prompts": {}
+    }
+  }
+}
+```
+</CodeGroup>
+
+## 示例：列出工具
+
+<CodeGroup>
+```json 请求
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list"
+}
+```
+
+```json 响应
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
     "tools": [
       {
         "name": "get_health_data",
-        "description": "Retrieve health data for a user",
+        "description": "为用户检索健康指标数据",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "user_id": {"type": "string"},
-            "data_type": {"type": "string"}
+            "user_id": {
+              "type": "string",
+              "description": "用户标识符"
+            },
+            "indicator": {
+              "type": "string",
+              "description": "健康指标名称 (例如 'steps', 'heart_rate')"
+            },
+            "start_date": {
+              "type": "string",
+              "description": "开始日期 (YYYY-MM-DD)"
+            },
+            "end_date": {
+              "type": "string",
+              "description": "结束日期 (YYYY-MM-DD)"
+            }
           },
-          "required": ["user_id"]
+          "required": ["user_id", "indicator"]
+        }
+      },
+      {
+        "name": "render_chart",
+        "description": "渲染数据可视化图表",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "chart_type": {
+              "type": "string",
+              "description": "图表类型 (line, bar, scatter, etc.)"
+            },
+            "data": {
+              "type": "array",
+              "description": "要可视化的数据点"
+            }
+          },
+          "required": ["chart_type", "data"]
         }
       }
     ]
   }
 }
 ```
+</CodeGroup>
 
-更多 MCP 细节请参见 [MCP Tools](/zh/api-reference/mcp/tools) 与 [MCP Resources](/zh/api-reference/mcp/resources)。
+## 示例：调用工具
+
+<CodeGroup>
+```json 请求
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "get_health_data",
+    "arguments": {
+      "user_id": "user_123",
+      "indicator": "steps",
+      "start_date": "2024-01-01",
+      "end_date": "2024-01-07"
+    }
+  }
+}
+```
+
+```json 响应
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"date\": \"2024-01-01\", \"value\": 8543, \"unit\": \"steps\"}, {\"date\": \"2024-01-02\", \"value\": 10234, \"unit\": \"steps\"}]"
+      }
+    ]
+  }
+}
+```
+</CodeGroup>
+
+## 错误处理
+
+MCP 使用标准的 JSON-RPC 2.0 错误代码：
+
+| 代码 | 名称 | 描述 |
+|------|------|-------------|
+| `-32700` | 解析错误 | 无效的 JSON |
+| `-32600` | 无效请求 | 缺少必填字段 |
+| `-32601` | 未找到方法 | 未知的方法 |
+| `-32602` | 参数无效 | 无效的方法参数 |
+| `-32603` | 内部错误 | 服务端错误 |
+| `-32000` | 需要身份验证 | 需要进行身份验证 |
+
+<CodeGroup>
+```json 错误响应
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "error": {
+    "code": -32000,
+    "message": "Authentication required",
+    "data": {
+      "authorization_url": "http://localhost:18080/mcplogin?...",
+      "instructions": "请进行身份验证以访问此工具"
+    }
+  }
+}
+```
+</CodeGroup>
+
+## 工具分类
+
+Mirobody Health MCP 工具按类别组织：
+
+<CardGroup cols={2}>
+  <Card title="健康数据工具" icon="heartbeat" href="/zh/api-reference/mcp/tools">
+    查询健康指标、基因数据和用户个人资料
+  </Card>
+  <Card title="图表工具" icon="chart-line" href="/zh/api-reference/mcp/tools">
+    渲染健康数据的可视化图表
+  </Card>
+  <Card title="提供商工具" icon="link" href="/zh/api-reference/mcp/tools">
+    链接和管理健康设备提供商
+  </Card>
+  <Card title="文件工具" icon="file" href="/zh/api-reference/mcp/tools">
+    上传并处理健康文档
+  </Card>
+</CardGroup>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="MCP 工具" icon="wrench" href="/zh/api-reference/mcp/tools">
+    浏览所有可用工具及其 Schema
+  </Card>
+  <Card title="MCP 资源" icon="folder" href="/zh/api-reference/mcp/resources">
+    访问用户个人资料和模板等资源
+  </Card>
+  <Card title="集成指南" icon="plug" href="/zh/tools/mcp-integration">
+    了解如何将 MCP 集成到您的应用中
+  </Card>
+  <Card title="添加工具" icon="plus" href="/zh/tools/adding-tools">
+    创建自定义 MCP 工具
+  </Card>
+</CardGroup>

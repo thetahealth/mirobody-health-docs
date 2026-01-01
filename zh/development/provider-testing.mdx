@@ -10,20 +10,20 @@ description: "自定义 Provider 集成的测试策略"
 ## 测试策略
 
 <CardGroup cols={3}>
-  <Card title="Unit Tests" icon="vial">
-    隔离测试单个 method
+  <Card title="单元测试" icon="vial">
+    隔离测试单个方法
   </Card>
-  <Card title="Integration Tests" icon="link">
-    端到端测试 OAuth flows
+  <Card title="集成测试" icon="link">
+    端到端测试 OAuth 流程
   </Card>
-  <Card title="Manual Testing" icon="hand">
+  <Card title="手动测试" icon="hand">
     在真实环境中验证
   </Card>
 </CardGroup>
 
-## Unit Testing
+## 单元测试
 
-测试单个 Provider methods：
+测试单个 Provider 方法：
 
 ```python tests/test_yourprovider.py
 import pytest
@@ -31,30 +31,30 @@ from connect.theta.mirobody_yourprovider.provider_yourprovider import ThetaYourP
 
 @pytest.mark.asyncio
 async def test_format_data():
-    """Test data transformation"""
+    """测试数据转换"""
     provider = ThetaYourProvider.factory()
     
-    # Mock raw data from vendor
+    # Mock 来自厂商的原始数据
     raw_data = {
         "steps": 10000,
         "date": "2024-01-15",
         "calories": 450
     }
     
-    # Transform data
+    # 转换数据
     formatted = provider.format_data(raw_data)
     
-    # Verify transformation
+    # 验证转换结果
     assert len(formatted) == 2
     assert formatted[0].indicator == StandardIndicator.DAILY_STEPS
     assert formatted[0].value == "10000"
 
 @pytest.mark.asyncio
 async def test_deduplication():
-    """Test duplicate detection"""
+    """测试重复数据检测"""
     provider = ThetaYourProvider.factory()
     
-    # Check if data is already processed
+    # 检查数据是否已处理
     is_duplicate = await provider.is_data_already_processed(
         user_id="test_user",
         msg_id="unique_record_123"
@@ -63,24 +63,24 @@ async def test_deduplication():
     assert is_duplicate == False
 ```
 
-## Integration Testing
+## 集成测试
 
-测试完整 OAuth flows：
+测试完整的 OAuth 流程：
 
 ```python
 @pytest.mark.asyncio
 async def test_oauth_flow():
-    """Test complete OAuth flow"""
+    """测试完整的 OAuth 流程"""
     provider = ThetaYourProvider.factory()
     user_id = "test_user_oauth"
     
-    # Step 1: Initiate link
+    # 第 1 步：发起绑定
     link_result = await provider.link(user_id)
     assert "link_web_url" in link_result
     assert "state" in link_result or "oauth_token" in link_result
     
-    # Step 2: Simulate callback
-    # (Use mock OAuth response)
+    # 第 2 步：模拟回调
+    # (使用 Mock 的 OAuth 响应)
     callback_result = await provider.callback(
         user_id=user_id,
         code="mock_auth_code",
@@ -89,120 +89,120 @@ async def test_oauth_flow():
     
     assert callback_result["success"] == True
     
-    # Step 3: Verify tokens stored
+    # 第 3 步：验证 Token 已存储
     tokens = await provider._get_tokens(user_id)
     assert tokens is not None
 
 @pytest.mark.asyncio
 async def test_data_pull():
-    """Test data fetching from API"""
+    """测试从 API 获取数据"""
     provider = ThetaYourProvider.factory()
     user_id = "test_user_data"
     
-    # Pull data
+    # 拉取数据
     raw_data = await provider.pull_from_vendor_api(user_id)
     
-    # Verify data structure
+    # 验证数据结构
     assert isinstance(raw_data, list)
     assert len(raw_data) > 0
     
-    # Verify required fields
+    # 验证必要字段
     for record in raw_data:
         assert "date" in record or "timestamp" in record
 ```
 
-## 本地 HTTPS（用于 OAuth 开发）
+## 本地 HTTPS 设置（用于 OAuth 开发）
 
 <Warning>
-Health data providers like WHOOP require HTTPS callback URLs for OAuth authentication due to security requirements.
+由于安全要求，WHOOP 等健康数据提供商要求 OAuth 身份验证必须使用 HTTPS 回调 URL。
 </Warning>
 
-本地开发时，服务通常运行在 `http://localhost`，而这些 Providers 会拒绝非 HTTPS 的 callback URL。要在本地测试 OAuth flows，你需要配置一个本地 HTTPS reverse proxy：负责终止 SSL/TLS，并将请求转发到本地开发服务。
+在本地开发时，服务器通常运行在 `http://localhost`，而这些提供商会拒绝该地址。要在本地测试 OAuth 流程，你需要设置一个本地 HTTPS 反向代理，负责终止 SSL/TLS 并将请求转发到你的开发服务器。
 
-一般做法是：修改系统 hosts 文件，把生产 callback 域名（例如 `data-gray.thetahealth.ai`）指向 `127.0.0.1`，然后在本地 443 端口运行 reverse proxy 来处理 HTTPS，并代理到本地 HTTP 服务。
+这可以通过配置系统的 hosts 文件将生产回调域名（例如 `data-gray.thetahealth.ai`）映射到 `127.0.0.1`，然后在 443 端口运行一个处理 HTTPS 并代理到本地 HTTP 服务器的反向代理来实现。
 
-实现方式很多，例如带反向代理能力的 Web server（nginx、Apache）、专用 HTTPS proxy 工具，或 ngrok 这类云端隧道服务。
+有多种工具可以提供此功能，包括具有反向代理能力的 Web 服务器（nginx、Apache）、专门的 HTTPS 代理工具，或 ngrok 等基于云的隧道服务。
 
-**The general approach:**
-1. 安装本地证书工具（如 `mkcert`）为域名生成可信的 SSL 证书
-2. 配置 proxy 监听 443 端口并使用该证书，然后转发到本地开发端口（例如 `localhost:18080`）
-3. 更新 hosts 文件，让 callback 域名解析到 localhost
+**一般步骤：**
+1. 安装本地证书授权工具（如 `mkcert`）为你的域名生成受信任的 SSL 证书
+2. 配置代理监听 443 端口，使用你的 SSL 证书并转发到本地开发端口（例如 `localhost:18080`）
+3. 更新 hosts 文件，将回调域名解析到 localhost
 
-这样你就能在开发环境中使用与生产环境完全一致的 callback URL，从而无需每次改代码都部署一次，也能顺畅测试 OAuth 集成。
+这种设置允许你在开发环境中使用与生产环境完全相同的回调 URL，从而使 OAuth 集成测试更加顺畅，而无需为每次代码更改都进行部署。
 
 ## 手动测试
 
-### 1. Test OAuth Link
+### 1. 测试 OAuth 绑定
 
 ```bash
-# Get authorization URL
+# 获取授权 URL
 curl "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/link?user_id=manual_test_user"
 ```
 
 访问返回的 URL 并完成授权。
 
-### 2. Test Callback
+### 2. 测试回调
 
-授权后，验证 callback 是否成功：
+授权后，验证回调是否成功：
 
 ```bash
-# Check provider status
+# 检查 Provider 状态
 curl "http://localhost:18080/api/v1/pulse/providers?user_id=manual_test_user"
 ```
 
-期望：Provider 显示 `"status": "connected"`
+预期结果：Provider 显示 `"status": "connected"`
 
-### 3. Test Data Pull
+### 3. 测试数据拉取
 
 ```bash
-# Trigger data sync
+# 触发数据同步
 curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/sync?user_id=manual_test_user"
 ```
 
-### 4. Verify Data
+### 4. 验证数据
 
 ```bash
-# Check database for new records
+# 检查数据库中的新记录
 psql -d your_db -c "SELECT COUNT(*) FROM theta_ai.health_data_yourprovider WHERE theta_user_id = 'manual_test_user';"
 
-# Check standardized data
+# 检查标准化数据
 psql -d your_db -c "SELECT indicator, COUNT(*) FROM theta_ai.th_series_data WHERE user_id = 'manual_test_user' GROUP BY indicator;"
 ```
 
 ## 测试场景
 
 <AccordionGroup>
-  <Accordion title="Happy Path" icon="check">
-    测试正常流程：
-    - Fresh OAuth connection
-    - Data fetch with valid tokens
-    - Proper data transformation
-    - Successful database storage
+  <Accordion title="理想路径 (Happy Path)" icon="check">
+    测试正常操作：
+    - 全新的 OAuth 连接
+    - 使用有效 Token 获取数据
+    - 正确的数据转换
+    - 成功存储到数据库
   </Accordion>
 
-  <Accordion title="Error Handling" icon="triangle-exclamation">
+  <Accordion title="错误处理" icon="triangle-exclamation">
     测试错误场景：
-    - Invalid OAuth credentials
-    - Expired tokens
-    - API rate limiting
-    - Network failures
-    - Malformed API responses
-    - Missing required fields
+    - 无效的 OAuth 凭据
+    - Token 过期
+    - API 速率限制
+    - 网络故障
+    - 格式错误的 API 响应
+    - 缺少必要字段
   </Accordion>
 
-  <Accordion title="Edge Cases" icon="code">
+  <Accordion title="边界情况" icon="code">
     测试边界情况：
-    - Empty data responses
-    - Very large datasets
-    - Duplicate records
-    - Time zone conversions
-    - Null/missing values
+    - 空的数据响应
+    - 超大数据集
+    - 重复记录
+    - 时区转换
+    - Null/缺失值
   </Accordion>
 </AccordionGroup>
 
-## Mock 外部 APIs
+## Mock 外部 API
 
-在 unit tests 中使用 mocks：
+在单元测试中使用 Mock：
 
 ```python
 from unittest.mock import AsyncMock, patch
@@ -210,8 +210,8 @@ from unittest.mock import AsyncMock, patch
 @pytest.mark.asyncio
 @patch('aiohttp.ClientSession.post')
 async def test_token_exchange(mock_post):
-    """Test token exchange with mocked API"""
-    # Mock API response
+    """测试使用 Mock API 进行 Token 交换"""
+    # Mock API 响应
     mock_response = AsyncMock()
     mock_response.json.return_value = {
         "access_token": "mock_token_123",
@@ -222,7 +222,7 @@ async def test_token_exchange(mock_post):
     
     provider = ThetaYourProvider.factory()
     
-    # Test callback with mocked response
+    # 使用 Mock 响应测试回调
     result = await provider.callback(
         user_id="test_user",
         code="mock_code",
@@ -232,12 +232,12 @@ async def test_token_exchange(mock_post):
     assert result["success"] == True
 ```
 
-## Test Data
+## 测试数据
 
-Create realistic test data:
+创建真实的测试数据：
 
 ```python
-# Mock vendor API response
+# Mock 厂商 API 响应
 MOCK_GARMIN_DAILY_DATA = {
     "summaries": [
         {
@@ -271,9 +271,9 @@ MOCK_WHOOP_SLEEP_DATA = {
 }
 ```
 
-## Continuous Integration
+## 持续集成 (CI)
 
-Add provider tests to CI pipeline:
+将 Provider 测试添加到 CI 流水线中：
 
 ```yaml .github/workflows/test-providers.yml
 name: Test Providers
@@ -287,38 +287,38 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: Set up Python
+      - name: 设置 Python 环境
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
       
-      - name: Install dependencies
+      - name: 安装依赖
         run: |
           pip install -r requirements.txt
           pip install pytest pytest-asyncio
       
-      - name: Run provider tests
+      - name: 运行 Provider 测试
         run: |
           pytest tests/test_*_provider.py -v
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Provider Integration" icon="puzzle-piece" href="/zh/development/provider-integration">
-    Build a custom provider
+  <Card title="Provider 集成" icon="puzzle-piece" href="/zh/development/provider-integration">
+    构建自定义 Provider
   </Card>
-  <Card title="OAuth Implementation" icon="key" href="/zh/development/oauth-implementation">
-    Implement OAuth flows
+  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
+    实现 OAuth 流程
   </Card>
-  <Card title="Testing Guide" icon="flask" href="/zh/development/testing">
-    General testing practices
+  <Card title="测试指南" icon="flask" href="/zh/development/testing">
+    通用测试实践
   </Card>
-  <Card title="Examples" icon="code" href="/zh/examples/garmin-provider">
-    See real provider code
+  <Card title="示例" icon="code" href="/zh/examples/garmin-provider">
+    查看真实的 Provider 代码
   </Card>
 </CardGroup>
 
 <Note>
-For complete testing examples and patterns, see the [Provider Integration Guide](https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md) in the repository.
+有关完整的测试示例和模式，请参阅代码库中的 [Provider 集成指南](https://github.com/thetahealth/mirobody-health/blob/main/mirobody/pulse/README.md)。
 </Note>

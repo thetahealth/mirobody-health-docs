@@ -1,277 +1,276 @@
 ---
-title: "使用 Providers"
-description: "将 Garmin、Whoop 等健康设备连接到 Mirobody Health"
+title: "使用 Provider"
+description: "将您的 Garmin、Whoop 和其他健康设备连接到 Mirobody Health"
 ---
 
 ## 概览
 
-Providers 让你将可穿戴设备与健康平台连接到 Mirobody Health。连接完成后，你的健康数据会自动同步，并可用于 AI 分析。
+Provider 允许您将可穿戴设备和健康平台连接到 Mirobody Health。连接后，您的健康数据将自动同步并可用于 AI 分析。
 
 <CardGroup cols={2}>
   <Card title="Garmin Connect" icon="heartbeat">
-    全面的运动与健康追踪
+    全面的健身和健康追踪
   </Card>
   <Card title="Whoop" icon="bolt">
-    恢复、负荷（strain）与睡眠优化
+    恢复、负荷和睡眠优化
   </Card>
 </CardGroup>
 
 <Note>
-更多 providers 即将上线。你也可以自己[添加自定义 providers](/zh/development/provider-integration)！
+更多 Provider 即将推出。您也可以自己 [添加自定义 Provider](/zh/development/provider-integration)！
 </Note>
 
-## 连接一个 Provider
+## 连接 Provider
 
 <Steps>
-  <Step title="获取设备凭据">
-    从健康设备 provider 获取 API 凭据：
-    - **Garmin**: Register at [Garmin Developer Portal](https://developer.garmin.com/)
-    - **Whoop**: Contact Whoop Developer Support for API access
+  <Step title="获取您的设备凭据">
+    从您的健康设备提供商处获取 API 凭据：
+    - **Garmin**: 在 [Garmin 开发者门户](https://developer.garmin.com/) 注册
+    - **Whoop**: 联系 Whoop 开发者支持以获取 API 访问权限
     
     <Tip>
-    你需要这些凭据来完成 provider 连接配置。
+    您需要这些凭据来配置您的 Provider 连接。
     </Tip>
   </Step>
 
-  <Step title="配置 provider">
-    将凭据写入 `config.yaml`：
+  <Step title="配置 Provider">
+    将您的凭据添加到 `config.localdb.yaml`：
 
-    ```yaml config.yaml
-    # For Garmin
-    GARMIN_CLIENT_ID: 'your_consumer_key'
-    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
+    ```yaml config.localdb.yaml
+    # 对于 Garmin
+    GARMIN_CLIENT_ID: '您的_consumer_key'
+    GARMIN_CLIENT_SECRET: '您的_consumer_secret'
     GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
     
-    # For Whoop
-    WHOOP_CLIENT_ID: 'your_client_id'
-    WHOOP_CLIENT_SECRET: 'your_client_secret'
+    # 对于 Whoop
+    WHOOP_CLIENT_ID: '您的_client_id'
+    WHOOP_CLIENT_SECRET: '您的_client_secret'
     WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
     ```
   </Step>
 
-  <Step title="链接账号">
-    使用 API 发起 OAuth flow：
+  <Step title="绑定您的账号">
+    使用 API 发起 OAuth 流程：
 
     ```bash
-    # Get authorization URL
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=YOUR_USER_ID"
+    # 获取授权 URL
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=您的_用户_ID"
     ```
 
-    访问返回的 URL 完成授权。
+    访问返回的 URL 以授权访问。
   </Step>
 
   <Step title="验证连接">
-    检查 provider 是否已链接：
+    检查您的 Provider 是否已绑定：
 
     ```bash
     curl "http://localhost:18080/api/v1/pulse/providers"
     ```
 
     <Check>
-    已连接的 provider 应显示 `"status": "connected"`
+    您连接的 Provider 应显示 `"status": "connected"`
     </Check>
   </Step>
 </Steps>
 
-## 可用 Providers
+## 可用 Provider
 
 ### Garmin Connect
 
 <Tabs>
-  <Tab title="Overview">
-    **Authentication**: OAuth 1.0  
-    **Status**: Production Ready  
-    **Data Sync**: Automatic daily sync
+  <Tab title="概览">
+    **身份验证**: OAuth 1.0  
+    **状态**: 生产就绪 (Production Ready)  
+    **数据同步**: 每日自动同步
     
-    Garmin Connect 可从 Garmin 可穿戴设备中提供全面的健康数据，包括运动手环、智能手表与骑行电脑等。
+    Garmin Connect 提供来自 Garmin 可穿戴设备（包括健身追踪器、智能手表和自行车码表）的全面健康数据。
     
     <Info>
-    Garmin 数据包含详细的活动追踪、高级睡眠分析以及全面的心率指标。
+    Garmin 数据包括详细的活动追踪、高级睡眠分析和全面的心率指标。
     </Info>
   </Tab>
 
-  <Tab title="Supported Metrics">
-    | Category | Metrics |
+  <Tab title="支持的指标">
+    | 类别 | 指标 |
     |----------|---------|
-    | **Activity** | Steps, distance, calories (active & basal), floors climbed, active time |
-    | **Heart Rate** | Min, max, average, resting, time series samples |
-    | **Sleep** | Duration, deep/light/REM sleep, awake time, SpO2, respiration |
-    | **HRV** | Heart rate variability measurements |
-    | **Respiration** | Respiration rate samples |
-    | **Stress** | Stress level measurements |
-    | **Body** | Weight, BMI, body fat %, skeletal muscle mass |
-    | **Workouts** | Exercise sessions with duration, intensity, heart rate zones |
+    | **活动** | 步数、距离、卡路里（活动和基础）、爬楼层数、活动时间 |
+    | **心率** | 每日最低、最高、平均、静息心率、时间序列样本 |
+    | **睡眠** | 时长、深睡/浅睡/REM 睡眠、清醒时间、血氧饱和度、呼吸频率 |
+    | **HRV** | 心率变异性测量值 |
+    | **呼吸** | 呼吸频率样本 |
+    | **压力** | 压力水平测量值 |
+    | **身体** | 体重、BMI、体脂率、骨骼肌重量 |
+    | **锻炼** | 锻炼会话时长、强度、心率区间 |
   </Tab>
 
-  <Tab title="Setup">
-    **1. Get Garmin Developer Credentials**
+  <Tab title="设置步骤">
+    **1. 获取 Garmin 开发者凭据**
     
-    - Visit [Garmin Developer Portal](https://developer.garmin.com/)
-    - Create an application
-    - Note your Consumer Key and Consumer Secret
+    - 访问 [Garmin 开发者门户](https://developer.garmin.com/)
+    - 创建一个应用程序
+    - 记录您的 Consumer Key 和 Consumer Secret
     
-    **2. Configure in Mirobody Health**
+    **2. 在 Mirobody Health 中配置**
     
-    ```yaml config.yaml
-    GARMIN_CLIENT_ID: 'your_consumer_key'
-    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
+    ```yaml config.localdb.yaml
+    GARMIN_CLIENT_ID: '您的_consumer_key'
+    GARMIN_CLIENT_SECRET: '您的_consumer_secret'
     GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
     ```
     
-    **3. Link User Account**
+    **3. 绑定用户账号**
     
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=YOUR_USER_ID"
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=您的_用户_ID"
     ```
     
-    访问返回的授权 URL 完成连接。
+    访问返回的授权 URL 以完成连接。
   </Tab>
 </Tabs>
 
 ### Whoop
 
 <Tabs>
-  <Tab title="Overview">
-    **Authentication**: OAuth 2.0  
-    **Status**: Production Ready  
-    **Data Sync**: Automatic sync with configurable frequency
+  <Tab title="概览">
+    **身份验证**: OAuth 2.0  
+    **状态**: 生产就绪 (Production Ready)  
+    **数据同步**: 可配置频率的自动同步
     
-    Whoop 专注于恢复、负荷（strain）与睡眠优化数据，帮助你评估训练准备度与表现。
+    Whoop 专注于恢复、负荷和睡眠优化数据，提供有关训练准备度和表现的见解。
     
     <Info>
-    Whoop 在恢复指标、睡眠指导与负荷追踪方面表现突出，适合运动员与健身爱好者。
+    Whoop 在面向运动员和健身爱好者的恢复指标、睡眠指导和负荷追踪方面表现出色。
     </Info>
   </Tab>
 
-  <Tab title="Supported Metrics">
-    | Category | Metrics |
+  <Tab title="支持的指标">
+    | 类别 | 指标 |
     |----------|---------|
-    | **Recovery** | Recovery score, HRV, resting heart rate, respiratory rate |
-    | **Sleep** | Total sleep, sleep stages, efficiency, latency, disturbances |
-    | **Strain** | Day strain, cardiovascular load, activity strain |
-    | **Workouts** | Exercise sessions with strain, calories, heart rate zones |
-    | **Cycles** | Sleep cycles, recovery cycles |
+    | **恢复** | 恢复分数、HRV、静息心率、呼吸频率 |
+    | **睡眠** | 总睡眠时间、睡眠阶段、效率、潜伏期、干扰情况 |
+    | **负荷** | 日负荷、心血管负荷、活动负荷 |
+    | **锻炼** | 锻炼会话及负荷、卡路里、心率区间 |
+    | **周期** | 睡眠周期、恢复周期 |
   </Tab>
 
-  <Tab title="Setup">
-    **1. Get Whoop Developer Access**
+  <Tab title="设置步骤">
+    **1. 获取 Whoop 开发者权限**
     
-    - Contact [Whoop Developer Support](https://developer.whoop.com/)
-    - Request API access for your application
-    - Receive your Client ID and Client Secret
+    - 联系 [Whoop 开发者支持](https://developer.whoop.com/)
+    - 为您的应用程序请求 API 访问权限
+    - 接收您的 Client ID 和 Client Secret
     
-    **2. Configure in Mirobody Health**
+    **2. 在 Mirobody Health 中配置**
     
-    ```yaml config.yaml
-    WHOOP_CLIENT_ID: 'your_client_id'
-    WHOOP_CLIENT_SECRET: 'your_client_secret'
+    ```yaml config.localdb.yaml
+    WHOOP_CLIENT_ID: '您的_client_id'
+    WHOOP_CLIENT_SECRET: '您的_client_secret'
     WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
     ```
     
-    **3. Link User Account**
+    **3. 绑定用户账号**
     
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_whoop/link?user_id=YOUR_USER_ID"
+    curl "http://localhost:18080/api/v1/pulse/theta/theta_whoop/link?user_id=您的_用户_ID"
     ```
     
     在浏览器中完成 OAuth 授权。
   </Tab>
 </Tabs>
 
-## 管理已连接的 Providers
+## 管理已连接的 Provider
 
-### List All Providers
+### 列出所有 Provider
 
 ```bash
 curl http://localhost:18080/api/v1/pulse/providers
 ```
 
-### Disconnect a Provider
+### 断开 Provider 连接
 
 ```bash
 curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
   -H "Content-Type: application/json" \
-  -d '{"user_id": "YOUR_USER_ID"}'
+  -d '{"user_id": "您的_用户_ID"}'
 ```
 
 ## 数据同步
 
-当 provider 连接完成后，数据会自动同步：
+一旦连接了 Provider，数据同步就会自动进行：
 
 <AccordionGroup>
-  <Accordion title="首次同步" icon="download">
-    首次连接 provider 时，Mirobody Health 会拉取历史数据：
-    - **Garmin**: Last 30 days of data
-    - **Whoop**: Last 30 days of data
+  <Accordion title="初始同步" icon="download">
+    当您第一次连接 Provider 时，Mirobody Health 会拉取历史数据。
     
-    视数据量而定，可能需要几分钟。
+    这可能需要几分钟时间，具体取决于数据量。
   </Accordion>
 
   <Accordion title="持续同步" icon="rotate">
-    初次同步完成后，数据会自动更新：
-    - **Schedule**: Daily at configured intervals
-    - **Incremental**: Only new data is fetched
-    - **Deduplication**: Prevents duplicate records
+    初始同步后，数据将自动更新：
+    - **计划任务**: 每天按配置的时间间隔运行
+    - **增量拉取**: 仅获取新数据
+    - **去重机制**: 防止记录重复
     
     <Tip>
-    如有需要，你也可以通过 API 手动触发同步。
+    如有需要，您也可以通过 API 手动触发同步。
     </Tip>
   </Accordion>
 
   <Accordion title="数据格式" icon="database">
-    所有 provider 数据都会被转换为标准化指标：
-    - Providers 间统一命名
-    - 统一单位（SI system）
-    - 时间戳使用 ISO 8601 格式
+    所有 Provider 数据都会转换为标准化指标：
+    - 不同 Provider 之间的命名保持一致
+    - 统一的单位（SI 国际单位制）
+    - ISO 8601 格式的时间戳
     - 存储在 `theta_ai.th_series_data` 表中
     
-    详情参见[数据格式](/zh/concepts/data-flow#standardized-format)。
+    有关详细信息，请参阅 [数据格式](/zh/concepts/data-flow#standardized-format)。
   </Accordion>
 </AccordionGroup>
 
-## 故障排查
+## 常见问题排查
 
 <AccordionGroup>
   <Accordion title="连接失败" icon="link-slash">
-    **Problem**：OAuth 授权失败或超时
+    **问题**: OAuth 授权失败或超时
     
-    **Solutions**：
-    1. Verify API credentials are correct in `config.yaml`
-    2. Check redirect URL matches exactly (including http/https)
-    3. Ensure Mirobody Health is accessible at the redirect URL
-    4. Review provider's developer console for errors
-    5. Check OAuth token hasn't expired
+    **解决方案**:
+    1. 验证 `config.localdb.yaml` 中的 API 凭据是否正确
+    2. 检查回调 URL 是否完全匹配（包括 http/https）
+    3. 确保 Mirobody Health 可以通过回调 URL 访问
+    4. 查看提供商的开发者控制台是否有错误提示
+    5. 检查 OAuth Token 是否已过期
   </Accordion>
 
-  <Accordion title="连接后无数据" icon="database">
-    **Problem**：Provider 已连接但没有数据
+  <Accordion title="连接后没有数据" icon="database">
+    **问题**: Provider 已连接，但没有数据出现
     
-    **Solutions**：
-    1. Wait for initial sync to complete (check logs)
-    2. Verify user has data in their provider account
-    3. Check for API rate limiting issues
-    4. Review sync logs for errors
-    5. Trigger manual sync if needed
+    **解决方案**:
+    1. 等待初始同步完成（查看日志）
+    2. 验证用户在其提供商账户中是否有数据
+    3. 检查是否存在 API 速率限制问题
+    4. 查看同步日志中的错误信息
+    5. 如果需要，触发手动同步
   </Accordion>
 
-  <Accordion title="数据不同步/过期" icon="clock">
-    **Problem**：健康数据过期或未更新
+  <Accordion title="数据未同步" icon="clock">
+    **问题**: 健康数据已过时
     
-    **Solutions**：
-    1. Check sync schedule in configuration
-    2. Verify provider API is accessible
-    3. Review sync logs for failures
-    4. Check for provider API changes or downtime
-    5. Trigger manual resync
+    **解决方案**:
+    1. 检查配置中的同步计划
+    2. 验证提供商 API 是否可访问
+    3. 查看同步日志中的失败记录
+    4. 检查提供商 API 是否有变动或服务停机
+    5. 触发手动重新同步
   </Accordion>
 </AccordionGroup>
 
-## Provider 状态
+## Provider 状态检查
 
-检查 provider 连接状态：
+检查 Provider 的连接状态：
 
 ```python
 import aiohttp
+import asyncio
 
 async def check_provider_status(user_id: str):
     async with aiohttp.ClientSession() as session:
@@ -284,25 +283,25 @@ async def check_provider_status(user_id: str):
             for provider in data["providers"]:
                 print(f"{provider['name']}: {provider['status']}")
                 if provider['status'] == 'connected':
-                    print(f"  Last sync: {provider.get('last_sync', 'N/A')}")
+                    print(f"  最后同步时间: {provider.get('last_sync', 'N/A')}")
 
-# Usage
-await check_provider_status("your_user_id")
+# 使用示例
+# asyncio.run(check_provider_status("您的_用户_ID"))
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Configuration Guide" icon="gear" href="/zh/configuration">
-    配置 provider 凭据
+  <Card title="配置指南" icon="gear" href="/zh/configuration">
+    配置 Provider 凭据
   </Card>
-  <Card title="API Reference" icon="book" href="/zh/api-reference/pulse/providers">
+  <Card title="API 参考" icon="book" href="/zh/api-reference/pulse/providers">
     Provider API 文档
   </Card>
-  <Card title="Provider Examples" icon="code" href="/zh/examples/garmin-provider">
-    查看 provider 使用示例
+  <Card title="Provider 示例" icon="code" href="/zh/examples/garmin-provider">
+    查看 Provider 使用示例
   </Card>
-  <Card title="Add Custom Providers" icon="plus" href="/zh/development/provider-integration">
-    构建你自己的 provider 集成
+  <Card title="添加自定义 Provider" icon="plus" href="/zh/development/provider-integration">
+    构建您自己的 Provider 集成
   </Card>
 </CardGroup>

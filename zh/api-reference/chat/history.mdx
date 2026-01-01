@@ -1,57 +1,153 @@
 ---
-title: "获取对话历史"
-description: "获取某个用户会话的对话历史记录"
+title: "获取聊天历史记录"
+description: "检索用户会话的对话历史记录"
 ---
 
-## Endpoint
+## 端点
 
 ```
 GET /api/history
 ```
 
-## Overview
+## 概览
 
-获取指定用户（以及可选的 session）对应的对话历史。
+检索特定用户和可选会话的聊天对话历史记录。返回用户与 AI agent 之间交换的所有消息。
 
-## Request
+<Info>
+所有对话的聊天历史记录都会自动持久化到数据库中。会话（Sessions）可用于组织相关的对话。
+</Info>
+
+## 请求参数
 
 <ParamField query="user_id" type="string" required>
-  用户的唯一标识
+  要检索其历史记录的用户的唯一标识符
+</ParamField>
+
+<ParamField query="query_user_id" type="string">
+  被查询数据的用户 ID（用于帮助询问功能）。默认为 `user_id`。
 </ParamField>
 
 <ParamField query="session_id" type="string">
-  可选 session ID，用于筛选特定会话
+  可选的会话 ID，用于按特定对话线程进行筛选
 </ParamField>
 
-<ParamField query="limit" type="integer">
-  返回消息的最大数量（默认：50，最大：100）
+<ParamField query="limit" type="integer" default="50">
+  返回消息的最大数量（最大值：100）
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  跳过的消息数量（用于分页）
 </ParamField>
 
 <RequestExample>
 ```bash cURL
-curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20"
+curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```python Python
+import httpx
+
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        "http://localhost:18080/api/history",
+        params={
+            "user_id": "user_123",
+            "session_id": "session_abc",
+            "limit": 20
+        },
+        headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+    )
+    history = response.json()
 ```
 </RequestExample>
 
-## Response
+## 响应格式
 
 <ResponseExample>
-```json Success
+```json 成功
 {
-  "history": [
-    {
-      "role": "user",
-      "content": "How many steps did I take yesterday?",
-      "timestamp": "2024-01-15T10:30:00Z"
-    },
-    {
-      "role": "assistant",
-      "content": "Based on your Garmin data, you took 10,543 steps yesterday.",
-      "timestamp": "2024-01-15T10:30:02Z"
-    }
-  ],
-  "session_id": "session_abc",
-  "total_messages": 2
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "messages": [
+      {
+        "msg_id": "q_550e8400-e29b-41d4-a716-446655440000",
+        "role": "user",
+        "content": "我昨天走了多少步？",
+        "timestamp": "2024-01-15T10:30:00.123Z",
+        "session_id": "session_abc",
+        "file_list": []
+      },
+      {
+        "msg_id": "a_660e8400-e29b-41d4-a716-446655440001",
+        "role": "assistant",
+        "content": "根据您的 Garmin 数据，您昨天走了 10,543 步。这比您的每日平均步数多出约 200 步！",
+        "timestamp": "2024-01-15T10:30:02.456Z",
+        "session_id": "session_abc",
+        "agent": "deep",
+        "provider": "openrouter",
+        "model": "anthropic/claude-3.5-sonnet",
+        "tool_calls": [
+          {
+            "tool_name": "get_health_data",
+            "arguments": "{\"indicator\": \"steps\", \"date\": \"2024-01-14\"}",
+            "result": "{\"value\": 10543, \"unit\": \"steps\"}"
+          }
+        ]
+      }
+    ],
+    "total": 2,
+    "session_id": "session_abc"
+  }
+}
+```
+
+```json 无历史记录
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "messages": [],
+    "total": 0
+  }
 }
 ```
 </ResponseExample>
+
+## 消息对象
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `msg_id` | string | 唯一消息标识符 |
+| `role` | string | `user` 或 `assistant` |
+| `content` | string | 消息文本内容 |
+| `timestamp` | string | ISO 8601 时间戳 |
+| `session_id` | string | 会话标识符 |
+| `file_list` | array | 附加文件（仅限用户消息） |
+| `agent` | string | 使用的 Agent（仅限助手消息） |
+| `provider` | string | LLM 提供商（仅限助手消息） |
+| `model` | string | 模型名称（仅限助手消息） |
+| `tool_calls` | array | 调用的 MCP 工具（仅限助手消息） |
+
+## 其他端点
+
+<CardGroup cols={2}>
+  <Card title="获取会话列表" icon="list">
+    ```
+    GET /api/session
+    ```
+    返回用户的所有会话及摘要
+  </Card>
+
+  <Card title="删除历史记录" icon="trash">
+    ```
+    POST /api/history/delete
+    ```
+    删除特定消息或整个会话
+  </Card>
+</CardGroup>
+
+<Note>
+对于共享会话（帮助询问功能），请使用 `/api/history_by_person` 端点检索您帮助其他用户的对话。
+</Note>

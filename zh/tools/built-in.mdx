@@ -5,7 +5,7 @@ description: "Mirobody Health 默认提供的健康 tools"
 
 ## 概览
 
-Mirobody Health 默认包含两个关键的健康 tools，使 AI agents 能够安全访问并分析用户健康数据。
+Mirobody Health 默认包含两个关键的健康 tools，使 AI agents 能够安全访问并分析用户 health 数据。
 
 <CardGroup cols={2}>
   <Card title="get_user_health_profile" icon="user">
@@ -89,11 +89,11 @@ async def get_health_indicator(
 
 <ParamField body="indicator" type="string" required>
   健康指标名称。示例：
-  - `HEART_RATE`: Heart rate measurements
-  - `DAILY_STEPS`: Daily step count
-  - `SLEEP_DURATION`: Sleep duration
-  - `HRV`: Heart rate variability
-  - `WEIGHT`: Body weight
+  - `HEART_RATE`: 心率测量
+  - `DAILY_STEPS`: 每日步数
+  - `SLEEP_DURATION`: 睡眠时长
+  - `HRV`: 心率变异性
+  - `WEIGHT`: 体重
   
   完整列表请参见[标准指标](/zh/providers/overview#standard-health-indicators)。
 </ParamField>
@@ -167,7 +167,7 @@ async def get_health_indicator(
 
 <Tabs>
   <Tab title="查询 Profile">
-    **User:** "What health devices do I have connected?"
+    **User:** "我连接了哪些健康设备？"
     
     **Agent Action:**
     ```python
@@ -175,11 +175,11 @@ async def get_health_indicator(
     connected = profile["connected_providers"]
     ```
     
-    **Response:** "You have 2 devices connected: Garmin (last synced 2 hours ago) and Whoop (last synced 1 hour ago)."
+    **Response:** "您连接了 2 个设备：Garmin（上次同步于 2 小时前）和 Whoop（上次同步于 1 小时前）。"
   </Tab>
 
   <Tab title="趋势分析">
-    **User:** "Show me my heart rate for the past week"
+    **User:** "显示我过去一周的心率"
     
     **Agent Action:**
     ```python
@@ -191,11 +191,11 @@ async def get_health_indicator(
     )
     ```
     
-    **Response:** "Your average heart rate was 68 bpm. I noticed it was higher on Jan 12 (75 bpm average), which matches your workout day."
+    **Response:** "您的平均心率是 68 bpm。我注意到 1 月 12 日的心率较高（平均 75 bpm），这与您的锻炼日相符。"
   </Tab>
 
   <Tab title="对比分析">
-    **User:** "Compare my sleep this week vs last week"
+    **User:** "对比我本周和上周的睡眠"
     
     **Agent Action:**
     ```python
@@ -214,22 +214,22 @@ async def get_health_indicator(
     )
     ```
     
-    **Response:** "This week you averaged 7.5 hours of sleep, compared to 6.8 hours last week - a 10% improvement!"
+    **Response:** "本周您平均睡眠 7.5 小时，而上周是 6.8 小时——提升了 10%！"
   </Tab>
 </Tabs>
 
 ## 安全
 
 <AccordionGroup>
-  <Accordion title="OAuth Authentication" icon="shield">
+  <Accordion title="OAuth 认证" icon="shield">
     所有用户数据相关 tools 都需要 OAuth 认证。执行 tool 之前会自动校验 `user_info` 参数。
   </Accordion>
 
-  <Accordion title="Data Scoping" icon="lock">
+  <Accordion title="数据范围" icon="lock">
     Tools 只能访问当前认证用户的数据；数据库层面会阻止跨用户的数据访问。
   </Accordion>
 
-  <Accordion title="Audit Logging" icon="clipboard-list">
+  <Accordion title="审计日志" icon="clipboard-list">
     所有 tool 调用都会记录 user ID、timestamp 与参数，用于安全审计。
   </Accordion>
 </AccordionGroup>
@@ -237,16 +237,16 @@ async def get_health_indicator(
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Add Custom Tools" icon="plus" href="/zh/tools/adding-tools">
+  <Card title="添加自定义 Tools" icon="plus" href="/zh/tools/adding-tools">
     用 Python 创建你自己的 tools
   </Card>
   <Card title="MCP Integration" icon="bolt" href="/zh/tools/mcp-integration">
     连接到 Claude、Cursor 或 ChatGPT
   </Card>
-  <Card title="Adding MCPs" icon="plug" href="/zh/tools/adding-mcps">
-    添加并配置第三方 MCP servers
+  <Card title="Tool 示例" icon="code" href="/zh/tools/examples">
+    查看更多 tool 实现示例
   </Card>
   <Card title="API Reference" icon="book" href="/zh/api-reference/mcp/tools">
-    MCP protocol 的 tools 文档
+    MCP 协议的 tools 文档
   </Card>
 </CardGroup>

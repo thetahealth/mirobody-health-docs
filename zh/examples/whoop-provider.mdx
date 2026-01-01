@@ -5,26 +5,26 @@ description: "Whoop Provider 的完整实现示例"
 
 ## 概览
 
-Whoop Provider 展示了带 token refresh 的 OAuth 2.0 认证实现，以及恢复（recovery）与表现（performance）数据的完整集成方式。
+Whoop Provider 展示了带 Token 刷新的 OAuth 2.0 身份验证实现，以及全面的恢复 (Recovery) 和表现 (Performance) 数据集成。
 
 <Info>
-本示例展示带自动 token refresh 的 OAuth 2.0 实现，非常适合学习现代 OAuth 模式。
+本示例展示了带自动 Token 刷新的 OAuth 2.0 实现，非常适合学习现代 OAuth 模式。
 </Info>
 
 ## 核心特性
 
 <CardGroup cols={2}>
   <Card title="OAuth 2.0" icon="shield">
-    带 refresh tokens 的现代 OAuth
+    带刷新 Token 的现代 OAuth 模式
   </Card>
-  <Card title="Recovery Data" icon="heart-pulse">
-    HRV, resting HR, recovery scores
+  <Card title="恢复数据" icon="heart-pulse">
+    HRV、静息心率、恢复分数
   </Card>
-  <Card title="Sleep Analytics" icon="bed">
-    详细的睡眠分期与质量分析
+  <Card title="睡眠分析" icon="bed">
+    详细的睡眠阶段和质量分析
   </Card>
-  <Card title="Workout Data" icon="dumbbell">
-    带强度分区的训练数据
+  <Card title="运动数据" icon="dumbbell">
+    带强度分区的锻炼会话数据
   </Card>
 </CardGroup>
 
@@ -40,23 +40,23 @@ class ThetaWhoopProvider(BaseThetaProvider):
     def __init__(self):
         super().__init__()
         
-        # OAuth 2.0 configuration
+        # OAuth 2.0 配置
         self.client_id = safe_read_cfg("WHOOP_CLIENT_ID")
         self.client_secret = safe_read_cfg("WHOOP_CLIENT_SECRET")
         self.redirect_url = safe_read_cfg("WHOOP_REDIRECT_URL")
         
-        # API endpoints
+        # API 端点
         self.auth_url = "https://api.prod.whoop.com/oauth/oauth2/auth"
         self.token_url = "https://api.prod.whoop.com/oauth/oauth2/token"
         self.api_base_url = "https://api.prod.whoop.com/developer/v2"
         
-        # Scopes
+        # 权限范围 (Scopes)
         self.scopes = "offline read:recovery read:sleep read:cycles read:workout"
 ```
 
 ## 数据映射
 
-Whoop 提供了细粒度的恢复与表现指标：
+Whoop 提供了详细的恢复和表现指标：
 
 ```python
 WHOOP_INDICATOR_MAPPING = {
@@ -104,24 +104,24 @@ WHOOP_INDICATOR_MAPPING = {
 
 ## OAuth 2.0 实现
 
-### 发起链接（Link）
+### 发起绑定
 
 ```python
 async def link(self, request: LinkRequest) -> Dict[str, Any]:
-    """Initiate OAuth 2.0 flow"""
+    """发起 OAuth 2.0 流程"""
     user_id = request.user_id
     
-    # Generate state for CSRF protection
+    # 生成用于 CSRF 保护的 state
     state_payload = {"s": str(uuid.uuid4())}
     state = urlencode(state_payload)
     
-    # Store in Redis
+    # 存储在 Redis 中
     redis_client = await self._get_redis_client()
     await redis_client.setex(f"oauth2:state:{state}", 900, user_id)
     await redis_client.setex(f"oauth2:redir:{state}", 900, self.redirect_url)
     await redis_client.aclose()
     
-    # Build authorization URL
+    # 构建授权 URL
     params = {
         "client_id": self.client_id,
         "response_type": "code",
@@ -134,13 +134,13 @@ async def link(self, request: LinkRequest) -> Dict[str, Any]:
     return {"link_web_url": authorization_url}
 ```
 
-### 处理回调（Callback）
+### 处理回调
 
 ```python
 async def callback(self, code: str, state: str) -> Dict[str, Any]:
-    """Handle OAuth 2.0 callback"""
+    """处理 OAuth 2.0 回调"""
     
-    # Validate state
+    # 验证 state
     redis_client = await self._get_redis_client()
     user_id = await redis_client.get(f"oauth2:state:{state}")
     redirect_uri = await redis_client.get(f"oauth2:redir:{state}")
@@ -149,9 +149,9 @@ async def callback(self, code: str, state: str) -> Dict[str, Any]:
     await redis_client.aclose()
     
     if not user_id:
-        raise ValueError("Invalid or expired state")
+        raise ValueError("无效或已过期的 state")
     
-    # Exchange code for tokens
+    # 使用 code 交换 token
     async with aiohttp.ClientSession() as session:
         data = {
             "grant_type": "authorization_code",
@@ -163,10 +163,10 @@ async def callback(self, code: str, state: str) -> Dict[str, Any]:
         
         async with session.post(self.token_url, data=data) as resp:
             if resp.status != 200:
-                raise RuntimeError(f"Token exchange failed: {await resp.text()}")
+                raise RuntimeError(f"Token 交换失败: {await resp.text()}")
             token_data = await resp.json()
     
-    # Save credentials with expiration
+    # 保存带有过期时间的凭据
     access_token = token_data["access_token"]
     refresh_token = token_data.get("refresh_token")
     expires_in = token_data.get("expires_in")
@@ -176,7 +176,7 @@ async def callback(self, code: str, state: str) -> Dict[str, Any]:
         user_id, self.info.slug, access_token, refresh_token, expires_at
     )
     
-    # Trigger data sync
+    # 触发数据同步
     asyncio.create_task(self._pull_and_push_for_user({
         "user_id": user_id,
         "access_token": access_token,
@@ -186,15 +186,15 @@ async def callback(self, code: str, state: str) -> Dict[str, Any]:
     return {"provider_slug": self.info.slug, "stage": "completed"}
 ```
 
-## Token Refresh
+## Token 刷新
 
-自动 token refresh 可确保持续可用的访问能力：
+自动 Token 刷新确保持续的访问：
 
 ```python
 async def get_valid_access_token(self, user_id: str) -> Optional[str]:
-    """Get valid access token, refreshing if necessary"""
+    """获取有效的 access token，必要时进行刷新"""
     
-    # Get stored credentials
+    # 获取存储的凭据
     creds = await self.db_service.get_user_credentials(
         user_id, self.info.slug, LinkType.OAUTH2
     )
@@ -205,11 +205,11 @@ async def get_valid_access_token(self, user_id: str) -> Optional[str]:
     access_token = creds["access_token"]
     expires_at = creds.get("expires_at")
     
-    # Check if still valid
+    # 检查是否仍然有效
     if expires_at and time.time() < expires_at:
         return access_token
     
-    # Token expired, refresh it
+    # Token 已过期，刷新它
     refresh_token = creds.get("refresh_token")
     if not refresh_token:
         return None
@@ -224,7 +224,7 @@ async def get_valid_access_token(self, user_id: str) -> Optional[str]:
         
         async with session.post(self.token_url, data=data) as resp:
             if resp.status != 200:
-                # Refresh failed, remove invalid credentials
+                # 刷新失败，移除无效凭据
                 await self.db_service.delete_user_theta_provider(
                     user_id, self.info.slug
                 )
@@ -232,7 +232,7 @@ async def get_valid_access_token(self, user_id: str) -> Optional[str]:
             
             token_data = await resp.json()
     
-    # Update credentials
+    # 更新凭据
     new_access_token = token_data["access_token"]
     new_refresh_token = token_data.get("refresh_token", refresh_token)
     new_expires_in = token_data.get("expires_in")
@@ -245,7 +245,7 @@ async def get_valid_access_token(self, user_id: str) -> Optional[str]:
     return new_access_token
 ```
 
-## Data Fetching with Pagination
+## 带分页的数据获取
 
 ```python
 async def pull_from_vendor_api(
@@ -254,7 +254,7 @@ async def pull_from_vendor_api(
     refresh_token: Optional[str] = None,
     days: int = 2
 ) -> List[Dict[str, Any]]:
-    """Pull data from Whoop API with pagination"""
+    """从 Whoop API 分页获取数据"""
     
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -282,7 +282,7 @@ async def pull_from_vendor_api(
                     "limit": 25
                 }
                 
-                # Handle pagination
+                # 处理分页
                 data = await self._fetch_paginated_data(
                     session, endpoint, headers, params
                 )
@@ -294,89 +294,89 @@ async def pull_from_vendor_api(
                         "timestamp": int(time.time() * 1000)
                     })
             except Exception as e:
-                logging.error(f"Error fetching {data_type}: {str(e)}")
+                logging.error(f"获取 {data_type} 出错: {str(e)}")
                 continue
     
     return all_raw_data
 ```
 
-## Supported Data Types
+## 支持的数据类型
 
 <Tabs>
-  <Tab title="Sleep">
-    - Total in bed time
-    - Light sleep
-    - Deep sleep (slow-wave)
-    - REM sleep
-    - Sleep efficiency
-    - Disturbances
+  <Tab title="睡眠">
+    - 总在床时间
+    - 浅睡时间
+    - 深睡时间 (Slow-wave)
+    - REM 睡眠时间
+    - 睡眠效率
+    - 睡眠中断情况
   </Tab>
 
-  <Tab title="Recovery">
+  <Tab title="恢复">
     - HRV (RMSSD)
-    - Resting heart rate
-    - Respiratory rate
-    - SpO2
-    - Skin temperature
-    - Recovery score
+    - 静息心率
+    - 呼吸频率
+    - 血氧 (SpO2)
+    - 皮肤温度
+    - 恢复分数
   </Tab>
 
-  <Tab title="Cycles">
-    - Strain score
-    - Kilojoules
-    - Average heart rate
-    - Max heart rate
+  <Tab title="周期 (Cycles)">
+    - 压力分数 (Strain score)
+    - 千焦耳 (Kilojoules)
+    - 平均心率
+    - 最大心率
   </Tab>
 
-  <Tab title="Workouts">
-    - Activity type
-    - Duration
-    - Intensity zones
-    - Calories burned
-    - Heart rate stats
+  <Tab title="锻炼">
+    - 活动类型
+    - 持续时间
+    - 强度分区
+    - 卡路里消耗
+    - 心率统计
   </Tab>
 </Tabs>
 
-## Source Code
+## 源代码
 
-The complete Whoop provider source code is available at:
+完整的 Whoop Provider 源代码位于：
 ```
 connect/theta/mirobody_whoop/provider_whoop.py
 ```
 
-## Key Differences from OAuth 1.0
+## 与 OAuth 1.0 的主要区别
 
 <AccordionGroup>
-  <Accordion title="Token Types" icon="key">
-    OAuth 2.0 uses bearer tokens, OAuth 1.0 uses signed requests
+  <Accordion title="Token 类型" icon="key">
+    OAuth 2.0 使用 Bearer Token，OAuth 1.0 使用签名请求
   </Accordion>
 
-  <Accordion title="Token Expiration" icon="clock">
-    OAuth 2.0 tokens expire and need refresh, OAuth 1.0 tokens don't expire
+  <Accordion title="Token 过期" icon="clock">
+    OAuth 2.0 Token 会过期并需要刷新，OAuth 1.0 Token 通常不会过期
   </Accordion>
 
-  <Accordion title="Simplicity" icon="check">
-    OAuth 2.0 is simpler - no signature calculation required
+  <Accordion title="便捷性" icon="check">
+    OAuth 2.0 更简单 - 无需计算复杂的签名
   </Accordion>
 
-  <Accordion title="Refresh Flow" icon="rotate">
-    OAuth 2.0 has built-in token refresh, OAuth 1.0 requires re-authorization
+  <Accordion title="刷新流程" icon="rotate">
+    OAuth 2.0 内置了 Token 刷新机制，OAuth 1.0 通常需要重新授权
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Garmin Example" icon="code" href="/zh/examples/garmin-provider">
-    See OAuth 1.0 implementation
+  <Card title="Garmin 示例" icon="code" href="/zh/examples/garmin-provider">
+    查看 OAuth 1.0 实现
   </Card>
-  <Card title="Integration Guide" icon="book" href="/zh/providers/integration-guide">
-    Build your own provider
+  <Card title="集成指南" icon="book" href="/zh/development/provider-integration">
+    构建你自己的 Provider
   </Card>
-  <Card title="OAuth Flow" icon="key" href="/zh/providers/oauth-flow">
-    Deep dive into OAuth patterns
+  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
+    深入了解 OAuth 模式
   </Card>
-  <Card title="Testing" icon="flask" href="/zh/providers/testing">
-    Test your provider
+  <Card title="测试指南" icon="flask" href="/zh/development/provider-testing">
+    测试你的 Provider
   </Card>
 </CardGroup>

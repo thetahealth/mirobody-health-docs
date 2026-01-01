@@ -5,20 +5,26 @@ description: "搭建 Mirobody Health 的本地开发环境"
 
 ## 前置条件
 
-开始搭建开发环境前，请确保你具备：
+开始搭建开发环境前，请确保你已安装：
 
 <CardGroup cols={2}>
   <Card title="Python 3.12+" icon="python">
-    运行应用所必需
+    运行应用程序所需
+  </Card>
+  <Card title="Node.js 18+" icon="node">
+    图表渲染和服务器端渲染 (SSR) 所需
   </Card>
   <Card title="Docker & Docker Compose" icon="docker">
-    用于运行 PostgreSQL 与 Redis
+    用于运行 PostgreSQL 和 Redis
+  </Card>
+  <Card title="系统构建工具" icon="hammer">
+    gcc, gfortran 以及科学计算库
   </Card>
   <Card title="Git" icon="git">
     用于版本控制
   </Card>
-  <Card title="Code Editor" icon="code">
-    VS Code、PyCharm 或你偏好的 IDE
+  <Card title="代码编辑器" icon="code">
+    VS Code, PyCharm 或你偏好的 IDE
   </Card>
 </CardGroup>
 
@@ -32,30 +38,99 @@ description: "搭建 Mirobody Health 的本地开发环境"
     ```
   </Step>
 
+  <Step title="安装系统依赖">
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        xcode-select --install
+        brew install gcc gfortran fftw hdf5 openblas lapack
+        ```
+      </Tab>
+
+      <Tab title="Linux (Ubuntu/Debian)">
+        ```bash
+        sudo apt install -y g++ gfortran build-essential \
+          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
   <Step title="创建虚拟环境">
     ```bash
-    python3.12 -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    python3.12 -m venv .venv
+    source .venv/bin/activate  # Windows 用户: .venv\Scripts\activate
     ```
   </Step>
 
-  <Step title="安装依赖">
+  <Step title="安装 Python 依赖">
     ```bash
-    pip install -r requirements.txt
-    pip install -e .  # Install in development mode
+    pip install mirobody -r requirements.txt
     ```
+    
+    <Info>
+    `mirobody` 包包含核心实用程序。使用 `-e .` 进行开发模式安装是可选的。
+    </Info>
   </Step>
 
-  <Step title="启动服务">
+  <Step title="安装 Node.js 依赖">
+    ```bash
+    npm install @antv/gpt-vis-ssr ws
+    ```
+    
+    图表渲染服务所需。
+  </Step>
+
+  <Step title="启动后台服务">
     ```bash
     docker-compose up -d postgres redis
     ```
+    
+    你也可以使用自己现有的 PostgreSQL 和 Redis 实例。
   </Step>
 
-  <Step title="配置">
+  <Step title="配置环境变量">
     ```bash
-    cp config.example.yaml config.yaml
-    # Edit config.yaml with your settings
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
+    ```
+    
+    编辑 `.env`：
+    ```bash
+    ENV=localdb
+    ```
+    
+    根据你的环境编辑 `config.localdb.yaml`：
+    ```yaml
+    # 至少需要一个 LLM API 密钥
+    GOOGLE_API_KEY: ''
+    OPENAI_API_KEY: ''
+    OPENROUTER_API_KEY: ''
+    
+    # 数据库设置
+    PG_HOST: 'localhost'
+    PG_PORT: 5432
+    PG_USER: 'holistic_user'
+    PG_PASSWORD: 'holistic_password'
+    PG_DBNAME: 'holistic_db'
+    PG_SCHEMA: 'theta_ai'
+    
+    # Redis 设置
+    REDIS_HOST: 'localhost'
+    REDIS_PORT: 6379
+    REDIS_DB: 0
+    REDIS_PASSWORD: ''
+    
+    # MCP 和 Agent 目录
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
   </Step>
 
@@ -64,13 +139,17 @@ description: "搭建 Mirobody Health 的本地开发环境"
     python main.py
     ```
 
-    服务应启动于 http://localhost:18080
+    服务器应在 http://localhost:18080 启动。
+    
+    <Tip>
+    如果使用 WSL 运行，可以通过 Windows 浏览器访问 `http://localhost:18080`。
+    </Tip>
   </Step>
 </Steps>
 
 ## 开发工具
 
-### Recommended VS Code Extensions
+### 推荐的 VS Code 扩展
 
 ```json .vscode/extensions.json
 {
@@ -85,32 +164,32 @@ description: "搭建 Mirobody Health 的本地开发环境"
 }
 ```
 
-### Code Formatting
+### 代码格式化
 
 ```bash
-# Install development dependencies
+# 安装开发依赖
 pip install black ruff pytest pytest-asyncio
 
-# Format code
+# 格式化代码
 black .
 
-# Lint code
+# 代码检查 (Lint)
 ruff check .
 ```
 
-### Running Tests
+### 运行测试
 
 ```bash
-# Run all tests
+# 运行所有测试
 pytest
 
-# Run with coverage
+# 运行并生成覆盖率报告
 pytest --cov=connect --cov-report=html
 
-# Run specific test file
+# 运行特定的测试文件
 pytest tests/test_provider_garmin.py
 
-# Run integration tests
+# 运行集成测试
 pytest -m integration
 ```
 
@@ -118,30 +197,75 @@ pytest -m integration
 
 ```
 mirobody-health/
-├── connect/                 # Provider integrations
-│   └── theta/
-│       ├── mirobody_garmin_connect/
-│       └── mirobody_whoop/
-├── tests/                   # Test files
-├── config.yaml             # Configuration
-├── main.py                 # Application entry point
-├── requirements.txt        # Dependencies
-└── setup.py               # Package setup
+├── mirobody/                # 主应用程序包
+│   ├── chat/               # 聊天和 Agent 服务
+│   │   ├── adapters/      # 协议适配器 (HTTP, WebSocket)
+│   │   ├── agent.py       # Agent 注册和加载
+│   │   ├── service.py     # 聊天服务路由
+│   │   └── unified_chat_service.py  # 核心聊天逻辑
+│   ├── mcp/                # MCP 协议实现
+│   │   ├── service.py     # JSON-RPC 处理器
+│   │   ├── tool.py        # 工具加载和执行
+│   │   └── resource.py    # 资源管理
+│   ├── pulse/              # 健康数据平台
+│   │   ├── theta/         # OAuth 提供商 (Garmin, Whoop 等)
+│   │   ├── apple/         # Apple 健康平台
+│   │   ├── core/          # 核心健康服务
+│   │   ├── file_parser/   # 文件解析处理器
+│   │   └── router/        # API 路由
+│   ├── pub/                # 公共工具和 Agent
+│   │   ├── tools/         # 通用 MCP 工具
+│   │   ├── tools_health/  # 健康相关 MCP 工具
+│   │   ├── resources/     # MCP 资源
+│   │   └── agents/        # Agent 实现
+│   ├── server/             # HTTP 服务器
+│   ├── user/               # 身份验证
+│   └── utils/              # 实用工具
+├── database/               # 数据库架构和迁移
+│   └── resource/          # SQL 初始化文件
+├── compose.yaml           # Docker Compose 配置
+├── config.yaml            # 基础配置 (不可修改)
+├── config.localdb.yaml    # 你的环境配置
+├── .env                   # 环境变量
+├── main.py                # 应用程序入口
+├── requirements.txt       # Python 依赖
+├── package.json           # Node.js 依赖
+└── run.sh                 # 部署脚本
 ```
+
+## 核心目录
+
+<AccordionGroup>
+  <Accordion title="mirobody/chat" icon="comments">
+    包含 Agent 编排、消息历史记录以及 HTTP (SSE) 和 WebSocket 协议适配器的聊天服务。
+  </Accordion>
+
+  <Accordion title="mirobody/mcp" icon="bolt">
+    MCP 协议实现，包含 JSON-RPC 2.0 处理器、工具/资源加载和身份验证。
+  </Accordion>
+
+  <Accordion title="mirobody/pulse" icon="heartbeat">
+    健康数据平台，包含 OAuth 提供商、Apple 健康集成、文件处理和数据聚合。
+  </Accordion>
+
+  <Accordion title="mirobody/pub" icon="folder-open">
+    可通过 MCP 发现的公共工具、资源和 Agent。在此处添加自定义工具。
+  </Accordion>
+</AccordionGroup>
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Contributing" icon="code-pull-request" href="/zh/development/contributing">
-    了解如何为项目做贡献
+  <Card title="参与贡献" icon="code-pull-request" href="/zh/development/contributing">
+    了解如何为项目做出贡献
   </Card>
-  <Card title="Testing" icon="flask" href="/zh/development/testing">
+  <Card title="测试指南" icon="flask" href="/zh/development/testing">
     为你的代码编写测试
   </Card>
-  <Card title="Provider Integration" icon="plug" href="/zh/development/provider-integration">
+  <Card title="Provider 集成" icon="plug" href="/zh/development/provider-integration">
     添加新的 Provider 集成
   </Card>
-  <Card title="Deployment" icon="rocket" href="/zh/deployment/docker">
+  <Card title="部署指南" icon="rocket" href="/zh/deployment/docker">
     部署你的改动
   </Card>
 </CardGroup>

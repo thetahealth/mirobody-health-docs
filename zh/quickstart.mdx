@@ -1,11 +1,11 @@
 ---
 title: "快速开始"
-description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
+description: "使用 Docker 在 5 分钟内启动并运行 Mirobody Health"
 ---
 
 ## 前置条件
 
-开始之前，请确保已安装以下内容：
+开始之前，请确保您已安装以下内容：
 
 <CardGroup cols={2}>
   <Card title="Docker" icon="docker">
@@ -15,14 +15,14 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
 </CardGroup>
 
 <Check>
-你可以通过运行 `docker --version` 和 `docker-compose --version` 来验证 Docker 是否安装成功。
+您可以通过运行 `docker --version` 和 `docker-compose --version` 来验证 Docker 是否安装成功。
 </Check>
 
 ## 安装步骤
 
 <Steps>
   <Step title="克隆仓库">
-    将 Mirobody Health 仓库克隆到本地：
+    将 Mirobody Health 仓库克隆到本地机器：
 
     ```bash
     git clone https://github.com/thetahealth/mirobody-health.git
@@ -30,8 +30,8 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
     ```
   </Step>
 
-  <Step title="配置文件初始化">
-    创建你的 `.env` 文件和配置文件：
+  <Step title="初始化配置文件">
+    创建您的 `.env` 文件和配置文件：
 
     ```bash
     cp .env.example .env
@@ -44,31 +44,31 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
   </Step>
 
   <Step title="设置环境变量">
-    编辑 `.env` 设置你的配置文件：
+    编辑 `.env` 设置您的配置文件：
 
     ```bash .env
     ENV=localdb
     ```
 
-    这会告诉系统使用 `config.localdb.yaml` 作为配置。
+    这会告诉系统使用 `config.localdb.yaml` 进行配置。
   </Step>
 
-  <Step title="添加 API keys 并配置 agents">
-    创建 `config.localdb.yaml` 并添加至少一个 LLM API key：
+  <Step title="添加 API 密钥并配置 Agent">
+    创建 `config.localdb.yaml` 并添加至少一个 LLM API 密钥：
 
     ```yaml config.localdb.yaml
-    # ============ LLM API Keys (至少需要一个) ============
+    # ============ LLM API 密钥 (至少需要一个) ============
     GOOGLE_API_KEY: ''      # 用于 Gemini 模型
     OPENAI_API_KEY: ''      # 用于 GPT 模型  
-    OPENROUTER_API_KEY: ''  # 通过 OpenRouter 使用 Claude、DeepSeek 等模型
+    OPENROUTER_API_KEY: ''  # 用于通过 OpenRouter 访问 Claude、DeepSeek 等模型
     
     # ============ Agent 配置 ============
-    # MCP tools 目录
+    # MCP 工具目录
     MCP_TOOL_DIRS:
       - mirobody/pub/tools
       - mirobody/pub/tools_health
     
-    # MCP resources 目录
+    # MCP 资源目录  
     MCP_RESOURCE_DIRS:
       - mirobody/pub/resources
     
@@ -78,26 +78,26 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
     ```
 
     <Warning>
-    **至少需要一个 API key** 以使系统正常工作：
-    - **GOOGLE_API_KEY**：在 [Google AI Studio](https://aistudio.google.com/app/apikey) 获取
-    - **OPENAI_API_KEY**：在 [OpenAI Platform](https://platform.openai.com/api-keys) 获取
-    - **OPENROUTER_API_KEY**：在 [OpenRouter](https://openrouter.ai/keys) 获取 - 可访问 Claude、DeepSeek 等模型
+    **系统正常运行至少需要一个 API 密钥**：
+    - **GOOGLE_API_KEY**: 从 [Google AI Studio](https://aistudio.google.com/app/apikey) 获取
+    - **OPENAI_API_KEY**: 从 [OpenAI Platform](https://platform.openai.com/api-keys) 获取
+    - **OPENROUTER_API_KEY**: 从 [OpenRouter](https://openrouter.ai/keys) 获取 - 提供对 Claude、DeepSeek 等模型的访问
     </Warning>
     
     <Info>
-    Mirobody Health 包含两种 agent 类型：
-    - **DeepAgent**（基于 LangChain）：适合复杂任务、文件操作、多步骤规划
-    - **BaselineAgent**（原生 Gemini）：适合简单对话、轻量级 MCP 集成
+    Mirobody Health 包含两种 Agent 类型：
+    - **DeepAgent** (基于 LangChain): 最适合处理复杂任务、文件操作、多步骤规划
+    - **BaselineAgent** (原生 Gemini): 最适合简单对话、轻量级 MCP 集成
     
-    详见[Tools 概览](/zh/tools/overview)了解 agent 能力与配置。
+    有关 Agent 能力和配置的详情，请参阅 [工具概览](/zh/tools/overview)。
     </Info>
   </Step>
 
-  <Step title="配置 providers（可选）">
-    如果你想连接 Garmin 或 Whoop 等可穿戴设备，添加它们的 OAuth 凭据：
+  <Step title="配置提供商 (可选)">
+    如果您想连接 Garmin 或 Whoop 等可穿戴设备，请添加它们的 OAuth 凭据：
 
     ```yaml config.localdb.yaml
-    # Provider OAuth 凭据（可选）
+    # 提供商 OAuth 凭据 (可选)
     GARMIN_CLIENT_ID: ''
     GARMIN_CLIENT_SECRET: ''
     GARMIN_REDIRECT_URI: ''
@@ -107,7 +107,7 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
     WHOOP_REDIRECT_URI: ''
     ```
 
-    完整的 provider 配置请参考[配置指南](/zh/configuration)。
+    有关完整的提供商设置，请参阅 [配置指南](/zh/configuration)。
   </Step>
 
   <Step title="使用 Docker 部署">
@@ -117,64 +117,64 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
     ./run.sh
     ```
 
-    这会启动三个服务：
-    - **Backend API**：端口 18080
-    - **PostgreSQL**：端口 5432
-    - **Redis**：端口 6379
+    这将启动三个服务：
+    - **后端 API**，端口 18080
+    - **PostgreSQL** 数据库，端口 5432
+    - **Redis** 缓存，端口 6379
 
     <Check>
-    等待所有服务启动完成；你会看到日志提示启动成功。
+    等待所有服务启动。您应该能看到表示启动成功的日志。
     </Check>
   </Step>
 
   <Step title="验证安装">
-    打开浏览器访问：
+    打开浏览器并导航至：
 
     ```
     http://localhost:18080
     ```
 
-    你应该能看到 Mirobody Health 的欢迎页面。
+    您应该能看到 Mirobody Health 的欢迎页面。
   </Step>
 
   <Step title="登录">
-    使用默认 demo 账号或 `config.yaml` 中配置的账号登录：
+    使用默认的演示账号或在 `config.yaml` 中设置的账号登录。
 
     ``` 
-    demo@mirobody.ai
+    demo1@mirobody.ai
     777777
     ```
 
-    登录后你可以：
-    - **上传文件**：检验报告、医疗记录与健康文档（参见[文件处理](/zh/concepts/file-processing)）
-    - **与 AI 对话**：基于你的健康数据提问
-    - **连接 providers**：链接 Garmin、Whoop 等设备（参见[使用 Providers](/zh/providers/using-providers)）
+    登录后，您可以：
+    - **上传文件**: 化验单、医疗记录、健康文档（参见 [文件处理](/zh/concepts/file-processing)）
+    - **与 AI 对话**: 针对您的健康数据提问
+    - **连接提供商**: 绑定 Garmin、Whoop 和其他设备（参见 [使用提供商](/zh/providers/using-providers)）
   </Step>
 </Steps>
 
 ## 测试 API
 
-服务运行后，你可以测试以下 API endpoints：
+服务运行后，您可以测试 API 端点：
 
 <Tabs>
-  <Tab title="Health Check">
-    验证服务是否在运行：
+  <Tab title="健康检查">
+    验证服务器是否正在运行：
 
     ```bash
     curl http://localhost:18080/health
     ```
   </Tab>
 
-  <Tab title="List Providers">
-    获取可用的健康 providers：
+  <Tab title="列出提供商">
+    获取可用的健康提供商：
 
     ```bash
     curl http://localhost:18080/api/v1/pulse/providers
     ```
   </Tab>
 
-  <Tab title="MCP Interface">
-    测试 MCP protocol endpoint：
+  <Tab title="MCP 接口">
+    测试 MCP 协议端点：
 
     ```bash
     curl -X POST http://localhost:18080/mcp \
@@ -188,22 +188,22 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
   </Tab>
 </Tabs>
 
-## 可用 Endpoints
+## 可用端点
 
-部署完成后，可用 endpoints 如下：
+部署后，以下端点可用：
 
 <CardGroup cols={2}>
-  <Card title="Web Interface" icon="browser" href="http://localhost:18080">
-    主 Web 界面与文档
+  <Card title="Web 界面" icon="browser" href="http://localhost:18080">
+    主 Web 界面和文档
   </Card>
-  <Card title="MCP Protocol" icon="bolt" href="http://localhost:18080/mcp">
-    面向 AI agents 的 JSON-RPC 2.0 接口
+  <Card title="MCP 协议" icon="bolt" href="http://localhost:18080/mcp">
+    面向 AI Agent 的 JSON-RPC 2.0 接口
   </Card>
-  <Card title="Chat API" icon="comments" href="http://localhost:18080/api/chat">
-    AI 对话接口 endpoint
+  <Card title="聊天 API" icon="comments" href="http://localhost:18080/api/chat">
+    AI 聊天接口端点
   </Card>
-  <Card title="History" icon="clock-rotate-left" href="http://localhost:18080/api/history">
-    会话历史 endpoint
+  <Card title="历史记录" icon="clock-rotate-left" href="http://localhost:18080/api/history">
+    会话历史记录端点
   </Card>
 </CardGroup>
 
@@ -211,14 +211,14 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
 
 部署包含三个容器化服务：
 
-| Service | Port | Description |
+| 服务 | 端口 | 描述 |
 |---------|------|-------------|
-| backend | 18080 | FastAPI application server |
-| postgres | 5432 | PostgreSQL database |
-| redis | 6379 | Redis cache and session store |
+| backend | 18080 | FastAPI 应用程序服务器 |
+| postgres | 5432 | PostgreSQL 数据库 |
+| redis | 6379 | Redis 缓存和会话存储 |
 
 <Tip>
-你可以用以下命令查看任意服务的日志：
+您可以使用以下命令查看任何服务的日志：
 
 ```bash
 docker-compose logs -f backend
@@ -244,10 +244,10 @@ docker-compose logs -f redis
 
   <Accordion title="查看日志" icon="file-lines">
     ```bash
-    # All services
+    # 所有服务
     docker-compose logs -f
     
-    # Specific service
+    # 特定服务
     docker-compose logs -f backend
     ```
   </Accordion>
@@ -260,13 +260,13 @@ docker-compose logs -f redis
     ```
   </Accordion>
 
-  <Accordion title="进入数据库" icon="database">
+  <Accordion title="访问数据库" icon="database">
     ```bash
     docker-compose exec postgres psql -U holistic_user -d holistic_db
     ```
   </Accordion>
 
-  <Accordion title="进入 Redis CLI" icon="terminal">
+  <Accordion title="访问 Redis CLI" icon="terminal">
     ```bash
     docker-compose exec redis redis-cli
     ```
@@ -276,24 +276,24 @@ docker-compose logs -f redis
 ## 故障排查
 
 <AccordionGroup>
-  <Accordion title="端口被占用" icon="circle-exclamation">
-    如果 18080 端口已被占用，请编辑 `config.yaml`：
+  <Accordion title="端口已被占用" icon="circle-exclamation">
+    如果端口 18080 已被占用，请编辑 `config.yaml`：
 
     ```yaml
-    HTTP_PORT: 18081  # Change to an available port
+    HTTP_PORT: 18081  # 更改为可用端口
     ```
 
-    然后重启服务即可。
+    然后重启服务。
   </Accordion>
 
   <Accordion title="数据库连接失败" icon="database">
-    确保 PostgreSQL 容器在运行：
+    确保 PostgreSQL 容器正在运行：
 
     ```bash
     docker-compose ps postgres
     ```
 
-    查看数据库日志：
+    检查数据库日志：
 
     ```bash
     docker-compose logs postgres
@@ -301,17 +301,17 @@ docker-compose logs -f redis
   </Accordion>
 
   <Accordion title="Redis 连接失败" icon="server">
-    确认 Redis 在运行且可访问：
+    验证 Redis 正在运行且可访问：
 
     ```bash
     docker-compose exec redis redis-cli ping
     ```
 
-    正常情况下应返回 `PONG`。
+    如果正常工作应返回 `PONG`。
   </Accordion>
 
-  <Accordion title="deploy.sh 权限不足" icon="lock">
-    给脚本增加可执行权限：
+  <Accordion title="deploy.sh 权限被拒绝" icon="lock">
+    使脚本可执行：
 
     ```bash
     chmod +x deploy.sh
@@ -321,23 +321,23 @@ docker-compose logs -f redis
 
 ## 下一步
 
-现在你已经启动了 Mirobody Health：
+现在您已运行了 Mirobody Health：
 
 <CardGroup cols={2}>
-  <Card title="配置 Providers" icon="gear" href="/zh/configuration">
-    为 Garmin、Whoop 等 providers 配置 OAuth 凭据
+  <Card title="配置提供商" icon="gear" href="/zh/configuration">
+    为 Garmin、Whoop 等提供商设置 OAuth 凭据
   </Card>
-  <Card title="浏览 API" icon="code" href="/zh/api-reference/introduction">
-    了解如何使用 Pulse API 链接用户并获取健康数据
+  <Card title="探索 API" icon="code" href="/zh/api-reference/introduction">
+    了解如何使用 Pulse API 链接用户并检索健康数据
   </Card>
-  <Card title="理解架构" icon="diagram-project" href="/zh/concepts/architecture">
-    了解 Mirobody Health 如何处理并标准化健康数据
+  <Card title="了解架构" icon="diagram-project" href="/zh/concepts/architecture">
+    了解 Mirobody Health 如何处理和标准化健康数据
   </Card>
-  <Card title="添加新 Providers" icon="plus" href="/zh/development/provider-integration">
-    按照指南集成更多健康设备 Provider
+  <Card title="添加新提供商" icon="plus" href="/zh/development/provider-integration">
+    按照指南集成其他健康设备提供商
   </Card>
 </CardGroup>
 
 <Note>
-生产环境部署请参考[生产环境部署指南](/zh/deployment/production)，包括安全加固与性能优化建议。
+有关生产环境部署，请参阅 [生产环境部署指南](/zh/deployment/production) 以了解安全加固和性能优化建议。
 </Note>

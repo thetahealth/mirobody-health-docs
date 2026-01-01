@@ -1,66 +1,175 @@
 ---
-title: "发送对话消息"
-description: "向 AI 健康助手发送消息并获取回复"
+title: "发送聊天消息"
+description: "向 AI 健康助手发送消息并接收回复"
 ---
 
-## Endpoint
+## 端点
 
 ```
-POST /api/chat
+POST /api/v1/chat/stream
 ```
 
-## Overview
+## 概览
 
-通过发送消息与 AI 健康助手交互，并基于用户健康数据获得智能回复。
+通过发送消息与 AI 健康助手交互，并接收智能的流式回复。API 支持两种 Agent 类型：**DeepAgent**（基于 LangChain，用于复杂任务）和 **BaselineAgent**（原生 Gemini，用于简单对话）。
 
 <Info>
-Chat API 支持多个 LLM providers，包括 OpenAI、Google Gemini、Anthropic Claude 与 OpenRouter。
+聊天 API 使用服务器发送事件（SSE）进行流式响应，并支持文件上传、MCP 工具调用和多语言对话。
 </Info>
 
-## Request
+## 请求参数
 
-<ParamField body="message" type="string" required>
+<ParamField body="question" type="string" required>
   用户的消息或问题
 </ParamField>
 
+<ParamField body="agent" type="string" required>
+  要使用的 Agent 类型：`deep` (DeepAgent) 或 `baseline` (BaselineAgent)
+</ParamField>
+
 <ParamField body="user_id" type="string" required>
-  用户的唯一标识
+  经过身份验证的用户的唯一标识符
+</ParamField>
+
+<ParamField body="query_user_id" type="string">
+  要查询其数据的用户 ID（默认为 `user_id`）。用于帮助询问功能。
 </ParamField>
 
 <ParamField body="session_id" type="string">
-  可选 session ID，用于保持对话上下文
+  用于维持对话上下文的会话 ID。如果未提供，则自动生成。
 </ParamField>
 
 <ParamField body="provider" type="string">
-  使用的 LLM provider：`openai`、`google`、`anthropic` 或 `openrouter`。默认使用配置中的 provider。
+  LLM 提供商覆盖：`google`, `openai`, `openrouter`。如果未指定，则使用 Agent 的默认设置。
+</ParamField>
+
+<ParamField body="enable_mcp" type="integer" default="1">
+  启用 MCP 工具（1 = 启用， 0 = 禁用）
+</ParamField>
+
+<ParamField body="file_list" type="array">
+  要包含在对话中的文件对象数组
+</ParamField>
+
+<ParamField body="prompt_name" type="string">
+  要使用的自定义提示模板名称
+</ParamField>
+
+<ParamField body="language" type="string" default="en">
+  回复语言：`en`, `zh` 等。
+</ParamField>
+
+<ParamField body="timezone" type="string" default="America/Los_Angeles">
+  用于基于时间的查询的用户时区
+</ParamField>
+
+<ParamField body="token" type="string">
+  JWT 身份验证令牌
 </ParamField>
 
 <RequestExample>
 ```bash cURL
-curl -X POST http://localhost:18080/api/chat \
+curl -X POST http://localhost:18080/api/v1/chat/stream \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
-    "message": "How many steps did I take yesterday?",
+    "question": "我昨天走了多少步？",
+    "agent": "deep",
     "user_id": "user_123",
-    "session_id": "session_abc"
+    "session_id": "session_abc",
+    "language": "zh"
   }'
+```
+
+```python Python
+import httpx
+
+async with httpx.AsyncClient() as client:
+    async with client.stream(
+        "POST",
+        "http://localhost:18080/api/v1/chat/stream",
+        json={
+            "question": "我昨天走了多少步？",
+            "agent": "deep",
+            "user_id": "user_123",
+            "session_id": "session_abc"
+        },
+        headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+    ) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                data = json.loads(line[6:])
+                print(data)
 ```
 </RequestExample>
 
-## Response
+## 响应格式
+
+API 返回带有 JSON 分块的服务器发送事件（SSE）。每个分块都有一个 `type` 和 `content`：
 
 <ResponseExample>
-```json Success
-{
-  "response": "Based on your Garmin data, you took 10,543 steps yesterday. That's about 200 steps more than your daily average!",
-  "session_id": "session_abc",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "provider": "openai",
-  "model": "gpt-4"
-}
+```json 回复分块
+data: {"type": "reply", "content": "根据您的 Garmin 数据"}
+data: {"type": "reply", "content": "，您走了"}
+data: {"type": "reply", "content": " 10,543 步"}
+```
+
+```json 工具调用
+data: {"type": "queryTitle", "content": "get_health_data"}
+data: {"type": "queryArguments", "content": "{\"indicator\": \"steps\", \"date\": \"2024-01-14\"}", "tool_id": "call_abc123"}
+data: {"type": "queryDetail", "content": "{\"value\": 10543, \"unit\": \"steps\"}", "tool_id": "call_abc123"}
+```
+
+```json 思考 (推理)
+data: {"type": "thinking", "content": "让我分析一下用户的步数数据..."}
+```
+
+```json 结束
+data: {"type": "end", "content": ""}
+```
+
+```json 错误
+data: {"type": "error", "content": "会话 ID 无效"}
 ```
 </ResponseExample>
 
+## 分块类型
+
+| 类型 | 描述 |
+|------|-------------|
+| `reply` | AI 响应内容令牌 |
+| `thinking` | 推理/思考令牌（适用于具有推理能力的模型） |
+| `queryTitle` | 正在调用的工具名称 |
+| `queryArguments` | 工具调用的参数 |
+| `queryDetail` | 工具执行的结果 |
+| `costStatistics` | 令牌使用情况和成本信息 |
+| `end` | 流完成信号 |
+| `error` | 错误消息 |
+
 <Note>
-AI 助手可以访问用户已连接的健康数据，并回答有关活动、睡眠、心率等指标的问题。
+聊天服务会自动持久化对话历史记录，并与 MCP 工具集成以访问健康数据、执行计算等。
 </Note>
+
+## Agent 类型
+
+<Tabs>
+  <Tab title="DeepAgent">
+    **基于 LangChain 的 Agent**，用于处理复杂任务：
+    - 文件处理（PDF、图像、音频）
+    - 多步规划和推理
+    - 高级 MCP 工具编排
+    - 记忆和上下文管理
+    
+    在请求中使用 `"agent": "deep"`。
+  </Tab>
+
+  <Tab title="BaselineAgent">
+    **原生 Gemini Agent**，用于简单对话：
+    - 响应速度快
+    - 轻量级 MCP 集成
+    - 直接访问 Gemini API
+    - 对于基础查询极具成本效益
+    
+    在请求中使用 `"agent": "baseline"`。
+  </Tab>
+</Tabs>

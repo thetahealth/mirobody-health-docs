@@ -6,34 +6,34 @@ description: "将 Mirobody Health 部署到生产环境的最佳实践"
 ## 生产检查清单
 
 <AccordionGroup>
-  <Accordion title="安全（Security）" icon="shield">
-    - [ ] 使用强度高且随机生成的 keys（密钥）
+  <Accordion title="安全性" icon="shield">
+    - [ ] 使用强度高且随机生成的密钥
     - [ ] 启用 HTTPS/TLS
-    - [ ] 限制 CORS origins（允许来源）
-    - [ ] 使用环境变量管理 secrets（敏感配置）
+    - [ ] 限制 CORS 允许的来源域名
+    - [ ] 为敏感信息使用环境变量
     - [ ] 启用数据库加密
-    - [ ] 配置防火墙规则
+    - [ ] 设置防火墙规则
   </Accordion>
 
-  <Accordion title="性能（Performance）" icon="gauge">
-    - [ ] 配置 connection pooling（连接池）
+  <Accordion title="性能" icon="gauge">
+    - [ ] 配置连接池
     - [ ] 启用 Redis 持久化
-    - [ ] 配置缓存
+    - [ ] 设置缓存
     - [ ] 优化数据库查询
-    - [ ] 配置 rate limiting（限流）
+    - [ ] 配置速率限制
   </Accordion>
 
-  <Accordion title="监控（Monitoring）" icon="chart-line">
-    - [ ] 配置日志聚合
-    - [ ] 配置 health checks（健康检查）
-    - [ ] 启用指标采集（metrics）
-    - [ ] 配置告警（alerts）
+  <Accordion title="监控" icon="chart-line">
+    - [ ] 设置日志聚合
+    - [ ] 配置健康检查
+    - [ ] 启用指标采集
+    - [ ] 设置告警
     - [ ] 监控错误率
   </Accordion>
 
-  <Accordion title="备份与恢复（Backup & Recovery）" icon="database">
+  <Accordion title="备份与恢复" icon="database">
     - [ ] 自动化数据库备份
-    - [ ] 演练恢复流程
+    - [ ] 测试恢复程序
     - [ ] 备份配置文件
     - [ ] 文档化恢复过程
   </Accordion>
@@ -41,36 +41,36 @@ description: "将 Mirobody Health 部署到生产环境的最佳实践"
 
 ## 安全配置
 
-### 生成安全的 Keys
+### 生成安全密钥
 
 ```bash
-# Database encryption key (32 characters)
+# 数据库加密密钥 (32 字符)
 openssl rand -hex 32
 
-# JWT secret key
+# JWT 密钥
 openssl rand -base64 48
 
-# Redis password
+# Redis 密码
 openssl rand -base64 32
 ```
 
 ### 生产环境 config.yaml
 
 ```yaml
-# Security
-DATABASE_DECRYPTION_KEY: '[generated-key]'
-JWT_KEY: '[generated-key]'
-REDIS_PASSWORD: '[strong-password]'
-PG_PASSWORD: '[strong-password]'
+# 安全设置
+DATABASE_DECRYPTION_KEY: '[生成的密钥]'
+JWT_KEY: '[生成的密钥]'
+REDIS_PASSWORD: '[强密码]'
+PG_PASSWORD: '[强密码]'
 
-# HTTPS URLs
-MCP_FRONTEND_URL: 'https://yourdomain.com'
-MCP_PUBLIC_URL: 'https://api.yourdomain.com'
-WHOOP_REDIRECT_URL: 'https://api.yourdomain.com/api/v1/pulse/theta/theta_whoop/callback'
+# HTTPS URL
+MCP_FRONTEND_URL: 'https://您的域名.com'
+MCP_PUBLIC_URL: 'https://api.您的域名.com'
+WHOOP_REDIRECT_URL: 'https://api.您的域名.com/api/v1/pulse/theta/theta_whoop/callback'
 
-# Strict CORS
+# 严格的 CORS
 HTTP_HEADERS:
-  Access-Control-Allow-Origin: 'https://yourdomain.com'
+  Access-Control-Allow-Origin: 'https://您的域名.com'
 
 # SSL/TLS
 REDIS_SSL: true
@@ -90,7 +90,7 @@ REDIS_SSL: true
 └────────┬────────────────┘
          │
 ┌────────▼────────────────┐
-│  ALB (Load Balancer)    │
+│  ALB (负载均衡器)        │
 └────┬────────────┬───────┘
      │            │
 ┌────▼────┐  ┌───▼─────┐
@@ -108,9 +108,9 @@ REDIS_SSL: true
 └─────────────┘  └────────────────┘
 ```
 
-## 环境变量（Environment Variables）
+## 环境变量
 
-使用环境变量管理敏感配置：
+为敏感配置使用环境变量：
 
 ```bash
 export DATABASE_DECRYPTION_KEY="..."
@@ -120,7 +120,7 @@ export POSTGRES_PASSWORD="..."
 export REDIS_PASSWORD="..."
 ```
 
-## 监控与日志（Monitoring & Logging）
+## 监控与日志
 
 ### 日志配置
 
@@ -129,47 +129,47 @@ LOG_LEVEL: 'INFO'
 LOG_DIR: '/var/log/mirobody'
 ```
 
-### 健康检查接口（Health Check Endpoint）
+### 健康检查端点
 
 ```bash
-# Monitor application health
-curl https://api.yourdomain.com/health
+# 监控应用程序健康状况
+curl https://api.您的域名.com/health
 ```
 
-### 监控指标（Metrics）
+### 需监控的指标
 
-- 请求延迟（p50、p95、p99）
-- 按 endpoint 统计的错误率
-- Providers 同步成功率
-- 数据库连接池使用率
-- Redis cache 命中率
-- CPU 与内存使用率
+- 请求延迟 (p50, p95, p99)
+- 各端点的错误率
+- 提供商同步成功率
+- 数据库连接池使用情况
+- Redis 缓存命中率
+- CPU 和内存使用率
 
 ## 备份策略
 
 ### 数据库备份
 
 ```bash
-# Daily automated backup
+# 每日自动备份
 0 2 * * * pg_dump -h localhost -U holistic_user holistic_db | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
 ```
 
 ### 配置备份
 
 ```bash
-# Backup configuration
+# 备份配置
 tar -czf config-backup-$(date +%Y%m%d).tar.gz config.yaml .env
 ```
 
-## 扩容与伸缩（Scaling）
+## 扩容
 
-### 水平扩展（Horizontal Scaling）
+### 水平扩展
 
-- 在 load balancer 后部署多个 API 实例
-- 使用 Redis cluster 做分布式缓存
-- 读多写少场景使用数据库只读副本（read replicas）
+- 在负载均衡器后部署多个 API 实例
+- 使用 Redis 集群进行分布式缓存
+- 为读密集型工作负载使用数据库只读副本
 
-### 垂直扩展（Vertical Scaling）
+### 垂直扩展
 
 根据负载调整资源：
 
@@ -188,9 +188,9 @@ services:
 
 <CardGroup cols={2}>
   <Card title="Docker 部署" icon="docker" href="/zh/deployment/docker">
-    使用 Docker 部署与运维
+    使用 Docker 部署和运行
   </Card>
   <Card title="配置" icon="gear" href="/zh/configuration">
-    生产环境关键配置项
+    生产环境的关键配置选项
   </Card>
 </CardGroup>

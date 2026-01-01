@@ -1,17 +1,17 @@
 ---
-title: "数据流（Data Flow）"
+title: "数据流"
 description: "了解健康数据如何在 Mirobody Health 系统中流转"
 ---
 
 ## 数据流概览
 
-健康数据会经历多个处理阶段，以保证在不同 providers 之间的一致性、质量与标准化。
+健康数据通过多个处理阶段，以确保所有提供商之间的一致性、质量和标准化。
 
 ## 完整流程
 
 <Steps>
   <Step title="数据采集">
-    Provider 使用 OAuth 认证的请求从 vendor API 拉取 raw 数据。
+    提供商（Provider）使用经过 OAuth 身份验证的请求从厂商 API 拉取原始数据。
     
     ```python
     raw_data = await provider.pull_from_vendor_api(
@@ -20,38 +20,38 @@ description: "了解健康数据如何在 Mirobody Health 系统中流转"
     ```
   </Step>
 
-  <Step title="Raw 存储">
-    原始数据会存入数据库，用于审计追溯与后续重处理（reprocessing）。
+  <Step title="原始数据存储">
+    原始数据存储在数据库中，用于审计追踪和重新处理。
     
     ```python
     await provider.save_raw_data_to_db(raw_data)
     ```
   </Step>
 
-  <Step title="转换（Transformation）">
-    将 vendor 特定的数据转换为标准化格式。
+  <Step title="转换">
+    将厂商特定的数据转换为标准化格式。
     
     ```python
     formatted_data = await provider.format_data(raw_data)
     ```
   </Step>
 
-  <Step title="上传到平台">
-    标准化数据会上传到 Mirobody platform。
+  <Step title="平台上传">
+    标准化数据被上传到 Mirobody 平台。
     
     ```python
     await push_service.push_data(platform="theta", data=formatted_data)
     ```
   </Step>
 
-  <Step title="可用性（Availability）">
-    数据现在可以用于查询、分析与 AI 处理。
+  <Step title="可用性">
+    数据现在可用于查询、分析和 AI 处理。
   </Step>
 </Steps>
 
 ## 数据转换
 
-转换阶段会将 vendor 特定格式转换为标准化的 `StandardPulseData`：
+转换阶段将厂商特定的格式转换为标准化的 `StandardPulseData` 格式：
 
 ```python
 StandardPulseData(
@@ -74,4 +74,4 @@ StandardPulseData(
 )
 ```
 
-更多关于数据映射（data mapping）的细节请参见[数据映射指南](/zh/development/data-mapping)。
+更多关于数据映射的细节，请参见 [数据映射指南](/zh/development/data-mapping)。

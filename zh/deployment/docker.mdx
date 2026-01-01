@@ -1,11 +1,11 @@
 ---
 title: "Docker 部署"
-description: "使用 Docker 与 Docker Compose 部署 Mirobody Health"
+description: "使用 Docker 和 Docker Compose 部署 Mirobody Health"
 ---
 
 ## 概览
 
-Docker 是部署 Mirobody Health 最简单的方式之一：可将所有依赖以隔离容器的形式一并运行。
+Docker 提供了一种最简单的方法，可以在隔离的容器中部署 Mirobody Health 及其所有依赖项。
 
 ## 快速部署
 
@@ -21,7 +21,7 @@ Docker 是部署 Mirobody Health 最简单的方式之一：可将所有依赖�
     ```bash
     cp .env_example .env
     cp config.example.yaml config.yaml
-    # Edit config.yaml with your settings
+    # 使用您的设置编辑 config.yaml
     ```
   </Step>
 
@@ -30,7 +30,7 @@ Docker 是部署 Mirobody Health 最简单的方式之一：可将所有依赖�
     ./deploy.sh
     ```
 
-    或手动运行：
+    或者手动运行：
     ```bash
     docker-compose up -d
     ```
@@ -47,29 +47,29 @@ Docker 是部署 Mirobody Health 最简单的方式之一：可将所有依赖�
 
 部署包含三个服务：
 
-| Service | Port | Description |
+| 服务 | 端口 | 描述 |
 |---------|------|-------------|
-| backend | 18080 | FastAPI application server |
-| postgres | 5432 | PostgreSQL database |
-| redis | 6379 | Redis cache and session store |
+| backend | 18080 | FastAPI 应用程序服务器 |
+| postgres | 5432 | PostgreSQL 数据库 |
+| redis | 6379 | Redis 缓存和会话存储 |
 
 ## 配置
 
-### Environment Variables
+### 环境变量
 
 ```bash .env
-# Database
+# 数据库
 POSTGRES_USER=holistic_user
-POSTGRES_PASSWORD=your_secure_password
+POSTGRES_PASSWORD=您的安全密码
 POSTGRES_DB=holistic_db
 
 # Redis
-REDIS_PASSWORD=your_redis_password
+REDIS_PASSWORD=您的 Redis 密码
 ```
 
-### Docker Compose Override
+### Docker Compose 覆盖
 
-如需本地自定义，可创建 `docker-compose.override.yml`：
+创建 `docker-compose.override.yml` 进行本地自定义：
 
 ```yaml docker-compose.override.yml
 version: '3.8'
@@ -79,57 +79,57 @@ services:
     environment:
       - LOG_LEVEL=DEBUG
     ports:
-      - "18081:18080"  # Custom port
+      - "18081:18080"  # 自定义端口
 ```
 
 ## 管理命令
 
 ```bash
-# View logs
+# 查看日志
 docker-compose logs -f backend
 
-# Restart service
+# 重启服务
 docker-compose restart backend
 
-# Stop all services
+# 停止所有服务
 docker-compose down
 
-# Rebuild containers
+# 重新构建容器
 docker-compose build --no-cache
 
-# Execute command in container
+# 在容器中执行命令
 docker-compose exec backend python -c "print('Hello')"
 ```
 
 ## 数据持久化
 
-数据会持久化在 Docker volumes 中：
+数据持久化在 Docker 卷（Volumes）中：
 
-- `pgdata`: PostgreSQL data
-- `redis-data`: Redis persistence
+- `pgdata`: PostgreSQL 数据
+- `redis-data`: Redis 持久化数据
 
 ```bash
-# Backup database
+# 备份数据库
 docker-compose exec postgres pg_dump -U holistic_user holistic_db > backup.sql
 
-# Restore database
+# 恢复数据库
 docker-compose exec -T postgres psql -U holistic_user holistic_db < backup.sql
 ```
 
-## 故障排查
+## 故障排除
 
 <AccordionGroup>
-  <Accordion title="Port conflicts" icon="network-wired">
-    在 `config.yaml` 或 `docker-compose.override.yml` 中修改端口
+  <Accordion title="端口冲突" icon="network-wired">
+    在 `config.yaml` 或 `docker-compose.override.yml` 中更改端口
   </Accordion>
 
-  <Accordion title="Container won't start" icon="circle-exclamation">
-    查看日志：`docker-compose logs backend`
+  <Accordion title="容器无法启动" icon="circle-exclamation">
+    检查日志：`docker-compose logs backend`
   </Accordion>
 
-  <Accordion title="Database connection fails" icon="database">
-    确认 PostgreSQL 运行中：`docker-compose ps postgres`
+  <Accordion title="数据库连接失败" icon="database">
+    验证 PostgreSQL 是否正在运行：`docker-compose ps postgres`
   </Accordion>
 </AccordionGroup>
 
-生产环境部署请参见[生产环境部署](/zh/deployment/production)。
+关于生产环境部署，请参阅 [生产环境部署](/zh/deployment/production)。

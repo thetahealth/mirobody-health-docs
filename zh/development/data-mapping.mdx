@@ -1,15 +1,15 @@
 ---
-title: "数据映射（Data Mapping）"
-description: "将 vendor 特定的健康数据转换为标准化指标"
+title: "数据映射"
+description: "将厂商特定的健康数据转换为标准化指标"
 ---
 
 ## 概览
 
-数据映射（data mapping）把 vendor 特定的 JSON 响应转换为 Mirobody Health 的标准格式，从而确保所有健康数据源的一致性。
+数据映射（Data Mapping）将厂商特定的 JSON 响应转换为 Mirobody Health 的标准化格式。这确保了所有健康数据源的一致性。
 
 ## 标准格式
 
-All health data is transformed into `StandardPulseData` objects:
+所有健康数据都转换为 `StandardPulseData` 对象：
 
 ```python
 from mirobody.pulse.theta.platform.indicator import StandardPulseData, StandardIndicator
@@ -25,9 +25,9 @@ data = StandardPulseData(
 
 ## 映射模式
 
-### Basic Mapping
+### 基础映射
 
-将简单值直接映射：
+直接映射简单值：
 
 ```python
 INDICATOR_MAPPING = {
@@ -37,7 +37,7 @@ INDICATOR_MAPPING = {
 }
 
 def format_data(self, raw_data: Dict) -> List[StandardPulseData]:
-    """Transform vendor data"""
+    """转换厂商数据"""
     results = []
     
     for vendor_key, standard_indicator in INDICATOR_MAPPING.items():
@@ -52,26 +52,26 @@ def format_data(self, raw_data: Dict) -> List[StandardPulseData]:
     return results
 ```
 
-### Nested Data Mapping
+### 嵌套数据映射
 
-针对嵌套 JSON 结构：
+针对嵌套的 JSON 结构：
 
 ```python
 def format_sleep_data(self, sleep_response: Dict) -> List[StandardPulseData]:
-    """Map nested sleep data"""
+    """映射嵌套的睡眠数据"""
     results = []
     sleep_data = sleep_response.get("sleep", {})
     
-    # Total sleep duration
+    # 总睡眠时长
     if "total_seconds" in sleep_data:
         results.append(StandardPulseData(
             indicator=StandardIndicator.DAILY_SLEEP_DURATION,
-            value=str(sleep_data["total_seconds"] * 1000),  # Convert to ms
+            value=str(sleep_data["total_seconds"] * 1000),  # 转换为毫秒
             start_time=sleep_data["start_time"],
             end_time=sleep_data["end_time"]
         ))
     
-    # Sleep stages
+    # 睡眠阶段
     stages = sleep_data.get("stages", {})
     if "deep_seconds" in stages:
         results.append(StandardPulseData(
@@ -84,28 +84,28 @@ def format_sleep_data(self, sleep_response: Dict) -> List[StandardPulseData]:
     return results
 ```
 
-### Unit Conversion
+### 单位转换
 
-将 vendor 单位转换为标准单位：
+将厂商单位转换为标准单位：
 
 ```python
-# Standard units: grams, milliseconds, meters
+# 标准单位：克 (grams), 毫秒 (milliseconds), 米 (meters)
 UNIT_CONVERSIONS = {
     "kg_to_grams": lambda x: x * 1000,
     "seconds_to_ms": lambda x: x * 1000,
     "minutes_to_ms": lambda x: x * 60 * 1000,
 }
 
-# Example
+# 示例
 weight_kg = raw_data["weight"]
 weight_grams = UNIT_CONVERSIONS["kg_to_grams"](weight_kg)
 ```
 
-## Standard Indicators
+## 标准指标
 
-### Activity Indicators
+### 活动指标
 
-| Standard Indicator | Unit | Description |
+| 标准指标 | 单位 | 描述 |
 |-------------------|------|-------------|
 | `DAILY_STEPS` | steps | 每日总步数 |
 | `DAILY_DISTANCE` | meters | 行走距离 |
@@ -113,9 +113,9 @@ weight_grams = UNIT_CONVERSIONS["kg_to_grams"](weight_kg)
 | `DAILY_FLOORS_CLIMBED` | floors | 爬楼层数 |
 | `ACTIVE_TIME` | milliseconds | 活动时长 |
 
-### Sleep Indicators
+### 睡眠指标
 
-| Standard Indicator | Unit | Description |
+| 标准指标 | 单位 | 描述 |
 |-------------------|------|-------------|
 | `DAILY_SLEEP_DURATION` | milliseconds | 总睡眠时长 |
 | `DAILY_DEEP_SLEEP` | milliseconds | 深睡时长 |
@@ -123,33 +123,33 @@ weight_grams = UNIT_CONVERSIONS["kg_to_grams"](weight_kg)
 | `DAILY_REM_SLEEP` | milliseconds | REM 睡眠时长 |
 | `SLEEP_EFFICIENCY` | percentage | 睡眠效率 |
 
-### Heart Rate Indicators
+### 心率指标
 
-| Standard Indicator | Unit | Description |
+| 标准指标 | 单位 | 描述 |
 |-------------------|------|-------------|
 | `HEART_RATE` | bpm | 瞬时心率 |
 | `DAILY_HEART_RATE_RESTING` | bpm | 静息心率 |
-| `DAILY_AVG_HEART_RATE` | bpm | 当日平均心率 |
+| `DAILY_AVG_HEART_RATE` | bpm | 每日平均心率 |
 | `HRV` | ms | 心率变异性 |
 
 ## 完整参考
 
-如需完整标准指标列表与更详细的映射示例：
+如需标准指标的完整列表及详细的映射示例：
 
-<Card title="Full Provider Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
-  查看完整 data mapping 模式、单位转换与指标参考
+<Card title="完整提供商集成指南" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
+  查看完整的数据映射模式、单位转换及指标参考
 </Card>
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Provider Integration" icon="puzzle-piece" href="/zh/development/provider-integration">
-    构建自定义 Provider
+  <Card title="提供商集成" icon="puzzle-piece" href="/zh/development/provider-integration">
+    构建自定义提供商
   </Card>
-  <Card title="Provider Testing" icon="flask" href="/zh/development/provider-testing">
+  <Card title="提供商测试" icon="flask" href="/zh/development/provider-testing">
     测试数据转换
   </Card>
-  <Card title="Examples" icon="code" href="/zh/examples/garmin-provider">
+  <Card title="示例" icon="code" href="/zh/examples/garmin-provider">
     查看真实映射代码
   </Card>
 </CardGroup>

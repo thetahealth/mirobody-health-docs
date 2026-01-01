@@ -1,15 +1,15 @@
 ---
-title: "MCP Tools"
-description: "通过 MCP protocol 提供给 AI agents 的可用 tools"
+title: "MCP 工具"
+description: "通过 MCP 协议提供给 AI agent 的可用工具"
 ---
 
-## Tools 概览
+## 工具概览
 
-MCP tools 是 AI agents 可调用的 functions，用于与 Mirobody Health 交互。每个 tool 都有明确的 input schema，并返回结构化结果。
+MCP 工具（Tools）是 AI agent 可以调用的函数，用于与 Mirobody Health 交互。每个工具都有定义的输入模式（input schema）并返回结构化结果。
 
-## 列出可用 Tools
+## 列出可用工具
 
-```json Request
+```json 请求
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -17,7 +17,7 @@ MCP tools 是 AI agents 可调用的 functions，用于与 Mirobody Health 交�
 }
 ```
 
-```json Response
+```json 响应
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -25,7 +25,7 @@ MCP tools 是 AI agents 可调用的 functions，用于与 Mirobody Health 交�
     "tools": [
       {
         "name": "get_health_data",
-        "description": "Retrieve health data for a user",
+        "description": "为用户检索健康数据",
         "inputSchema": {...}
       }
     ]
@@ -33,64 +33,142 @@ MCP tools 是 AI agents 可调用的 functions，用于与 Mirobody Health 交�
 }
 ```
 
-## 可用 Tools
+## 工具分类
+
+### 健康数据工具
 
 <AccordionGroup>
-  <Accordion title="get_health_data" icon="chart-line">
-    获取指定用户的健康指标数据。
+  <Accordion title="get_health_indicator" icon="heartbeat">
+    通过关键字搜索并检索健康指标。
 
-    **Input Schema:**
+    **输入模式 (Input Schema):**
     ```json
     {
-      "user_id": "string",
-      "data_type": "string (optional)",
-      "start_date": "string (optional)",
-      "end_date": "string (optional)"
+      "keywords": "string (必填) - 指标名称的搜索模式"
     }
     ```
 
-    **Example:**
+    **返回:** 匹配的健康指标列表，包含时间戳、值、单位和来源信息。
+
+    **示例:**
     ```json
     {
       "jsonrpc": "2.0",
       "id": 2,
       "method": "tools/call",
       "params": {
-        "name": "get_health_data",
+        "name": "get_health_indicator",
         "arguments": {
-          "user_id": "user_123",
-          "data_type": "heart_rate"
+          "keywords": "steps"
         }
       }
     }
     ```
   </Accordion>
 
-  <Accordion title="link_provider" icon="link">
-    为用户发起 provider 链接流程。
+  <Accordion title="get_user_info" icon="user">
+    检索用户个人资料信息，包括姓名、电子邮件和健康设置。
 
-    **Input Schema:**
-    ```json
-    {
-      "user_id": "string",
-      "provider_slug": "string"
-    }
-    ```
+    **输入模式 (Input Schema):** 无需参数（使用经过身份验证的用户）
+
+    **返回:** 包含人口统计信息和偏好的用户个人资料数据。
   </Accordion>
 
-  <Accordion title="query_metrics" icon="magnifying-glass-chart">
-    使用过滤条件查询聚合后的健康指标。
+  <Accordion title="get_genetic_data" icon="dna">
+    查询用户的基因标记数据。
 
-    **Input Schema:**
+    **输入模式 (Input Schema):**
     ```json
     {
-      "user_id": "string",
-      "metric_type": "string",
-      "aggregation": "string",
-      "time_range": "string"
+      "gene_name": "string (可选) - 要查询的特定基因"
+    }
+    ```
+
+    **返回:** 基因标记信息、等位基因和风险解读。
+  </Accordion>
+</AccordionGroup>
+
+### 可视化工具
+
+<AccordionGroup>
+  <Accordion title="render_chart" icon="chart-line">
+    渲染高级数据可视化。支持 25 种以上的图表类型。
+
+    **支持的图表类型:**
+    - `liquid` - 单个百分比的液体填充图
+    - `line` - 时间序列折线图
+    - `bar` - 用于比较的柱状图
+    - `scatter` - 用于相关性的散点图
+    - `sankey` - 桑基图（流程图）
+    - `venn` - 用于重叠区域的韦恩图
+    - `network-graph` - 网络可视化图
+    - `mind-map` - 思维导图布局
+    - 以及更多...
+
+    **输入模式 (Input Schema):**
+    ```json
+    {
+      "chart_type": "string (必填)",
+      "data": "array (必填)",
+      "title": "string (可选)",
+      "width": "number (可选, 默认: 600)",
+      "height": "number (可选, 默认: 400)",
+      "theme": "string (可选: default|academy|dark)",
+      "style": "object (可选)"
+    }
+    ```
+
+    **示例:**
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "name": "render_chart",
+        "arguments": {
+          "chart_type": "line",
+          "data": [
+            {"date": "2024-01-01", "value": 8543},
+            {"date": "2024-01-02", "value": 10234}
+          ],
+          "title": "每日步数",
+          "width": 800,
+          "height": 400
+        }
+      }
     }
     ```
   </Accordion>
 </AccordionGroup>
 
-更多关于 MCP tools 的说明请参见 [MCP Protocol documentation](https://modelcontextprotocol.io/)。
+### 通用工具
+
+<AccordionGroup>
+  <Accordion title="web_search" icon="magnifying-glass">
+    在网络上搜索健康信息。
+
+    **输入模式 (Input Schema):**
+    ```json
+    {
+      "query": "string (必填) - 搜索查询词"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="file_operations" icon="file">
+    读取、写入和管理服务器上的文件。
+
+    **输入模式 (Input Schema):** 因操作（读取、写入、列表、删除）而异
+  </Accordion>
+</AccordionGroup>
+
+## 自定义工具
+
+您可以通过在配置的 `MCP_TOOL_DIRS` 中创建 Python 模块来添加自定义工具。详情请参阅 [添加工具](/zh/tools/adding-tools)。
+
+<Note>
+工具会自动继承身份验证上下文。用户特定的工具会接收带有经过身份验证的用户数据的 `user_info` 参数。
+</Note>
+
+要获取完整的工具模式和示例，请在 MCP 端点上调用 `tools/list` 或参阅 [MCP 集成指南](/zh/tools/mcp-integration)。

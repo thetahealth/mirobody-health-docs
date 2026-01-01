@@ -8,23 +8,23 @@ description: "Garmin Connect Provider 的完整实现示例"
 Garmin Provider 是一个可用于生产环境的实现示例，展示了 OAuth 1.0 认证与全面的健康数据集成方式。
 
 <Info>
-本示例展示 Garmin Provider 的真实实现代码。构建你自己的 Providers 时，可以把它作为参考。
+本示例展示了 Garmin Provider 的真实实现代码。在构建你自己的 Provider 时，可以将其作为参考。
 </Info>
 
 ## 核心特性
 
 <CardGroup cols={2}>
   <Card title="OAuth 1.0" icon="key">
-    Three-legged OAuth 认证
+    三向 (Three-legged) OAuth 身份验证
   </Card>
-  <Card title="Comprehensive Data" icon="chart-line">
-    Activities, sleep, HRV, stress, body metrics
+  <Card title="全面数据" icon="chart-line">
+    活动、睡眠、HRV、压力、身体指标
   </Card>
-  <Card title="Rate Limiting" icon="gauge">
-    遵循 API rate limits
+  <Card title="速率限制" icon="gauge">
+    遵循 API 速率限制
   </Card>
-  <Card title="Error Handling" icon="shield">
-    稳健的错误恢复
+  <Card title="错误处理" icon="shield">
+    健壮的错误恢复机制
   </Card>
 </CardGroup>
 
@@ -39,12 +39,12 @@ class ThetaGarminProvider(BaseThetaProvider):
     
     def __init__(self):
         super().__init__()
-        # Load configuration
+        # 加载配置
         self.client_id = safe_read_cfg("GARMIN_CLIENT_ID")
         self.client_secret = safe_read_cfg("GARMIN_CLIENT_SECRET")
         self.redirect_url = safe_read_cfg("GARMIN_REDIRECT_URL")
         
-        # OAuth 1.0 endpoints
+        # OAuth 1.0 端点
         self.request_token_url = "https://connectapi.garmin.com/oauth-service/oauth/request_token"
         self.auth_url = "https://connect.garmin.com/oauthConfirm/"
         self.access_token_url = "https://connectapi.garmin.com/oauth-service/oauth/access_token"
@@ -53,7 +53,7 @@ class ThetaGarminProvider(BaseThetaProvider):
 
 ## 数据映射配置
 
-Garmin 提供了非常丰富的健康数据。下面展示其映射方式：
+Garmin 提供了详尽的健康数据。以下是其映射方式：
 
 ```python
 GARMIN_DATA_CONFIG = {
@@ -96,7 +96,7 @@ GARMIN_DATA_CONFIG = {
         "simple_fields": {
             "durationInSeconds": {
                 "indicator": StandardIndicator.DAILY_SLEEP_DURATION.value.name,
-                "converter": lambda x: x * 1000,  # seconds to milliseconds
+                "converter": lambda x: x * 1000,  # 秒转换为毫秒
                 "unit": "ms"
             },
             "deepSleepDurationInSeconds": {
@@ -111,36 +111,36 @@ GARMIN_DATA_CONFIG = {
 
 ## OAuth 1.0 实现
 
-### 发起链接（Link）
+### 发起绑定
 
 ```python
 async def link(self, request: LinkRequest) -> Dict[str, Any]:
-    """Initiate OAuth 1.0 flow"""
+    """发起 OAuth 1.0 流程"""
     user_id = request.user_id
     
-    # Create OAuth 1.0 session
+    # 创建 OAuth 1.0 会话
     oauth = OAuth1Session(
         client_key=self.client_id,
         client_secret=self.client_secret,
     )
     
-    # Get request token
+    # 获取 request token
     resp = oauth.post(self.request_token_url)
     if resp.status_code != 200:
-        raise RuntimeError(f"Failed to get request token: {resp.text}")
+        raise RuntimeError(f"获取 request token 失败: {resp.text}")
     
-    # Parse response
+    # 解析响应
     params = parse_qs(resp.text)
     oauth_token = params['oauth_token'][0]
     oauth_token_secret = params['oauth_token_secret'][0]
     
-    # Store token secret in Redis
+    # 将 token secret 存储在 Redis 中
     redis_client = await self._get_redis_client()
     await redis_client.setex(f"oauth:secret:{oauth_token}", 900, oauth_token_secret)
     await redis_client.setex(f"oauth:user:{oauth_token}", 900, user_id)
     await redis_client.aclose()
     
-    # Build authorization URL
+    # 构建授权 URL
     auth_params = {
         "oauth_token": oauth_token,
         "oauth_callback": self.redirect_url
@@ -150,13 +150,13 @@ async def link(self, request: LinkRequest) -> Dict[str, Any]:
     return {"link_web_url": authorization_url}
 ```
 
-### 处理回调（Callback）
+### 处理回调
 
 ```python
 async def callback(self, oauth_token: str, oauth_verifier: str) -> Dict[str, Any]:
-    """Handle OAuth 1.0 callback"""
+    """处理 OAuth 1.0 回调"""
     
-    # Retrieve token secret from Redis
+    # 从 Redis 中获取 token secret
     redis_client = await self._get_redis_client()
     oauth_token_secret = await redis_client.get(f"oauth:secret:{oauth_token}")
     user_id = await redis_client.get(f"oauth:user:{oauth_token}")
@@ -164,7 +164,7 @@ async def callback(self, oauth_token: str, oauth_verifier: str) -> Dict[str, Any
     await redis_client.delete(f"oauth:user:{oauth_token}")
     await redis_client.aclose()
     
-    # Create OAuth session with verifier
+    # 使用 verifier 创建 OAuth 会话
     oauth = OAuth1Session(
         client_key=self.client_id,
         client_secret=self.client_secret,
@@ -173,22 +173,22 @@ async def callback(self, oauth_token: str, oauth_verifier: str) -> Dict[str, Any
         verifier=oauth_verifier
     )
     
-    # Get access token
+    # 获取 access token
     resp = oauth.post(self.access_token_url)
     if resp.status_code != 200:
-        raise RuntimeError(f"Failed to get access token: {resp.text}")
+        raise RuntimeError(f"获取 access token 失败: {resp.text}")
     
-    # Parse tokens
+    # 解析 token
     params = parse_qs(resp.text)
     access_token = params['oauth_token'][0]
     access_token_secret = params['oauth_token_secret'][0]
     
-    # Save credentials
+    # 保存凭据
     await self.db_service.save_oauth1_credentials(
         user_id, self.info.slug, access_token, access_token_secret
     )
     
-    # Trigger initial data pull
+    # 触发初始数据拉取
     asyncio.create_task(self._pull_and_push_for_user({
         "user_id": user_id,
         "access_token": access_token,
@@ -201,9 +201,9 @@ async def callback(self, oauth_token: str, oauth_verifier: str) -> Dict[str, Any
     }
 ```
 
-## 数据拉取（Data Fetching）
+## 数据获取
 
-Garmin 针对不同数据类型提供了多个 endpoints：
+Garmin 为不同的数据类型提供了多个端点：
 
 ```python
 async def pull_from_vendor_api(
@@ -212,9 +212,9 @@ async def pull_from_vendor_api(
     token_secret: str,
     days: int = 2
 ) -> List[Dict[str, Any]]:
-    """Pull data from Garmin API"""
+    """从 Garmin API 拉取数据"""
     
-    # Create OAuth 1.0 session
+    # 创建 OAuth 1.0 会话
     oauth = OAuth1Session(
         client_key=self.client_id,
         client_secret=self.client_secret,
@@ -222,13 +222,13 @@ async def pull_from_vendor_api(
         resource_owner_secret=token_secret
     )
     
-    # Calculate date range
+    # 计算日期范围
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=days)
     
     all_raw_data = []
     
-    # Fetch different data types
+    # 获取不同类型的数据
     endpoints = {
         "dailies": f"{self.api_base_url}/dailies",
         "sleeps": f"{self.api_base_url}/sleeps",
@@ -253,70 +253,70 @@ async def pull_from_vendor_api(
                         "timestamp": int(time.time() * 1000)
                     })
         except Exception as e:
-            logging.error(f"Error fetching {data_type}: {str(e)}")
+            logging.error(f"获取 {data_type} 出错: {str(e)}")
             continue
     
     return all_raw_data
 ```
 
-## Supported Data Types
+## 支持的数据类型
 
-The Garmin provider supports:
+Garmin Provider 支持：
 
 <Tabs>
-  <Tab title="Activity">
-    - Daily steps
-    - Distance (meters)
-    - Active calories
-    - Basal calories
-    - Floors climbed
-    - Active time
+  <Tab title="活动">
+    - 每日步数
+    - 距离（米）
+    - 活动消耗卡路里
+    - 基础代谢卡路里
+    - 爬楼层数
+    - 活动时间
   </Tab>
 
-  <Tab title="Heart Rate">
-    - Minimum daily
-    - Maximum daily
-    - Average daily
-    - Resting rate
-    - Time series samples
+  <Tab title="心率">
+    - 每日最低心率
+    - 每日最高心率
+    - 每日平均心率
+    - 静息心率
+    - 心率时间序列样本
   </Tab>
 
-  <Tab title="Sleep">
-    - Total duration
-    - Deep sleep
-    - Light sleep
-    - REM sleep
-    - Awake time
+  <Tab title="睡眠">
+    - 总睡眠时长
+    - 深睡时长
+    - 浅睡时长
+    - REM 睡眠时长
+    - 清醒时间
   </Tab>
 
-  <Tab title="Advanced">
-    - HRV (heart rate variability)
-    - Stress levels
-    - Respiration rate
-    - Body composition
+  <Tab title="高级指标">
+    - HRV（心率变异性）
+    - 压力水平
+    - 呼吸频率
+    - 身体成分
   </Tab>
 </Tabs>
 
-## Source Code
+## 源代码
 
-The complete Garmin provider source code is available at:
+完整的 Garmin Provider 源代码位于：
 ```
 connect/theta/mirobody_garmin_connect/provider_garmin.py
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Whoop Example" icon="code" href="/zh/examples/whoop-provider">
-    See OAuth 2.0 implementation
+  <Card title="Whoop 示例" icon="code" href="/zh/examples/whoop-provider">
+    查看 OAuth 2.0 实现
   </Card>
-  <Card title="Integration Guide" icon="book" href="/zh/providers/integration-guide">
-    Build your own provider
+  <Card title="集成指南" icon="book" href="/zh/development/provider-integration">
+    构建你自己的 Provider
   </Card>
-  <Card title="Data Mapping" icon="table" href="/zh/providers/data-mapping">
-    Learn data transformation
+  <Card title="数据映射" icon="table" href="/zh/development/data-mapping">
+    学习数据转换
   </Card>
-  <Card title="Testing" icon="flask" href="/zh/providers/testing">
-    Test your provider
+  <Card title="测试指南" icon="flask" href="/zh/development/provider-testing">
+    测试你的 Provider
   </Card>
 </CardGroup>

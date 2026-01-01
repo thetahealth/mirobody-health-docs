@@ -1,35 +1,35 @@
 ---
 title: "OAuth 实现"
-description: "为 Provider 集成实现 OAuth 1.0 与 OAuth 2.0 flows"
+description: "为提供商集成实现 OAuth 1.0 和 OAuth 2.0 流程"
 ---
 
 ## 概览
 
-健康设备 Providers 使用 OAuth 来安全地完成用户授权。Mirobody Health 同时支持 OAuth 1.0 与 OAuth 2.0 协议。
+健康设备提供商使用 OAuth 进行安全的用户授权。Mirobody Health 支持 OAuth 1.0 和 OAuth 2.0 协议。
 
 <CardGroup cols={2}>
   <Card title="OAuth 1.0" icon="key">
-    Used by: Garmin, Fitbit (legacy)
+    使用者：Garmin, Fitbit (旧版)
   </Card>
   <Card title="OAuth 2.0" icon="lock">
-    Used by: Whoop, Apple Health, most modern APIs
+    使用者：Whoop, Apple Health, 大多数现代 API
   </Card>
 </CardGroup>
 
-## OAuth 2.0 Implementation
+## OAuth 2.0 实现
 
-大多数现代健康 APIs 使用 OAuth 2.0。实现方式如下：
+大多数现代健康 API 使用 OAuth 2.0。以下是其实现方式：
 
-### 1. Initiate Authorization
+### 1. 发起授权
 
 ```python
 async def link(self, user_id: str, return_url: str = None) -> Dict:
-    """Initiate OAuth 2.0 authorization"""
-    # Generate state parameter for CSRF protection
+    """发起 OAuth 2.0 授权"""
+    # 生成用于 CSRF 保护的 state 参数
     state = self._generate_state()
     await self._store_state(user_id, state, return_url)
     
-    # Build authorization URL
+    # 构建授权 URL
     auth_params = {
         "client_id": self.client_id,
         "response_type": "code",
@@ -46,17 +46,17 @@ async def link(self, user_id: str, return_url: str = None) -> Dict:
     }
 ```
 
-### 2. Handle Callback
+### 2. 处理回调
 
 ```python
 async def callback(self, user_id: str, code: str, state: str, **kwargs) -> Dict:
-    """Handle OAuth callback and exchange code for tokens"""
-    # Verify state parameter
+    """处理 OAuth 回调并使用 code 交换令牌"""
+    # 验证 state 参数
     stored_state = await self._get_stored_state(user_id)
     if state != stored_state:
         raise ValueError("Invalid state parameter")
     
-    # Exchange authorization code for access token
+    # 使用授权码交换访问令牌
     token_data = {
         "grant_type": "authorization_code",
         "code": code,
@@ -69,17 +69,17 @@ async def callback(self, user_id: str, code: str, state: str, **kwargs) -> Dict:
         async with session.post(self.token_url, data=token_data) as resp:
             tokens = await resp.json()
     
-    # Store tokens securely
+    # 安全地存储令牌
     await self._store_tokens(user_id, tokens)
     
     return {"success": True, "message": "Provider linked successfully"}
 ```
 
-### 3. Token Refresh
+### 3. 令牌刷新
 
 ```python
 async def _refresh_token(self, user_id: str) -> Dict:
-    """Refresh expired access token"""
+    """刷新过期的访问令牌"""
     tokens = await self._get_tokens(user_id)
     refresh_token = tokens.get("refresh_token")
     
@@ -97,57 +97,57 @@ async def _refresh_token(self, user_id: str) -> Dict:
         async with session.post(self.token_url, data=token_data) as resp:
             new_tokens = await resp.json()
     
-    # Update stored tokens
+    # 更新存储的令牌
     await self._store_tokens(user_id, new_tokens)
     
     return new_tokens
 ```
 
-## OAuth 1.0 Implementation
+## OAuth 1.0 实现
 
-部分 Providers（如 Garmin）使用 OAuth 1.0：
+某些提供商 (如 Garmin) 使用 OAuth 1.0：
 
-### 1. Request Token
+### 1. 请求令牌 (Request Token)
 
 ```python
 async def link(self, user_id: str, return_url: str = None) -> Dict:
-    """Initiate OAuth 1.0 flow"""
+    """发起 OAuth 1.0 流程"""
     from requests_oauthlib import OAuth1Session
     
-    # Store return URL
+    # 存储返回 URL
     if return_url:
         await self._store_return_url(user_id, return_url)
     
-    # Create OAuth1 session
+    # 创建 OAuth1 会话
     oauth = OAuth1Session(
         client_key=self.client_id,
         client_secret=self.client_secret,
         callback_uri=self.redirect_url
     )
     
-    # Fetch request token
+    # 获取请求令牌
     request_token = oauth.fetch_request_token(self.request_token_url)
     
-    # Store request token temporarily
+    # 临时存储请求令牌
     await self._store_request_token(user_id, request_token)
     
-    # Build authorization URL
+    # 构建授权 URL
     auth_url = oauth.authorization_url(self.auth_url)
     
     return {"link_web_url": auth_url}
 ```
 
-### 2. Access Token Exchange
+### 2. 交换访问令牌
 
 ```python
 async def callback(self, user_id: str, oauth_token: str, oauth_verifier: str, **kwargs) -> Dict:
-    """Exchange verifier for access token"""
+    """使用 verifier 交换访问令牌"""
     from requests_oauthlib import OAuth1Session
     
-    # Retrieve request token
+    # 检索请求令牌
     request_token = await self._get_request_token(user_id)
     
-    # Create OAuth1 session with request token
+    # 使用请求令牌创建 OAuth1 会话
     oauth = OAuth1Session(
         client_key=self.client_id,
         client_secret=self.client_secret,
@@ -156,56 +156,56 @@ async def callback(self, user_id: str, oauth_token: str, oauth_verifier: str, **
         verifier=oauth_verifier
     )
     
-    # Fetch access token
+    # 获取访问令牌
     access_token = oauth.fetch_access_token(self.access_token_url)
     
-    # Store access token
+    # 存储访问令牌
     await self._store_tokens(user_id, access_token)
     
     return {"success": True}
 ```
 
-## Security Best Practices
+## 安全最佳实践
 
 <AccordionGroup>
-  <Accordion title="Token Storage" icon="shield">
-    - 数据库存储前对 **tokens 加密**
-    - 使用安全的 key 管理方式（例如环境变量）
-    - 不要记录 tokens 或凭据
-    - 在支持的情况下实现 token rotation
+  <Accordion title="令牌存储" icon="shield">
+    - 在存入数据库前**加密令牌**
+    - 使用安全的密钥管理 (例如环境变量)
+    - 绝不记录令牌或凭据日志
+    - 在支持的情况下实现令牌轮换 (Token Rotation)
   </Accordion>
 
-  <Accordion title="State Parameters" icon="fingerprint">
-    For OAuth 2.0:
-    - 生成加密安全的随机 state
-    - 临时存储 state（10–15 分钟 TTL）
-    - 在 callback 中校验 state
-    - 防止 CSRF attacks
+  <Accordion title="State 参数" icon="fingerprint">
+    针对 OAuth 2.0：
+    - 生成加密强度高的随机 state
+    - 临时存储 state (10-15 分钟 TTL)
+    - 在回调中验证 state
+    - 防止 CSRF 攻击
   </Accordion>
 
-  <Accordion title="Error Handling" icon="triangle-exclamation">
-    - 优雅处理过期 tokens
-    - 对失败请求使用 exponential backoff 重试
+  <Accordion title="错误处理" icon="triangle-exclamation">
+    - 优雅地处理过期令牌
+    - 使用指数退避算法重试失败请求
     - 记录错误时避免暴露敏感数据
-    - 给用户提供清晰的错误信息
+    - 向用户提供清晰的错误消息
   </Accordion>
 </AccordionGroup>
 
 ## 完整参考
 
-如需包含所有必需 methods 与模式的详细实现，请参见：
+如需包含所有必需方法和模式的详细实现，请参阅：
 
 <CardGroup cols={2}>
-  <Card title="Full Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
-    仓库中的完整 Provider 集成指南
+  <Card title="完整集成指南" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
+    项目仓库中的完整提供商集成指南
   </Card>
-  <Card title="Garmin Example" icon="code" href="/zh/examples/garmin-provider">
+  <Card title="Garmin 示例" icon="code" href="/zh/examples/garmin-provider">
     OAuth 1.0 实现示例
   </Card>
-  <Card title="Whoop Example" icon="code" href="/zh/examples/whoop-provider">
+  <Card title="Whoop 示例" icon="code" href="/zh/examples/whoop-provider">
     OAuth 2.0 实现示例
   </Card>
-  <Card title="Provider Testing" icon="flask" href="/zh/development/provider-testing">
+  <Card title="提供商测试" icon="flask" href="/zh/development/provider-testing">
     测试策略
   </Card>
 </CardGroup>

@@ -1,46 +1,46 @@
 ---
-title: "Provider 系统"
-description: "深入了解 Mirobody Health 的 provider 系统架构"
+title: "提供商系统"
+description: "深入了解 Mirobody Health 提供商系统架构"
 ---
 
-## Provider 系统概览
+## 提供商系统概览
 
-Provider 系统是 Mirobody Health 的核心：通过统一接口实现与各种健康设备 API 的无缝集成。
+提供商（Provider）系统是 Mirobody Health 的核心，通过标准化接口实现与各种健康设备 API 的无缝集成。
 
 <Info>
-Provider 系统采用插件式架构，无需修改核心代码即可添加新的集成。
+提供商系统遵循插件化架构，可以轻松添加新的集成，而无需修改核心代码。
 </Info>
 
-## 关键概念
+## 核心概念
 
 <CardGroup cols={2}>
-  <Card title="Provider" icon="plug">
-    用于集成特定健康设备 API（例如 Garmin、Whoop）的插件
+  <Card title="提供商 (Provider)" icon="plug">
+    与特定健康设备 API（如 Garmin, Whoop）集成的插件
   </Card>
   <Card title="BaseThetaProvider" icon="cube">
-    所有 providers 必须继承的抽象基类
+    所有提供商必须继承的抽象基类
   </Card>
-  <Card title="Provider Discovery" icon="magnifying-glass">
-    从配置目录中自动发现并加载 provider 插件
+  <Card title="提供商发现" icon="magnifying-glass">
+    从配置目录中自动检测并加载提供商插件
   </Card>
-  <Card title="Provider Registry" icon="list">
-    所有可用/已启用 providers 的中央注册表
+  <Card title="提供商注册表" icon="list">
+    所有可用且激活的提供商的中央注册表
   </Card>
 </CardGroup>
 
-## Provider 生命周期
+## 提供商生命周期
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Discovered: Scan directories
-    Discovered --> Validated: Check configuration
-    Validated --> Registered: Add to registry
-    Registered --> Active: Ready for use
-    Active --> Linked: User connects
-    Linked --> Syncing: Pull data
-    Syncing --> Linked: Continue syncing
-    Linked --> Unlinked: User disconnects
-    Unlinked --> Active: Ready for new link
+    [*] --> 已发现: 扫描目录
+    已发现 --> 已验证: 检查配置
+    已验证 --> 已注册: 添加到注册表
+    已注册 --> 激活: 准备就绪
+    激活 --> 已链接: 用户连接
+    已链接 --> 同步中: 拉取数据
+    同步中 --> 已链接: 继续同步
+    已链接 --> 已取消链接: 用户断开连接
+    已取消链接 --> 激活: 准备重新链接
 ```
 
-更多细节请参见 [Provider 概览](/zh/providers/overview)。
+更多细节，请参见 [提供商概览](/zh/providers/overview)。

@@ -5,41 +5,41 @@ description: "文件上传、处理与健康指标提取的技术文档"
 
 ## 概览
 
-该模块提供完整的健康文件处理能力，包括文件上传、健康指标提取与文件删除。系统采用模块化设计，支持多种文件类型，并提供实时进度反馈。
+该模块提供全面的健康数据文件处理能力，包括文件上传、健康指标提取和文件删除。系统采用模块化设计，支持多种文件类型，并提供实时进度反馈。
 
 ## 特性
 
-- ✅ **多种上传方式**：WebSocket 实时上传与 REST API 批量上传
-- ✅ **实时进度反馈**：WebSocket 连接会实时推送进度更新
-- ✅ **智能文件识别**：自动识别文件类型并选择合适的 handler
-- ✅ **健康指标提取**：使用 LLM 自动提取健康指标数据
-- ✅ **多格式支持**：PDF、图片、音频、基因数据等
-- ✅ **PDF 并行处理**：多页 PDF 并行处理以提升效率
-- ✅ **文件摘要生成**：自动生成文件内容摘要
-- ✅ **级联删除**：删除文件时自动清理关联健康数据
+- ✅ **多种上传方式**: WebSocket 实时上传和 REST API 批量上传
+- ✅ **实时进度反馈**: WebSocket 连接提供实时进度更新
+- ✅ **智能文件识别**: 自动识别文件类型并选择合适的处理器 (Handler)
+- ✅ **健康指标提取**: 使用 LLM 自动提取健康指标数据
+- ✅ **多格式支持**: PDF、图片、音频、基因数据等
+- ✅ **PDF 并行处理**: 多页 PDF 并行处理以提高效率
+- ✅ **文件摘要生成**: 自动生成文件内容摘要
+- ✅ **级联删除**: 删除文件时自动清理关联的健康数据
 
 ## 支持的文件类型
 
-| 文件类型 | MIME Type | Handler | 说明 |
+| 文件类型 | MIME 类型 | 处理器 (Handler) | 描述 |
 |-----------|-----------|---------|-------------|
-| PDF | `application/pdf` | `PDFHandler` | 多页并行处理，并自动提取健康指标 |
-| 图片（Images） | `image/*` | `ImageHandler` | 支持 JPEG/PNG/GIF/WebP；识别健康报告并提取指标 |
-| 音频（Audio） | `audio/*` | `AudioHandler` | 语音转文字，用于提取口述健康信息 |
-| 基因数据（Genetic Data） | 特定格式（Specific formats） | `GeneticHandler` | 基因检测报告解析 |
+| PDF | `application/pdf` | `PDFHandler` | 多页并行处理，自动提取健康指标 |
+| 图片 (Images) | `image/*` | `ImageHandler` | 支持 JPEG, PNG, GIF, WebP；识别健康报告并提取指标 |
+| 音频 (Audio) | `audio/*` | `AudioHandler` | 语音转文字，用于提取口头健康信息 |
+| 基因数据 | 特定格式 | `GeneticHandler` | 基因检测报告解析 |
 
 ## 文件上传方式
 
-### WebSocket 上传（推荐）
+### WebSocket 上传 (推荐)
 
-WebSocket 上传提供实时进度反馈，适用于大文件上传以及需要实时状态更新的场景。
+WebSocket 上传提供实时进度反馈，是上传大文件和需要实时状态更新场景的理想选择。
 
-#### 接口（Endpoint）
+#### 端点 (Endpoint)
 
 ```
 ws://<host>/ws/upload-health-report?token=<auth_token>
 ```
 
-#### 连接流程（Connection Flow）
+#### 连接流程
 
 ```mermaid
 sequenceDiagram
@@ -48,20 +48,20 @@ sequenceDiagram
     
     Client->>Server: WebSocket connection + token
     Server->>Client: connection_established
-    Client->>Server: upload_start (file info)
-    Server->>Client: upload_start (confirmation)
-    loop File chunks
-        Client->>Server: upload_chunk (base64 data)
-        Server->>Client: file_progress (progress update)
+    Client->>Server: upload_start (文件信息)
+    Server->>Client: upload_start (确认)
+    loop 文件分块
+        Client->>Server: upload_chunk (base64 数据)
+        Server->>Client: file_progress (进度更新)
     end
-    Server->>Client: file_received (file reception complete)
-    Server->>Client: upload_progress (processing progress)
-    Server->>Client: upload_completed (processing complete)
+    Server->>Client: file_received (文件接收完成)
+    Server->>Client: upload_progress (处理进度)
+    Server->>Client: upload_completed (处理完成)
 ```
 
-#### 消息类型（Message Types）
+#### 消息类型
 
-##### 1. 上传开始（Upload Start，upload_start）
+##### 1. 上传开始 (upload_start)
 
 客户端发送：
 ```json
@@ -69,9 +69,9 @@ sequenceDiagram
     "type": "upload_start",
     "messageId": "unique-message-id",
     "sessionId": "session-id",
-    "query": "user notes",
+    "query": "用户备注",
     "isFirstMessage": false,
-    "query_user_id": "target-user-id",
+    "query_user_id": "目标用户-id",
     "files": [
         {
             "filename": "report.pdf",
@@ -82,14 +82,14 @@ sequenceDiagram
 }
 ```
 
-| 字段 | 类型（Type） | 必填（Required） | 说明 |
+| 字段 | 类型 | 必填 | 描述 |
 |-------|------|----------|-------------|
-| type | string | ✅ | 必须为 `"upload_start"` |
-| messageId | string | ❌ | 唯一消息 ID；未提供时会自动生成 |
-| sessionId | string | ✅ | 会话 ID（Session ID） |
-| query | string | ❌ | 用户备注或 query 文本 |
-| isFirstMessage | boolean | ❌ | 是否为该 session 的第一条消息 |
-| query_user_id | string | ❌ | 代理上传（proxy uploads）的目标 user ID |
+| type | string | ✅ | 必须为 "upload_start" |
+| messageId | string | ❌ | 唯一消息 ID，未提供时自动生成 |
+| sessionId | string | ✅ | 会话 ID |
+| query | string | ❌ | 用户备注或查询文本 |
+| isFirstMessage | boolean | ❌ | 是否为新会话的第一条消息 |
+| query_user_id | string | ❌ | 代理上传的目标用户 ID |
 | files | array | ✅ | 文件元数据数组 |
 
 服务端响应：
@@ -105,7 +105,7 @@ sequenceDiagram
 }
 ```
 
-##### 2. 上传分片（Upload Chunk，upload_chunk）
+##### 2. 上传分块 (upload_chunk)
 
 客户端发送：
 ```json
@@ -133,7 +133,7 @@ sequenceDiagram
 }
 ```
 
-##### 3. 文件接收完成（File Received，file_received）
+##### 3. 文件接收完成 (file_received)
 
 ```json
 {
@@ -146,7 +146,7 @@ sequenceDiagram
 }
 ```
 
-##### 4. 处理进度（Upload Progress，upload_progress）
+##### 4. 处理进度 (upload_progress)
 
 ```json
 {
@@ -154,13 +154,13 @@ sequenceDiagram
     "messageId": "message-id",
     "status": "processing",
     "progress": 65,
-    "message": "Starting to analyze health indicators in report.pdf...",
+    "message": "开始分析 report.pdf 中的健康指标...",
     "filename": "report.pdf",
     "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
 
-##### 5. 处理完成（Upload Completed，upload_completed）
+##### 5. 上传完成 (upload_completed)
 
 ```json
 {
@@ -168,13 +168,13 @@ sequenceDiagram
     "messageId": "message-id",
     "status": "completed",
     "progress": 100,
-    "message": "Processing completed: 1 files successful",
+    "message": "处理完成：1 个文件成功",
     "successful_files": 1,
     "failed_files": 0,
     "total_files": 1,
     "results": {
         "success": true,
-        "message": "File processing completed",
+        "message": "文件处理完成",
         "type": "pdf",
         "url_thumb": ["https://..."],
         "url_full": ["https://..."],
@@ -186,8 +186,8 @@ sequenceDiagram
                 "url_full": "https://...",
                 "file_key": "uploads/xxx.pdf",
                 "file_size": 1024000,
-                "file_abstract": "Health report summary...",
-                "file_name": "2024 Annual Health Report",
+                "file_abstract": "健康报告摘要...",
+                "file_name": "2024 年度健康报告",
                 "success": true
             }
         ]
@@ -195,7 +195,7 @@ sequenceDiagram
 }
 ```
 
-##### 6. 心跳（Heartbeat，ping/pong）
+##### 6. 心跳 (ping/pong)
 
 客户端发送：
 ```json
@@ -212,19 +212,19 @@ sequenceDiagram
 }
 ```
 
-#### 超时机制（Timeout Mechanism）
+#### 超时机制
 
-| 类型 | 时长 | 说明 |
+| 类型 | 时长 | 描述 |
 |------|----------|-------------|
-| 空闲超时（Idle Timeout） | 5 minutes | 无活动时自动断开 |
-| 上传超时（Upload Timeout） | 30 minutes | 上传过程中延长超时时间 |
-| 心跳（Heartbeat） | 30 seconds | 建议的 ping 间隔 |
+| 空闲超时 | 5 分钟 | 无活动时自动断开 |
+| 上传超时 | 30 分钟 | 在活动上传期间延长超时时间 |
+| 心跳 | 30 秒 | 推荐的 ping 间隔 |
 
 ### REST API 上传
 
-REST API 提供更简单的上传方式，适用于简单场景或不需要实时进度的应用。
+REST API 提供了一种简单的文件上传方法，适用于简单的场景或不需要实时进度的应用程序。
 
-#### 接口（Endpoint）
+#### 端点 (Endpoint)
 
 ```http
 POST /files/upload
@@ -234,17 +234,17 @@ Authorization: Bearer <token>
 
 #### 请求参数
 
-| 参数 | Type | Required | 说明 |
+| 参数 | 类型 | 必填 | 描述 |
 |-----------|------|----------|-------------|
 | files | File[] | ✅ | 要上传的文件列表 |
-| folder | string | ❌ | 自定义 folder 前缀，默认 `uploads` |
+| folder | string | ❌ | 自定义文件夹前缀，默认为 'uploads' |
 
-#### 响应示例（Response Example）
+#### 响应示例
 
 ```json
 {
     "code": 0,
-    "msg": "All 2 files uploaded successfully",
+    "msg": "所有 2 个文件上传成功",
     "data": [
         {
             "file_url": "https://storage.example.com/uploads/20240115_xxx.pdf",
@@ -261,21 +261,21 @@ Authorization: Bearer <token>
 
 #### 响应码
 
-| Code | 说明 |
+| 代码 | 描述 |
 |------|-------------|
-| 0 | 上传全部成功 |
+| 0 | 所有上传成功 |
 | 1 | 部分或全部失败 |
 
-## 处理架构（Processing Architecture）
+## 处理架构
 
 ### 概览
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                         File Upload                           │
+│                         文件上传                              │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐        │
-│  │  WebSocket  │    │  REST API   │    │   Direct    │        │
-│  │   Upload    │    │   Upload    │    │   Upload    │        │
+│  │  WebSocket  │    │  REST API   │    │    直接     │        │
+│  │    上传     │    │    上传     │    │    上传     │        │
 │  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘        │
 │         │                  │                  │                │
 │         └──────────────────┼──────────────────┘                │
@@ -297,81 +297,81 @@ Authorization: Bearer <token>
 │                  └─────────┬─────────┘                         │
 │                            ▼                                   │
 │                   ┌─────────────────┐                          │
-│                   │    Database     │                          │
+│                   │    数据库       │                          │
 │                   │  (th_messages,  │                          │
 │                   │  th_series_data)│                          │
 │                   └─────────────────┘                          │
-└───────────────────────────────────────────────────────────────┘
+│└───────────────────────────────────────────────────────────────┘
 ```
 
 ### 处理步骤
 
-#### 1. 文件上传阶段（0–30%）
+#### 1. 文件上传阶段 (0-30%)
 
 - 接收文件数据
-- 校验文件类型与大小
-- 生成唯一文件标识
-- 上传到对象存储（S3/OSS/MinIO）
+- 验证文件类型和大小
+- 生成唯一文件标识符
+- 上传到对象存储 (S3/OSS/MinIO)
 
-#### 2. 文件类型识别（30–35%）
+#### 2. 文件类型识别 (30-35%)
 
 系统通过 `FileHandlerFactory` 自动识别文件类型：
 
 ```python
-# Handler selection priority
-1. GeneticHandler  - Genetic data files
-2. ImageHandler    - Image files (image/*)
-3. PDFHandler      - PDF documents
-4. AudioHandler    - Audio files (audio/*)
+# 处理器选择优先级
+1. GeneticHandler  - 基因数据文件
+2. ImageHandler    - 图片文件 (image/*)
+3. PDFHandler      - PDF 文档
+4. AudioHandler    - 音频文件 (audio/*)
 ```
 
-#### 3. 内容处理阶段（35–90%）
+#### 3. 内容处理阶段 (35-90%)
 
-**PDF 文件处理：**
+**PDF 文件处理:**
 ```
-单页/少页 PDF：
-  35-65%: File upload and save
-  65-90%: LLM indicator extraction
+单页/少量页面 PDF:
+  35-65%: 文件上传并保存
+  65-90%: LLM 健康指标提取
 
-多页 PDF（>2 页）：
-  35-50%: File upload and PDF splitting
-  50-70%: Parallel page processing
-  70-90%: Result merging and deduplication
-```
-
-**图片文件处理：**
-```
-35-55%: Image upload
-55-90%: Recognition + indicator extraction
+多页 PDF (>2 页):
+  35-50%: 文件上传并拆分 PDF
+  50-70%: 并行处理各个页面
+  70-90%: 结果合并并去重
 ```
 
-#### 4. 摘要生成阶段（90–95%）
+**图片文件处理:**
+```
+35-55%: 图片上传
+55-90%: 识别 + 指标提取
+```
+
+#### 4. 摘要生成阶段 (90-95%)
 
 - 使用 LLM 生成文件内容摘要
 - 生成智能文件名
 
-#### 5. 结果保存阶段（95–100%）
+#### 5. 结果保存阶段 (95-100%)
 
 - 将处理结果保存到数据库
 - 将健康指标同步到 `th_series_data`
-- 更新用户健康 profile
+- 更新用户健康个人资料 (User Health Profile)
 
-## 健康指标提取（Health Indicator Extraction）
+## 健康指标提取
 
 ### 配置
 
 ```yaml config.yaml
-ENABLE_INDICATOR_EXTRACTION: 1  # Set to 1 to enable indicator extraction
+ENABLE_INDICATOR_EXTRACTION: 1  # 设置为 1 以启用指标提取
 ```
 
 ### 支持的指标类型
 
-- Complete Blood Count（WBC、RBC、Hemoglobin 等）
-- Biochemistry（Liver function、Kidney function、Lipids 等）
-- Physical Examination（Blood pressure、Heart rate、Weight 等）
-- Tumor Markers（肿瘤标志物）
-- Thyroid Function（甲状腺功能）
-- 其他医学检测指标
+- 血常规 (白细胞, 红细胞, 血红蛋白等)
+- 生化 (肝功能, 肾功能, 血脂等)
+- 体检 (血压, 心率, 体重等)
+- 肿瘤标志物
+- 甲状腺功能
+- 其他医疗检测指标
 
 ### 提取结果格式
 
@@ -379,14 +379,14 @@ ENABLE_INDICATOR_EXTRACTION: 1  # Set to 1 to enable indicator extraction
 {
     "indicators": [
         {
-            "original_indicator": "White Blood Cell Count",
+            "original_indicator": "白细胞计数",
             "value": "6.5",
             "unit": "10^9/L",
             "reference_range": "4.0-10.0",
             "status": "normal"
         },
         {
-            "original_indicator": "Hemoglobin",
+            "original_indicator": "血红蛋白",
             "value": "145",
             "unit": "g/L",
             "reference_range": "120-160",
@@ -395,29 +395,29 @@ ENABLE_INDICATOR_EXTRACTION: 1  # Set to 1 to enable indicator extraction
     ],
     "content_info": {
         "date_time": "2024-01-15",
-        "institution": "XX Hospital"
+        "institution": "XX 医院"
     },
-    "file_abstract": "January 2024 health report including CBC, comprehensive metabolic panel..."
+    "file_abstract": "2024 年 1 月健康报告，包括血常规、生化全项..."
 }
 ```
 
 ### 数据存储
 
-提取出的指标数据会存储在 `th_series_data` 表中：
+提取的指标数据存储在 `th_series_data` 表中：
 
-| 字段 | 说明 |
+| 字段 | 描述 |
 |-------|-------------|
 | user_id | 用户 ID |
-| indicator_id | 指标 ID（关联指标维表） |
+| indicator_id | 指标 ID (链接到指标维度表) |
 | value | 指标值 |
 | unit | 计量单位 |
 | source_table | 来源表名 |
-| source_table_id | 来源记录 ID（message_id + file_key） |
+| source_table_id | 来源记录 ID (message_id + file_key) |
 | recorded_at | 检测日期/时间 |
 
-## 文件删除（File Deletion）
+## 文件删除
 
-### 接口（Endpoint）
+### 端点 (Endpoint)
 
 ```http
 POST /api/v1/data/delete-files
@@ -425,7 +425,7 @@ Content-Type: application/json
 Authorization: Bearer <token>
 ```
 
-### 请求体（Request Body）
+### 请求体
 
 ```json
 {
@@ -434,17 +434,17 @@ Authorization: Bearer <token>
 }
 ```
 
-| 参数 | Type | Required | 说明 |
+| 参数 | 类型 | 必填 | 描述 |
 |-----------|------|----------|-------------|
-| message_id | string | ✅ | Message ID |
-| file_keys | string[] | ❌ | 要删除的 file keys；为空则删除该消息下所有文件 |
+| message_id | string | ✅ | 消息 ID |
+| file_keys | string[] | ❌ | 要删除的文件密钥列表；如果为空，则删除所有文件 |
 
-### 响应示例（Response Example）
+### 响应示例
 
 ```json
 {
     "code": 0,
-    "msg": "Successfully deleted 2 file(s)",
+    "msg": "成功删除 2 个文件",
     "data": {
         "success": true,
         "message_id": "message-uuid",
@@ -463,47 +463,47 @@ Authorization: Bearer <token>
 }
 ```
 
-### 级联删除（Cascade Deletion）
+### 级联删除
 
 删除文件时，系统会自动执行级联删除：
 
-1. **Storage Deletion**：从对象存储（S3/OSS）删除文件
-2. **Database Update**：更新 `th_messages` 表中的文件列表
-3. **Health Data Cleanup**：从 `th_series_data` 删除关联的健康指标
-4. **Genetic Data Cleanup**：如果是基因文件，则从 `th_genetic_data` 删除关联数据
-5. **Message Marking**：如果所有文件都已删除，则将该消息标记为已删除
+1. **存储删除**: 从对象存储 (S3/OSS) 中删除文件
+2. **数据库更新**: 更新 `th_messages` 表中的文件列表
+3. **健康数据清理**: 从 `th_series_data` 中删除关联的健康指标
+4. **基因数据清理**: 如果是基因文件，则从 `th_genetic_data` 中删除数据
+5. **消息标记**: 如果所有文件均已删除，则将消息标记为已删除
 
 ## API 参考
 
-### 文件服务 Endpoints
+### 文件服务端点
 
-| 方法 | Endpoint | 说明 |
+| 方法 | 端点 | 描述 |
 |--------|----------|-------------|
 | WS | `/ws/upload-health-report` | WebSocket 文件上传 |
 | POST | `/files/upload` | REST API 文件上传 |
 | POST | `/api/v1/data/delete-files` | 删除文件 |
-| GET | `/files/{file_path}` | 获取文件内容（proxy access） |
+| GET | `/files/{file_path}` | 获取文件内容 (代理访问) |
 
-### 认证（Authentication）
+### 身份验证
 
-所有 endpoints 都需要有效的 authentication token：
+所有端点都需要有效的身份验证令牌：
 
-- **REST API**：使用 `Authorization: Bearer <token>` header
-- **WebSocket**：通过 URL 参数 `?token=<token>` 传入
+- **REST API**: 使用 `Authorization: Bearer <token>` 标头
+- **WebSocket**: 通过 URL 参数 `?token=<token>` 传递
 
-## 数据模型（Data Models）
+## 数据模型
 
 ### FileUploadData
 
 ```typescript
 interface FileUploadData {
-    file_url: string;      // File access URL
-    file_name: string;     // Original filename
-    file_key: string;      // Storage key
-    file_size: number;     // File size in bytes
-    file_type: string;     // MIME type
-    upload_time: string;   // Upload timestamp
-    duration?: number;     // Audio duration in ms (audio files only)
+    file_url: string;      // 文件访问 URL
+    file_name: string;     // 原始文件名
+    file_key: string;      // 存储密钥
+    file_size: number;     // 文件大小 (字节)
+    file_type: string;     // MIME 类型
+    upload_time: string;   // 上传时间戳
+    duration?: number;     // 音频时长 (毫秒，仅限音频文件)
 }
 ```
 
@@ -511,8 +511,8 @@ interface FileUploadData {
 
 ```typescript
 interface FileDeleteRequest {
-    message_id: string;        // Message ID
-    file_keys?: string[];      // List of file keys to delete
+    message_id: string;        // 消息 ID
+    file_keys?: string[];      // 要删除的文件密钥列表
 }
 ```
 
@@ -522,17 +522,17 @@ interface FileDeleteRequest {
 interface FileProcessingResult {
     success: boolean;
     message: string;
-    type: string;              // File type: pdf, image, audio, etc.
-    filename: string;          // Original filename
-    full_url: string;          // Full access URL
-    file_key: string;          // Storage key
-    file_abstract: string;     // File summary
-    file_name: string;         // AI-generated file name
-    raw?: string;              // Formatted markdown content from extracted data
+    type: string;              // 文件类型：pdf, image, audio 等
+    filename: string;          // 原始文件名
+    full_url: string;          // 完整访问 URL
+    file_key: string;          // 存储密钥
+    file_abstract: string;     // 文件摘要
+    file_name: string;         // AI 生成的文件名
+    raw?: string;              // 从提取的数据生成的格式化 Markdown 内容
 }
 ```
 
-## 错误处理（Error Handling）
+## 错误处理
 
 ### WebSocket 错误消息
 
@@ -541,7 +541,7 @@ interface FileProcessingResult {
     "type": "upload_error",
     "messageId": "message-id",
     "status": "failed",
-    "message": "Upload start failed: <error_details>"
+    "message": "上传开始失败：<error_details>"
 }
 ```
 
@@ -550,24 +550,24 @@ interface FileProcessingResult {
 ```json
 {
     "code": 1,
-    "msg": "File upload failed: <error_details>",
+    "msg": "文件上传失败：<error_details>",
     "data": null
 }
 ```
 
 ### 常见错误
 
-| 错误类型 | 说明 | 处理建议 |
+| 错误类型 | 描述 | 解决方案 |
 |------------|-------------|----------|
-| Invalid token | Token 无效或已过期 | 获取新的 token |
-| File type not supported | 不支持的文件类型 | 使用受支持的文件格式 |
+| Invalid token | 令牌无效或已过期 | 获取新令牌 |
+| File type not supported | 不支持的文件类型 | 使用支持的文件格式 |
 | File is empty | 文件内容为空 | 检查文件内容 |
-| Upload session not found | 上传 session 不存在 | 重新开始上传 |
+| Upload session not found | 上传会话不存在 | 重新开始上传 |
 | Permission denied | 无操作权限 | 检查用户权限 |
 
 ### 超时处理
 
-WebSocket 连接超时时会收到通知：
+WebSocket 连接在超时时会收到通知：
 
 ```json
 {
@@ -583,40 +583,40 @@ WebSocket 连接超时时会收到通知：
 
 ### 大文件上传
 
-- 使用 WebSocket 分块（chunked）上传
-- 建议 chunk size：1MB
-- 实现可续传上传机制
+- 使用带有分块传输的 WebSocket 上传
+- 推荐分块大小：1MB
+- 实现断点续传机制
 
 ### 批量上传
 
-- 单次上传建议不超过 10 个文件
-- 总文件大小建议不超过 100MB
+- 每次上传限制在 10 个文件以内
+- 总文件大小不应超过 100MB
 
 ### 进度监控
 
-- WebSocket 上传期间监听 `upload_progress` 消息
-- 处理 `file_progress` 以展示单文件进度
+- 在 WebSocket 上传期间监听 `upload_progress` 消息
+- 处理 `file_progress` 以显示单个文件的进度
 
 ### 错误处理
 
-- 实现重试机制（建议最多 3 次重试）
-- 捕获并展示对用户友好的错误信息
+- 实现重试机制 (推荐：最多 3 次重试)
+- 捕获并显示对用户友好的错误消息
 
-### 连接保活（Keep-alive）
+### 连接保活
 
 - WebSocket 连接每 30 秒发送一次 ping
 - 处理 pong 响应以确认连接状态
 
 ## 代码示例
 
-### Python REST API Upload
+### Python REST API 上传
 
 ```python
 import requests
 from pathlib import Path
 
 def upload_files(file_paths: list, token: str, folder: str = None) -> dict:
-    """Upload files to the server."""
+    """上传文件到服务器。"""
     url = "http://localhost:18080/files/upload"
     headers = {"Authorization": f"Bearer {token}"}
     
@@ -636,19 +636,19 @@ def upload_files(file_paths: list, token: str, folder: str = None) -> dict:
         for _, file_tuple in files:
             file_tuple[1].close()
 
-# Usage
+# 用法
 result = upload_files(
     file_paths=["./report.pdf", "./lab_results.jpg"],
-    token="your-auth-token",
+    token="您的身份验证令牌",
     folder="health-reports"
 )
 ```
 
-### File Deletion
+### 文件删除
 
 ```python
 def delete_files(message_id: str, file_keys: list, token: str) -> dict:
-    """Delete files from a message."""
+    """从消息中删除文件。"""
     url = "http://localhost:18080/api/v1/data/delete-files"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -667,18 +667,16 @@ def delete_files(message_id: str, file_keys: list, token: str) -> dict:
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="book" href="/zh/api-reference/introduction">
-    浏览完整 API 文档
+  <Card title="API 参考" icon="book" href="/zh/api-reference/introduction">
+    浏览完整的 API 文档
   </Card>
-  <Card title="Configuration" icon="gear" href="/zh/configuration">
-    配置文件处理相关设置
+  <Card title="配置" icon="gear" href="/zh/configuration">
+    配置文件处理设置
   </Card>
-  <Card title="Testing" icon="flask" href="/zh/development/testing">
-    测试文件上传与处理
+  <Card title="测试" icon="flask" href="/zh/development/testing">
+    测试文件上传和处理
   </Card>
-  <Card title="Architecture" icon="diagram-project" href="/zh/concepts/architecture">
+  <Card title="架构" icon="diagram-project" href="/zh/concepts/architecture">
     了解系统架构
   </Card>
 </CardGroup>
-
-

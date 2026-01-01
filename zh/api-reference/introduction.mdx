@@ -5,173 +5,281 @@ description: "Mirobody Health API 概览"
 
 ## 欢迎使用 API
 
-Mirobody Health API 提供可编程访问能力，用于健康设备集成、数据获取以及 AI 驱动的健康洞察。
+Mirobody Health API 提供对健康设备集成、数据检索和 AI 驱动的健康洞察的编程访问。
 
 <Info>
-Base URL: `http://localhost:18080`（development）或 `https://your-domain.com`（production）
+Base URL: `http://localhost:18080` (开发环境) 或 `https://your-domain.com` (生产环境)
 </Info>
 
 ## API 分类
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Pulse API" icon="heartbeat" href="/zh/api-reference/pulse/providers">
-    连接健康设备并获取标准化的健康数据
+    从 OAuth 提供商和 Apple Health 连接健康设备并检索标准化的健康数据
   </Card>
   <Card title="Chat API" icon="comments" href="/zh/api-reference/chat/send-message">
-    与 AI 健康助手交互
+    从集成了 MCP 工具的 DeepAgent 和 BaselineAgent 流式获取 AI 响应
   </Card>
-  <Card title="MCP Protocol" icon="bolt" href="/zh/api-reference/mcp/overview">
-    面向 AI agents 与 tools 的 JSON-RPC 接口
+  <Card title="MCP 协议" icon="bolt" href="/zh/api-reference/mcp/overview">
+    面向 AI agent 的 JSON-RPC 2.0 接口，用于发现和调用工具及资源
   </Card>
 </CardGroup>
 
-## 认证
+## Base URL
 
-大多数 API endpoints 需要使用 JWT token 进行认证：
+<CodeGroup>
+```bash 开发环境
+http://localhost:18080
+```
 
-```bash
+```bash 生产环境
+https://your-domain.com
+```
+</CodeGroup>
+
+## 身份验证
+
+大多数 API 端点需要使用 Authorization 标头中的 JWT 令牌进行身份验证：
+
+<CodeGroup>
+```bash cURL
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   http://localhost:18080/api/v1/pulse/providers
 ```
 
+```python Python
+import httpx
+
+headers = {"Authorization": "Bearer YOUR_JWT_TOKEN"}
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        "http://localhost:18080/api/v1/pulse/providers",
+        headers=headers
+    )
+```
+</CodeGroup>
+
+### 获取令牌
+
+令牌通过身份验证端点颁发：
+
+- **电子邮箱登录**: `POST /api/v1/user/email/login`
+- **Google OAuth**: `POST /api/v1/user/google/login`
+- **Apple 登录**: `POST /api/v1/user/apple/login`
+
 <Tip>
-在开发与测试环境中，部分 endpoints 可能会根据配置允许匿名访问。
+某些公开端点（如 `/api/v1/pulse/providers`）可能无需身份验证即可工作，但用户特定的操作始终需要有效的令牌。
 </Tip>
 
 ## 速率限制
 
-API 请求会按用户与 Provider 进行限流：
+API 请求按用户和提供商进行速率限制：
 
-- **Default**：每位用户每分钟 100 次请求
-- **Provider-specific**：不同 Provider 不同（例如 Garmin：60 req/min）
+- **默认**: 每用户每分钟 100 次请求
+- **提供商特定**: 因提供商而异（例如 Garmin: 60 次/分钟）
 
 <Warning>
-超过限流会返回 `429 Too Many Requests`，并带有 `Retry-After` header。
+超过速率限制会返回 `429 Too Many Requests` 响应，并包含 `Retry-After` 标头。
 </Warning>
 
-## 错误响应
+## 响应格式
 
-所有 API 错误都遵循统一格式：
+所有 API 响应都遵循标准格式：
 
-```json
+<CodeGroup>
+```json 成功响应
 {
-  "error": {
-    "code": "INVALID_TOKEN",
-    "message": "The provided access token is invalid or expired",
-    "details": {
-      "provider": "theta_garmin",
-      "timestamp": "2024-01-15T10:30:00Z"
-    }
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    // 响应数据
   }
 }
 ```
 
-### Common Error Codes
+```json 错误响应
+{
+  "code": -1,
+  "msg": "错误消息",
+  "data": null
+}
+```
+</CodeGroup>
 
-| Code | Description | Resolution |
+### HTTP 状态码
+
+| 状态码 | 描述 |
+|--------|-------------|
+| `200` | 成功 |
+| `400` | 错误请求 - 参数无效 |
+| `401` | 未授权 - 令牌无效或缺失 |
+| `403` | 禁止访问 - 权限不足 |
+| `404` | 未找到 - 资源不存在 |
+| `429` | 请求过多 - 已超过速率限制 |
+| `500` | 服务器内部错误 |
+
+### 常见错误代码
+
+| 代码 | 描述 | 解决方案 |
 |------|-------------|------------|
-| `INVALID_TOKEN` | OAuth token 无效或已过期 | 刷新 token 或重新链接账号 |
-| `PROVIDER_NOT_FOUND` | Provider 不存在 | 检查 provider slug |
-| `USER_NOT_LINKED` | 用户尚未链接该 provider | 先完成 OAuth flow |
-| `RATE_LIMIT_EXCEEDED` | 请求过多 | 等待后重试并使用 backoff |
-| `INTERNAL_ERROR` | 服务端错误 | 联系支持 |
+| `0` | 成功 | - |
+| `-1` | 通用错误 | 检查错误消息 |
+| `-32000` | 需要身份验证 (MCP) | 通过 OAuth 流程进行身份验证 |
+| `-32601` | 未找到方法 (MCP) | 检查方法名称 |
+| `-32602` | 参数无效 (MCP) | 验证参数格式 |
 
 ## 快速上手
 
 <Steps>
-  <Step title="列出可用 providers">
+  <Step title="列出可用提供商">
     ```bash
     curl http://localhost:18080/api/v1/pulse/providers
     ```
+    
+    返回所有支持的健康设备提供商（Garmin, Whoop, Apple Health 等）
   </Step>
 
-  <Step title="链接一个 provider">
+  <Step title="链接提供商 (OAuth)">
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123"
+    curl -X POST http://localhost:18080/api/v1/pulse/user/providers/link \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "provider_slug": "theta_garmin",
+        "platform": "theta",
+        "auth_type": "oauth2"
+      }'
     ```
+    
+    返回用于用户授权的 OAuth URL
   </Step>
 
-  <Step title="获取健康数据">
+  <Step title="与 AI 对话">
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/data?user_id=user_123&provider=theta_garmin"
+    curl -X POST http://localhost:18080/api/v1/chat/stream \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "question": "我这周走了多少步？",
+        "agent": "deep",
+        "user_id": "user_123"
+      }'
     ```
+    
+    流式传输带有健康数据见解的 AI 响应
+  </Step>
+
+  <Step title="调用 MCP 工具">
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "get_health_indicator",
+          "arguments": {"keywords": "steps"}
+        }
+      }'
+    ```
+    
+    通过 MCP 协议直接查询健康数据
   </Step>
 </Steps>
 
-## SDK 与库
+## API 端点概览
 
-<Tabs>
-  <Tab title="Python">
-    ```python
-    from mirobody_client import MirobodyClient
-    
-    client = MirobodyClient(base_url="http://localhost:18080")
-    
-    # List providers
-    providers = await client.pulse.list_providers()
-    
-    # Link provider
-    link_url = await client.pulse.link_provider(
-        provider_slug="theta_garmin",
-        user_id="user_123"
-    )
-    ```
-  </Tab>
+### Pulse API (`/api/v1/pulse`)
 
-  <Tab title="cURL">
-    ```bash
-    # List providers
-    curl http://localhost:18080/api/v1/pulse/providers
-    
-    # Link provider
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123"
-    
-    # Get data
-    curl "http://localhost:18080/api/v1/pulse/data?user_id=user_123"
-    ```
-  </Tab>
-</Tabs>
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/providers` | GET | 列出所有可用提供商 |
+| `/user/providers` | GET | 获取用户已链接的提供商 |
+| `/user/providers/link` | POST | 链接新提供商 |
+| `/user/providers/unlink` | POST | 取消链接提供商 |
+| `/{platform}/{provider}/callback` | GET | OAuth 回调处理器 |
+| `/{platform}/webhook` | POST | 提供商 Webhook 接收器 |
 
-<Note>
-SDKs 仍在开发中；目前请使用直接 HTTP 请求，或以上示例作为参考。
-</Note>
+### Chat API (`/api/v1/chat`)
 
-## API 版本管理
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/stream` | POST | 流式传输聊天响应 (SSE) |
+| `/history` | GET | 获取对话历史记录 |
+| `/session` | POST | 创建/管理会话 |
 
-API 使用基于 URL 的版本管理：
+### MCP API (`/mcp`)
 
-- **Current**：`/api/v1/...`
-- **Future**：`/api/v2/...`（when available）
+| 方法 | 描述 |
+|--------|-------------|
+| `initialize` | 握手和能力确认 |
+| `tools/list` | 列出可用工具 |
+| `tools/call` | 执行工具 |
+| `resources/list` | 列出资源 |
+| `resources/read` | 读取资源 |
+
+### 文件 API (`/api/v1/data`)
+
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/upload-with-processing` | POST | 上传并处理健康文件 |
+| `/health/data` | GET/POST | 查询/存储健康数据 |
+| `/uploaded-files` | GET | 列出已上传文件 |
+
+## API 版本控制
+
+API 使用基于 URL 的版本控制：
+
+- **当前版本**: `/api/v1/...`
+- **未来版本**: `/api/v2/...` (如有)
 
 <Tip>
-请始终使用带版本号的 endpoints 以确保兼容性。
+始终使用带版本的端点（`/api/v1/...`）以确保兼容性。MCP 端点（`/mcp`）遵循其自身的协议版本控制。
 </Tip>
 
-## Webhooks（Coming Soon）
+## Webhooks
 
-订阅实时健康数据更新：
+Mirobody Health 支持 Webhook，用于从提供商实时更新健康数据：
 
-```json
+<CodeGroup>
+```bash 注册 Webhook
+POST /{platform}/webhook
+Content-Type: application/json
+
 {
-  "webhook_url": "https://your-app.com/webhooks/health",
-  "events": ["data.new", "provider.linked"],
-  "provider": "theta_garmin"
+  "user_id": "user_123",
+  "source": "theta_garmin",
+  "timestamp": 1705320600000,
+  "timezone": "America/Los_Angeles",
+  "data": [
+    {
+      "type": "steps",
+      "value": 10543,
+      "unit": "steps",
+      "timestamp": 1705320600000
+    }
+  ]
 }
 ```
+</CodeGroup>
+
+Webhook 在链接 OAuth 提供商时会自动配置。详情请参阅 [提供商集成](/development/provider-integration)。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="Pulse API" icon="heartbeat" href="/zh/api-reference/pulse/providers">
-    连接并管理健康 providers
+    连接和管理健康提供商
   </Card>
   <Card title="Chat API" icon="comments" href="/zh/api-reference/chat/send-message">
     集成 AI 健康助手
   </Card>
-  <Card title="MCP Protocol" icon="bolt" href="/zh/api-reference/mcp/overview">
+  <Card title="MCP 协议" icon="bolt" href="/zh/api-reference/mcp/overview">
     构建 AI agent 集成
   </Card>
-  <Card title="Examples" icon="code" href="/zh/examples/garmin-provider">
-    查看完整实现示例
+  <Card title="示例" icon="code" href="/zh/examples/garmin-provider">
+    查看完整的实现示例
   </Card>
 </CardGroup>

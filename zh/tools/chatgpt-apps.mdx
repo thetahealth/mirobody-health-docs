@@ -3,7 +3,7 @@ title: "ChatGPT Apps"
 description: "将 Mirobody Health 的能力连接到 ChatGPT 作为自定义应用"
 ---
 
-## 概述
+## 概览
 
 ChatGPT Apps 允许你通过连接到外部服务来扩展 ChatGPT 的功能。Mirobody Health 通过其 MCP 端点支持 ChatGPT Apps，让 ChatGPT 能够访问健康数据检索、Provider 连接等功能。
 
@@ -186,7 +186,7 @@ Mirobody Health 包含 OAuth 认证功能，这意味着用户必须先登录，
 
 ### 连接失败
 
-如果 ChatGPT 无法连接到你的 MCP 端点：
+如果 ChatGPT 无法连接到 your MCP 端点：
 
 1. 验证你的隧道正在运行且可访问
 2. 检查 Mirobody Health 是否在端口 18080 上运行
@@ -201,21 +201,3 @@ Mirobody Health 包含 OAuth 认证功能，这意味着用户必须先登录，
 2. 检查 Mirobody Health 日志是否有错误
 3. 重启你的隧道并尝试重新连接
 4. 确保你的 Tools 在 Mirobody Health 中正确注册
-
-## 下一步
-
-<CardGroup cols={2}>
-  <Card title="内置 Tools" icon="toolbox" href="/zh/tools/built-in">
-    探索可用的健康 Tools
-  </Card>
-  <Card title="添加自定义 Tools" icon="plus" href="/zh/tools/adding-tools">
-    创建你自己的自定义 Tools
-  </Card>
-  <Card title="MCP 协议" icon="network-wired" href="/zh/api-reference/mcp/overview">
-    了解 MCP 协议
-  </Card>
-  <Card title="安全最佳实践" icon="shield" href="/zh/deployment/production">
-    生产环境部署指南
-  </Card>
-</CardGroup>
-

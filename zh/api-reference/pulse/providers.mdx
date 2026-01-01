@@ -1,19 +1,19 @@
 ---
-title: "列出 Providers"
-description: "获取系统中所有可用的健康设备 providers 列表"
+title: "列出提供商"
+description: "获取系统中所有可用的健康设备提供商列表"
 ---
 
-## Endpoint
+## 端点
 
 ```
 GET /api/v1/pulse/providers
 ```
 
-## Overview
+## 概览
 
-获取系统中所有可用健康设备 providers 的信息，包括配置状态与能力描述。
+检索系统中所有可用健康设备提供商的信息，包括其配置状态和能力。
 
-## Request
+## 请求
 
 <RequestExample>
 ```bash cURL
@@ -21,72 +21,121 @@ curl http://localhost:18080/api/v1/pulse/providers
 ```
 </RequestExample>
 
-## Response
+## 响应
 
 <ResponseExample>
-```json Success
+```json 成功
 {
-  "providers": [
-    {
-      "slug": "theta_garmin",
-      "name": "Garmin",
-      "description": "Garmin health data integration via OAuth",
-      "logo": "https://static.thetahealth.ai/res/garmin.png",
-      "supported": true,
-      "auth_type": "oauth1",
-      "status": "available"
-    },
-    {
-      "slug": "theta_whoop",
-      "name": "Whoop",
-      "description": "Whoop health data integration via OAuth",
-      "logo": "https://static.thetahealth.ai/res/whoop.png",
-      "supported": true,
-      "auth_type": "oauth2",
-      "status": "available"
-    }
-  ]
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "providers": [
+      {
+        "slug": "theta_garmin",
+        "name": "Garmin Connect",
+        "platform": "theta",
+        "description": "连接您的 Garmin 设备以同步活动、睡眠和健康指标",
+        "logo": "https://static.thetahealth.ai/res/garmin.png",
+        "supported": true,
+        "auth_type": "oauth1",
+        "status": "available",
+        "capabilities": ["activity", "sleep", "heart_rate", "stress"]
+      },
+      {
+        "slug": "theta_whoop",
+        "name": "Whoop",
+        "platform": "theta",
+        "description": "连接您的 Whoop 表带以进行恢复、压力和睡眠追踪",
+        "logo": "https://static.thetahealth.ai/res/whoop.png",
+        "supported": true,
+        "auth_type": "oauth2",
+        "status": "available",
+        "capabilities": ["recovery", "strain", "sleep", "heart_rate"]
+      },
+      {
+        "slug": "apple_health",
+        "name": "Apple Health",
+        "platform": "apple",
+        "description": "导入 Apple Health 导出数据",
+        "logo": "https://static.thetahealth.ai/res/apple.png",
+        "supported": true,
+        "auth_type": "file_upload",
+        "status": "available",
+        "capabilities": ["activity", "sleep", "heart_rate", "nutrition", "workouts"]
+      }
+    ]
+  }
 }
 ```
 </ResponseExample>
 
-## Response Fields
+## 响应字段
 
-<ResponseField name="providers" type="array" required>
-  provider objects 数组
-
-  <Expandable title="Provider object">
-    <ResponseField name="slug" type="string" required>
-      provider 的唯一标识（例如 `theta_garmin`）
-    </ResponseField>
-
-    <ResponseField name="name" type="string" required>
-      provider 的显示名称
-    </ResponseField>
-
-    <ResponseField name="description" type="string">
-      provider 描述与能力
-    </ResponseField>
-
-    <ResponseField name="logo" type="string">
-      provider logo 图片 URL
-    </ResponseField>
-
-    <ResponseField name="supported" type="boolean" required>
-      是否为当前支持的 provider
-    </ResponseField>
-
-    <ResponseField name="auth_type" type="string" required>
-      OAuth 版本：`oauth1` 或 `oauth2`
-    </ResponseField>
-
-    <ResponseField name="status" type="string" required>
-      provider 状态：`available`、`unavailable` 或 `maintenance`
-    </ResponseField>
-  </Expandable>
+<ResponseField name="code" type="integer" required>
+  响应代码 (0 = 成功)
 </ResponseField>
 
-## Example Usage
+<ResponseField name="msg" type="string" required>
+  响应消息
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  包含提供商数组的响应数据
+</ResponseField>
+
+  <Expandable title="data 对象">
+    <ResponseField name="providers" type="array" required>
+      提供商对象数组
+
+      <Expandable title="Provider 对象">
+        <ResponseField name="slug" type="string" required>
+          唯一的提供商标识符 (例如 `theta_garmin`, `apple_health`)
+        </ResponseField>
+
+        <ResponseField name="name" type="string" required>
+          提供商的显示名称
+        </ResponseField>
+
+        <ResponseField name="platform" type="string" required>
+          平台类型：`theta` (OAuth 提供商), `apple` (基于文件), `vital` (Vital API)
+        </ResponseField>
+
+        <ResponseField name="description" type="string">
+          提供商描述和能力
+        </ResponseField>
+
+        <ResponseField name="logo" type="string">
+          提供商徽标图片的 URL
+        </ResponseField>
+
+        <ResponseField name="supported" type="boolean" required>
+          提供商当前是否受支持
+        </ResponseField>
+
+        <ResponseField name="auth_type" type="string" required>
+          身份验证方法：`oauth1`, `oauth2`, `file_upload`, `token`
+        </ResponseField>
+
+        <ResponseField name="status" type="string" required>
+          提供商状态：`available`, `unavailable` 或 `maintenance`
+        </ResponseField>
+
+        <ResponseField name="capabilities" type="array">
+          提供商支持的数据类型列表 (例如 `activity`, `sleep`, `heart_rate`)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+
+## 平台类型
+
+| 平台 | 描述 | 示例 |
+|----------|-------------|----------|
+| `theta` | 基于 OAuth 的可穿戴设备提供商 | Garmin, Whoop, Fitbit |
+| `apple` | Apple Health 平台 (文件上传) | Apple Health 导出, CDA 文档 |
+| `vital` | Vital API 集成 | 通过 Vital 连接的各种设备 |
+
+## 示例用法
 
 <CodeGroup>
 ```python Python
@@ -96,7 +145,7 @@ async def list_providers():
     async with aiohttp.ClientSession() as session:
         async with session.get("http://localhost:18080/api/v1/pulse/providers") as resp:
             providers = await resp.json()
-            return providers["providers"]
+            return providers["data"]["providers"]
 
 providers = await list_providers()
 for provider in providers:
@@ -104,10 +153,10 @@ for provider in providers:
 ```
 
 ```bash cURL
-curl http://localhost:18080/api/v1/pulse/providers | jq '.providers[] | {name, status}'
+curl http://localhost:18080/api/v1/pulse/providers | jq '.data.providers[] | {name, status}'
 ```
 </CodeGroup>
 
 <Tip>
-在链接 provider 或查询 provider 相关数据时，请使用 `slug` 字段。
+在链接提供商或查询特定提供商的数据时，请使用 `slug` 字段。
 </Tip>

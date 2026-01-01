@@ -10,48 +10,48 @@ Mirobody Health 采用模块化、分层架构，将关注点分离，并支持�
 ## 核心组件
 
 <CardGroup cols={2}>
-  <Card title="API Layer" icon="server">
+  <Card title="API 层" icon="server">
     基于 FastAPI 的 REST API，用于对外集成
   </Card>
-  <Card title="Provider System" icon="plug">
+  <Card title="提供商系统" icon="plug">
     面向健康设备的可插拔 OAuth 集成
   </Card>
-  <Card title="Data Pipeline" icon="arrow-progress">
-    健康数据转换的 ETL pipeline
+  <Card title="数据流水线" icon="arrow-progress">
+    健康数据转换的 ETL 流水线
   </Card>
-  <Card title="AI Services" icon="brain">
-    面向对话的多 LLM provider 集成
+  <Card title="AI 服务" icon="brain">
+    面向对话的多 LLM 提供商集成
   </Card>
-  <Card title="MCP Protocol" icon="bolt">
-    面向 AI agents 的 Model Context Protocol
+  <Card title="MCP 协议" icon="bolt">
+    面向 AI agent 的 Model Context Protocol
   </Card>
-  <Card title="Storage Layer" icon="database">
+  <Card title="存储层" icon="database">
     PostgreSQL 与 Redis 用于数据持久化
   </Card>
 </CardGroup>
 
 ## 架构分层
 
-### 1. API Layer
+### 1. API 层
 
-API Layer 为系统交互提供 RESTful endpoints：
+API 层为系统交互提供 RESTful 端点（endpoints）：
 
 ```
 HTTP Server (FastAPI)
-├── /api/v1/pulse/          # Health provider endpoints
-├── /api/chat               # AI chat interface
-├── /api/history            # Session history
-└── /mcp                    # MCP protocol endpoint
+├── /api/v1/pulse/          # 健康提供商端点
+├── /api/chat               # AI 聊天接口
+├── /api/history            # 会话历史
+└── /mcp                    # MCP 协议端点
 ```
 
-**Key Features:**
+**核心特性:**
 - 使用 FastAPI 进行异步请求处理
 - 自动生成 API 文档（OpenAPI/Swagger）
-- 为 Web clients 提供 CORS 支持
-- 使用 Pydantic models 进行请求校验
-- 基于 JWT 的认证
+- 为 Web 客户端提供 CORS 支持
+- 使用 Pydantic 模型进行请求校验
+- 基于 JWT 的身份验证
 
-### 2. Provider System
+### 2. 提供商系统
 
 面向健康设备集成的可插拔架构：
 
@@ -67,15 +67,15 @@ graph TD
     G --> H[Database Service]
 ```
 
-**Components:**
-- `BaseThetaProvider`: Abstract base class for all providers
-- `ThetaDataFormatter`: Standard data transformation utilities
-- `ThetaTimeUtils`: Timezone and timestamp handling
-- Provider-specific implementations (Garmin, Whoop, etc.)
+**组件:**
+- `BaseThetaProvider`: 所有提供商的抽象基类
+- `ThetaDataFormatter`: 标准数据转换工具
+- `ThetaTimeUtils`: 时区和时间戳处理
+- 提供商特定实现（Garmin, Whoop 等）
 
-### 3. Data Pipeline (TBD)
+### 3. 数据流水线 (TBD)
 
-健康数据的 ETL（Extract, Transform, Load）pipeline：
+健康数据的 ETL（提取、转换、加载）流水线：
 
 ```
 ┌─────────────┐
@@ -97,138 +97,138 @@ graph TD
 └─────────────┘    └──────────────┘
 ```
 
-**Flow:**
-1. **Pull**：从 vendor API 拉取数据
-2. **Save**：将 raw 数据保存到数据库
-3. **Format**：转换为标准格式
-4. **Upload**：推送到 Mirobody platform
+**流程:**
+1. **Pull (拉取)**：从厂商 API 获取数据
+2. **Save (保存)**：将原始数据存入数据库
+3. **Format (格式化)**：转换为标准格式
+4. **Upload (上传)**：推送到 Mirobody 平台
 
-### 4. AI Services
+### 4. AI 服务
 
-面向智能健康洞察的多 LLM provider 集成：
+面向智能健康洞察的多 LLM 提供商集成：
 
 ```python
 AI Services
-├── OpenRouter (Multi-model)
-├── OpenAI (coming later)
-├── Google (coming later)
-├── Anthropic (coming later)
-└── Local LLMs (coming later)
+├── OpenRouter (多模型)
+├── OpenAI 
+├── Google
+├── Anthropic
+└── 本地 LLM (即将推出)
 ```
 
-**Features:**
-- Provider-agnostic 接口（coming later）
+**特性:**
+- 与提供商无关的接口
 - 对话上下文管理
-- Tool calling（访问健康数据）
+- 用于健康数据访问的工具调用 (Tool calling)
 - 会话历史持久化
 
-### 5. MCP Protocol
+### 5. MCP 协议
 
-支持通过 Model Context Protocol 集成 AI agents：
+支持通过 Model Context Protocol 集成 AI agent：
 
 ```
 MCP Server
-├── Tools/        # Available tools
+├── Tools/        # 可用工具
 │   ├── get_user_health_profile
 │   ├── get_health_indicator
-│   └── your custom tools
-├── Resources/    # Available resources
+│   ├── genetic_service
+│   └── 您的自定义工具
+├── Resources/    # 可用资源
 ```
 
-**Capabilities:**
+**能力:**
 - JSON-RPC 2.0 接口
-- Tool 发现与执行
-- Resource 管理
+- 工具发现与执行
+- 资源管理
 - Agent 编排
 
-### 6. Storage Layer
+### 6. 存储层
 
 面向不同数据类型的双存储系统：
 
 <Tabs>
   <Tab title="PostgreSQL">
-    **Used for:**
+    **用于:**
     - 用户凭据（加密）
-    - OAuth tokens 与 refresh tokens
-    - 健康 raw 数据（JSONB）
-    - Provider 配置
+    - OAuth 令牌与刷新令牌
+    - 健康原始数据（JSONB）
+    - 提供商配置
     - 会话历史
-
   </Tab>
 
   <Tab title="Redis">
-    **Used for:**
+    **用于:**
     - OAuth state 参数（短期）
-    - Session tokens
-    - Rate limiting 计数器
+    - 会话令牌
+    - 速率限制计数器
     - 缓存 API 响应
     - 临时数据存储
 
-    **Key Patterns:**
+    **核心模式:**
     ```
     oauth2:state:{state}      # OAuth state
     oauth:secret:{token}      # OAuth 1.0 secrets
-    cache:user:{user_id}      # User data cache
-    rate:{provider}:{user}    # Rate limiting
+    cache:user:{user_id}      # 用户数据缓存
+    rate:{provider}:{user}    # 速率限制
     ```
   </Tab>
 </Tabs>
 
-## Data Flow
+## 数据流
 
-### OAuth Authentication Flow
+### OAuth 身份验证流程
 
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant API as API Server
+    participant U as 用户
+    participant API as API 服务器
     participant R as Redis
-    participant P as Provider
+    participant P as 提供商
     participant DB as PostgreSQL
 
-    U->>API: Request link
-    API->>R: Store state
-    API->>U: Return OAuth URL
-    U->>P: Authorize
-    P->>API: Callback with code
-    API->>R: Validate state
-    API->>P: Exchange for tokens
-    P->>API: Return tokens
-    API->>DB: Save credentials
-    API->>U: Link complete
+    U->>API: 请求链接
+    API->>R: 存储 state
+    API->>U: 返回 OAuth URL
+    U->>P: 授权
+    P->>API: 携带 code 的回调
+    API->>R: 验证 state
+    API->>P: 交换令牌
+    P->>API: 返回令牌
+    API->>DB: 保存凭据
+    API->>U: 链接完成
 ```
 
-### Health Data Synchronization
+### 健康数据同步
 
 ```mermaid
 sequenceDiagram
-    participant S as Scheduler
-    participant PP as Provider (Plugin)
-    participant V as Vendor API
-    participant DB as Database
-    participant PL as Platform
+    participant S as 调度器
+    participant PP as 提供商 (插件)
+    participant V as 厂商 API
+    participant DB as 数据库
+    participant PL as 平台
 
-    S->>PP: Trigger sync
-    PP->>DB: Get credentials
-    PP->>V: Fetch data
-    V->>PP: Return raw data
-    PP->>DB: Save raw data
-    PP->>PP: Format data
-    PP->>PL: Upload formatted data
-    PL->>DB: Store processed data
+    S->>PP: 触发同步
+    PP->>DB: 获取凭据
+    PP->>V: 获取数据
+    V->>PP: 返回原始数据
+    PP->>DB: 保存原始数据
+    PP->>PP: 格式化数据
+    PP->>PL: 上传格式化后的数据
+    PL->>DB: 存储已处理的数据
 ```
 
-## Design Patterns
+## 设计模式
 
-### Plugin Architecture
+### 插件架构
 
-Providers are discovered and loaded dynamically:
+提供商是动态发现并加载的：
 
 ```python
-# Provider discovery
+# 提供商发现
 THETA_PROVIDER_DIRS = ["connect/theta"]
 
-# Automatic loading
+# 自动加载
 for directory in THETA_PROVIDER_DIRS:
     providers = discover_providers(directory)
     for provider_class in providers:
@@ -237,37 +237,37 @@ for directory in THETA_PROVIDER_DIRS:
             register_provider(provider)
 ```
 
-### Factory Pattern
+### 工厂模式
 
-Providers use factory methods for conditional instantiation:
+提供商使用工厂方法进行有条件的实例化：
 
 ```python
 @classmethod
 def create_provider(cls, config: Dict) -> Optional['Provider']:
-    """Factory method - returns None if config invalid"""
+    """工厂方法 - 如果配置无效则返回 None"""
     if not cls._validate_config(config):
         return None
     return cls()
 ```
 
-### Strategy Pattern
+### 策略模式
 
-Different OAuth strategies for OAuth 1.0 vs 2.0:
+针对 OAuth 1.0 vs 2.0 的不同 OAuth 策略：
 
 ```python
 class BaseThetaProvider:
     def link(self, request) -> Dict:
-        """Implemented by OAuth1 or OAuth2 strategy"""
+        """由 OAuth1 或 OAuth2 策略实现"""
         pass
     
     def callback(self, *args, **kwargs) -> Dict:
-        """Implemented by OAuth1 or OAuth2 strategy"""
+        """由 OAuth1 或 OAuth2 策略实现"""
         pass
 ```
 
-### Repository Pattern
+### 仓库模式
 
-Database operations abstracted through services:
+通过服务抽象数据库操作：
 
 ```python
 class DatabaseService:
@@ -279,60 +279,60 @@ class DatabaseService:
 ## 安全架构
 
 <AccordionGroup>
-  <Accordion title="Authentication & Authorization" icon="key">
-    - 基于 JWT 的 API 认证
-    - OAuth 1.0/2.0（provider access）
+  <Accordion title="身份验证与授权" icon="key">
+    - 基于 JWT 的 API 身份验证
+    - 用于提供商访问的 OAuth 1.0/2.0
     - 加密存储凭据
-    - 按用户隔离的 provider 访问控制
+    - 按用户隔离的提供商访问控制
   </Accordion>
 
-  <Accordion title="Data Protection" icon="shield">
+  <Accordion title="数据保护" icon="shield">
     - 数据库级别加密
-    - 加密 OAuth tokens
-    - 外部通信使用 HTTPS
-    - 不记录敏感数据
+    - 加密 OAuth 令牌
+    - 所有外部通信使用 HTTPS
+    - 敏感数据绝不记录到日志
   </Accordion>
 
-  <Accordion title="Access Control" icon="lock">
+  <Accordion title="访问控制" icon="lock">
     - 用户范围的数据访问
-    - Provider 级权限控制
-    - API rate limiting
-    - CORS policies
+    - 提供商特定的权限
+    - API 速率限制
+    - CORS 策略
   </Accordion>
 
-  <Accordion title="Secure Communication" icon="shield-halved">
+  <Accordion title="安全通信" icon="shield-halved">
     - 外部 API 使用 TLS/SSL
-    - OAuth state 参数防 CSRF
-    - Token refresh 机制
-    - 安全的 session 管理
+    - 针对 OAuth CSRF 保护的 state 参数
+    - 令牌刷新机制
+    - 安全的会话管理
   </Accordion>
 </AccordionGroup>
 
 ## 可扩展性考虑
 
-### Horizontal Scaling
+### 水平扩展
 
 系统支持水平扩展：
 
 <CardGroup cols={2}>
-  <Card title="Stateless API" icon="server">
-    API servers 无状态，可在负载均衡后水平扩展
+  <Card title="无状态 API" icon="server">
+    API 服务器是无状态的，可在负载均衡器后实现水平扩展
   </Card>
-  <Card title="Distributed Cache" icon="layer-group">
+  <Card title="分布式缓存" icon="layer-group">
     Redis 支持集群，用于分布式缓存
   </Card>
-  <Card title="Database Pooling" icon="database">
-    连接池支持多实例 API 并发访问数据库
+  <Card title="数据库连接池" icon="database">
+    连接池支持多个 API 实例并发访问
   </Card>
-  <Card title="Async Processing" icon="arrows-spin">
-    async/await 提升单实例并发能力
+  <Card title="异步处理" icon="arrows-spin">
+    Async/await 提升了每个实例的并发处理能力
   </Card>
 </CardGroup>
 
 
-## Deployment Architecture
+## 部署架构
 
-### Docker Compose Architecture
+### Docker Compose 架构
 
 ```yaml
 services:
@@ -354,17 +354,17 @@ volumes:
   redis-data:
 ```
 
-## Monitoring & Observability
+## 监控与可观测性
 
-### Logging
+### 日志
 
-Structured logging throughout the system:
+整个系统使用结构化日志：
 
 ```python
-# Log levels
+# 日志级别
 LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-# Contextual logging
+# 上下文日志
 logging.info(
     "Data pull completed",
     extra={
@@ -376,17 +376,17 @@ logging.info(
 )
 ```
 
-### Metrics
+### 指标
 
-Track key performance indicators:
+追踪关键性能指标：
 
-- Request latency
-- Provider success rates
-- Data processing throughput
-- Error rates by provider
-- Token refresh rates
+- 请求延迟
+- 提供商成功率
+- 数据处理吞吐量
+- 按提供商分类的错误率
+- 令牌刷新率
 
-### Health Checks
+### 健康检查
 
 ```python
 GET /health
@@ -400,88 +400,88 @@ GET /health
 }
 ```
 
-## Technology Stack
+## 技术栈
 
 <Tabs>
-  <Tab title="Backend">
-    - **Python 3.12+**: Core language
-    - **FastAPI**: Web framework
-    - **asyncio**: Async I/O
-    - **Pydantic**: Data validation
-    - **SQLAlchemy**: Database ORM
+  <Tab title="后端">
+    - **Python 3.12+**: 核心语言
+    - **FastAPI**: Web 框架
+    - **asyncio**: 异步 I/O
+    - **Pydantic**: 数据校验
+    - **SQLAlchemy**: 数据库 ORM
   </Tab>
 
-  <Tab title="Storage">
-    - **PostgreSQL 15**: Relational database
-    - **Redis 7**: Cache and session store
-    - **JSONB**: Flexible data storage
-    - **S3 (optional)**: Object storage
+  <Tab title="存储">
+    - **PostgreSQL 15**: 关系型数据库
+    - **Redis 7**: 缓存与会话存储
+    - **JSONB**: 灵活的数据存储
+    - **S3 (可选)**: 对象存储
   </Tab>
 
-  <Tab title="Integration">
-    - **aiohttp**: Async HTTP client
+  <Tab title="集成">
+    - **aiohttp**: 异步 HTTP 客户端
     - **requests-oauthlib**: OAuth 1.0
-    - **OAuth 2.0**: Modern auth
-    - **JSON-RPC 2.0**: MCP protocol
+    - **OAuth 2.0**: 现代认证
+    - **JSON-RPC 2.0**: MCP 协议
   </Tab>
 
   <Tab title="DevOps">
-    - **Docker**: Containerization
-    - **Docker Compose**: Local deployment
-    - **pytest**: Testing framework
+    - **Docker**: 容器化
+    - **Docker Compose**: 本地部署
+    - **pytest**: 测试框架
     - **GitHub Actions**: CI/CD
   </Tab>
 </Tabs>
 
 ## 扩展点
 
-该架构提供多个扩展点：
+该架构提供了多个扩展点：
 
 <AccordionGroup>
-  <Accordion title="New Providers" icon="plus">
+  <Accordion title="新增提供商" icon="plus">
     新增健康设备集成请参见[开发](/zh/development/setup)：
   </Accordion>
 
-  <Accordion title="Tools & MCPs" icon="wrench">
-    1. See [Adding Custom Tools](/zh/tools/adding-tools) to add new tools for AI agents
-    2. See [Adding Custom MCPs](/zh/tools/adding-mcps) to add new MCPs for AI agents
+  <Accordion title="工具与 MCP" icon="wrench">
+    1. 请参阅[添加自定义工具](/zh/tools/adding-tools)以为 AI agent 添加新工具
+    2. 请参阅[添加自定义 MCP](/zh/tools/adding-mcps)以为 AI agent 添加新 MCP
   </Accordion>
 
-  <Accordion title="Custom Indicators" icon="chart-line">
+  <Accordion title="自定义指标" icon="chart-line">
     添加新的健康指标：
-    1. Define in `StandardIndicator` enum
-    2. Specify standard unit
-    3. Update provider mappings
+    1. 在 `StandardIndicator` 枚举中定义
+    2. 指定标准单位
+    3. 更新提供商映射
   </Accordion>
 
-  <Accordion title="AI Providers" icon="robot">
-    添加新的 LLM providers：
-    1. Implement provider interface
-    2. Add configuration
-    3. Register in agent system
-    4. Deploy
+  <Accordion title="AI 提供商" icon="robot">
+    添加新的 LLM 提供商：
+    1. 实现提供商接口
+    2. 添加配置
+    3. 在 agent 系统中注册
+    4. 部署
   </Accordion>
 </AccordionGroup>
 
 ## 最佳实践
 
 <CardGroup cols={2}>
-  <Card title="Separation of Concerns" icon="layer-group">
+  <Card title="关注点分离" icon="layer-group">
     每一层只负责单一职责
   </Card>
-  <Card title="Dependency Injection" icon="syringe">
-    通过依赖注入使用 services，而不是硬编码
+  <Card title="依赖注入" icon="syringe">
+    通过注入使用服务，而非硬编码
   </Card>
-  <Card title="Interface-Based Design" icon="cube">
+  <Card title="面向接口设计" icon="cube">
     面向接口编程，而非面向实现
   </Card>
-  <Card title="Configuration-Driven" icon="gears">
-    行为通过配置驱动
+  <Card title="配置驱动" icon="gears">
+    行为通过配置控制
   </Card>
-  <Card title="Async First" icon="bolt">
-    所有 I/O 使用 async/await
+  <Card title="异步优先" icon="bolt">
+    所有 I/O 操作使用 Async/await
   </Card>
-  <Card title="Error Handling" icon="triangle-exclamation">
+  <Card title="错误处理" icon="triangle-exclamation">
     优雅降级与恢复
   </Card>
 </CardGroup>
@@ -489,16 +489,16 @@ GET /health
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Provider System" icon="plug" href="/zh/concepts/providers">
-    深入了解 provider 系统
+  <Card title="提供商系统" icon="plug" href="/zh/concepts/providers">
+    深入了解提供商系统
   </Card>
-  <Card title="Data Flow" icon="arrow-progress" href="/zh/concepts/data-flow">
+  <Card title="数据流" icon="arrow-progress" href="/zh/concepts/data-flow">
     理解数据转换流程
   </Card>
-  <Card title="Development Setup" icon="code" href="/zh/development/setup">
-    搭建开发环境
+  <Card title="开发设置" icon="code" href="/zh/development/setup">
+    搭建您的开发环境
   </Card>
-  <Card title="Deployment" icon="rocket" href="/zh/deployment/docker">
+  <Card title="部署" icon="rocket" href="/zh/deployment/docker">
     部署 Mirobody Health
   </Card>
 </CardGroup>

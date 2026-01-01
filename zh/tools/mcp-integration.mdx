@@ -36,31 +36,31 @@ Model Context Protocol（MCP）是 AI 应用访问 Tools、resources 与上下�
 
 <Tabs>
   <Tab title="macOS/Linux">
-    Configuration file location:
+    配置文件位置：
     ```bash
     ~/Library/Application Support/Claude/claude_desktop_config.json
     ```
 
-    For Cursor:
+    对于 Cursor：
     ```bash
     ~/.cursor/mcp_config.json
     ```
   </Tab>
 
   <Tab title="Windows">
-    Configuration file location:
+    配置文件位置：
     ```powershell
     %APPDATA%\Claude\claude_desktop_config.json
     ```
 
-    For Cursor:
+    对于 Cursor：
     ```powershell
     %USERPROFILE%\.cursor\mcp_config.json
     ```
   </Tab>
 </Tabs>
 
-### Restart Your Client
+### 重启客户端
 
 更新配置后：
 
@@ -84,7 +84,7 @@ Model Context Protocol（MCP）是 AI 应用访问 Tools、resources 与上下�
   <Step title="测试一个 Tool">
     尝试使用你的某个 Tool：
     
-    "Can you show me my health profile?"
+    "可以显示我的健康 profile 吗？"
     
     Agent 应调用 `get_user_health_profile` Tool。
   </Step>
@@ -129,24 +129,20 @@ MCP server 暴露以下 endpoint：
 - `tools/list`: 列出所有可用 Tools
 - `tools/call`: 执行指定 Tool
 - `resources/list`: 列出可用 resources
-- `resources/read`: Read a resource
+- `resources/read`: 读取 resource
 
 ## 面向 ChatGPT
 
-Mirobody Health 也可以作为 GPT app 运行，在 ChatGPT 内启用相关能力。
-
-<Info>
-ChatGPT 集成文档即将发布。GPT app 将允许 ChatGPT 用户通过对话访问其健康数据。
-</Info>
+Mirobody Health 也可以作为 GPT app 运行，在 ChatGPT 内启用相关能力。更多内容请阅读 [ChatGPT Apps](/zh/tools/chatgpt-apps)。
 
 ## 自定义 MCP Clients
 
-### Direct HTTP Requests
+### 直接 HTTP 请求
 
 你可以通过 HTTP 直接调用 Tools：
 
 ```bash
-# List all tools
+# 列出所有 tools
 curl -X POST http://localhost:18080/mcp \
   -H "Content-Type: application/json" \
   -d '{
@@ -155,7 +151,7 @@ curl -X POST http://localhost:18080/mcp \
     "method": "tools/list"
   }'
 
-# Call a tool
+# 调用一个 tool
 curl -X POST http://localhost:18080/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -173,13 +169,13 @@ curl -X POST http://localhost:18080/mcp \
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Built-in Tools" icon="wrench" href="/zh/tools/built-in">
+  <Card title="内置 Tools" icon="wrench" href="/zh/tools/built-in">
     浏览默认内置的健康 Tools
   </Card>
-  <Card title="Add Custom Tools" icon="plus" href="/zh/tools/adding-tools">
+  <Card title="添加自定义 Tools" icon="plus" href="/zh/tools/adding-tools">
     创建你自己的 Tools
   </Card>
-  <Card title="MCP API Reference" icon="book" href="/zh/api-reference/mcp/overview">
-    MCP protocol 的详细文档
+  <Card title="MCP API 参考" icon="book" href="/zh/api-reference/mcp/overview">
+    详细的 MCP 协议文档
   </Card>
 </CardGroup>
