@@ -26,65 +26,114 @@ curl http://localhost:18080/api/v1/pulse/providers
 <ResponseExample>
 ```json Success
 {
-  "providers": [
-    {
-      "slug": "theta_garmin",
-      "name": "Garmin",
-      "description": "Garmin health data integration via OAuth",
-      "logo": "https://static.thetahealth.ai/res/garmin.png",
-      "supported": true,
-      "auth_type": "oauth1",
-      "status": "available"
-    },
-    {
-      "slug": "theta_whoop",
-      "name": "Whoop",
-      "description": "Whoop health data integration via OAuth",
-      "logo": "https://static.thetahealth.ai/res/whoop.png",
-      "supported": true,
-      "auth_type": "oauth2",
-      "status": "available"
-    }
-  ]
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "providers": [
+      {
+        "slug": "theta_garmin",
+        "name": "Garmin Connect",
+        "platform": "theta",
+        "description": "Connect your Garmin device to sync activity, sleep, and health metrics",
+        "logo": "https://static.thetahealth.ai/res/garmin.png",
+        "supported": true,
+        "auth_type": "oauth1",
+        "status": "available",
+        "capabilities": ["activity", "sleep", "heart_rate", "stress"]
+      },
+      {
+        "slug": "theta_whoop",
+        "name": "Whoop",
+        "platform": "theta",
+        "description": "Connect your Whoop strap for recovery, strain, and sleep tracking",
+        "logo": "https://static.thetahealth.ai/res/whoop.png",
+        "supported": true,
+        "auth_type": "oauth2",
+        "status": "available",
+        "capabilities": ["recovery", "strain", "sleep", "heart_rate"]
+      },
+      {
+        "slug": "apple_health",
+        "name": "Apple Health",
+        "platform": "apple",
+        "description": "Import Apple Health export data",
+        "logo": "https://static.thetahealth.ai/res/apple.png",
+        "supported": true,
+        "auth_type": "file_upload",
+        "status": "available",
+        "capabilities": ["activity", "sleep", "heart_rate", "nutrition", "workouts"]
+      }
+    ]
+  }
 }
 ```
 </ResponseExample>
 
 ## Response Fields
 
-<ResponseField name="providers" type="array" required>
-  Array of provider objects
+<ResponseField name="code" type="integer" required>
+  Response code (0 = success)
+</ResponseField>
 
-  <Expandable title="Provider object">
-    <ResponseField name="slug" type="string" required>
-      Unique provider identifier (e.g., `theta_garmin`)
-    </ResponseField>
+<ResponseField name="msg" type="string" required>
+  Response message
+</ResponseField>
 
-    <ResponseField name="name" type="string" required>
-      Display name of the provider
-    </ResponseField>
+<ResponseField name="data" type="object" required>
+  Response data containing providers array
 
-    <ResponseField name="description" type="string">
-      Provider description and capabilities
-    </ResponseField>
+  <Expandable title="data object">
+    <ResponseField name="providers" type="array" required>
+      Array of provider objects
 
-    <ResponseField name="logo" type="string">
-      URL to provider logo image
-    </ResponseField>
+      <Expandable title="Provider object">
+        <ResponseField name="slug" type="string" required>
+          Unique provider identifier (e.g., `theta_garmin`, `apple_health`)
+        </ResponseField>
 
-    <ResponseField name="supported" type="boolean" required>
-      Whether the provider is currently supported
-    </ResponseField>
+        <ResponseField name="name" type="string" required>
+          Display name of the provider
+        </ResponseField>
 
-    <ResponseField name="auth_type" type="string" required>
-      OAuth version: `oauth1` or `oauth2`
-    </ResponseField>
+        <ResponseField name="platform" type="string" required>
+          Platform type: `theta` (OAuth providers), `apple` (file-based), `vital` (Vital API)
+        </ResponseField>
 
-    <ResponseField name="status" type="string" required>
-      Provider status: `available`, `unavailable`, or `maintenance`
+        <ResponseField name="description" type="string">
+          Provider description and capabilities
+        </ResponseField>
+
+        <ResponseField name="logo" type="string">
+          URL to provider logo image
+        </ResponseField>
+
+        <ResponseField name="supported" type="boolean" required>
+          Whether the provider is currently supported
+        </ResponseField>
+
+        <ResponseField name="auth_type" type="string" required>
+          Authentication method: `oauth1`, `oauth2`, `file_upload`, `token`
+        </ResponseField>
+
+        <ResponseField name="status" type="string" required>
+          Provider status: `available`, `unavailable`, or `maintenance`
+        </ResponseField>
+
+        <ResponseField name="capabilities" type="array">
+          List of data types the provider supports (e.g., `activity`, `sleep`, `heart_rate`)
+        </ResponseField>
+      </Expandable>
     </ResponseField>
   </Expandable>
 </ResponseField>
+
+## Platform Types
+
+| Platform | Description | Examples |
+|----------|-------------|----------|
+| `theta` | OAuth-based wearable device providers | Garmin, Whoop, Fitbit |
+| `apple` | Apple Health platform (file upload) | Apple Health Export, CDA documents |
+| `vital` | Vital API integration | Various devices via Vital |
 
 ## Example Usage
 

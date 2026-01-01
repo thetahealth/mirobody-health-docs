@@ -9,10 +9,8 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
 
 <CardGroup cols={2}>
   <Card title="Docker" icon="docker">
-    版本 20.10 或更高
   </Card>
   <Card title="Docker Compose" icon="layer-group">
-    版本 1.29 或更高
   </Card>
 </CardGroup>
 
@@ -33,46 +31,90 @@ description: "使用 Docker 在 5 分钟内启动运行 Mirobody Health"
   </Step>
 
   <Step title="配置文件初始化">
-    根据示例文件创建你的配置文件：
+    创建你的 `.env` 文件和配置文件：
 
     ```bash
-    cp .env_example .env
-    cp config.example.yaml config.yaml
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
     ```
     
     <Tip>
-    快速体验时你可以先使用默认配置；生产环境请参考[配置指南](/zh/configuration)。
+    `ENV` 变量告诉系统使用哪个配置文件。`ENV=localdb` 将加载 `config.localdb.yaml`。
     </Tip>
   </Step>
 
-  <Step title="添加 API keys">
-    编辑 `config.yaml` 填写你的 API keys。**OPENROUTER_API_KEY 和 GOOGLE_API_KEY 都是必填**：
+  <Step title="设置环境变量">
+    编辑 `.env` 设置你的配置文件：
 
-    ```yaml config.yaml
-    # AI Provider API Keys - REQUIRED
-    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # REQUIRED for AI chat/agents
-    GOOGLE_API_KEY: 'your_google_api_key'  # REQUIRED for file processing (Gemini)
+    ```bash .env
+    ENV=localdb
+    ```
+
+    这会告诉系统使用 `config.localdb.yaml` 作为配置。
+  </Step>
+
+  <Step title="添加 API keys 并配置 agents">
+    创建 `config.localdb.yaml` 并添加至少一个 LLM API key：
+
+    ```yaml config.localdb.yaml
+    # ============ LLM API Keys (至少需要一个) ============
+    GOOGLE_API_KEY: ''      # 用于 Gemini 模型
+    OPENAI_API_KEY: ''      # 用于 GPT 模型  
+    OPENROUTER_API_KEY: ''  # 通过 OpenRouter 使用 Claude、DeepSeek 等模型
     
-    # Optional: Additional AI providers
-    OPENAI_API_KEY: 'your_openai_api_key'
+    # ============ Agent 配置 ============
+    # MCP tools 目录
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    # MCP resources 目录
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    # Agent 目录
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
 
     <Warning>
-    **OPENROUTER_API_KEY 必填**，用于 AI 对话与 agent 功能。请在 [OpenRouter](https://openrouter.ai/) 获取你的 API key。
-    
-    **GOOGLE_API_KEY（Gemini）必填**，用于处理 PDF、图片与医疗记录等文件。请在 [Google AI Studio](https://aistudio.google.com/) 获取你的 API key。
+    **至少需要一个 API key** 以使系统正常工作：
+    - **GOOGLE_API_KEY**：在 [Google AI Studio](https://aistudio.google.com/app/apikey) 获取
+    - **OPENAI_API_KEY**：在 [OpenAI Platform](https://platform.openai.com/api-keys) 获取
+    - **OPENROUTER_API_KEY**：在 [OpenRouter](https://openrouter.ai/keys) 获取 - 可访问 Claude、DeepSeek 等模型
     </Warning>
     
-    <Tip>
-    OpenRouter 通过一个 API 提供对多个 LLM provider 的访问；Google Gemini 负责多模态文件处理。
-    </Tip>
+    <Info>
+    Mirobody Health 包含两种 agent 类型：
+    - **DeepAgent**（基于 LangChain）：适合复杂任务、文件操作、多步骤规划
+    - **BaselineAgent**（原生 Gemini）：适合简单对话、轻量级 MCP 集成
+    
+    详见[Tools 概览](/zh/tools/overview)了解 agent 能力与配置。
+    </Info>
+  </Step>
+
+  <Step title="配置 providers（可选）">
+    如果你想连接 Garmin 或 Whoop 等可穿戴设备，添加它们的 OAuth 凭据：
+
+    ```yaml config.localdb.yaml
+    # Provider OAuth 凭据（可选）
+    GARMIN_CLIENT_ID: ''
+    GARMIN_CLIENT_SECRET: ''
+    GARMIN_REDIRECT_URI: ''
+    
+    WHOOP_CLIENT_ID: ''
+    WHOOP_CLIENT_SECRET: ''
+    WHOOP_REDIRECT_URI: ''
+    ```
+
+    完整的 provider 配置请参考[配置指南](/zh/configuration)。
   </Step>
 
   <Step title="使用 Docker 部署">
     运行部署脚本启动所有服务：
 
     ```bash
-    ./deploy.sh
+    ./run.sh
     ```
 
     这会启动三个服务：

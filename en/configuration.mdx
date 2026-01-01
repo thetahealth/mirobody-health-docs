@@ -5,19 +5,141 @@ description: "Complete configuration guide for Mirobody Health including OAuth p
 
 ## Configuration Overview
 
-Mirobody Health uses a YAML-based configuration file (`config.yaml`) for all system settings. This guide covers all configuration options and how to set them up properly.
+Mirobody Health uses YAML-based configuration files for all system settings. This guide covers all configuration options and how to set them up properly.
 
 <Info>
-Configuration changes typically require restarting the application to take effect.
+Configuration changes require restarting the application to take effect.
 </Info>
 
 ## Configuration File Structure
 
-The main configuration file is `config.yaml` located in the project root. Create it from the example:
+Mirobody Health uses environment-specific configuration files:
 
-```bash
-cp config.example.yaml config.yaml
+1. **`.env`** - Specifies which configuration to use
+2. **`config.[env].yaml`** - Your environment-specific configuration
+3. **`config.yaml`** - Base configuration (immutable, do not edit)
+
+### Setup Steps
+
+<Steps>
+  <Step title="Create .env file">
+    ```bash
+    echo "ENV=localdb" > .env
+    ```
+    
+    The `ENV` variable determines which config file to load:
+    - `ENV=localdb` → loads `config.localdb.yaml`
+    - `ENV=production` → loads `config.production.yaml`
+    - `ENV=staging` → loads `config.staging.yaml`
+  </Step>
+
+  <Step title="Create your configuration file">
+    Create `config.localdb.yaml` (or match your ENV value):
+    
+    ```bash
+    touch config.localdb.yaml
+    ```
+  </Step>
+
+  <Step title="Configure essential settings">
+    Add at least one LLM API key and configure agents:
+    
+    ```yaml config.localdb.yaml
+    # ============ LLM API Keys (At least one required) ============
+    GOOGLE_API_KEY: ''      # For Gemini models
+    OPENAI_API_KEY: ''      # For GPT models
+    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, etc.
+    
+    # ============ Agent Configuration ============
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+**Do not edit `config.yaml`** - This is the base configuration file that should remain unchanged. All customizations go in your environment-specific file (e.g., `config.localdb.yaml`).
+</Warning>
+
+## Agent Configuration
+
+Mirobody Health includes two agent types: **DeepAgent** (LangChain-based) and **BaselineAgent** (native Gemini/MiroThinker).
+
+### DeepAgent Configuration
+
+DeepAgent supports multiple LLM providers and is recommended for complex tasks:
+
+```yaml config.localdb.yaml
+# API Keys for DeepAgent
+GOOGLE_API_KEY: 'your_google_api_key'        # For Gemini models
+OPENAI_API_KEY: 'your_openai_api_key'        # For GPT models
+OPENROUTER_API_KEY: 'your_openrouter_key'    # For Claude, DeepSeek, etc.
+
+# Provider Configurations for DeepAgent
+PROVIDERS_DEEP:
+  gemini-3-flash:
+    llm_type: google-genai
+    api_key: GOOGLE_API_KEY
+    model: gemini-3-flash-preview
+    temperature: 1.0
+  
+  gpt-5.1:
+    llm_type: openai
+    api_key: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1/
+    model: gpt-5.1
+    temperature: 0.1
+  
+  claude-sonnet:
+    llm_type: openai
+    api_key: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    model: anthropic/claude-sonnet-4.5
+    temperature: 0.1
+
+# Optional: Custom prompts
+PROMPTS_DEEP:
+  - mirobody/pub/agents/deep/prompts/theta_health.jinja
+
+# Optional: Tool filtering
+ALLOWED_TOOLS_DEEP: []     # Leave empty to allow all
+DISALLOWED_TOOLS_DEEP: []  # Specify tools to disable
 ```
+
+### BaselineAgent Configuration
+
+BaselineAgent is optimized for lightweight operations:
+
+```yaml config.localdb.yaml
+# API Keys for BaselineAgent
+GOOGLE_API_KEY: 'your_google_api_key'           # For Gemini models
+MIROTHINKER_API_KEY: 'your_mirothinker_key'     # For MiroThinker
+
+# Provider Configurations for BaselineAgent
+PROVIDERS_BASELINE:
+  gemini-3-flash:
+    api_key: GOOGLE_API_KEY
+    model: gemini-3-flash-preview
+  
+  gemini-2.5-flash:
+    api_key: GOOGLE_API_KEY
+    model: gemini-2.5-flash
+  
+  miro-thinker:
+    api_key: MIROTHINKER_API_KEY
+    model: miro-thinker
+```
+
+<Info>
+For detailed comparison of agent capabilities, see [Tools Overview](/tools/overview).
+</Info>
 
 ## OAuth Provider Configuration
 
@@ -56,12 +178,12 @@ To integrate health device providers, you need OAuth credentials from each provi
     ```
   </Step>
 
-  <Step title="Add to config.yaml">
-    ```yaml config.yaml
+  <Step title="Add to your config file">
+    ```yaml config.localdb.yaml
     # Garmin OAuth1 Configuration
     GARMIN_CLIENT_ID: 'your_consumer_key'
     GARMIN_CLIENT_SECRET: 'your_consumer_secret'
-    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
+    GARMIN_REDIRECT_URI: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
     
     # API Endpoints (usually don't need to change)
     GARMIN_AUTH_URL: 'https://connect.garmin.com/oauthConfirm/'
@@ -108,12 +230,12 @@ To integrate health device providers, you need OAuth credentials from each provi
     ```
   </Step>
 
-  <Step title="Add to config.yaml">
-    ```yaml config.yaml
+  <Step title="Add to your config file">
+    ```yaml config.localdb.yaml
     # Whoop OAuth2 Configuration
     WHOOP_CLIENT_ID: 'your_client_id'
     WHOOP_CLIENT_SECRET: 'your_client_secret'
-    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
+    WHOOP_REDIRECT_URI: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
     
     # Scopes (space-separated)
     WHOOP_SCOPES: 'offline read:recovery read:sleep read:cycles read:profile read:workout read:body_measurement'
@@ -167,15 +289,9 @@ GOOGLE_API_KEY: 'AIza...'
 ### OpenRouter
 
 ```yaml config.yaml
-# Required AI Provider Keys
+# OPENROUTER Configuration
 OPENROUTER_API_KEY: 'sk-or-...'  # For AI chat and agents
-GOOGLE_API_KEY: 'your_google_key'  # For file processing (Gemini)
 ```
-
-<Info>
-- **OPENROUTER_API_KEY**: Required for AI chat and agent features
-- **GOOGLE_API_KEY**: Required for processing files (PDFs, images, medical records) using Google Gemini
-</Info>
 
 <Steps>
   <Step title="Get OpenRouter API Key">
@@ -183,28 +299,9 @@ GOOGLE_API_KEY: 'your_google_key'  # For file processing (Gemini)
     2. Navigate to Keys section
     3. Create a new API key
   </Step>
-  
-  <Step title="Get Google API Key (Gemini)">
-    1. Visit [Google AI Studio](https://aistudio.google.com/)
-    2. Sign in with your Google account
-    3. Click "Get API key" and create a new key
-    
-    <Info>
-    Google Gemini is required for file processing capabilities (PDFs, images, medical records).
-    </Info>
-  </Step>
+
 </Steps>
 
-### Google Gemini
-
-```yaml config.yaml
-# Google Gemini Configuration (Required for file processing)
-GOOGLE_API_KEY: 'your_google_api_key'
-```
-
-<Warning>
-Google API Key (Gemini) is **required** for processing multimodal files including PDFs, images (PNG, JPEG, HEIC), and audio files. Without this key, file upload and processing features will not work.
-</Warning>
 
 ### Anthropic (Claude)
 
@@ -231,11 +328,11 @@ PG_HOST: 'db'                    # 'localhost' for non-Docker setup
 PG_PORT: 5432
 PG_USER: 'holistic_user'
 PG_DBNAME: 'holistic_db'
-PG_PASSWORD: 'holistic_password'  # Change in production!
+PG_PASSWORD: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # Change in production!
 PG_SCHEMA: 'theta_ai'
 PG_MIN_CONNECTION: 5
 PG_MAX_CONNECTION: 20
-PG_ENCRYPTION_KEY: 'mydatabaseencryptionkey'  # Change in production!
+PG_ENCRYPTION_KEY: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # Change in production!
 ```
 
 <Warning>
@@ -249,7 +346,7 @@ For production, always use strong, unique passwords and encryption keys.
 REDIS_HOST: 'redis'              # 'localhost' for non-Docker setup
 REDIS_PORT: 6379
 REDIS_DB: 0
-REDIS_PASSWORD: 'your_secure_password_here'  # Change in production!
+REDIS_PASSWORD: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # Change in production!
 REDIS_SSL: false
 REDIS_SSL_CHECK_HOSTNAME: false
 REDIS_SSL_CERT_REQS: 'none'
@@ -296,7 +393,7 @@ QR_LOGIN_URL: ''                 # Optional QR code login URL
 
 ```yaml config.yaml
 # Security Keys
-DATABASE_DECRYPTION_KEY: 'mydatabaseencryptionkey'  # 32 characters minimum
+DATABASE_DECRYPTION_KEY: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # 32 characters minimum
 JWT_KEY: 'myjwtkey'                                 # Strong secret key
 JWT_PRIVATE_KEY: ''                                 # Optional RSA private key
 ```
@@ -432,7 +529,7 @@ EMAIL_SMTP_PASS: 'your_smtp_password'
 
 # Predefined verification codes (development only)
 EMAIL_PREDEFINE_CODES:
-  demo@mirobody.ai: '777777'
+  demo1@mirobody.ai: '777777'
 ```
 
 <Warning>
@@ -616,16 +713,16 @@ After updating `config.yaml`, validate your configuration:
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/quickstart">
+  <Card title="Quick Start" icon="rocket" href="/en/quickstart">
     Test your configuration with the quick start guide
   </Card>
-  <Card title="Provider Integration" icon="plug" href="/providers/integration-guide">
+  <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
     Learn how to integrate additional health providers
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+  <Card title="API Reference" icon="code" href="/en/api-reference/introduction">
     Explore the API endpoints
   </Card>
-  <Card title="Production Deployment" icon="server" href="/deployment/production">
+  <Card title="Production Deployment" icon="server" href="/en/deployment/production">
     Deploy to production with security best practices
   </Card>
 </CardGroup>

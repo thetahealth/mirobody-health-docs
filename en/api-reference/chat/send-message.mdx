@@ -6,61 +6,170 @@ description: "Send a message to the AI health assistant and receive a response"
 ## Endpoint
 
 ```
-POST /api/chat
+POST /api/v1/chat/stream
 ```
 
 ## Overview
 
-Interact with the AI health assistant by sending messages and receiving intelligent responses based on the user's health data.
+Interact with AI health assistants by sending messages and receiving intelligent, streaming responses. The API supports two agent types: **DeepAgent** (LangChain-based, for complex tasks) and **BaselineAgent** (native Gemini, for simple conversations).
 
 <Info>
-The chat API supports multiple LLM providers including OpenAI, Google Gemini, Anthropic Claude, and OpenRouter.
+The chat API uses Server-Sent Events (SSE) for streaming responses and supports file uploads, MCP tool calls, and multi-language conversations.
 </Info>
 
-## Request
+## Request Parameters
 
-<ParamField body="message" type="string" required>
+<ParamField body="question" type="string" required>
   The user's message or question
 </ParamField>
 
+<ParamField body="agent" type="string" required>
+  Agent type to use: `deep` (DeepAgent) or `baseline` (BaselineAgent)
+</ParamField>
+
 <ParamField body="user_id" type="string" required>
-  Unique identifier for the user
+  Unique identifier for the authenticated user
+</ParamField>
+
+<ParamField body="query_user_id" type="string">
+  User ID to query data for (defaults to `user_id`). Used for help-ask feature.
 </ParamField>
 
 <ParamField body="session_id" type="string">
-  Optional session ID to maintain conversation context
+  Session ID to maintain conversation context. Auto-generated if not provided.
 </ParamField>
 
 <ParamField body="provider" type="string">
-  LLM provider to use: `openai`, `google`, `anthropic`, or `openrouter`. Defaults to configured provider.
+  LLM provider override: `google`, `openai`, `openrouter`. Uses agent's default if not specified.
+</ParamField>
+
+<ParamField body="enable_mcp" type="integer" default="1">
+  Enable MCP tools (1 = enabled, 0 = disabled)
+</ParamField>
+
+<ParamField body="file_list" type="array">
+  Array of file objects to include in the conversation
+</ParamField>
+
+<ParamField body="prompt_name" type="string">
+  Name of custom prompt template to use
+</ParamField>
+
+<ParamField body="language" type="string" default="en">
+  Language for responses: `en`, `zh`, etc.
+</ParamField>
+
+<ParamField body="timezone" type="string" default="America/Los_Angeles">
+  User's timezone for time-based queries
+</ParamField>
+
+<ParamField body="token" type="string">
+  JWT authentication token
 </ParamField>
 
 <RequestExample>
 ```bash cURL
-curl -X POST http://localhost:18080/api/chat \
+curl -X POST http://localhost:18080/api/v1/chat/stream \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
-    "message": "How many steps did I take yesterday?",
+    "question": "How many steps did I take yesterday?",
+    "agent": "deep",
     "user_id": "user_123",
-    "session_id": "session_abc"
+    "session_id": "session_abc",
+    "language": "en"
   }'
+```
+
+```python Python
+import httpx
+
+async with httpx.AsyncClient() as client:
+    async with client.stream(
+        "POST",
+        "http://localhost:18080/api/v1/chat/stream",
+        json={
+            "question": "How many steps did I take yesterday?",
+            "agent": "deep",
+            "user_id": "user_123",
+            "session_id": "session_abc"
+        },
+        headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+    ) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                data = json.loads(line[6:])
+                print(data)
 ```
 </RequestExample>
 
-## Response
+## Response Format
+
+The API returns Server-Sent Events (SSE) with JSON chunks. Each chunk has a `type` and `content`:
 
 <ResponseExample>
-```json Success
-{
-  "response": "Based on your Garmin data, you took 10,543 steps yesterday. That's about 200 steps more than your daily average!",
-  "session_id": "session_abc",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "provider": "openai",
-  "model": "gpt-4"
-}
+```json Reply Chunk
+data: {"type": "reply", "content": "Based on your Garmin data"}
+data: {"type": "reply", "content": ", you took"}
+data: {"type": "reply", "content": " 10,543 steps yesterday"}
+```
+
+```json Tool Call
+data: {"type": "queryTitle", "content": "get_health_data"}
+data: {"type": "queryArguments", "content": "{\"indicator\": \"steps\", \"date\": \"2024-01-14\"}", "tool_id": "call_abc123"}
+data: {"type": "queryDetail", "content": "{\"value\": 10543, \"unit\": \"steps\"}", "tool_id": "call_abc123"}
+```
+
+```json Thinking (Reasoning)
+data: {"type": "thinking", "content": "Let me analyze the user's step data..."}
+```
+
+```json End
+data: {"type": "end", "content": ""}
+```
+
+```json Error
+data: {"type": "error", "content": "Invalid session ID"}
 ```
 </ResponseExample>
 
+## Chunk Types
+
+| Type | Description |
+|------|-------------|
+| `reply` | AI response content token |
+| `thinking` | Reasoning/thinking token (for models with reasoning) |
+| `queryTitle` | Name of tool being called |
+| `queryArguments` | Arguments for tool call |
+| `queryDetail` | Results from tool execution |
+| `costStatistics` | Token usage and cost information |
+| `end` | Stream completion signal |
+| `error` | Error message |
+
 <Note>
-The AI assistant has access to the user's connected health data and can answer questions about activity, sleep, heart rate, and other metrics.
+The chat service automatically persists conversation history and integrates with MCP tools to access health data, perform calculations, and more.
 </Note>
+
+## Agent Types
+
+<Tabs>
+  <Tab title="DeepAgent">
+    **LangChain-based agent** for complex tasks:
+    - File processing (PDFs, images, audio)
+    - Multi-step planning and reasoning
+    - Advanced MCP tool orchestration
+    - Memory and context management
+    
+    Use `"agent": "deep"` in your request.
+  </Tab>
+
+  <Tab title="BaselineAgent">
+    **Native Gemini agent** for simple conversations:
+    - Fast response times
+    - Lightweight MCP integration
+    - Direct Gemini API access
+    - Cost-effective for basic queries
+    
+    Use `"agent": "baseline"` in your request.
+  </Tab>
+</Tabs>

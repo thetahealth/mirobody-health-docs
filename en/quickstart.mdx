@@ -9,10 +9,8 @@ Before you begin, ensure you have the following installed:
 
 <CardGroup cols={2}>
   <Card title="Docker" icon="docker">
-    Version 20.10 or higher
   </Card>
   <Card title="Docker Compose" icon="layer-group">
-    Version 1.29 or higher
   </Card>
 </CardGroup>
 
@@ -33,46 +31,90 @@ You can verify your Docker installation by running `docker --version` and `docke
   </Step>
 
   <Step title="Set up configuration files">
-    Create your configuration files from the provided examples:
+    Create your `.env` file and the config file:
 
     ```bash
-    cp .env_example .env
-    cp config.example.yaml config.yaml
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
     ```
     
     <Tip>
-    For a quick test, you can use the default configuration. For production, see the [Configuration guide](/configuration).
+    The `ENV` variable tells the system which config file to use. `ENV=localdb` loads `config.localdb.yaml`.
     </Tip>
   </Step>
 
-  <Step title="Add API keys">
-    Edit `config.yaml` to add your API keys. **Both OPENROUTER_API_KEY and GOOGLE_API_KEY are required**:
+  <Step title="Set environment variable">
+    Edit `.env` to set your configuration file:
 
-    ```yaml config.yaml
-    # AI Provider API Keys - REQUIRED
-    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # REQUIRED for AI chat/agents
-    GOOGLE_API_KEY: 'your_google_api_key'  # REQUIRED for file processing (Gemini)
+    ```bash .env
+    ENV=localdb
+    ```
+
+    This tells the system to use `config.localdb.yaml` for configuration.
+  </Step>
+
+  <Step title="Add API keys and configure agents">
+    Create `config.localdb.yaml` and add at least one LLM API key:
+
+    ```yaml config.localdb.yaml
+    # ============ LLM API Keys (At least one required) ============
+    GOOGLE_API_KEY: ''      # For Gemini models
+    OPENAI_API_KEY: ''      # For GPT models  
+    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, and other models via OpenRouter
     
-    # Optional: Additional AI providers
-    OPENAI_API_KEY: 'your_openai_api_key'
+    # ============ Agent Configuration ============
+    # Tool directories for MCP tools
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    # Resource directories for MCP resources  
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    # Agent directories
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
 
     <Warning>
-    **OPENROUTER_API_KEY is required** for AI chat and agent features. Get your API key at [OpenRouter](https://openrouter.ai/).
-    
-    **GOOGLE_API_KEY (Gemini) is required** for processing files like PDFs, images, and medical records. Get your API key at [Google AI Studio](https://aistudio.google.com/).
+    **At least one API key is required** for the system to work:
+    - **GOOGLE_API_KEY**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
+    - **OPENAI_API_KEY**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)  
+    - **OPENROUTER_API_KEY**: Get from [OpenRouter](https://openrouter.ai/keys) - provides access to Claude, DeepSeek, and other models
     </Warning>
     
-    <Tip>
-    OpenRouter provides access to multiple LLM providers through a single API, while Google Gemini handles multimodal file processing.
-    </Tip>
+    <Info>
+    Mirobody Health includes two agent types:
+    - **DeepAgent** (LangChain-based): Best for complex tasks, file operations, multi-step planning
+    - **BaselineAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
+    
+    See [Tools Overview](/tools/overview) for details on agent capabilities and configuration.
+    </Info>
+  </Step>
+
+  <Step title="Configure providers (Optional)">
+    If you want to connect wearable devices like Garmin or Whoop, add their OAuth credentials:
+
+    ```yaml config.localdb.yaml
+    # Provider OAuth Credentials (Optional)
+    GARMIN_CLIENT_ID: ''
+    GARMIN_CLIENT_SECRET: ''
+    GARMIN_REDIRECT_URI: ''
+    
+    WHOOP_CLIENT_ID: ''
+    WHOOP_CLIENT_SECRET: ''
+    WHOOP_REDIRECT_URI: ''
+    ```
+
+    See the [Configuration guide](/configuration) for complete provider setup.
   </Step>
 
   <Step title="Deploy with Docker">
     Run the deployment script to start all services:
 
     ```bash
-    ./deploy.sh
+    ./run.sh
     ```
 
     This will start three services:
@@ -99,14 +141,14 @@ You can verify your Docker installation by running `docker --version` and `docke
     Log in with the default demo account or the accounts set up in `config.yaml`.
 
     ``` 
-    demo@mirobody.ai
+    demo1@mirobody.ai
     777777
     ```
 
     Once logged in, you can:
-    - **Upload files**: Lab reports, medical records, health documents (see [File Processing](/concepts/file-processing))
+    - **Upload files**: Lab reports, medical records, health documents (see [File Processing](/en/concepts/file-processing))
     - **Chat with AI**: Ask questions about your health data
-    - **Connect providers**: Link Garmin, Whoop, and other devices (see [Using Providers](/providers/using-providers))
+    - **Connect providers**: Link Garmin, Whoop, and other devices (see [Using Providers](/en/providers/using-providers))
   </Step>
 </Steps>
 
@@ -282,20 +324,20 @@ docker-compose logs -f redis
 Now that you have Mirobody Health running:
 
 <CardGroup cols={2}>
-  <Card title="Configure Providers" icon="gear" href="/configuration">
+  <Card title="Configure Providers" icon="gear" href="/en/configuration">
     Set up OAuth credentials for Garmin, Whoop, and other providers
   </Card>
-  <Card title="Explore the API" icon="code" href="/api-reference/introduction">
+  <Card title="Explore the API" icon="code" href="/en/api-reference/introduction">
     Learn how to use the Pulse API to link users and retrieve health data
   </Card>
-  <Card title="Understand Architecture" icon="diagram-project" href="/concepts/architecture">
+  <Card title="Understand Architecture" icon="diagram-project" href="/en/concepts/architecture">
     Learn how Mirobody Health processes and standardizes health data
   </Card>
-  <Card title="Add New Providers" icon="plus" href="/development/provider-integration">
+  <Card title="Add New Providers" icon="plus" href="/en/development/provider-integration">
     Follow the guide to integrate additional health device providers
   </Card>
 </CardGroup>
 
 <Note>
-For production deployment, see the [Production Deployment guide](/deployment/production) for security hardening and performance optimization.
+For production deployment, see the [Production Deployment guide](/en/deployment/production) for security hardening and performance optimization.
 </Note>

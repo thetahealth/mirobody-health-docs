@@ -60,12 +60,19 @@ Before integrating a new provider, ensure you have:
 ### Directory Structure
 
 ```
-connect/
+mirobody/pulse/theta/
 ├── __init__.py
-└── theta/
-    └── mirobody_<provider>/
-        ├── __init__.py
-        └── provider_<provider>.py
+├── mirobody_<provider>/
+│   ├── __init__.py
+│   ├── provider_<provider>.py
+│   └── README.md (optional)
+└── platform/
+    ├── __init__.py
+    ├── base.py              # BaseThetaProvider
+    ├── database_service.py  # Database operations
+    ├── platform.py          # Platform management
+    ├── pull_task.py         # Scheduled data pulls
+    └── utils.py             # Utility functions
 ```
 
 ### Class Hierarchy
@@ -76,7 +83,13 @@ BaseThetaProvider (from mirobody.pulse.theta.platform.base)
 ThetaYourProvider (your implementation)
 ```
 
-For complete implementation details, see the [Provider Integration Guide](https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md) in the repository.
+### Existing Examples
+
+Review these provider implementations for reference:
+- **Garmin Connect**: `mirobody/pulse/theta/mirobody_garmin_connect/`
+- **Whoop**: `mirobody/pulse/theta/mirobody_whoop/`
+
+For complete implementation details, see the [Provider Integration Guide](https://github.com/thetahealth/mirobody-health/blob/main/mirobody/pulse/README.md) in the repository.
 
 ## Quick Start
 
@@ -85,9 +98,9 @@ For complete implementation details, see the [Provider Integration Guide](https:
     Create a new directory for your provider:
 
     ```bash
-    mkdir -p connect/theta/mirobody_yourprovider
-    touch connect/theta/mirobody_yourprovider/__init__.py
-    touch connect/theta/mirobody_yourprovider/provider_yourprovider.py
+    mkdir -p mirobody/pulse/theta/mirobody_yourprovider
+    touch mirobody/pulse/theta/mirobody_yourprovider/__init__.py
+    touch mirobody/pulse/theta/mirobody_yourprovider/provider_yourprovider.py
     ```
   </Step>
 
@@ -120,12 +133,21 @@ For complete implementation details, see the [Provider Integration Guide](https:
   </Step>
 
   <Step title="Configure OAuth">
-    Add configuration to `config.yaml`:
+    Add configuration to your config file (e.g., `config.localdb.yaml`):
 
-    ```yaml
+    ```yaml config.localdb.yaml
+    # Provider OAuth Credentials
     YOURPROVIDER_CLIENT_ID: 'your_client_id'
     YOURPROVIDER_CLIENT_SECRET: 'your_client_secret'
-    YOURPROVIDER_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/callback'
+    YOURPROVIDER_REDIRECT_URI: 'http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/callback'
+    
+    # Optional: API endpoints if different from defaults
+    YOURPROVIDER_AUTH_URL: 'https://...'
+    YOURPROVIDER_TOKEN_URL: 'https://...'
+    YOURPROVIDER_API_BASE_URL: 'https://...'
+    
+    # Optional: OAuth scopes
+    YOURPROVIDER_SCOPES: 'scope1 scope2'
     ```
   </Step>
 
@@ -318,13 +340,13 @@ See [Garmin Provider Example](/examples/garmin-provider) and [Whoop Provider Exa
 For comprehensive implementation details, refer to these guides:
 
 <CardGroup cols={2}>
-  <Card title="OAuth Implementation" icon="key" href="/development/oauth-implementation">
+  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
     Implement OAuth 1.0 or 2.0 flows
   </Card>
-  <Card title="Data Mapping" icon="arrows-rotate" href="/development/data-mapping">
+  <Card title="Data Mapping" icon="arrows-rotate" href="/en/development/data-mapping">
     Transform vendor data to standard format
   </Card>
-  <Card title="Provider Testing" icon="flask" href="/development/provider-testing">
+  <Card title="Provider Testing" icon="flask" href="/en/development/provider-testing">
     Test your provider integration
   </Card>
   <Card title="Full Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody-health/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
@@ -374,16 +396,16 @@ See the [complete Provider Integration Guide](https://github.com/thetahealth/mir
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="OAuth Implementation" icon="key" href="/development/oauth-implementation">
+  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
     Learn OAuth 1.0 and 2.0 flows
   </Card>
-  <Card title="Data Mapping" icon="arrows-rotate" href="/development/data-mapping">
+  <Card title="Data Mapping" icon="arrows-rotate" href="/en/development/data-mapping">
     Transform vendor data
   </Card>
-  <Card title="Provider Testing" icon="flask" href="/development/provider-testing">
+  <Card title="Provider Testing" icon="flask" href="/en/development/provider-testing">
     Test your integration
   </Card>
-  <Card title="Examples" icon="code" href="/examples/garmin-provider">
+  <Card title="Examples" icon="code" href="/en/examples/garmin-provider">
     See real provider code
   </Card>
 </CardGroup>

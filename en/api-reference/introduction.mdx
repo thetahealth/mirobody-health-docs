@@ -13,29 +13,62 @@ Base URL: `http://localhost:18080` (development) or `https://your-domain.com` (p
 
 ## API Categories
 
-<CardGroup cols={2}>
-  <Card title="Pulse API" icon="heartbeat" href="/api-reference/pulse/providers">
-    Connect health devices and retrieve standardized health data
+<CardGroup cols={3}>
+  <Card title="Pulse API" icon="heartbeat" href="/en/api-reference/pulse/providers">
+    Connect health devices and retrieve standardized health data from OAuth providers and Apple Health
   </Card>
-  <Card title="Chat API" icon="comments" href="/api-reference/chat/send-message">
-    Interact with AI health assistants
+  <Card title="Chat API" icon="comments" href="/en/api-reference/chat/send-message">
+    Stream AI responses from DeepAgent and BaselineAgent with MCP tool integration
   </Card>
-  <Card title="MCP Protocol" icon="bolt" href="/api-reference/mcp/overview">
-    JSON-RPC interface for AI agents and tools
+  <Card title="MCP Protocol" icon="bolt" href="/en/api-reference/mcp/overview">
+    JSON-RPC 2.0 interface for AI agents to discover and call tools and resources
   </Card>
 </CardGroup>
 
+## Base URLs
+
+<CodeGroup>
+```bash Development
+http://localhost:18080
+```
+
+```bash Production
+https://your-domain.com
+```
+</CodeGroup>
+
 ## Authentication
 
-Most API endpoints require authentication using JWT tokens:
+Most API endpoints require authentication using JWT tokens in the Authorization header:
 
-```bash
+<CodeGroup>
+```bash cURL
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   http://localhost:18080/api/v1/pulse/providers
 ```
 
+```python Python
+import httpx
+
+headers = {"Authorization": "Bearer YOUR_JWT_TOKEN"}
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        "http://localhost:18080/api/v1/pulse/providers",
+        headers=headers
+    )
+```
+</CodeGroup>
+
+### Obtaining Tokens
+
+Tokens are issued through the authentication endpoints:
+
+- **Email Login**: `POST /api/v1/user/email/login`
+- **Google OAuth**: `POST /api/v1/user/google/login`
+- **Apple Sign In**: `POST /api/v1/user/apple/login`
+
 <Tip>
-For development and testing, some endpoints may allow unauthenticated access based on configuration.
+Some public endpoints (like `/api/v1/pulse/providers`) may work without authentication, but user-specific operations always require valid tokens.
 </Tip>
 
 ## Rate Limiting
@@ -49,32 +82,51 @@ API requests are rate-limited per user and per provider:
 Exceeding rate limits returns a `429 Too Many Requests` response with a `Retry-After` header.
 </Warning>
 
-## Error Responses
+## Response Format
 
-All API errors follow a consistent format:
+All API responses follow a standard format:
 
-```json
+<CodeGroup>
+```json Success Response
 {
-  "error": {
-    "code": "INVALID_TOKEN",
-    "message": "The provided access token is invalid or expired",
-    "details": {
-      "provider": "theta_garmin",
-      "timestamp": "2024-01-15T10:30:00Z"
-    }
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    // Response data here
   }
 }
 ```
+
+```json Error Response
+{
+  "code": -1,
+  "msg": "Error message",
+  "data": null
+}
+```
+</CodeGroup>
+
+### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Success |
+| `400` | Bad Request - Invalid parameters |
+| `401` | Unauthorized - Invalid or missing token |
+| `403` | Forbidden - Insufficient permissions |
+| `404` | Not Found - Resource doesn't exist |
+| `429` | Too Many Requests - Rate limit exceeded |
+| `500` | Internal Server Error |
 
 ### Common Error Codes
 
 | Code | Description | Resolution |
 |------|-------------|------------|
-| `INVALID_TOKEN` | OAuth token invalid or expired | Refresh token or relink account |
-| `PROVIDER_NOT_FOUND` | Provider doesn't exist | Check provider slug |
-| `USER_NOT_LINKED` | User hasn't linked provider | Complete OAuth flow first |
-| `RATE_LIMIT_EXCEEDED` | Too many requests | Wait and retry with backoff |
-| `INTERNAL_ERROR` | Server-side error | Contact support |
+| `0` | Success | - |
+| `-1` | General error | Check error message |
+| `-32000` | Auth required (MCP) | Authenticate via OAuth flow |
+| `-32601` | Method not found (MCP) | Check method name |
+| `-32602` | Invalid params (MCP) | Verify parameter format |
 
 ## Quick Start
 
@@ -83,58 +135,98 @@ All API errors follow a consistent format:
     ```bash
     curl http://localhost:18080/api/v1/pulse/providers
     ```
+    
+    Returns all supported health device providers (Garmin, Whoop, Apple Health, etc.)
   </Step>
 
-  <Step title="Link a provider">
+  <Step title="Link a provider (OAuth)">
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123"
+    curl -X POST http://localhost:18080/api/v1/pulse/user/providers/link \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "provider_slug": "theta_garmin",
+        "platform": "theta",
+        "auth_type": "oauth2"
+      }'
     ```
+    
+    Returns OAuth URL for user authorization
   </Step>
 
-  <Step title="Retrieve health data">
+  <Step title="Chat with AI">
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/data?user_id=user_123&provider=theta_garmin"
+    curl -X POST http://localhost:18080/api/v1/chat/stream \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "question": "How many steps did I take this week?",
+        "agent": "deep",
+        "user_id": "user_123"
+      }'
     ```
+    
+    Streams AI response with health data insights
+  </Step>
+
+  <Step title="Call MCP tools">
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "get_health_indicator",
+          "arguments": {"keywords": "steps"}
+        }
+      }'
+    ```
+    
+    Directly query health data via MCP protocol
   </Step>
 </Steps>
 
-## SDKs and Libraries
+## API Endpoints Overview
 
-<Tabs>
-  <Tab title="Python">
-    ```python
-    from mirobody_client import MirobodyClient
-    
-    client = MirobodyClient(base_url="http://localhost:18080")
-    
-    # List providers
-    providers = await client.pulse.list_providers()
-    
-    # Link provider
-    link_url = await client.pulse.link_provider(
-        provider_slug="theta_garmin",
-        user_id="user_123"
-    )
-    ```
-  </Tab>
+### Pulse API (`/api/v1/pulse`)
 
-  <Tab title="cURL">
-    ```bash
-    # List providers
-    curl http://localhost:18080/api/v1/pulse/providers
-    
-    # Link provider
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=user_123"
-    
-    # Get data
-    curl "http://localhost:18080/api/v1/pulse/data?user_id=user_123"
-    ```
-  </Tab>
-</Tabs>
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/providers` | GET | List all available providers |
+| `/user/providers` | GET | Get user's linked providers |
+| `/user/providers/link` | POST | Link a new provider |
+| `/user/providers/unlink` | POST | Unlink a provider |
+| `/{platform}/{provider}/callback` | GET | OAuth callback handler |
+| `/{platform}/webhook` | POST | Provider webhook receiver |
 
-<Note>
-SDKs are under development. For now, use direct HTTP requests or the examples above as reference.
-</Note>
+### Chat API (`/api/v1/chat`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/stream` | POST | Stream chat response (SSE) |
+| `/history` | GET | Get conversation history |
+| `/session` | POST | Create/manage sessions |
+
+### MCP API (`/mcp`)
+
+| Method | Description |
+|--------|-------------|
+| `initialize` | Handshake and capabilities |
+| `tools/list` | List available tools |
+| `tools/call` | Execute a tool |
+| `resources/list` | List resources |
+| `resources/read` | Read a resource |
+
+### File API (`/api/v1/data`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/upload-with-processing` | POST | Upload and process health files |
+| `/health/data` | GET/POST | Query/store health data |
+| `/uploaded-files` | GET | List uploaded files |
 
 ## API Versioning
 
@@ -144,34 +236,50 @@ The API uses URL-based versioning:
 - **Future**: `/api/v2/...` (when available)
 
 <Tip>
-Always use the versioned endpoints to ensure compatibility.
+Always use the versioned endpoints (`/api/v1/...`) to ensure compatibility. The MCP endpoint (`/mcp`) follows its own protocol versioning.
 </Tip>
 
-## Webhooks (Coming Soon)
+## Webhooks
 
-Subscribe to real-time health data updates:
+Mirobody Health supports webhooks for real-time health data updates from providers:
 
-```json
+<CodeGroup>
+```bash Register Webhook
+POST /{platform}/webhook
+Content-Type: application/json
+
 {
-  "webhook_url": "https://your-app.com/webhooks/health",
-  "events": ["data.new", "provider.linked"],
-  "provider": "theta_garmin"
+  "user_id": "user_123",
+  "source": "theta_garmin",
+  "timestamp": 1705320600000,
+  "timezone": "America/Los_Angeles",
+  "data": [
+    {
+      "type": "steps",
+      "value": 10543,
+      "unit": "steps",
+      "timestamp": 1705320600000
+    }
+  ]
 }
 ```
+</CodeGroup>
+
+Webhooks are automatically configured when linking OAuth providers. See [Provider Integration](/development/provider-integration) for details.
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Pulse API" icon="heartbeat" href="/api-reference/pulse/providers">
+  <Card title="Pulse API" icon="heartbeat" href="/en/api-reference/pulse/providers">
     Connect and manage health providers
   </Card>
-  <Card title="Chat API" icon="comments" href="/api-reference/chat/send-message">
+  <Card title="Chat API" icon="comments" href="/en/api-reference/chat/send-message">
     Integrate AI health assistants
   </Card>
-  <Card title="MCP Protocol" icon="bolt" href="/api-reference/mcp/overview">
+  <Card title="MCP Protocol" icon="bolt" href="/en/api-reference/mcp/overview">
     Build AI agent integrations
   </Card>
-  <Card title="Examples" icon="code" href="/examples/garmin-provider">
+  <Card title="Examples" icon="code" href="/en/examples/garmin-provider">
     See complete implementation examples
   </Card>
 </CardGroup>

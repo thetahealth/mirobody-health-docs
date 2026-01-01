@@ -11,8 +11,14 @@ Before setting up your development environment, ensure you have:
   <Card title="Python 3.12+" icon="python">
     Required for running the application
   </Card>
+  <Card title="Node.js 18+" icon="node">
+    Required for chart rendering and SSR
+  </Card>
   <Card title="Docker & Docker Compose" icon="docker">
     For running PostgreSQL and Redis
+  </Card>
+  <Card title="System Build Tools" icon="hammer">
+    gcc, gfortran, and scientific libraries
   </Card>
   <Card title="Git" icon="git">
     For version control
@@ -32,30 +38,99 @@ Before setting up your development environment, ensure you have:
     ```
   </Step>
 
+  <Step title="Install system dependencies">
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        xcode-select --install
+        brew install gcc gfortran fftw hdf5 openblas lapack
+        ```
+      </Tab>
+
+      <Tab title="Linux (Ubuntu/Debian)">
+        ```bash
+        sudo apt install -y g++ gfortran build-essential \
+          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
   <Step title="Create virtual environment">
     ```bash
-    python3.12 -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    python3.12 -m venv .venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
     ```
   </Step>
 
-  <Step title="Install dependencies">
+  <Step title="Install Python dependencies">
     ```bash
-    pip install -r requirements.txt
-    pip install -e .  # Install in development mode
+    pip install mirobody -r requirements.txt
     ```
+    
+    <Info>
+    The `mirobody` package contains core utilities. Installing in development mode with `-e .` is optional.
+    </Info>
+  </Step>
+
+  <Step title="Install Node.js dependencies">
+    ```bash
+    npm install @antv/gpt-vis-ssr ws
+    ```
+    
+    Required for chart rendering service.
   </Step>
 
   <Step title="Start services">
     ```bash
     docker-compose up -d postgres redis
     ```
+    
+    Or use your own PostgreSQL and Redis instances.
   </Step>
 
-  <Step title="Configure">
+  <Step title="Configure environment">
     ```bash
-    cp config.example.yaml config.yaml
-    # Edit config.yaml with your settings
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
+    ```
+    
+    Edit `.env`:
+    ```bash
+    ENV=localdb
+    ```
+    
+    Edit `config.localdb.yaml` with your settings:
+    ```yaml
+    # At least one LLM API key required
+    GOOGLE_API_KEY: ''
+    OPENAI_API_KEY: ''
+    OPENROUTER_API_KEY: ''
+    
+    # Database settings
+    PG_HOST: 'localhost'
+    PG_PORT: 5432
+    PG_USER: 'holistic_user'
+    PG_PASSWORD: 'holistic_password'
+    PG_DBNAME: 'holistic_db'
+    PG_SCHEMA: 'theta_ai'
+    
+    # Redis settings
+    REDIS_HOST: 'localhost'
+    REDIS_PORT: 6379
+    REDIS_DB: 0
+    REDIS_PASSWORD: ''
+    
+    # MCP and Agent directories
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
   </Step>
 
@@ -65,6 +140,10 @@ Before setting up your development environment, ensure you have:
     ```
 
     Server should start on http://localhost:18080
+    
+    <Tip>
+    If running under WSL, access from Windows via `http://localhost:18080`
+    </Tip>
   </Step>
 </Steps>
 
@@ -118,30 +197,76 @@ pytest -m integration
 
 ```
 mirobody-health/
-├── connect/                 # Provider integrations
-│   └── theta/
-│       ├── mirobody_garmin_connect/
-│       └── mirobody_whoop/
-├── tests/                   # Test files
-├── config.yaml             # Configuration
-├── main.py                 # Application entry point
-├── requirements.txt        # Dependencies
-└── setup.py               # Package setup
+├── mirobody/                # Main application package
+│   ├── chat/               # Chat and agent services
+│   │   ├── adapters/      # Protocol adapters (HTTP, WebSocket)
+│   │   ├── agent.py       # Agent registry and loading
+│   │   ├── service.py     # Chat service routes
+│   │   └── unified_chat_service.py  # Core chat logic
+│   ├── mcp/                # MCP protocol implementation
+│   │   ├── service.py     # JSON-RPC handler
+│   │   ├── tool.py        # Tool loading and execution
+│   │   └── resource.py    # Resource management
+│   ├── pulse/              # Health data platform
+│   │   ├── theta/         # OAuth providers (Garmin, Whoop, etc.)
+│   │   ├── apple/         # Apple Health platform
+│   │   ├── core/          # Core health services
+│   │   ├── file_parser/   # File processing handlers
+│   │   └── router/        # API routes
+│   ├── pub/                # Public tools and agents
+│   │   ├── tools/         # General MCP tools
+│   │   ├── tools_health/  # Health-specific MCP tools
+│   │   ├── resources/     # MCP resources
+│   │   └── agents/        # Agent implementations
+│   ├── server/             # HTTP server
+│   ├── user/               # Authentication
+│   └── utils/              # Utilities
+├── database/               # Database schemas and migrations
+│   └── resource/          # SQL initialization files
+├── compose.yaml           # Docker Compose configuration
+├── config.yaml            # Base configuration (immutable)
+├── config.localdb.yaml    # Your environment configuration
+├── .env                   # Environment variables
+├── main.py                # Application entry point
+├── requirements.txt       # Python dependencies
+├── package.json           # Node.js dependencies
+└── run.sh                 # Deployment script
 ```
+
+## Key Directories
+
+<AccordionGroup>
+  <Accordion title="mirobody/chat" icon="comments">
+    Chat service with agent orchestration, message history, and protocol adapters for HTTP (SSE) and WebSocket.
+  </Accordion>
+
+  <Accordion title="mirobody/mcp" icon="bolt">
+    MCP protocol implementation with JSON-RPC 2.0 handler, tool/resource loading, and authentication.
+  </Accordion>
+
+  <Accordion title="mirobody/pulse" icon="heartbeat">
+    Health data platform with OAuth providers, Apple Health integration, file processing, and data aggregation.
+  </Accordion>
+
+  <Accordion title="mirobody/pub" icon="folder-open">
+    Public tools, resources, and agents that can be discovered via MCP. Add custom tools here.
+  </Accordion>
+</AccordionGroup>
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+  <Card title="Contributing" icon="code-pull-request" href="/en/development/contributing">
     Learn how to contribute to the project
   </Card>
-  <Card title="Testing" icon="flask" href="/providers/testing">
+  <Card title="Testing" icon="flask" href="/en/development/testing">
     Write tests for your code
   </Card>
-  <Card title="Integration Guide" icon="plug" href="/providers/integration-guide">
+  <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
     Add a new provider integration
   </Card>
-  <Card title="Deployment" icon="rocket" href="/deployment/docker">
+  <Card title="Deployment" icon="rocket" href="/en/deployment/docker">
     Deploy your changes
   </Card>
 </CardGroup>
+

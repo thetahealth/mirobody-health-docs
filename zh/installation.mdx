@@ -65,15 +65,43 @@ description: "在不同平台上安装 Mirobody Health 的详细指南"
 
     ### Step 3：配置环境
 
+    创建配置文件：
+
     ```bash
-    cp .env_example .env
-    cp config.example.yaml config.yaml
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
+    ```
+
+    编辑 `.env` 设置你的环境：
+
+    ```bash
+    ENV=localdb
+    ```
+
+    添加至少一个 LLM API key 到 `config.localdb.yaml`：
+
+    ```yaml
+    # ============ LLM API Keys (至少需要一个) ============
+    GOOGLE_API_KEY: ''      # 用于 Gemini 模型
+    OPENAI_API_KEY: ''      # 用于 GPT 模型  
+    OPENROUTER_API_KEY: ''  # 用于 Claude、DeepSeek 等模型
+    
+    # ============ Agent 配置 ============
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
 
     ### Step 4：部署
 
     ```bash
-    ./deploy.sh
+    ./run.sh
     ```
 
     <Check>
@@ -95,13 +123,37 @@ description: "在不同平台上安装 Mirobody Health 的详细指南"
     source venv/bin/activate
     ```
 
-    ### Step 2：安装依赖
+    ### Step 2：安装系统依赖
+
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        xcode-select --install
+        brew install gcc gfortran fftw hdf5 openblas lapack
+        ```
+      </Tab>
+
+      <Tab title="Linux (Ubuntu/Debian)">
+        ```bash
+        sudo apt install -y g++ gfortran build-essential \
+          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        ```
+      </Tab>
+    </Tabs>
+
+    ### Step 3：安装 Python 依赖
 
     ```bash
-    pip install -r requirements.txt
+    pip install mirobody -r requirements.txt
     ```
 
-    ### Step 3：启动外部服务
+    ### Step 4：安装 Node.js 依赖
+
+    ```bash
+    npm install @antv/gpt-vis-ssr ws
+    ```
+
+    ### Step 5：启动外部服务
 
     启动 PostgreSQL 与 Redis（为简单起见使用 Docker）：
 
@@ -109,27 +161,50 @@ description: "在不同平台上安装 Mirobody Health 的详细指南"
     docker-compose up -d postgres redis
     ```
 
-    ### Step 4：配置
+    ### Step 6：配置
 
     ```bash
-    cp config.example.yaml config.yaml
-    # Edit config.yaml with your settings
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
     ```
 
-    ### Step 5：初始化数据库
+    编辑 `.env`：
 
     ```bash
-    python -c "from mirobody.utils.db_initializer import initialize_database; import asyncio; asyncio.run(initialize_database())"
+    ENV=localdb
     ```
 
-    ### Step 6：运行
+    添加至少一个 API key 和数据库设置到 `config.localdb.yaml`：
+
+    ```yaml
+    # ============ LLM API Keys (至少需要一个) ============
+    GOOGLE_API_KEY: ''
+    OPENAI_API_KEY: ''
+    OPENROUTER_API_KEY: ''
+    
+    # ============ 数据库配置 ============
+    PG_HOST: 'localhost'
+    PG_PORT: 5432
+    PG_USER: ''
+    PG_PASSWORD: ''
+    PG_DBNAME: ''
+    PG_SCHEMA: ''
+    
+    # ============ Redis 配置 ============
+    REDIS_HOST: 'localhost'
+    REDIS_PORT: 6379
+    REDIS_DB: 0
+    REDIS_PASSWORD: ''
+    ```
+
+    ### Step 7：运行
 
     ```bash
     python main.py
     ```
 
     <Check>
-    服务应启动于 http://localhost:18080
+    服务应启动于 http://localhost:18080。如果在 WSL 下运行，从 Windows 通过 `http://localhost:18080` 访问。
     </Check>
   </Tab>
 </Tabs>
@@ -191,22 +266,33 @@ description: "在不同平台上安装 Mirobody Health 的详细指南"
     - 自定义 providers
   </Accordion>
 
-  <Accordion title="启用 AI 对话与文件处理" icon="robot">
-    要启用 AI 功能，请在 `config.yaml` 中添加 API keys：
+  <Accordion title="配置 AI 对话与 Agents" icon="robot">
+    要启用 AI 功能，添加至少一个 API key 到 `config.localdb.yaml`：
 
     ```yaml
-    # REQUIRED API Keys
-    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # For AI chat/agents
-    GOOGLE_API_KEY: 'your_google_api_key'  # For file processing (Gemini)
+    # ============ LLM API Keys (至少需要一个) ============
+    GOOGLE_API_KEY: ''      # 用于 Gemini 模型
+    OPENAI_API_KEY: ''      # 用于 GPT 模型
+    OPENROUTER_API_KEY: ''  # 用于 Claude、DeepSeek 等模型
     
-    # Optional
-    OPENAI_API_KEY: 'your_openai_api_key'
+    # ============ Agent 配置 ============
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
 
     <Info>
-    - **OPENROUTER_API_KEY**：AI 对话与 agent 功能必填
-    - **GOOGLE_API_KEY**：使用 Gemini 处理文件（PDF、图片、医疗记录等）必填
-    - **OPENAI_API_KEY**：可选，仅用于 OpenAI 相关特性
+    Mirobody Health 包含两种 agent 类型：
+    - **DeepAgent**（基于 LangChain）：适合复杂任务、文件操作、多步骤规划
+    - **BaselineAgent**（原生 Gemini）：适合简单对话、轻量级 MCP 集成
+    
+    详见[Tools 概览](/zh/tools/overview)了解配置细节。
     </Info>
   </Accordion>
 
@@ -241,25 +327,34 @@ description: "在不同平台上安装 Mirobody Health 的详细指南"
 
 ```
 mirobody-health/
-├── connect/                    # Provider integrations
-│   ├── __init__.py
-│   └── theta/                 # Theta platform providers
-│       ├── mirobody_garmin_connect/
-│       └── mirobody_whoop/
-├── docker/                     # Docker configuration
-│   ├── docker-compose.yaml
-│   ├── Dockerfile.backend
-│   ├── Dockerfile.base
-│   └── Dockerfile.postgres
-├── shell/                      # Utility scripts
-│   ├── chat_test_commands.sh
-│   └── get_tools.sh
-├── config.yaml                 # Main configuration
-├── .env                       # Environment variables
-├── main.py                    # Application entry point
-├── requirements.txt           # Python dependencies
-├── setup.py                   # Package setup
-└── README.md                  # Documentation
+├── mirobody/                  # 主应用包
+│   ├── chat/                 # 对话与 agent 服务
+│   ├── mcp/                  # MCP 协议实现
+│   ├── pulse/                # 健康数据 providers
+│   │   ├── theta/           # OAuth providers（Garmin、Whoop 等）
+│   │   ├── apple/           # Apple Health 平台
+│   │   ├── core/            # 核心健康数据服务
+│   │   └── file_parser/     # 文件处理处理器
+│   ├── pub/                  # 公共 tools 与 agents
+│   │   ├── tools/           # 通用 MCP tools
+│   │   ├── tools_health/    # 健康专用 MCP tools
+│   │   ├── resources/       # MCP resources
+│   │   └── agents/          # Agent 实现
+│   ├── server/               # HTTP 服务器
+│   ├── user/                 # 用户认证
+│   └── utils/                # 工具函数
+├── database/                  # 数据库 schemas 与迁移
+│   └── resource/             # SQL 初始化文件
+├── image/                     # Logo 与品牌资源
+├── compose.yaml              # Docker Compose 配置
+├── config.yaml               # 基础配置（不可变）
+├── config.localdb.yaml       # 你的环境配置
+├── .env                      # 环境变量
+├── main.py                   # 应用入口
+├── requirements.txt          # Python 依赖
+├── package.json              # Node.js 依赖
+├── run.sh                    # 部署脚本
+└── README.md                 # 文档
 ```
 
 ## 安装问题排查
@@ -281,9 +376,9 @@ mirobody-health/
   <Accordion title="端口冲突" icon="network-wired">
     **Problem**：端口 18080 已被占用。
 
-    **Solution**：在 `config.yaml` 中修改端口：
+    **Solution**：在 `config.localdb.yaml` 中修改端口：
     ```yaml
-    HTTP_PORT: 18081  # Use any available port
+    HTTP_PORT: 18081  # 使用任意可用端口
     ```
   </Accordion>
 
@@ -296,9 +391,9 @@ mirobody-health/
        docker-compose ps postgres
        ```
 
-    2. 检查 `config.yaml` 中的连接配置：
+    2. 检查 `config.localdb.yaml` 中的连接配置：
        ```yaml
-       PG_HOST: db  # 'db' for Docker, 'localhost' for local install
+       PG_HOST: db  # Docker 使用 'db'，本地安装使用 'localhost'
        PG_PORT: 5432
        PG_USER: holistic_user
        PG_DBNAME: holistic_db

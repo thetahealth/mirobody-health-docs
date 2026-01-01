@@ -7,10 +7,6 @@ description: "Understanding the provider system in Mirobody Health and how it in
 
 Providers are plugin modules that integrate Mirobody Health with external health and fitness device APIs. Each provider handles OAuth authentication, data fetching, and transformation into a standardized format.
 
-<Frame>
-  <img src="/images/provider-architecture.png" alt="Provider architecture diagram" />
-</Frame>
-
 ## Provider Architecture
 
 Mirobody Health uses an extensible provider architecture that makes it easy to add new health device integrations:
@@ -120,7 +116,7 @@ Understanding the provider lifecycle helps you work with providers effectively:
 
     ```yaml config.yaml
     THETA_PROVIDER_DIRS:
-      - connect/theta
+      - mirobody/pulse/theta
     ```
   </Step>
 
@@ -333,14 +329,14 @@ Mirobody Health automatically discovers and loads providers from configured dire
 ```python
 # In config.yaml
 THETA_PROVIDER_DIRS:
-  - connect/theta      # Your custom providers
-  - providers/theta    # Additional provider directory
+  - mirobody/pulse/theta     # Theta providers
+  - mirobody/pulse/custom    # Your custom providers
 ```
 
 Directory structure:
 
 ```
-connect/theta/
+mirobody/pulse/theta/
 ├── mirobody_garmin_connect/
 │   ├── __init__.py
 │   └── provider_garmin.py
@@ -392,19 +388,3 @@ Provider directory names should follow the pattern `mirobody_<provider_name>` fo
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="Integration Guide" icon="book" href="/providers/integration-guide">
-    Complete guide to building a new provider
-  </Card>
-  <Card title="OAuth Flow" icon="key" href="/providers/oauth-flow">
-    Understanding OAuth authentication flows
-  </Card>
-  <Card title="Data Mapping" icon="table" href="/providers/data-mapping">
-    Learn how to map vendor data to standard indicators
-  </Card>
-  <Card title="Testing" icon="flask" href="/providers/testing">
-    Testing strategies for providers
-  </Card>
-</CardGroup>

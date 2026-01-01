@@ -33,21 +33,22 @@ MCP tools are functions that AI agents can call to interact with Mirobody Health
 }
 ```
 
-## Available Tools
+## Tool Categories
+
+### Health Data Tools
 
 <AccordionGroup>
-  <Accordion title="get_health_data" icon="chart-line">
-    Retrieve health metrics for a specific user.
+  <Accordion title="get_health_indicator" icon="heartbeat">
+    Search and retrieve health indicators by keywords.
 
     **Input Schema:**
     ```json
     {
-      "user_id": "string",
-      "data_type": "string (optional)",
-      "start_date": "string (optional)",
-      "end_date": "string (optional)"
+      "keywords": "string (required) - Search pattern for indicator name"
     }
     ```
+
+    **Returns:** List of matching health indicators with timestamps, values, units, and source information.
 
     **Example:**
     ```json
@@ -56,41 +57,118 @@ MCP tools are functions that AI agents can call to interact with Mirobody Health
       "id": 2,
       "method": "tools/call",
       "params": {
-        "name": "get_health_data",
+        "name": "get_health_indicator",
         "arguments": {
-          "user_id": "user_123",
-          "data_type": "heart_rate"
+          "keywords": "steps"
         }
       }
     }
     ```
   </Accordion>
 
-  <Accordion title="link_provider" icon="link">
-    Initiate provider linking for a user.
+  <Accordion title="get_user_info" icon="user">
+    Retrieve user profile information including name, email, and health settings.
 
-    **Input Schema:**
-    ```json
-    {
-      "user_id": "string",
-      "provider_slug": "string"
-    }
-    ```
+    **Input Schema:** No parameters required (uses authenticated user)
+
+    **Returns:** User profile data including demographics and preferences.
   </Accordion>
 
-  <Accordion title="query_metrics" icon="magnifying-glass-chart">
-    Query aggregated health metrics with filters.
+  <Accordion title="get_genetic_data" icon="dna">
+    Query genetic marker data for a user.
 
     **Input Schema:**
     ```json
     {
-      "user_id": "string",
-      "metric_type": "string",
-      "aggregation": "string",
-      "time_range": "string"
+      "gene_name": "string (optional) - Specific gene to query"
+    }
+    ```
+
+    **Returns:** Genetic marker information, alleles, and risk interpretations.
+  </Accordion>
+</AccordionGroup>
+
+### Visualization Tools
+
+<AccordionGroup>
+  <Accordion title="render_chart" icon="chart-line">
+    Render advanced data visualizations. Supports 25+ chart types.
+
+    **Supported Chart Types:**
+    - `liquid` - Liquid fill chart for single percentage
+    - `line` - Line chart for time series
+    - `bar` - Bar chart for comparisons
+    - `scatter` - Scatter plot for correlations
+    - `sankey` - Flow diagram
+    - `venn` - Venn diagram for overlaps
+    - `network-graph` - Network visualization
+    - `mind-map` - Mind map layout
+    - And more...
+
+    **Input Schema:**
+    ```json
+    {
+      "chart_type": "string (required)",
+      "data": "array (required)",
+      "title": "string (optional)",
+      "width": "number (optional, default: 600)",
+      "height": "number (optional, default: 400)",
+      "theme": "string (optional: default|academy|dark)",
+      "style": "object (optional)"
+    }
+    ```
+
+    **Example:**
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "name": "render_chart",
+        "arguments": {
+          "chart_type": "line",
+          "data": [
+            {"date": "2024-01-01", "value": 8543},
+            {"date": "2024-01-02", "value": 10234}
+          ],
+          "title": "Daily Steps",
+          "width": 800,
+          "height": 400
+        }
+      }
     }
     ```
   </Accordion>
 </AccordionGroup>
 
-For more details on using MCP tools, see the [MCP Protocol documentation](https://modelcontextprotocol.io/).
+### General Purpose Tools
+
+<AccordionGroup>
+  <Accordion title="web_search" icon="magnifying-glass">
+    Search the web for health information.
+
+    **Input Schema:**
+    ```json
+    {
+      "query": "string (required) - Search query"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="file_operations" icon="file">
+    Read, write, and manage files on the server.
+
+    **Input Schema:** Varies by operation (read, write, list, delete)
+  </Accordion>
+</AccordionGroup>
+
+## Custom Tools
+
+You can add custom tools by creating Python modules in the configured `MCP_TOOL_DIRS`. See [Adding Tools](/en/tools/adding-tools) for details.
+
+<Note>
+Tools automatically inherit authentication context. User-specific tools receive `user_info` parameter with authenticated user data.
+</Note>
+
+For complete tool schemas and examples, call `tools/list` on the MCP endpoint or see the [MCP Integration Guide](/en/tools/mcp-integration).

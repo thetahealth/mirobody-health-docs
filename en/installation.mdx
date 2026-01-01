@@ -65,15 +65,43 @@ Choose the installation method that best suits your needs:
 
     ### Step 3: Configure Environment
 
+    Create your configuration files:
+
     ```bash
-    cp .env_example .env
-    cp config.example.yaml config.yaml
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
+    ```
+
+    Edit `.env` to set your environment:
+
+    ```bash
+    ENV=localdb
+    ```
+
+    Add at least one LLM API key to `config.localdb.yaml`:
+
+    ```yaml
+    # ============ LLM API Keys (At least one required) ============
+    GOOGLE_API_KEY: ''      # For Gemini models
+    OPENAI_API_KEY: ''      # For GPT models  
+    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, and other models
+    
+    # ============ Agent Configuration ============
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
 
     ### Step 4: Deploy
 
     ```bash
-    ./deploy.sh
+    ./run.sh
     ```
 
     <Check>
@@ -95,13 +123,37 @@ Choose the installation method that best suits your needs:
     source venv/bin/activate
     ```
 
-    ### Step 2: Install Dependencies
+    ### Step 2: Install System Dependencies
+
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        xcode-select --install
+        brew install gcc gfortran fftw hdf5 openblas lapack
+        ```
+      </Tab>
+
+      <Tab title="Linux (Ubuntu/Debian)">
+        ```bash
+        sudo apt install -y g++ gfortran build-essential \
+          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        ```
+      </Tab>
+    </Tabs>
+
+    ### Step 3: Install Python Dependencies
 
     ```bash
-    pip install -r requirements.txt
+    pip install mirobody -r requirements.txt
     ```
 
-    ### Step 3: Setup External Services
+    ### Step 4: Install Node.js Dependencies
+
+    ```bash
+    npm install @antv/gpt-vis-ssr ws
+    ```
+
+    ### Step 5: Setup External Services
 
     Start PostgreSQL and Redis (using Docker for simplicity):
 
@@ -109,27 +161,50 @@ Choose the installation method that best suits your needs:
     docker-compose up -d postgres redis
     ```
 
-    ### Step 4: Configure
+    ### Step 6: Configure
 
     ```bash
-    cp config.example.yaml config.yaml
-    # Edit config.yaml with your settings
+    cp .env.example .env
+    cp config.yaml config.localdb.yaml
     ```
 
-    ### Step 5: Initialize Database
+    Edit `.env`:
 
     ```bash
-    python -c "from mirobody.utils.db_initializer import initialize_database; import asyncio; asyncio.run(initialize_database())"
+    ENV=localdb
     ```
 
-    ### Step 6: Run
+    Add at least one API key and database settings to `config.localdb.yaml`:
+
+    ```yaml
+    # ============ LLM API Keys (At least one required) ============
+    GOOGLE_API_KEY: ''
+    OPENAI_API_KEY: ''
+    OPENROUTER_API_KEY: ''
+    
+    # ============ Database Configuration ============
+    PG_HOST: 'localhost'
+    PG_PORT: 5432
+    PG_USER: ''
+    PG_PASSWORD: ''
+    PG_DBNAME: ''
+    PG_SCHEMA: ''
+    
+    # ============ Redis Configuration ============
+    REDIS_HOST: 'localhost'
+    REDIS_PORT: 6379
+    REDIS_DB: 0
+    REDIS_PASSWORD: ''
+    ```
+
+    ### Step 7: Run
 
     ```bash
     python main.py
     ```
 
     <Check>
-    Server should start on http://localhost:18080
+    Server should start on http://localhost:18080. If running under WSL, access from Windows via `http://localhost:18080`.
     </Check>
   </Tab>
 </Tabs>
@@ -191,22 +266,33 @@ After installation, verify everything is working:
     - Custom providers
   </Accordion>
 
-  <Accordion title="Set up AI Chat & File Processing" icon="robot">
-    To enable AI features, add API keys to `config.yaml`:
+  <Accordion title="Set up AI Chat & Agents" icon="robot">
+    To enable AI features, add at least one API key to `config.localdb.yaml`:
 
     ```yaml
-    # REQUIRED API Keys
-    OPENROUTER_API_KEY: 'your_openrouter_api_key'  # For AI chat/agents
-    GOOGLE_API_KEY: 'your_google_api_key'  # For file processing (Gemini)
+    # ============ LLM API Keys (At least one required) ============
+    GOOGLE_API_KEY: ''      # For Gemini models
+    OPENAI_API_KEY: ''      # For GPT models
+    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, and other models
     
-    # Optional
-    OPENAI_API_KEY: 'your_openai_api_key'
+    # ============ Agent Configuration ============
+    MCP_TOOL_DIRS:
+      - mirobody/pub/tools
+      - mirobody/pub/tools_health
+    
+    MCP_RESOURCE_DIRS:
+      - mirobody/pub/resources
+    
+    AGENT_DIRS:
+      - mirobody/pub/agents
     ```
 
     <Info>
-    - **OPENROUTER_API_KEY**: Required for AI chat and agent features
-    - **GOOGLE_API_KEY**: Required for processing files (PDFs, images, medical records) using Gemini
-    - **OPENAI_API_KEY**: Optional for OpenAI-specific features
+    Mirobody Health includes two agent types:
+    - **DeepAgent** (LangChain-based): Best for complex tasks, file operations, multi-step planning
+    - **BaselineAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
+    
+    See [Tools Overview](/en/tools/overview) for configuration details.
     </Info>
   </Accordion>
 
@@ -241,25 +327,34 @@ After installation, your directory structure will look like this:
 
 ```
 mirobody-health/
-├── connect/                    # Provider integrations
-│   ├── __init__.py
-│   └── theta/                 # Theta platform providers
-│       ├── mirobody_garmin_connect/
-│       └── mirobody_whoop/
-├── docker/                     # Docker configuration
-│   ├── docker-compose.yaml
-│   ├── Dockerfile.backend
-│   ├── Dockerfile.base
-│   └── Dockerfile.postgres
-├── shell/                      # Utility scripts
-│   ├── chat_test_commands.sh
-│   └── get_tools.sh
-├── config.yaml                 # Main configuration
-├── .env                       # Environment variables
-├── main.py                    # Application entry point
-├── requirements.txt           # Python dependencies
-├── setup.py                   # Package setup
-└── README.md                  # Documentation
+├── mirobody/                  # Main application package
+│   ├── chat/                 # Chat and agent services
+│   ├── mcp/                  # MCP protocol implementation
+│   ├── pulse/                # Health data providers
+│   │   ├── theta/           # OAuth providers (Garmin, Whoop, etc.)
+│   │   ├── apple/           # Apple Health platform
+│   │   ├── core/            # Core health data services
+│   │   └── file_parser/     # File processing handlers
+│   ├── pub/                  # Public tools and agents
+│   │   ├── tools/           # General-purpose MCP tools
+│   │   ├── tools_health/    # Health-specific MCP tools
+│   │   ├── resources/       # MCP resources
+│   │   └── agents/          # Agent implementations
+│   ├── server/               # HTTP server
+│   ├── user/                 # User authentication
+│   └── utils/                # Utilities
+├── database/                  # Database schemas and migrations
+│   └── resource/             # SQL initialization files
+├── image/                     # Logo and branding assets
+├── compose.yaml              # Docker Compose configuration
+├── config.yaml               # Base configuration (immutable)
+├── config.localdb.yaml       # Your environment configuration
+├── .env                      # Environment variables
+├── main.py                   # Application entry point
+├── requirements.txt          # Python dependencies
+├── package.json              # Node.js dependencies
+├── run.sh                    # Deployment script
+└── README.md                 # Documentation
 ```
 
 ## Troubleshooting Installation
@@ -281,7 +376,7 @@ mirobody-health/
   <Accordion title="Port conflicts" icon="network-wired">
     **Problem**: Port 18080 is already in use.
 
-    **Solution**: Change the port in `config.yaml`:
+    **Solution**: Change the port in `config.localdb.yaml`:
     ```yaml
     HTTP_PORT: 18081  # Use any available port
     ```
@@ -296,7 +391,7 @@ mirobody-health/
        docker-compose ps postgres
        ```
 
-    2. Check connection settings in `config.yaml`:
+    2. Check connection settings in `config.localdb.yaml`:
        ```yaml
        PG_HOST: db  # 'db' for Docker, 'localhost' for local install
        PG_PORT: 5432
@@ -388,16 +483,16 @@ mirobody-health/
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Configuration" icon="gear" href="/configuration">
+  <Card title="Configuration" icon="gear" href="/en/configuration">
     Configure OAuth providers and customize settings
   </Card>
-  <Card title="Quick Start" icon="rocket" href="/quickstart">
+  <Card title="Quick Start" icon="rocket" href="/en/quickstart">
     Follow the quick start guide to test your installation
   </Card>
-  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+  <Card title="Architecture" icon="diagram-project" href="/en/concepts/architecture">
     Understand how Mirobody Health works
   </Card>
-  <Card title="Development" icon="code" href="/development/setup">
+  <Card title="Development" icon="code" href="/en/development/setup">
     Set up your development environment
   </Card>
 </CardGroup>

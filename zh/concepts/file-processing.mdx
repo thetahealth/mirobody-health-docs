@@ -96,35 +96,60 @@ Mirobody Health 可以处理多种健康相关文件，自动提取健康指标�
 5. 可选：添加文件备注
 6. 上传并等待处理完成
 
-### Via API
+### 通过 REST API
 
-面向需要集成上传能力的开发者：
+用于简单文件上传，无实时进度：
 
 ```bash
 curl -X POST http://localhost:18080/files/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "files=@lab_report.pdf"
+  -F "files=@lab_report.pdf" \
+  -F "files=@blood_work.jpg"
 ```
 
+### 通过 WebSocket API
+
+用于带实时进度反馈的上传（大文件推荐）：
+
+```
+ws://localhost:18080/ws/upload-health-report?token=YOUR_TOKEN
+```
+
+WebSocket 提供：
+- 实时上传进度
+- 处理状态更新
+- 详细错误信息
+- 支持大文件分块
+
 <Info>
-更详细的 API 文档（包括带进度跟踪的 WebSocket 上传）请参见[文件处理实现指南](/zh/development/file-processing)。
+详细 API 文档、WebSocket 协议与实现示例，参见[文件处理实现指南](/zh/development/file-processing)。
 </Info>
 
 ## 配置
 
-在 `config.yaml` 中启用健康指标提取：
+在你的配置文件（例如 `config.localdb.yaml`）中启用健康指标提取：
 
-```yaml config.yaml
+```yaml config.localdb.yaml
 # File Processing Configuration
-ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction
-
-# Required for file processing
-GOOGLE_API_KEY: 'your_google_api_key'  # Gemini for multimodal processing
+ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction (1 = enabled, 0 = disabled)
 ```
 
 <Warning>
-处理文件需要 **GOOGLE_API_KEY**。缺少该 key 时，文件上传仍可用，但自动指标提取与内容分析无法工作。
+处理多模态文件（PDF、图片、音频）需要**至少一个 LLM key**。缺少时：
+- 文件上传仍可用
+- 文件会被存储
+- 但自动指标提取与内容分析无法工作
 </Warning>
+
+### 处理流程
+
+系统使用复杂的流程：
+
+1. **文件上传** (0-30%)：接收并验证文件，上传到对象存储
+2. **类型识别** (30-35%)：自动检测文件类型并选择适当的处理器
+3. **内容处理** (35-90%)：提取文本、图片、数据；多页 PDF 并行处理
+4. **摘要生成** (90-95%)：使用 LLM 生成文件摘要和智能名称
+5. **结果保存** (95-100%)：存储到数据库，同步健康指标，更新用户 profile
 
 ## 隐私与安全
 

@@ -1,221 +1,355 @@
 ---
-title: "Tools Overview"
-description: "Understanding the tools system in Mirobody Health for AI agent capabilities"
+title: "Tools & Agents Overview"
+description: "Understanding agents, tools, and MCP integration in Mirobody Health"
 ---
 
-## What are Tools?
+## Agent Architecture
 
-Tools are Python functions that enable AI agents to interact with health data, perform actions, and access external services. Mirobody Health's tool system makes it incredibly easy to add custom functionality without complex configuration.
+Mirobody Health provides two types of AI agents, each optimized for different use cases:
 
-<Info>
-Tools are automatically discovered from the `tools/` directory in your project root and exposed via the MCP protocol.
-</Info>
-
-## Tool Architecture
-
-```mermaid
-graph TD
-    A[Python Function] --> B[Service Class]
-    B --> C[Auto-Discovery]
-    C --> D[MCP Protocol]
-    D --> E[AI Agent]
-    E --> F[Claude/Cursor/ChatGPT]
-```
-
-<CardGroup cols={3}>
-  <Card title="Simple to Add" icon="plus">
-    Write Python functions - no JSON schemas required
+<CardGroup cols={2}>
+  <Card title="DeepAgent" icon="brain">
+    **Recommended for Complex Tasks**
+    
+    LangChain-based agent with advanced capabilities for file operations, multi-step planning, and complex workflows.
   </Card>
-  <Card title="Auto-Discovery" icon="magnifying-glass">
-    Tools are automatically detected and registered
-  </Card>
-  <Card title="MCP Native" icon="bolt">
-    Instantly available via Model Context Protocol
+  <Card title="BaselineAgent" icon="bolt">
+    **Best for Simple Tasks**
+    
+    Native Gemini/MiroThinker agent optimized for lightweight operations and direct MCP integration.
   </Card>
 </CardGroup>
 
-## Built-in Tools
+## Agent Comparison
 
-Mirobody Health includes two essential health tools out of the box:
+| Feature | DeepAgent | BaselineAgent |
+|---------|-----------|---------------|
+| **Framework** | LangChain DeepAgents | Gemini/MiroThinker MCP |
+| **Planning** | ✅ Built-in todos | ❌ |
+| **File System** | ✅ Full support | ❌ |
+| **Subagents** | ✅ Task isolation | ❌ |
+| **MCP Tools** | ✅ Full integration | ✅ Native |
+| **MCP Resources** | ❌ | ✅ Native |
+| **MCP Prompt Templates** | ❌ | ✅ Native |
+| **Memory** | ✅ PostgreSQL | ❌ |
+| **Streaming** | ✅ | ✅ |
+| **Model Support** | Multi-provider | Gemini 2.5/3.0, MiroThinker |
+| **Best For** | Complex workflows, file operations | Simple tasks, native MCP |
+| **Setup Complexity** | Medium | Low |
 
-### 1. get_user_health_profile
+## DeepAgent (Recommended for Complex Tasks)
 
-Retrieves comprehensive user health profile information.
+### Features
 
-```python
-async def get_user_health_profile(user_info: UserInfo) -> Dict:
-    """
-    Get user health profile including connected devices and summary data
-    
-    Args:
-        user_info: User authentication information (automatically provided)
-        
-    Returns:
-        Dict containing user profile, connected providers, and health summary
-    """
-    pass
+- ✅ **Multi-step Planning**: Built-in task decomposition with TODO system
+- ✅ **File Operations**: Read, write, edit files with glob and grep support
+- ✅ **Subagents**: Spawn subagents for context isolation
+- ✅ **Long-term Memory**: PostgreSQL-backed persistent memory
+- ✅ **Full MCP Tools**: Complete integration with MCP tool ecosystem
+
+### Supported Providers
+
+DeepAgent supports multiple LLM providers via LangChain:
+
+- **Gemini 3.0** (via Google GenAI SDK)
+- **GPT-5** (via OpenAI API or OpenRouter)
+- **Claude Sonnet** (via OpenRouter)
+- **DeepSeek v3.2** (via OpenRouter)
+
+### Configuration
+
+```yaml config.localdb.yaml
+# API Keys
+GOOGLE_API_KEY: 'your_google_api_key'        # For Gemini models
+OPENAI_API_KEY: 'your_openai_api_key'        # For GPT models
+OPENROUTER_API_KEY: 'your_openrouter_key'    # For Claude, DeepSeek, etc.
+
+# Provider Configurations
+PROVIDERS_DEEP:
+  # Gemini 3.0 models
+  gemini-3-pro:
+    llm_type: google-genai
+    api_key: GOOGLE_API_KEY
+    model: gemini-3-pro-preview
+    temperature: 1.0
+  
+  gemini-3-flash:
+    llm_type: google-genai
+    api_key: GOOGLE_API_KEY
+    model: gemini-3-flash-preview
+    temperature: 1.0
+  
+  # OpenAI GPT models
+  gpt-5.1:
+    llm_type: openai
+    api_key: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1/
+    model: gpt-5.1
+    temperature: 0.1
+  
+  # Claude via OpenRouter
+  claude-sonnet:
+    llm_type: openai  # OpenAI-compatible API
+    api_key: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    model: anthropic/claude-sonnet-4.5
+    temperature: 0.1
+  
+  # DeepSeek via OpenRouter
+  deepseek-v3.2:
+    llm_type: openai
+    api_key: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    model: deepseek/deepseek-v3.2
+    temperature: 0.1
+
+# Optional: Custom prompts
+PROMPTS_DEEP:
+  - mirobody/pub/agents/deep/prompts/theta_health.jinja
+
+# Optional: Tool filtering
+ALLOWED_TOOLS_DEEP: []     # Leave empty to allow all tools
+DISALLOWED_TOOLS_DEEP: []  # Specify tools to disable
 ```
 
-**Returns:**
-- User profile information
-- Connected health devices/providers
-- Health data summary and statistics
+### Use Cases
 
-### 2. get_health_indicator
+- Complex health data analysis workflows
+- Multi-step research and reporting
+- File processing and management
+- Tasks requiring persistent context
+- Projects needing task decomposition
 
-Retrieves specific health indicators for analysis.
+### Usage Example
 
 ```python
-async def get_health_indicator(
-    user_info: UserInfo,
-    indicator: str,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None
-) -> List[Dict]:
-    """
-    Get health indicator data for a specific metric
-    
-    Args:
-        user_info: User authentication information (automatically provided)
-        indicator: Health indicator name (e.g., "HEART_RATE", "STEPS")
-        start_time: Optional start time filter (ISO format)
-        end_time: Optional end time filter (ISO format)
-        
-    Returns:
-        List of health indicator records
-    """
-    pass
+from mirobody.pub.agents.deep_agent import DeepAgent
+
+agent = DeepAgent(
+    user_id="user123",
+    user_name="John Doe",
+    token="jwt_token",
+    timezone="America/Los_Angeles"
+)
+
+async for event in agent.generate_response(
+    user_id="user123",
+    messages=[{"role": "user", "content": "Analyze my health data"}],
+    provider="gemini-3-flash",
+    session_id="session_001"
+):
+    print(event)
 ```
 
-**Use Cases:**
-- Query heart rate data over time
-- Retrieve sleep patterns
-- Analyze activity trends
-- Compare biomarkers
+## BaselineAgent (Best for Simple Tasks)
 
-<Tip>
-These built-in tools query the `theta_ai.th_series_data` table which contains all standardized health indicators.
-</Tip>
+### Features
 
-## Tool Categories
+- ✅ **Native MCP**: Direct MCP server support
+- ✅ **Streaming**: Fast streaming responses
+- ✅ **Direct Tool Config**: Tools configured directly to LLM
+- ✅ **Lightweight**: Minimal overhead, fast execution
+- ❌ **No file operations**
+- ❌ **No subagents**
 
-<Tabs>
-  <Tab title="User Data Tools">
-    **Private data tools** that require authentication:
-    - Access user's health indicators
-    - Query personal profiles
-    - Retrieve device data
-    - Analyze personal trends
-    
-    **Requirements:**
-    - Must include `user_info: UserInfo` parameter
-    - OAuth authentication enforced automatically
-    - Data scoped to authenticated user only
-  </Tab>
+### Supported Providers
 
-  <Tab title="Public Data Tools">
-    **Public tools** that don't require user authentication:
-    - Search health literature
-    - Access public health databases
-    - Perform calculations
-    - Web searches
-    
-    **Requirements:**
-    - No `user_info` parameter needed
-    - No authentication required
-    - Can access public data sources
-  </Tab>
-</Tabs>
+- **Gemini 2.5/3.0** (native Google GenAI)
+- **MiroThinker** (custom model)
 
-## How Tools Work
+### Configuration
+
+```yaml config.localdb.yaml
+# Required API Keys
+GOOGLE_API_KEY: 'your_google_api_key'           # For Gemini models
+MIROTHINKER_API_KEY: 'your_mirothinker_key'     # For MiroThinker
+
+# Provider Configurations
+PROVIDERS_BASELINE:
+  gemini-3-pro:
+    api_key: GOOGLE_API_KEY
+    model: gemini-3-pro-preview
+  
+  gemini-3-flash:
+    api_key: GOOGLE_API_KEY
+    model: gemini-3-flash-preview
+  
+  gemini-2.5-flash:
+    api_key: GOOGLE_API_KEY
+    model: gemini-2.5-flash
+  
+  miro-thinker:
+    api_key: MIROTHINKER_API_KEY
+    model: miro-thinker
+```
+
+### Use Cases
+
+- Simple health data queries
+- Quick conversations
+- Direct MCP tool usage
+- Lightweight operations
+- Native Gemini/MiroThinker features
+
+### Usage Example
+
+```python
+from mirobody.pub.agents.baseline_agent import BaselineAgent
+
+agent = BaselineAgent(
+    user_id="user123",
+    user_name="John Doe"
+)
+
+async for event in agent.generate_response(
+    user_id="user123",
+    messages=[{"role": "user", "content": "What's my health status?"}],
+    provider="gemini-2.5-flash"
+):
+    print(event)
+```
+
+## Tools System
+
+### What are Tools?
+
+Tools are Python functions that enable AI agents to interact with health data, perform actions, and access external services. Mirobody Health makes it easy to add custom functionality without complex configuration.
+
+### Tool Structure
+
+```
+mirobody/pub/
+├── tools/              # General-purpose tools
+│   ├── chart_service.py    # 25+ chart types
+│   └── ...
+└── tools_health/       # Domain-specific health tools
+    ├── genetic_service.py
+    ├── health_indicator_service.py
+    └── user_service.py
+```
+
+### Built-in Tools
+
+**General Tools** (`mirobody/pub/tools/`):
+- `chart_service.py` - 25+ chart types (line, bar, pie, sankey, etc.)
+
+**Health Tools** (`mirobody/pub/tools_health/`):
+- `genetic_service.py` - Genetic data analysis
+- `health_indicator_service.py` - Health metrics tracking
+- `user_service.py` - User profile management
+
+### Tool Configuration
+
+```yaml config.localdb.yaml
+# Tool Directories
+MCP_TOOL_DIRS:
+  - mirobody/pub/tools
+  - mirobody/pub/tools_health
+  - your/custom/tools  # Add your own
+
+# Resource Directories
+MCP_RESOURCE_DIRS:
+  - mirobody/pub/resources
+
+# Agent Directories
+AGENT_DIRS:
+  - mirobody/pub/agents
+```
+
+### Creating Custom Tools
 
 <Steps>
-  <Step title="Tool Discovery">
-    On startup, Mirobody Health scans the `tools/` directory for Python files containing Service classes.
-    
-    ```python
-    # tools/my_tool.py
-    class MyToolService:
-        # All public methods become tools
-        pass
+  <Step title="Create tool file">
+    Create a new Python file in a configured tool directory:
+
+    ```python mirobody/pub/tools/weather_service.py
+    from typing import Dict, Any, Optional
+
+    async def get_weather(
+        city: str,
+        user_info: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Get weather information for a city.
+        
+        Args:
+            city: City name
+            user_info: Optional user authentication info
+            
+        Returns:
+            Weather data dictionary
+        """
+        # Your implementation here
+        return {
+            "city": city,
+            "temperature": "22°C",
+            "condition": "Sunny"
+        }
+
+    # Export for MCP loader
+    __all__ = ["get_weather"]
     ```
   </Step>
 
-  <Step title="Auto-Registration">
-    Each public method in a Service class is automatically registered as a tool.
-    
-    ```python
-    class WeatherService:
-        async def get_weather(self, location: str) -> Dict:
-            """Get weather for location"""
-            # This becomes a tool automatically
-            pass
-    ```
+  <Step title="Auto-discovery">
+    Tools are automatically discovered when the server starts. No manual registration required!
   </Step>
 
-  <Step title="MCP Exposure">
-    Tools are exposed via the MCP protocol at `http://localhost:18080/mcp` for AI agents to discover and call.
-  </Step>
-
-  <Step title="Agent Invocation">
-    AI agents (Claude, Cursor, ChatGPT) can discover and call your tools through the MCP interface.
+  <Step title="Use in agents">
+    Both DeepAgent and BaselineAgent can use your custom tools automatically.
   </Step>
 </Steps>
 
-## Tool Configuration
+### Tool Best Practices
 
-Tools are configured in `config.yaml`:
+1. **Authentication**: Use `user_info` parameter for user-specific operations
+2. **Error Handling**: Return structured error responses
+3. **Type Hints**: Use proper type annotations for validation
+4. **Documentation**: Include clear docstrings with Args and Returns
+5. **Async Operations**: Prefer async functions for I/O operations
 
-```yaml config.yaml
-# Tool Directories
-MCP_TOOL_DIRS:
-  - mirobody/pub/tools    # Built-in tools
-  - tools                 # Your custom tools
+## MCP Protocol Integration
 
-# Tool Access Control
-ALLOWED_TOOLS_SYNERGY:
-  - get_user_health_profile
-  - get_health_indicator
-  - your_custom_tool
+Mirobody Health functions as an MCP (Model Context Protocol) server, enabling integration with:
 
-DISALLOWED_TOOLS_SYNERGY:
-  - dangerous_tool
+- **Claude Desktop** - Direct integration
+- **Cursor IDE** - AI-powered coding assistant
+- **ChatGPT** - Via custom GPT apps
+- **Custom MCP Clients** - Any MCP-compatible client
+
+### MCP Endpoints
+
+```
+http://localhost:18080/mcp
 ```
 
-<Warning>
-Leave `ALLOWED_TOOLS_SYNERGY` empty to allow all tools by default. Use `DISALLOWED_TOOLS_SYNERGY` to block specific tools.
-</Warning>
+Standard JSON-RPC 2.0 interface supporting:
+- `tools/list` - List available tools
+- `tools/call` - Execute tool functions
+- `resources/list` - List available resources
+- `resources/read` - Read resource content
 
 ## Database Schema for Health Data
 
-Tools can query standardized health data from these tables:
+Tools query standardized health data from these tables:
 
-### theta_ai.th_series_data
+### th_series_data
 
-Primary table for time-series health indicators:
+Time-series health indicators:
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | integer | Primary key |
 | `user_id` | varchar | User identifier |
-| `indicator` | varchar | Indicator code/name |
-| `value` | text | Original indicator value |
-| `value_standardized` | text | Standardized indicator value |
-| `start_time` | timestamp | Indicator start time |
-| `end_time` | timestamp | Indicator end time |
-| `source` | varchar | Data source (system/device/manual) |
-| `source_table` | varchar | Original source table |
-| `source_table_id` | varchar | Source record ID |
-| `indicator_id` | text | Unique indicator identifier |
-| `deleted` | integer | Deletion flag (0: active, 1: deleted) |
-| `create_time` | timestamptz | Creation timestamp |
-| `update_time` | timestamptz | Last update timestamp |
-| `task_id` | varchar | Task ID |
-| `full_dim_id` | bigint | Full dimension ID |
-| `fhir_id` | bigint | FHIR resource ID |
-| `fhir_mapping_info` | jsonb | FHIR mapping information |
-| `is_standardized` | boolean | Standardization flag |
-| `comment` | text | Additional notes |
+| `indicator` | varchar | Indicator name |
+| `value` | text | Original value |
+| `value_standardized` | text | Standardized value |
+| `start_time` | timestamp | Start time |
+| `end_time` | timestamp | End time |
+| `source` | varchar | Data source |
+| `source_table` | varchar | Source table |
+
 
 ### theta_ai.health_user_profile_by_system
 
@@ -243,9 +377,10 @@ User profile storage:
     Learn how to create your own tools
   </Card>
   <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
-    Connect tools to Claude, Cursor, and ChatGPT
+    Connect to Claude, Cursor, and ChatGPT
   </Card>
-  <Card title="ChatGPT Apps" icon="comments" href="/en/tools/chatgpt-apps">
-    Use Mirobody Health with ChatGPT Apps
+  <Card title="Adding MCPs" icon="plug" href="/en/tools/adding-mcps">
+    Add external MCP servers
+    
   </Card>
 </CardGroup>

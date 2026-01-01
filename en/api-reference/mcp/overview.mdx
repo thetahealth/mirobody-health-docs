@@ -5,62 +5,287 @@ description: "Introduction to the Model Context Protocol interface"
 
 ## What is MCP?
 
-The Model Context Protocol (MCP) is a JSON-RPC 2.0 interface that enables AI agents and applications to interact with Mirobody Health's tools and resources.
+The Model Context Protocol (MCP) is a JSON-RPC 2.0 interface that enables AI agents and applications to discover and interact with Mirobody Health's tools and resources. It provides a standardized way for LLMs to access health data, call functions, and retrieve contextual information.
 
 <Info>
-MCP endpoint: `http://localhost:18080/mcp`
+**MCP Endpoint**: `http://localhost:18080/mcp` (public) or `http://localhost:18080/mcp/{user_secret}` (user-specific)
+
+**Protocol Version**: `2025-06-18`
 </Info>
 
 ## Key Concepts
 
 <CardGroup cols={2}>
   <Card title="Tools" icon="wrench">
-    Functions that AI agents can call to perform actions (e.g., get health data, link providers)
+    Callable functions that perform actions (e.g., fetch health data, render charts, link providers)
   </Card>
   <Card title="Resources" icon="folder">
-    Data sources that agents can access (e.g., user profiles, health metrics)
+    Read-only data sources that provide context (e.g., user profiles, chart templates, upload forms)
   </Card>
   <Card title="JSON-RPC 2.0" icon="code">
-    Standard protocol for remote procedure calls over HTTP
+    Standard protocol for remote procedure calls with request/response format
   </Card>
-  <Card title="Agents" icon="robot">
-    AI assistants that use tools and resources to help users
+  <Card title="Authentication" icon="lock">
+    JWT-based authentication with optional OAuth flow for tool authorization
   </Card>
 </CardGroup>
 
-## Example Request
+## MCP Methods
 
-```json
+The MCP service supports the following standard methods:
+
+| Method | Description |
+|--------|-------------|
+| `initialize` | Handshake to establish protocol version and capabilities |
+| `tools/list` | List all available tools |
+| `tools/call` | Execute a specific tool |
+| `resources/list` | List all available resources |
+| `resources/read` | Read a specific resource |
+| `prompts/list` | List available prompt templates |
+| `prompts/get` | Get a specific prompt template |
+
+## Authentication
+
+MCP endpoints support two authentication modes:
+
+<Tabs>
+  <Tab title="JWT Token (Recommended)">
+    Pass JWT token in the Authorization header:
+
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list"
+      }'
+    ```
+  </Tab>
+
+  <Tab title="User Secret URL">
+    Use user-specific MCP URL (for MCP clients like Claude Desktop):
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": {
+          "url": "http://localhost:18080/mcp/user_abc123xyz"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Some tools require authentication. If called without valid credentials, they return an OAuth flow URL for user authorization.
+</Warning>
+
+## Example: Initialize
+
+<CodeGroup>
+```json Request
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "method": "tools/list"
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "clientInfo": {
+      "name": "MyHealthApp",
+      "version": "1.0.0"
+    }
+  }
 }
 ```
 
-## Example Response
-
-```json
+```json Response
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
+    "protocolVersion": "2025-06-18",
+    "serverInfo": {
+      "name": "Theta MCP Server",
+      "version": "1.0.0"
+    },
+    "capabilities": {
+      "tools": {},
+      "resources": {},
+      "prompts": {}
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Example: List Tools
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list"
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
     "tools": [
       {
         "name": "get_health_data",
-        "description": "Retrieve health data for a user",
+        "description": "Retrieve health indicator data for a user",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "user_id": {"type": "string"},
-            "data_type": {"type": "string"}
+            "user_id": {
+              "type": "string",
+              "description": "User identifier"
+            },
+            "indicator": {
+              "type": "string",
+              "description": "Health indicator name (e.g., 'steps', 'heart_rate')"
+            },
+            "start_date": {
+              "type": "string",
+              "description": "Start date (YYYY-MM-DD)"
+            },
+            "end_date": {
+              "type": "string",
+              "description": "End date (YYYY-MM-DD)"
+            }
           },
-          "required": ["user_id"]
+          "required": ["user_id", "indicator"]
+        }
+      },
+      {
+        "name": "render_chart",
+        "description": "Render a data visualization chart",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "chart_type": {
+              "type": "string",
+              "description": "Type of chart (line, bar, scatter, etc.)"
+            },
+            "data": {
+              "type": "array",
+              "description": "Data points to visualize"
+            }
+          },
+          "required": ["chart_type", "data"]
         }
       }
     ]
   }
 }
 ```
+</CodeGroup>
 
-For detailed MCP documentation, see [MCP Tools](/api-reference/mcp/tools) and [MCP Resources](/api-reference/mcp/resources).
+## Example: Call Tool
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "get_health_data",
+    "arguments": {
+      "user_id": "user_123",
+      "indicator": "steps",
+      "start_date": "2024-01-01",
+      "end_date": "2024-01-07"
+    }
+  }
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"date\": \"2024-01-01\", \"value\": 8543, \"unit\": \"steps\"}, {\"date\": \"2024-01-02\", \"value\": 10234, \"unit\": \"steps\"}]"
+      }
+    ]
+  }
+}
+```
+</CodeGroup>
+
+## Error Handling
+
+MCP uses standard JSON-RPC 2.0 error codes:
+
+| Code | Name | Description |
+|------|------|-------------|
+| `-32700` | Parse error | Invalid JSON |
+| `-32600` | Invalid Request | Missing required fields |
+| `-32601` | Method not found | Unknown method |
+| `-32602` | Invalid params | Invalid method parameters |
+| `-32603` | Internal error | Server-side error |
+| `-32000` | Auth required | Authentication needed |
+
+<CodeGroup>
+```json Error Response
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "error": {
+    "code": -32000,
+    "message": "Authentication required",
+    "data": {
+      "authorization_url": "http://localhost:18080/mcplogin?...",
+      "instructions": "Please authenticate to access this tool"
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Tool Categories
+
+Mirobody Health MCP tools are organized into categories:
+
+<CardGroup cols={2}>
+  <Card title="Health Data Tools" icon="heartbeat" href="/en/api-reference/mcp/tools">
+    Query health indicators, genetic data, and user profiles
+  </Card>
+  <Card title="Chart Tools" icon="chart-line" href="/en/api-reference/mcp/tools">
+    Render visualizations of health data
+  </Card>
+  <Card title="Provider Tools" icon="link" href="/en/api-reference/mcp/tools">
+    Link and manage health device providers
+  </Card>
+  <Card title="File Tools" icon="file" href="/en/api-reference/mcp/tools">
+    Upload and process health documents
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Tools" icon="wrench" href="/en/api-reference/mcp/tools">
+    Browse all available tools and their schemas
+  </Card>
+  <Card title="MCP Resources" icon="folder" href="/en/api-reference/mcp/resources">
+    Access resources like user profiles and templates
+  </Card>
+  <Card title="Integration Guide" icon="plug" href="/en/tools/mcp-integration">
+    Learn how to integrate MCP into your app
+  </Card>
+  <Card title="Adding Tools" icon="plus" href="/en/tools/adding-tools">
+    Create custom MCP tools
+  </Card>
+</CardGroup>

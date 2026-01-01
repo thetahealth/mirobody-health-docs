@@ -96,35 +96,60 @@ The system can automatically extract various types of health data:
 5. Add optional notes about the files
 6. Upload and wait for processing to complete
 
-### Via API
+### Via REST API
 
-For developers integrating file upload:
+For simple file uploads without real-time progress:
 
 ```bash
 curl -X POST http://localhost:18080/files/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "files=@lab_report.pdf"
+  -F "files=@lab_report.pdf" \
+  -F "files=@blood_work.jpg"
 ```
 
+### Via WebSocket API
+
+For uploads with real-time progress feedback (recommended for large files):
+
+```
+ws://localhost:18080/ws/upload-health-report?token=YOUR_TOKEN
+```
+
+WebSocket provides:
+- Real-time upload progress
+- Processing status updates
+- Detailed error messages
+- Support for large files with chunking
+
 <Info>
-For detailed API documentation and WebSocket upload with progress tracking, see the [File Processing Implementation Guide](/development/file-processing).
+For detailed API documentation, WebSocket protocol, and implementation examples, see the [File Processing Implementation Guide](/development/file-processing).
 </Info>
 
 ## Configuration
 
-Enable health indicator extraction in `config.yaml`:
+Enable health indicator extraction in your config file (e.g., `config.localdb.yaml`):
 
-```yaml config.yaml
+```yaml config.localdb.yaml
 # File Processing Configuration
-ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction
-
-# Required for file processing
-GOOGLE_API_KEY: 'your_google_api_key'  # Gemini for multimodal processing
+ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction (1 = enabled, 0 = disabled)
 ```
 
 <Warning>
-**GOOGLE_API_KEY is required** for processing files. Without it, file upload will work but automatic indicator extraction and content analysis will not function.
+**At least one LLM key is required** for processing multimodal files (PDFs, images, audio). Without it:
+- File upload will work
+- Files will be stored
+- But automatic indicator extraction and content analysis will not function
 </Warning>
+
+### Processing Pipeline
+
+The system uses a sophisticated pipeline:
+
+1. **File Upload** (0-30%): Receive and validate files, upload to object storage
+2. **Type Recognition** (30-35%): Auto-detect file type and select appropriate handler
+3. **Content Processing** (35-90%): Extract text, images, data; process in parallel for multi-page PDFs
+4. **Summary Generation** (90-95%): Generate file summary and intelligent name using LLM
+5. **Result Saving** (95-100%): Store in database, sync health indicators, update user profile
 
 ## Privacy & Security
 
@@ -197,7 +222,7 @@ Files and their associated data are permanently removed from:
 <AccordionGroup>
   <Accordion title="File upload fails" icon="circle-exclamation">
     **Solutions**:
-    - Check file size (recommend < 50MB per file)
+    - Check file size (recommend < 20MB per file)
     - Verify authentication token is valid
     - Ensure file type is supported
     - Check server logs for specific errors
@@ -206,7 +231,7 @@ Files and their associated data are permanently removed from:
   <Accordion title="No indicators extracted" icon="magnifying-glass">
     **Solutions**:
     - Verify `ENABLE_INDICATOR_EXTRACTION: 1` in config
-    - Ensure `GOOGLE_API_KEY` is set and valid
+    - Ensure at one LLM key is set and valid
     - Check if file contains recognizable health data
     - Try uploading a clearer or higher resolution image
   </Accordion>
@@ -214,7 +239,7 @@ Files and their associated data are permanently removed from:
   <Accordion title="Processing takes too long" icon="clock">
     **Expectations**:
     - Small files (< 5MB): 10-30 seconds
-    - Large PDFs (> 20MB): 1-3 minutes
+    - Large PDFs: 1-3 minutes
     - Multi-page documents: Longer but processed in parallel
     
     If processing exceeds these times, check server resources and logs.
@@ -230,23 +255,23 @@ For developers and advanced users who need detailed information about:
 - Data models and schemas
 - Error handling and best practices
 
-<Card title="File Processing Implementation Guide" icon="code" href="/development/file-processing">
+<Card title="File Processing Implementation Guide" icon="code" href="/en/development/file-processing">
   Complete technical documentation for file upload and processing
 </Card>
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/quickstart">
+  <Card title="Quick Start" icon="rocket" href="/en/quickstart">
     Get started with Mirobody Health
   </Card>
-  <Card title="Configuration" icon="gear" href="/configuration">
+  <Card title="Configuration" icon="gear" href="/en/configuration">
     Configure API keys and settings
   </Card>
-  <Card title="Data Flow" icon="diagram-project" href="/concepts/data-flow">
+  <Card title="Data Flow" icon="diagram-project" href="/en/concepts/data-flow">
     Understand how data moves through the system
   </Card>
-  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+  <Card title="API Reference" icon="book" href="/en/api-reference/introduction">
     Explore API endpoints
   </Card>
 </CardGroup>

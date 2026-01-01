@@ -17,7 +17,7 @@ Providers allow you to connect your wearable devices and health platforms to Mir
 </CardGroup>
 
 <Note>
-More providers are coming soon. You can also [add custom providers](/development/provider-integration) yourself!
+More providers are coming soon. You can also [add custom providers](/en/development/provider-integration) yourself!
 </Note>
 
 ## Connecting a Provider
@@ -201,8 +201,6 @@ Once a provider is connected, data synchronization happens automatically:
 <AccordionGroup>
   <Accordion title="Initial Sync" icon="download">
     When you first connect a provider, Mirobody Health pulls historical data:
-    - **Garmin**: Last 30 days of data
-    - **Whoop**: Last 30 days of data
     
     This may take a few minutes depending on data volume.
   </Accordion>
@@ -293,16 +291,16 @@ await check_provider_status("your_user_id")
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Configuration Guide" icon="gear" href="/configuration">
+  <Card title="Configuration Guide" icon="gear" href="/en/configuration">
     Configure provider credentials
   </Card>
-  <Card title="API Reference" icon="book" href="/api-reference/pulse/providers">
+  <Card title="API Reference" icon="book" href="/en/api-reference/pulse/providers">
     Provider API documentation
   </Card>
-  <Card title="Provider Examples" icon="code" href="/examples/garmin-provider">
+  <Card title="Provider Examples" icon="code" href="/en/examples/garmin-provider">
     See provider usage examples
   </Card>
-  <Card title="Add Custom Providers" icon="plus" href="/development/provider-integration">
+  <Card title="Add Custom Providers" icon="plus" href="/en/development/provider-integration">
     Build your own provider integration
   </Card>
 </CardGroup>

@@ -11,47 +11,143 @@ GET /api/history
 
 ## Overview
 
-Retrieve the chat conversation history for a specific user and optional session.
+Retrieve the chat conversation history for a specific user and optional session. Returns all messages exchanged between the user and AI agents.
 
-## Request
+<Info>
+Chat history is automatically persisted to the database for all conversations. Sessions can be used to organize related conversations.
+</Info>
+
+## Request Parameters
 
 <ParamField query="user_id" type="string" required>
-  Unique identifier for the user
+  Unique identifier for the user whose history to retrieve
+</ParamField>
+
+<ParamField query="query_user_id" type="string">
+  User ID whose data was queried (for help-ask feature). Defaults to `user_id`.
 </ParamField>
 
 <ParamField query="session_id" type="string">
-  Optional session ID to filter by specific conversation
+  Optional session ID to filter by specific conversation thread
 </ParamField>
 
-<ParamField query="limit" type="integer">
-  Maximum number of messages to return (default: 50, max: 100)
+<ParamField query="limit" type="integer" default="50">
+  Maximum number of messages to return (max: 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of messages to skip (for pagination)
 </ParamField>
 
 <RequestExample>
 ```bash cURL
-curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20"
+curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```python Python
+import httpx
+
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        "http://localhost:18080/api/history",
+        params={
+            "user_id": "user_123",
+            "session_id": "session_abc",
+            "limit": 20
+        },
+        headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+    )
+    history = response.json()
 ```
 </RequestExample>
 
-## Response
+## Response Format
 
 <ResponseExample>
 ```json Success
 {
-  "history": [
-    {
-      "role": "user",
-      "content": "How many steps did I take yesterday?",
-      "timestamp": "2024-01-15T10:30:00Z"
-    },
-    {
-      "role": "assistant",
-      "content": "Based on your Garmin data, you took 10,543 steps yesterday.",
-      "timestamp": "2024-01-15T10:30:02Z"
-    }
-  ],
-  "session_id": "session_abc",
-  "total_messages": 2
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "messages": [
+      {
+        "msg_id": "q_550e8400-e29b-41d4-a716-446655440000",
+        "role": "user",
+        "content": "How many steps did I take yesterday?",
+        "timestamp": "2024-01-15T10:30:00.123Z",
+        "session_id": "session_abc",
+        "file_list": []
+      },
+      {
+        "msg_id": "a_660e8400-e29b-41d4-a716-446655440001",
+        "role": "assistant",
+        "content": "Based on your Garmin data, you took 10,543 steps yesterday. That's about 200 steps more than your daily average!",
+        "timestamp": "2024-01-15T10:30:02.456Z",
+        "session_id": "session_abc",
+        "agent": "deep",
+        "provider": "openrouter",
+        "model": "anthropic/claude-3.5-sonnet",
+        "tool_calls": [
+          {
+            "tool_name": "get_health_data",
+            "arguments": "{\"indicator\": \"steps\", \"date\": \"2024-01-14\"}",
+            "result": "{\"value\": 10543, \"unit\": \"steps\"}"
+          }
+        ]
+      }
+    ],
+    "total": 2,
+    "session_id": "session_abc"
+  }
+}
+```
+
+```json No History
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "messages": [],
+    "total": 0
+  }
 }
 ```
 </ResponseExample>
+
+## Message Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `msg_id` | string | Unique message identifier |
+| `role` | string | `user` or `assistant` |
+| `content` | string | Message text content |
+| `timestamp` | string | ISO 8601 timestamp |
+| `session_id` | string | Session identifier |
+| `file_list` | array | Attached files (user messages only) |
+| `agent` | string | Agent used (assistant messages only) |
+| `provider` | string | LLM provider (assistant messages only) |
+| `model` | string | Model name (assistant messages only) |
+| `tool_calls` | array | MCP tool calls made (assistant messages only) |
+
+## Additional Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Get Session List" icon="list">
+    ```
+    GET /api/session
+    ```
+    Returns all sessions for a user with summaries
+  </Card>
+
+  <Card title="Delete History" icon="trash">
+    ```
+    POST /api/history/delete
+    ```
+    Delete specific messages or entire sessions
+  </Card>
+</CardGroup>
+
+<Note>
+For shared sessions (help-ask feature), use `/api/history_by_person` endpoint to retrieve conversations where you helped another user.
+</Note>

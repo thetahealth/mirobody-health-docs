@@ -110,14 +110,14 @@ Multi-provider LLM integration for intelligent health insights:
 ```python
 AI Services
 ├── OpenRouter (Multi-model)
-├── OpenAI (coming later)
-├── Google (coming later)
-├── Anthropic (coming later)
+├── OpenAI 
+├── Google
+├── Anthropic
 └── Local LLMs (coming later)
 ```
 
 **Features:**
-- Provider-agnostic interface (coming later)
+- Provider-agnostic interface
 - Context management for conversations
 - Tool calling for health data access
 - Session history persistence
@@ -131,6 +131,7 @@ MCP Server
 ├── Tools/        # Available tools
 │   ├── get_user_health_profile
 │   ├── get_health_indicator
+│   ├── genetic_service
 │   └── your custom tools
 ├── Resources/    # Available resources
 ```
@@ -439,12 +440,12 @@ The architecture provides multiple extension points:
 
 <AccordionGroup>
   <Accordion title="New Providers" icon="plus">
-    See [Development](/development/setup) new health device integrations:
+    See [Development](/en/development/setup) new health device integrations:
   </Accordion>
 
   <Accordion title="Tools & MCPs" icon="wrench">
-    1. See [Adding Custom Tools](/tools/adding-tools) to add new tools for AI agents
-    2. See [Adding Custom MCPs](/tools/adding-mcps) to add new MCPs for AI agents
+    1. See [Adding Custom Tools](/en/tools/adding-tools) to add new tools for AI agents
+    2. See [Adding Custom MCPs](/en/tools/adding-mcps) to add new MCPs for AI agents
   </Accordion>
 
   <Accordion title="Custom Indicators" icon="chart-line">
@@ -489,16 +490,16 @@ The architecture provides multiple extension points:
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Provider System" icon="plug" href="/concepts/providers">
+  <Card title="Provider System" icon="plug" href="/en/concepts/providers">
     Deep dive into the provider system
   </Card>
-  <Card title="Data Flow" icon="arrow-progress" href="/concepts/data-flow">
+  <Card title="Data Flow" icon="arrow-progress" href="/en/concepts/data-flow">
     Understanding data transformation
   </Card>
-  <Card title="Development Setup" icon="code" href="/development/setup">
+  <Card title="Development Setup" icon="code" href="/en/development/setup">
     Set up your development environment
   </Card>
-  <Card title="Deployment" icon="rocket" href="/deployment/docker">
+  <Card title="Deployment" icon="rocket" href="/en/deployment/docker">
     Deploy Mirobody Health
   </Card>
 </CardGroup>
