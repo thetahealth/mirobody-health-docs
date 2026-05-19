@@ -258,7 +258,7 @@
         },
         {
           "anchor": "GitHub",
-          "href": "https://github.com/thetahealth/mirobody-health",
+          "href": "https://github.com/thetahealth/mirobody",
           "icon": "github"
         },
         {
@@ -282,7 +282,7 @@
     "links": [
       {
         "label": "Support",
-        "href": "https://github.com/thetahealth/mirobody-health/issues"
+        "href": "https://github.com/thetahealth/mirobody/issues"
       }
     ],
     "primary": {
@@ -305,7 +305,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/thetahealth/mirobody-health",
+      "github": "https://github.com/thetahealth/mirobody",
       "linkedin": "https://linkedin.com/company/thetahealth",
       "x": "https://x.com/thetawellnessai"
     }

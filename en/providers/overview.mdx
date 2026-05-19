@@ -1,15 +1,15 @@
 ---
 title: "Provider Overview"
-description: "Understanding the provider system in Mirobody Health and how it integrates with health device APIs"
+description: "Understanding the provider system in Mirobody and how it integrates with health device APIs"
 ---
 
 ## What are Providers?
 
-Providers are plugin modules that integrate Mirobody Health with external health and fitness device APIs. Each provider handles OAuth authentication, data fetching, and transformation into a standardized format.
+Providers are plugin modules that integrate Mirobody with external health and fitness device APIs. Each provider handles OAuth authentication, data fetching, and transformation into a standardized format.
 
 ## Provider Architecture
 
-Mirobody Health uses an extensible provider architecture that makes it easy to add new health device integrations:
+Mirobody uses an extensible provider architecture that makes it easy to add new health device integrations:
 
 ```
 BaseThetaProvider (Abstract Base Class)
@@ -324,7 +324,7 @@ To ensure quality and consistency, all providers must implement:
 
 ## Provider Discovery
 
-Mirobody Health automatically discovers and loads providers from configured directories:
+Mirobody automatically discovers and loads providers from configured directories:
 
 ```python
 # In config.yaml

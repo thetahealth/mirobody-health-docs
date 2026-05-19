@@ -1,259 +1,261 @@
 ---
-title: "欢迎使用 Mirobody Health"
-description: "一个基于 Mirobody 框架构建的全面健康数据 AI 服务，可实现与健康和健身设备的无缝集成"
+title: "欢迎使用 Mirobody"
+description: "一个开源、可自托管的个人数据与 AI 引擎。本文档面向 Mirobody 的健康垂直，也是 Theta Wellness 应用的底层。"
 ---
 
-## 什么是 Mirobody Health？
+## Mirobody 是什么？
 
-Mirobody Health 是一个 **开源、AI 原生的数据引擎**，它将丰富的健康上下文与最新的 AI 能力联系起来，从而实现深度个性化且全面的健康 AI 体验。
+**Mirobody** 是一个面向 *个人* AI 的开源、可自托管的 **数据与 Agent 引擎** ——我们相信下一代 AI 的关键不是知道更多关于世界的事，而是更了解 *你*。
 
-它可以连接各种设备、处理文件（化验单、医疗文件）并提供支持 MCP/Tools/Skills 的自主 Agent 能力，同时还提供开箱即用的身份验证/前端/MCP 服务器功能——是管理具有隐私保护的个人健康数据或构建定制健康 AI 应用的理想选择。
+- 🔌 **HTTP Remote MCP Server** —— 写好的工具立即可被 ChatGPT、Claude、Cursor 等任何 MCP 客户端调用
+- 🤖 **原生 Agent 运行时** —— 本地复刻 Claude Code 的自主能力，并支持 **Claude Agent Skills**（`SKILL.md`）
+- 🔄 **可插拔数据源** —— 通过 Providers API 接入任意数据；已内置 300+ 可穿戴设备、Apple Health、Google Health，以及覆盖美国约 90% 病历的 EHR
+- 🏥 **医疗级标准** —— 400+ 健康指标统一对齐到 **FHIR / LOINC / SNOMED CT / RxNorm**，支持跨术语检索
+
+> **Health、Finance & More.** Mirobody 本身与领域无关：这份文档聚焦健康垂直（[Theta Wellness](https://www.thetahealth.ai/) 的底层），但同一套架构同样能驱动金融、法律、DevOps 等任何"个人数据 × AI"的垂直。把你的模块放进 `tools/` 和 `skills/` 即可开干。
 
 <CardGroup cols={2}>
-  <Card
-    title="快速开始"
-    icon="rocket"
-    href="/zh/quickstart"
-  >
-    使用 Docker 在 5 分钟内启动并运行
+  <Card title="快速开始" icon="rocket" href="/zh/quickstart">
+    一行命令 Docker 部署，5 分钟跑起来
   </Card>
-  <Card
-    title="用例与示例"
-    icon="lightbulb"
-    href="/zh/use-cases"
-  >
-    查看使用合成健康数据构建的真实示例
+  <Card title="用例与示例" icon="lightbulb" href="/zh/use-cases">
+    基于合成健康数据的真实对话片段
   </Card>
-  <Card
-    title="Provider 集成"
-    icon="plug"
-    href="/zh/development/provider-integration"
-    >
-    了解如何集成新的健康设备提供商
+  <Card title="Provider 集成" icon="plug" href="/zh/development/provider-integration">
+    几小时接入一种新设备或数据源
   </Card>
-  <Card
-    title="API 参考"
-    icon="code"
-    href="/zh/api-reference/introduction"
-  >
-    探索完整的 API 文档
+  <Card title="API 参考" icon="code" href="/zh/api-reference/introduction">
+    Pulse、Chat、MCP 协议端点
   </Card>
 </CardGroup>
 
-## 核心特性
+## 为什么选 Mirobody？
 
 <AccordionGroup>
-  <Accordion title="集成外部健康数据" icon="link">
-    连接可穿戴设备、硬件设备和医疗记录（即将推出）。使用我们的集成框架，在数小时内实现“带上你自己的数据提供商 (BYOP)”。支持与 Garmin、Whoop 等的 OAuth 加密连接。
+  <Accordion title="一次写工具，到处都能用" icon="wrench">
+    不用写 JSON schema、不用做手动绑定 —— **Python 代码本身就是定义**。`tools/` 目录里的函数会同时在 ChatGPT（通过 Apps SDK）、Claude / Cursor（通过 MCP）以及本地 Web 客户端里可用。Mirobody 既是 MCP **客户端**（消费工具），也是 OAuth 加持的 MCP **服务端**（暴露工具）。
   </Accordion>
 
-  <Accordion title="文件处理与管理" icon="file">
-    支持多模态文档：PDF、Excel 文件、照片（PNG、JPEG、WebP、HEIC、HEIF）和音频（WAV、MP3、AIFF、AAC、OGG、FLAC）。使 Agent 能够访问文件中的上下文，从化验单到手写笔记。
+  <Accordion title="数据完全留在你这里" icon="lock">
+    引擎端到端在本地运行 —— Postgres、Redis、Agent 运行时、MCP 服务器、文件管线，全部自托管。LLM 可走 OpenRouter，也可直连 OpenAI、Gemini、Anthropic、Azure、火山引擎、阿里 Dashscope。没有任何第三方数据中转。
   </Accordion>
 
-  <Accordion title="原生支持 Tools、MCPs 和 Skills" icon="wrench">
-    开箱即用，包含专注于健康的工具。使用 Python 添加自定义工具，无需复杂的 JSON Schema 或手动绑定。连接到第三方 MCP。直接加载标准 Claude Agent Skills（即将推出）。
+  <Accordion title="三种 Agent 各司其职" icon="robot">
+    - **DeepAgent** —— 单模型工具编排，最擅长多步深度研究
+    - **MixAgent** —— 两阶段融合：一个强模型负责工具调用与数据收集，一个便宜模型负责生成回复；适合在高吞吐场景下平衡成本与质量
+    - **BaselineAgent** —— 不调工具、直连 LLM，适合低延迟 Q&A
   </Accordion>
 
-  <Accordion title="使用 SOTA Agent 框架进行对话" icon="comments">
-    强大的 Agent 容器在本地复制了 Claude Code 的自主能力。智能利用工具并利用相关的健康上下文进行深度研究和洞察。
+  <Accordion title="原生支持 Claude Agent Skills" icon="bolt">
+    在 `skills/` 里丢一个 `SKILL.md` + `metadata.json`，Agent 就会自动发现并加载。Skill 正文会在被激活时整体写入上下文，可以放心写详细的步骤、示例和边界情况。
   </Accordion>
 
-  <Accordion title="MCP 服务器和 ChatGPT 应用" icon="bolt">
-    作为支持 OAuth 的 MCP 服务器运行，连接到 Claude、Cursor 或自定义客户端。同时也可作为 GPT 应用运行，在 ChatGPT 中启用相关能力。
+  <Accordion title="多模态文件处理" icon="file">
+    支持 PDF、Excel、CSV、音频（WAV/MP3/AIFF/AAC/OGG/FLAC）、图像（PNG/JPEG/WebP/HEIC/HEIF）、基因数据。LLM 抽取自动把自由文本映射到标准指标。
   </Accordion>
 
-  <Accordion title="随处部署，完全掌控" icon="server">
-    所有组件均为开源，可在本地运行并提供完全的隐私保护。通过 OpenRouter 或第一方密钥接入你自己的 LLM 提供商。使用 Docker 一行命令安装。
+  <Accordion title="代码沙箱执行" icon="terminal">
+    内置 `execute` 工具把 shell 与 Python 跑在 [E2B](https://e2b.dev) 云沙箱中，做数据分析、生成图表都没问题；文件写入由 PostgreSQL 持久化，上一轮 `write_file` 写下的内容下一轮 `execute` 可以直接读到。
+  </Accordion>
+
+  <Accordion title="哪儿都能部署" icon="server">
+    Docker 一行 `./deploy.sh`；本地 Python 开发用 `pip install -e .`；想公开 MCP 端点给 ChatGPT Apps，把 `MCP_PUBLIC_URL=https://yourdomain.com` 写进配置即可。
   </Accordion>
 </AccordionGroup>
 
-## 支持的 Providers
+## 架构总览
+
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **Agent 运行时** | `mirobody/pub/agents/` | DeepAgent、MixAgent、BaselineAgent |
+| **LLM 客户端** | `mirobody/utils/llm/` | OpenAI / Gemini / Anthropic / Azure / 火山 / Dashscope，含 HIPAA 合规路由 |
+| **MCP 服务器** | `mirobody/mcp/` | JSON-RPC 2.0，本地 + HTTP 远程访问 |
+| **Chat 服务** | `mirobody/chat/` | 会话、历史、HTTP/WebSocket 流式、记忆 |
+| **数据管线 (Pulse)** | `mirobody/pulse/` | 300+ 设备、Apple/Google Health、EHR、文件解析、聚合 |
+| **健康标准** | `mirobody/indicator/`、`mirobody/pulse/core/` | 400+ 指标、FHIR/LOINC/SNOMED CT/RxNorm |
+| **Embeddings** | `mirobody/utils/embedding.py` | 1024 维，Gemini/Qwen，pgvector 语义检索 |
+
+**扩展点**全部是仓库根目录下的文件夹，丢进去就自动发现：
+
+| 目录 | 用途 |
+|------|------|
+| `tools/` | Python 工具 → 自动注册为 MCP 工具 |
+| `skills/` | Claude Agent Skills（`SKILL.md` + `metadata.json`） |
+| `agents/` | 自定义 Agent 实现 |
+| `providers/` | 自定义数据 Provider |
+| `prompts/` | Jinja2 prompt 模板 |
+| `resources/` | 通过 MCP 暴露的静态资源 |
+
+## 内置 Providers（健康垂直）
 
 <CardGroup cols={3}>
-  <Card title="Garmin" icon="watch">
-    活动、睡眠、心率、HRV 等
-  </Card>
-  <Card title="Whoop" icon="heartbeat">
-    恢复、睡眠、周期、锻炼、身体指标
-  </Card>
-  <Card title="Apple Health" icon="apple">
-    健康数据和记录（即将推出）
-  </Card>
-  <Card title="自定义 Providers" icon="plus">
-    通过集成指南轻松添加你自己的提供商
-  </Card>
+  <Card title="Garmin" icon="watch">活动、睡眠、心率、HRV</Card>
+  <Card title="Whoop" icon="heart-pulse">恢复、睡眠、训练、周期</Card>
+  <Card title="Oura" icon="ring">睡眠、状态、活动</Card>
+  <Card title="Renpho" icon="weight-scale">体成分、体重</Card>
+  <Card title="Apple Health" icon="apple">iOS Health + CDA 病历</Card>
+  <Card title="Google Health" icon="google">Android 健康数据</Card>
 </CardGroup>
+
+通过 Vital 集成可触达 300+ 设备；EHR 覆盖美国约 90% 病历。自定义 Provider 通常几小时即可完成接入 —— 详见 [Providers 开发](/zh/development/provider-integration)。
 
 ## 技术栈
 
-Mirobody Health 使用现代且可用于生产环境的技术构建：
+- **Python 3.10+**，全链路 async/await
+- **FastAPI / Starlette ASGI** 作为 HTTP 层
+- **PostgreSQL** 主存储 + **pgvector** 语义检索
+- **Redis** 缓存与会话
+- **Docker Compose** 一键部署
+- **E2B** 代码沙箱执行
+- **OAuth 1.0a / 2.0 / OIDC / WebAuthn / FIDO2** 多种鉴权
 
-- **Python 3.12+**：使用 async/await 模式实现高性能
-- **FastAPI**：用于构建 API 的快速、现代 Web 框架
-- **PostgreSQL**：用于数据存储的稳健关系型数据库
-- **Redis**：高性能缓存和会话管理
-- **Docker**：实现一致性的容器化部署
-- **OAuth 1.0 & 2.0**：行业标准身份验证协议
-
-## Mirobody Health 适合谁？
+## 适用人群
 
 <CardGroup cols={2}>
   <Card title="个人用户" icon="user">
-    任何寻求私密、智能平台来管理和了解其健康数据的人
+    希望把健康数据收进自己手里、用 AI 看懂它，而不想交给第三方的人
   </Card>
   <Card title="开发者" icon="code">
-    为自己或组织构建健康 AI 应用的开发者
+    构建"个人数据 × AI"产品的工程师，无论你做的是健康、金融、法律还是 DevOps
   </Card>
 </CardGroup>
 
-## 真实世界示例
+## 真实示例
 
 <Info>
-以下所有示例均使用合成健康数据生成。部分示例还使用了 Theta 的额外私有工具。
+下文示例使用 **合成健康数据**，部分用到了 Theta 的私有工具。
 </Info>
 
-### 私有健康数据管理与对话
+<Warning>
+**注意：** 当前示例对话中内嵌的图表图片暂时失效（demo 录制后 S3 access key 已轮换）。文字内容仍能正常打开；图表 URL 在读取时重新签名的后端修复正在跟踪中。
+</Warning>
 
-将分布在可穿戴设备、医疗门户、PDF 和跨越多年的纸质报告中的碎片化数据整理成一个连贯的记忆。通过内置对话或在 ChatGPT 或 Claude 等外部平台上访问完整的健康上下文。
+### 个人健康数据管理与对话
 
 <AccordionGroup>
-  <Accordion title="跨多个系统和年份追踪健康问题" icon="timeline">
-    在多个医疗系统（甚至跨国）中查询跨越多年的同一个健康问题：
+  <Accordion title="跨系统、跨年度追踪同一健康问题" icon="timeline">
+    跨多个医疗系统、甚至跨国家查询同一个健康问题：
 
     <CardGroup cols={2}>
       <Card title="膝痛进展" icon="link" href="https://test-mirobody.thetahealth.ai/share/5d2d324f-d71b-4bf1-9cd0-8c23e94a272d">
-        跨不同提供商追踪膝痛随时间的进展
+        在不同 Provider 间追踪膝痛进展
       </Card>
-      <Card title="心血管疾病" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
-        跨多个医疗系统监测心血管健康
+      <Card title="心血管历史" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
+        跨医疗系统监测心血管健康
       </Card>
     </CardGroup>
   </Accordion>
 
-  <Accordion title="统一健康问题分析" icon="chart-line">
-    结合设备数据、医疗记录等，获取某个健康问题的全面数据：
+  <Accordion title="统一的健康问题分析" icon="chart-line">
+    把设备数据、病历、自述笔记合并到一起做分析：
 
     <CardGroup cols={2}>
-      <Card title="心血管总结" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
-        总结来自不同数据源的心血管状况
+      <Card title="心血管摘要" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
+        跨数据源汇总心血管状况
       </Card>
-      <Card title="糖尿病病史与进展" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
-        使用设备、记录和其他来源追踪糖尿病史
+      <Card title="糖尿病历史与进展" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
+        从设备、病历、其他来源追踪糖尿病
       </Card>
     </CardGroup>
   </Accordion>
 
   <Accordion title="为就诊做准备" icon="user-doctor">
-    <Card title="全科医生就诊准备" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
-      为您的一般健康检查生成全面的摘要和问题
+    <Card title="PCP 就诊准备" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
+      给初级保健（PCP）就诊生成完整摘要与待问问题清单
     </Card>
   </Accordion>
 </AccordionGroup>
 
-### 个人健康的深度研究
-
-将个人健康数据与来自在线搜索、工具或 MCP 的公共知识联系起来。进行深度健康研究，生成类似于 Gemini/GPT 深度研究但高度针对您个人情况的报告。
+### 个人健康深度研究
 
 <AccordionGroup>
-  <Accordion title="识别健康模式与驱动因素" icon="magnifying-glass-chart">
-    分析数据以发现对您健康有益或有害的因素：
+  <Accordion title="识别健康规律与驱动因素" icon="magnifying-glass-chart">
+    找出真正在帮助或拖累你的因素：
 
     <CardGroup cols={2}>
       <Card title="血糖分析" icon="link" href="https://test-mirobody.thetahealth.ai/share/24c2a626-63c4-4f5b-b860-dec65cbd69da">
-        找出影响您血糖水平的因素
+        定位影响血糖的因子
       </Card>
-      <Card title="症状和感受驱动因素" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
-        发现您症状和感受背后的主要驱动因素
+      <Card title="症状与情绪驱动因素" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
+        发现症状与情绪背后的主导原因
       </Card>
     </CardGroup>
   </Accordion>
 
   <Accordion title="个性化治疗研究" icon="flask">
-    <Card title="糖尿病治疗方案" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
-      研究用于糖尿病管理的个性化方法（药物、治疗、设备、生活方式）
+    <Card title="糖尿病治疗选项" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
+      研究个性化的糖尿病管理方案（药物、设备、生活方式）
     </Card>
   </Accordion>
 </AccordionGroup>
 
-### 一体化健康数据引擎
-
-对于开发者，Mirobody Health 可作为 AI 健康应用的数据引擎，提供必要的基础设施，使您可以专注于创造独特的用户体验。
+### 作为开发者数据引擎使用
 
 <CardGroup cols={2}>
-  <Card title="可穿戴设备制造商" icon="watch">
-    集成您的设备并立即提供带有设备数据的 AI 聊天功能
+  <Card title="可穿戴设备厂商" icon="watch">
+    无需自建后端即可为你的设备添加 AI 对话能力
   </Card>
-  <Card title="研究应用" icon="microscope">
-    添加自定义工具以部署面向受试者的研究应用，而无需大量开发
+  <Card title="研究类应用" icon="microscope">
+    把自定义工具丢进 `tools/`，快速部署面向受试者的研究 App
   </Card>
-  <Card title="健康应用" icon="mobile">
-    使用完整的数据和 AI 后端构建消费者健康应用
+  <Card title="消费健康 App" icon="mobile">
+    以 Mirobody 作为数据 + AI 后端构建你的产品
   </Card>
-  <Card title="企业解决方案" icon="building">
-    联系我们获取额外的企业级支持和自定义集成
+  <Card title="企业级" icon="building">
+    定制集成与企业支持，请联系我们
   </Card>
 </CardGroup>
+
+## Theta Wellness：Mirobody 的旗舰应用
+
+[**Theta Wellness**](https://www.thetahealth.ai/) 是构建在 Mirobody 之上的旗舰健康智能 App，展示了引擎在生产级场景下的能力：300+ 设备、Apple/Google Health、EHR 病历，并支持语音、图像、文件、文字四种输入。
+
+我们之所以开源引擎，是因为同一套支撑医疗级健康 Agent 的架构，同样可以驱动你的金融分析师、法律助理或 DevOps Bot。换掉 `tools/` 里的文件，你就进入了一个新的垂直。
 
 ## 下一步
 
 <Steps>
-  <Step title="开始使用">
-    按照我们的[快速开始指南](/zh/quickstart)，使用 Docker 在几分钟内本地部署 Mirobody Health。
+  <Step title="开始上手">
+    跟着 [快速开始](/zh/quickstart) 用 `./deploy.sh` 跑起来。
   </Step>
-  
-  <Step title="配置 Providers">
-    为您想要集成的健康提供商设置 OAuth 凭据。请参阅[配置指南](/zh/configuration)。
+  <Step title="配置 Provider">
+    给想接入的设备配 OAuth 凭据，参见 [配置](/zh/configuration)。
   </Step>
-  
   <Step title="探索 API">
-    查看 [API 参考](/zh/api-reference/introduction)，了解如何链接用户、拉取数据和访问健康信息。
+    阅读 [API 参考](/zh/api-reference/introduction) 了解 Pulse、Chat 和 MCP 端点。
   </Step>
-  
-  <Step title="添加自定义 Providers">
-    按照 [Provider 集成指南](/zh/development/provider-integration) 添加对更多健康设备的支持。
+  <Step title="加自定义 Provider / 工具">
+    新设备走 [Provider 集成](/zh/development/provider-integration)；新工具直接往 `tools/` 丢一个 Python 文件即可。
   </Step>
 </Steps>
 
 ## 参与贡献
 
-我们欢迎任何形式的贡献！当您添加新设备、新工具或以任何方式改进框架时，我们希望您能与社区分享。
+新 Provider、新工具、框架改进，都欢迎 PR。
 
 <CardGroup cols={2}>
-  <Card title="GitHub 仓库" icon="github" href="https://github.com/thetahealth/mirobody-health">
-    查看源代码、提交问题并参与贡献
+  <Card title="GitHub 仓库" icon="github" href="https://github.com/thetahealth/mirobody">
+    源码、Issue、PR
   </Card>
   <Card title="贡献指南" icon="code-pull-request" href="/zh/development/contributing">
-    了解如何为项目做出贡献
+    如何提交变更
   </Card>
 </CardGroup>
 
 ## 社区与支持
 
 <CardGroup cols={2}>
-  <Card title="Discord 社区" icon="discord">
-    加入我们的社区参与讨论和获取支持（即将推出）
+  <Card title="Discord" icon="discord">
+    社区讨论（即将上线）
   </Card>
-  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody-health/issues">
-    报告漏洞并请求新功能
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
+    Bug 报告与功能请求
   </Card>
   <Card title="邮件支持" icon="envelope" href="mailto:developer@thetahealth.ai">
-    从我们的团队获取技术支持
+    直接联系技术团队
   </Card>
 </CardGroup>
 
-## Hackathon 即将举办
-
-我们将在未来几周内启动带奖金的 Hackathon。潜在主题包括：
-
-- **最佳健康应用用例**
-- **工具设计挑战**
-- **一键设备集成的最佳 Prompt**
-
-<Info>
-*请密切关注公告详情！*
-</Info>
-
 <Note>
-Mirobody Health 构建在 Mirobody 框架之上。有关核心框架的文档，请访问 Mirobody 文档。
+本文档覆盖 Mirobody 的**健康垂直**。开源引擎仓库见 <a href="https://github.com/thetahealth/mirobody">github.com/thetahealth/mirobody</a>。
 </Note>

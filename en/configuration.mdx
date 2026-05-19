@@ -1,11 +1,11 @@
 ---
 title: "Configuration"
-description: "Complete configuration guide for Mirobody Health including OAuth providers, AI services, and system settings"
+description: "Complete configuration guide for Mirobody: OAuth, AI providers, agents, MCP exposure, storage, and security."
 ---
 
 ## Configuration Overview
 
-Mirobody Health uses YAML-based configuration files for all system settings. This guide covers all configuration options and how to set them up properly.
+Mirobody uses layered YAML configuration. This guide walks through every option and how to wire it up. Anything whose key contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` is auto-encrypted on first load using your `CONFIG_ENCRYPTION_KEY`.
 
 <Info>
 Configuration changes require restarting the application to take effect.
@@ -13,7 +13,7 @@ Configuration changes require restarting the application to take effect.
 
 ## Configuration File Structure
 
-Mirobody Health uses environment-specific configuration files:
+Mirobody uses environment-specific configuration files:
 
 1. **`.env`** - Specifies which configuration to use
 2. **`config.[env].yaml`** - Your environment-specific configuration
@@ -70,11 +70,15 @@ Mirobody Health uses environment-specific configuration files:
 
 ## Agent Configuration
 
-Mirobody Health includes two agent types: **DeepAgent** (LangChain-based) and **BaselineAgent** (native Gemini/MiroThinker).
+Mirobody ships with **three** agent types:
+
+- **DeepAgent** — single-model tool orchestration, the default; requires `OPENROUTER_API_KEY`
+- **MixAgent** — two-phase fusion (capable orchestrator + cheap responder) for cost/quality balance
+- **BaselineAgent** — direct LLM chat without tools, low-latency Q&A
 
 ### DeepAgent Configuration
 
-DeepAgent supports multiple LLM providers and is recommended for complex tasks:
+DeepAgent supports multiple LLM providers and is recommended for complex tasks. `OPENROUTER_API_KEY` is required for it to start.
 
 ```yaml config.localdb.yaml
 # API Keys for DeepAgent
@@ -113,6 +117,27 @@ ALLOWED_TOOLS_DEEP: []     # Leave empty to allow all
 DISALLOWED_TOOLS_DEEP: []  # Specify tools to disable
 ```
 
+### MixAgent Configuration
+
+MixAgent runs two passes — a capable model orchestrates tools, a cheaper model writes the user-facing reply with the collected context. Useful when the orchestration phase needs sharper reasoning than the response phase:
+
+```yaml config.localdb.yaml
+# Same key conventions as DeepAgent
+PROVIDERS_MIX:
+  orchestrator:
+    llm_type: openai
+    api_key: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    model: anthropic/claude-sonnet-4.5
+    temperature: 0.1
+
+  responder:
+    llm_type: google-genai
+    api_key: GOOGLE_API_KEY
+    model: gemini-2.5-flash
+    temperature: 0.4
+```
+
 ### BaselineAgent Configuration
 
 BaselineAgent is optimized for lightweight operations:
@@ -149,7 +174,7 @@ To integrate health device providers, you need OAuth credentials from each provi
 
 <Steps>
   <Step title="Register as a Garmin Developer">
-    1. Visit [Garmin Connect Developer Portal](https://developer.garmin.com/)
+    1. Visit <a href="https://developer.garmin.com/">Garmin Connect Developer Portal</a>
     2. Sign in with your Garmin account
     3. Navigate to "Applications" and create a new application
     4. Fill in application details and submit for approval
@@ -198,7 +223,7 @@ To integrate health device providers, you need OAuth credentials from each provi
 
 <Steps>
   <Step title="Register as a Whoop Developer">
-    1. Visit [Whoop Developer Portal](https://developer.whoop.com/)
+    1. Visit <a href="https://developer.whoop.com/">Whoop Developer Portal</a>
     2. Create a developer account
     3. Create a new application
     4. Set required scopes:
@@ -254,7 +279,7 @@ Leave the client ID and secret empty (`''`) to disable a provider. The system wi
 
 ## AI Provider Configuration
 
-Mirobody Health supports multiple AI providers for chat functionality.
+Mirobody supports multiple AI providers for chat functionality.
 
 ### OpenAI
 
@@ -266,7 +291,7 @@ OPENAI_API_KEY_RTC: 'sk-...'  # For real-time API (optional)
 
 <Steps>
   <Step title="Get API Key">
-    1. Sign up at [OpenAI Platform](https://platform.openai.com/)
+    1. Sign up at <a href="https://platform.openai.com/">OpenAI Platform</a>
     2. Navigate to API Keys section
     3. Create a new API key
   </Step>
@@ -281,7 +306,7 @@ GOOGLE_API_KEY: 'AIza...'
 
 <Steps>
   <Step title="Get API Key">
-    1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+    1. Visit <a href="https://aistudio.google.com/app/apikey">Google AI Studio</a>
     2. Create a new API key
   </Step>
 </Steps>
@@ -295,7 +320,7 @@ OPENROUTER_API_KEY: 'sk-or-...'  # For AI chat and agents
 
 <Steps>
   <Step title="Get OpenRouter API Key">
-    1. Sign up at [OpenRouter](https://openrouter.ai/)
+    1. Sign up at <a href="https://openrouter.ai/">OpenRouter</a>
     2. Navigate to Keys section
     3. Create a new API key
   </Step>
@@ -312,7 +337,7 @@ ANTHROPIC_API_KEY: 'sk-ant-...'
 
 <Steps>
   <Step title="Get API Key">
-    1. Sign up at [Anthropic Console](https://console.anthropic.com/)
+    1. Sign up at <a href="https://console.anthropic.com/">Anthropic Console</a>
     2. Navigate to API Keys
     3. Create a new API key
   </Step>
@@ -387,6 +412,10 @@ DATA_PUBLIC_URL: 'http://localhost:18080'
 QR_LOGIN_URL: ''                 # Optional QR code login URL
 ```
 
+<Info>
+**`MCP_PUBLIC_URL` is the switch for HTTP Remote MCP.** Set it to a public HTTPS URL (e.g. `https://yourdomain.com` or a tunneled `https://abc123.ngrok.io`) and your MCP server becomes reachable at `<MCP_PUBLIC_URL>/mcp` for ChatGPT Apps, Claude Desktop over remote, and any other MCP client. See [ChatGPT Apps](/en/tools/chatgpt-apps).
+</Info>
+
 ## Security Configuration
 
 ### JWT and Encryption
@@ -427,7 +456,7 @@ openssl rsa -in private_key.pem -pubout -out public_key.pem
     FIREBASE_PROJECT_ID: 'your_project_id'
     ```
 
-    Get credentials from [Google Cloud Console](https://console.cloud.google.com/).
+    Get credentials from <a href="https://console.cloud.google.com/">Google Cloud Console</a>.
   </Tab>
 
   <Tab title="Apple Sign In">
@@ -439,7 +468,7 @@ openssl rsa -in private_key.pem -pubout -out public_key.pem
     APPLE_AUTH_CLIENT_ID: 'com.yourapp.client'
     ```
 
-    Get credentials from [Apple Developer Portal](https://developer.apple.com/).
+    Get credentials from <a href="https://developer.apple.com/">Apple Developer Portal</a>.
   </Tab>
 </Tabs>
 
@@ -523,7 +552,7 @@ For sending email notifications and codes:
 ```yaml config.yaml
 # Email Configuration
 EMAIL_FROM: 'noreply@yourdomain.com'
-EMAIL_FROM_NAME: 'Mirobody Health'
+EMAIL_FROM_NAME: 'Mirobody'
 EMAIL_TEMPLATE: ''               # Path to email templates
 EMAIL_SMTP_PASS: 'your_smtp_password'
 
@@ -549,6 +578,8 @@ SERPER_API_KEY: ''               # From serper.dev
 ```yaml config.yaml
 E2B_API_KEY: ''                  # From e2b.dev
 ```
+
+The built-in `execute` tool uses [E2B](https://e2b.dev) sandboxes to run shell and Python in isolation. Without an `E2B_API_KEY`, `execute` falls back to a no-op safe stub so the rest of the system keeps working; supply a key to unlock real code execution. PostgreSQL-backed file ops (`write_file`, `read_file`, etc.) stay in sync with sandbox runs — a file written by an agent is visible to the next `execute` call.
 
 ### FAL (AI Generation)
 

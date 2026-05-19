@@ -1,51 +1,69 @@
 ---
 title: "ChatGPT Apps"
-description: "Connect Mirobody Health capabilities to ChatGPT as a custom app"
+description: "Expose Mirobody as a ChatGPT App via the HTTP Remote MCP server"
 ---
 
 ## Overview
 
-ChatGPT Apps allow you to extend ChatGPT with custom functionality by connecting to external services. Mirobody Health supports ChatGPT Apps through its MCP endpoint, giving ChatGPT access to health data retrieval, provider connections, and more.
+ChatGPT Apps extend ChatGPT with custom functionality by talking to an external MCP server. Mirobody runs as an OAuth-enabled **HTTP Remote MCP server** out of the box — all you need is a public HTTPS URL pointed at your Mirobody instance.
 
 <Info>
-Learn more about ChatGPT Apps in the [official announcement](https://openai.com/index/introducing-apps-in-chatgpt/).
+Background reading: the <a href="https://openai.com/index/introducing-apps-in-chatgpt/">official ChatGPT Apps announcement</a> and the <a href="https://modelcontextprotocol.io">Model Context Protocol spec</a>.
 </Info>
+
+## How it works
+
+Mirobody's MCP server is a first-class HTTP service. When you set `MCP_PUBLIC_URL` in your config, Mirobody advertises that URL as its remote endpoint and accepts MCP traffic over HTTPS at `<MCP_PUBLIC_URL>/mcp`. ChatGPT (or any remote MCP client) connects there, authenticates via OAuth, and starts calling tools.
 
 ## Prerequisites
 
-Before connecting Mirobody Health to ChatGPT, you need to make your local MCP endpoint publicly accessible:
+You need a publicly-reachable HTTPS URL that forwards to your Mirobody instance.
 
 <Steps>
-  <Step title="Ensure Mirobody Health is running">
-    Your Mirobody Health instance should be running and accessible at `http://localhost:18080/mcp`.
+  <Step title="Make sure Mirobody is running">
+    Local: `http://localhost:18080/mcp` should return MCP JSON. Verify with:
+
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Content-Type: application/json" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+    ```
   </Step>
 
-  <Step title="Expose your local endpoint">
-    Use a tunneling service to make your local endpoint publicly accessible:
-    
+  <Step title="Choose a public-URL strategy">
+    **Option A — quick demo (tunnel from your laptop)**:
+
     ```bash
-    # Using ngrok
+    # ngrok
     ngrok http 18080
-    
-    # Or using cloudflared
+
+    # Or cloudflared
     cloudflared tunnel --url http://localhost:18080
     ```
-    
-    This will provide you with a public URL (e.g., `https://abc123.ngrok.io`) that forwards to your local instance.
+
+    Use the resulting HTTPS URL (e.g. `https://abc123.ngrok.io`).
+
+    **Option B — production (deploy with your own domain)**: terminate TLS at a reverse proxy (Caddy / nginx / a managed load balancer) and forward to your Mirobody container.
   </Step>
 
-  <Step title="Note your public MCP URL">
-    Your public MCP endpoint will be: `https://your-tunnel-domain/mcp`
-    
+  <Step title="Set MCP_PUBLIC_URL">
+    Add to your `config.{env}.yaml`:
+
+    ```yaml
+    MCP_PUBLIC_URL: "https://abc123.ngrok.io"   # or your production domain
+    ```
+
+    Restart Mirobody. Your public MCP endpoint is now `https://abc123.ngrok.io/mcp`.
+
     <Warning>
-    Keep this URL secure. Anyone with access to this URL can interact with your Mirobody Health instance.
+    Treat this URL as secret-equivalent — anyone who can reach it can attempt to OAuth into your Mirobody instance.
     </Warning>
   </Step>
 </Steps>
 
 ## Creating a ChatGPT App
 
-Once your MCP endpoint is publicly accessible, you can create a ChatGPT App:
+Once `MCP_PUBLIC_URL` is set and your tunnel/domain is reachable, register the app in ChatGPT:
 
 <Steps>
   <Step title="Access ChatGPT Apps">
@@ -57,7 +75,7 @@ Once your MCP endpoint is publicly accessible, you can create a ChatGPT App:
   </Step>
 
   <Step title="Enable Developer Mode">
-    Click on "Create your own" or access Developer Mode to start building a custom app. This will open the app creation interface where you can configure your Mirobody Health connection.
+    Click on "Create your own" or access Developer Mode to start building a custom app. This will open the app creation interface where you can configure your Mirobody connection.
 
     <Frame>
       <img src="/images/ChatGPT App Dev Mode.png" alt="ChatGPT Developer Mode for creating custom apps" />
@@ -67,65 +85,66 @@ Once your MCP endpoint is publicly accessible, you can create a ChatGPT App:
   <Step title="Add your MCP endpoint">
     In the app configuration:
     
-    1. **Name your app**: Give it a descriptive name like "Mirobody Health"
-    2. **Add MCP endpoint**: Enter your public MCP URL: `https://your-tunnel-domain/mcp`
-    3. **Description** (optional): Add a description of what health capabilities this app provides
-    4. **Test connection**: ChatGPT will validate that it can connect to your MCP endpoint
+    1. **Name your app**: e.g. "Mirobody"
+    2. **Add MCP endpoint**: your `MCP_PUBLIC_URL` plus `/mcp` (e.g. `https://abc123.ngrok.io/mcp`)
+    3. **Description** (optional): describe what your app does
+    4. **Test connection**: ChatGPT validates connectivity and discovers tools
 
     <Frame>
       <img src="/images/ChatGPT App Add New App.png" alt="Adding a new ChatGPT app with MCP endpoint configuration" />
     </Frame>
 
     <Tip>
-    ChatGPT will automatically discover all available tools from your Mirobody Health instance once connected.
+    ChatGPT auto-discovers every tool registered in your Mirobody instance — including anything you drop into the top-level `tools/` and `skills/` directories.
     </Tip>
   </Step>
 
   <Step title="Authenticate via OAuth">
-    When ChatGPT first connects to your Mirobody Health app, it will automatically redirect you to the login page for OAuth authentication.
-    
-    <Info>
-    Mirobody Health has built-in OAuth support. Simply log in with your credentials when prompted, and the authentication flow will complete automatically.
-    </Info>
-    
-    This OAuth flow ensures secure access to your health data and only needs to be completed once per ChatGPT session.
+    On first call ChatGPT redirects you to Mirobody's built-in OAuth login. Sign in once and the token is reused for the rest of the ChatGPT session.
   </Step>
 
   <Step title="Start using your app">
-    Once authenticated, your ChatGPT session can now:
-    - Retrieve user health profiles
-    - Query health data from connected providers
-    - Access any custom tools you've added to Mirobody Health
-    - Use resources exposed through your MCP server
+    The connected ChatGPT session can now:
+    - Retrieve health profiles and time-series data
+    - Query data from connected providers (Garmin, Whoop, Oura, Renpho, Apple/Google Health, EHR)
+    - Call any custom tool you registered in `tools/`
+    - Activate any Skill from `skills/`
+    - Read resources exposed at `resources/`
 
     <Check>
-    Your ChatGPT App is now connected to Mirobody Health!
+    Your ChatGPT App is now wired to Mirobody.
     </Check>
   </Step>
 </Steps>
 
 ## Available Capabilities
 
-When connected, ChatGPT will have access to:
+Once connected, ChatGPT has access to:
 
 <CardGroup cols={2}>
   <Card title="Health Profile" icon="user">
-    Retrieve comprehensive user health data and connected device information
+    Comprehensive user health context and connected device info
   </Card>
-  <Card title="Health Data Query" icon="chart-line">
-    Query specific health indicators and time-series data
+  <Card title="Time-Series Queries" icon="chart-line">
+    400+ standardized indicators with FHIR/LOINC/SNOMED CT cross-vocabulary search
   </Card>
   <Card title="Custom Tools" icon="wrench">
-    Any custom tools you've added to your Mirobody Health instance
+    Anything you registered under `tools/`
+  </Card>
+  <Card title="Skills" icon="bolt">
+    Claude Agent Skills auto-discovered from `skills/`
   </Card>
   <Card title="MCP Resources" icon="database">
-    Access to resources exposed through your MCP implementation
+    Static and dynamic resources via `resources/`
+  </Card>
+  <Card title="Sandbox Execution" icon="terminal">
+    The `execute` tool runs Python / shell inside an E2B sandbox
   </Card>
 </CardGroup>
 
 ## Example Use Cases
 
-Once connected, ChatGPT can perform sophisticated health data analysis by pulling information from all your connected devices, health records, and other relevant sources. Here are some real-world examples:
+ChatGPT can synthesize across devices, records, and uploaded files. Real-world examples:
 
 ### Quick Queries
 
@@ -160,46 +179,39 @@ For simple questions, you can ask:
 </Card>
 
 <Tip>
-These examples demonstrate ChatGPT's ability to synthesize data from multiple sources, perform longitudinal analysis, and generate actionable insights - all powered by your Mirobody Health data.
+The same MCP endpoint also works for Claude Desktop, Cursor, and any other MCP client — see [MCP Integration](/en/tools/mcp-integration).
 </Tip>
 
 ## Security Considerations
 
 <Info>
-**OAuth Authentication Built-in:**
-
-Mirobody Health includes OAuth authentication, which means users must log in before ChatGPT can access their health data. This provides a secure authentication layer for all requests.
+**OAuth is built in.** Anyone calling the MCP endpoint must complete Mirobody's OAuth flow first, so even a leaked URL can't be used without a valid session.
 </Info>
 
 <Warning>
-**Additional Security Recommendations:**
+**Additional hardening:**
 
-- Your public MCP endpoint URL should be kept secure and only shared with trusted services
-- Consider implementing rate limiting at the tunnel level
-- Monitor access logs for unusual activity
-- Only expose your endpoint when actively using it with ChatGPT
-- For production use, consider additional security measures like IP whitelisting
-- OAuth tokens have expiration times - users will need to re-authenticate when tokens expire
+- Treat `MCP_PUBLIC_URL` as a secret; do not share it publicly
+- Put the endpoint behind rate-limiting (Mirobody's `server/` middleware, or your reverse proxy)
+- Monitor access logs for unusual patterns
+- Only expose the tunnel when you're actively using it
+- For production: TLS at a managed proxy, IP allowlist if possible, observability on `/mcp`
+- OAuth tokens expire — users will re-authenticate periodically
 </Warning>
 
 ## Troubleshooting
 
-### Connection Failed
+### Connection failed
 
-If ChatGPT cannot connect to your MCP endpoint:
+1. Verify your tunnel / domain is reachable: `curl -I https://<MCP_PUBLIC_URL>/mcp`
+2. Confirm Mirobody is bound to `0.0.0.0:18080` inside its container
+3. Confirm `MCP_PUBLIC_URL` matches the URL you're giving ChatGPT
+4. Restart Mirobody after editing the config — it's only re-read on startup
 
-1. Verify your tunnel is running and accessible
-2. Check that Mirobody Health is running on port 18080
-3. Test the MCP endpoint directly: `curl https://your-tunnel-domain/mcp`
-4. Ensure no firewall is blocking the connection
+### Tools not appearing
 
-### Tools Not Appearing
-
-If tools aren't showing up in ChatGPT:
-
-1. Verify your MCP endpoint returns tool definitions
-2. Check Mirobody Health logs for errors
-3. Restart your tunnel and try reconnecting
-4. Ensure your tools are properly registered in Mirobody Health
-
+1. Hit `/mcp` directly with `tools/list` and confirm tools are returned
+2. Check Mirobody logs for tool-loading errors at startup
+3. Make sure your files in `tools/` follow the docstring convention (see [Adding Tools](/en/tools/adding-tools))
+4. Drop `--no-cache` and rebuild if you changed `mirobody/pub/tools/` and don't see updates
 

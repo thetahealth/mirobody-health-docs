@@ -1,181 +1,148 @@
 ---
 title: "Quick Start"
-description: "Get Mirobody Health up and running in under 5 minutes with Docker"
+description: "Get Mirobody running locally in under 5 minutes with one command."
 ---
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
-<CardGroup cols={2}>
-  <Card title="Docker" icon="docker">
+<CardGroup cols={3}>
+  <Card title="Docker + Compose" icon="docker">
+    Docker Desktop or `docker` + `docker compose`
   </Card>
-  <Card title="Docker Compose" icon="layer-group">
+  <Card title="Git" icon="code-branch">
+    To clone the repository
+  </Card>
+  <Card title="Git LFS" icon="boxes-stacked">
+    Required to pull `fhir_concept_graph.bin`
   </Card>
 </CardGroup>
 
 <Check>
-You can verify your Docker installation by running `docker --version` and `docker-compose --version`
+Verify your setup:
+
+```bash
+docker --version
+docker compose version
+git --version
+git lfs version
+```
+
+Install Git LFS via `brew install git-lfs` (macOS) or `apt install git-lfs` (Linux), then run `git lfs install` once.
 </Check>
 
-## Installation Steps
+## One-command deploy
 
 <Steps>
   <Step title="Clone the repository">
-    Clone the Mirobody Health repository to your local machine:
-
     ```bash
-    git clone https://github.com/thetahealth/mirobody-health.git
-    cd mirobody-health
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
     ```
   </Step>
 
-  <Step title="Set up configuration files">
-    Create your `.env` file and the config file:
-
+  <Step title="Run the deploy script">
     ```bash
-    cp .env.example .env
-    cp config.yaml config.localdb.yaml
-    ```
-    
-    <Tip>
-    The `ENV` variable tells the system which config file to use. `ENV=localdb` loads `config.localdb.yaml`.
-    </Tip>
-  </Step>
-
-  <Step title="Set environment variable">
-    Edit `.env` to set your configuration file:
-
-    ```bash .env
-    ENV=localdb
+    ./deploy.sh
     ```
 
-    This tells the system to use `config.localdb.yaml` for configuration.
-  </Step>
-
-  <Step title="Add API keys and configure agents">
-    Create `config.localdb.yaml` and add at least one LLM API key:
-
-    ```yaml config.localdb.yaml
-    # ============ LLM API Keys (At least one required) ============
-    GOOGLE_API_KEY: ''      # For Gemini models
-    OPENAI_API_KEY: ''      # For GPT models  
-    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, and other models via OpenRouter
-    
-    # ============ Agent Configuration ============
-    # Tool directories for MCP tools
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    # Resource directories for MCP resources  
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    # Agent directories
-    AGENT_DIRS:
-      - mirobody/pub/agents
-    ```
-
-    <Warning>
-    **At least one API key is required** for the system to work:
-    - **GOOGLE_API_KEY**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
-    - **OPENAI_API_KEY**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)  
-    - **OPENROUTER_API_KEY**: Get from [OpenRouter](https://openrouter.ai/keys) - provides access to Claude, DeepSeek, and other models
-    </Warning>
-    
-    <Info>
-    Mirobody Health includes two agent types:
-    - **DeepAgent** (LangChain-based): Best for complex tasks, file operations, multi-step planning
-    - **BaselineAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
-    
-    See [Tools Overview](/tools/overview) for details on agent capabilities and configuration.
-    </Info>
-  </Step>
-
-  <Step title="Configure providers (Optional)">
-    If you want to connect wearable devices like Garmin or Whoop, add their OAuth credentials:
-
-    ```yaml config.localdb.yaml
-    # Provider OAuth Credentials (Optional)
-    GARMIN_CLIENT_ID: ''
-    GARMIN_CLIENT_SECRET: ''
-    GARMIN_REDIRECT_URI: ''
-    
-    WHOOP_CLIENT_ID: ''
-    WHOOP_CLIENT_SECRET: ''
-    WHOOP_REDIRECT_URI: ''
-    ```
-
-    See the [Configuration guide](/configuration) for complete provider setup.
-  </Step>
-
-  <Step title="Deploy with Docker">
-    Run the deployment script to start all services:
-
-    ```bash
-    ./run.sh
-    ```
-
-    This will start three services:
-    - **Backend API** on port 18080
-    - **PostgreSQL** database on port 5432
-    - **Redis** cache on port 6379
+    This script:
+    - Generates a `.env` file with `ENV=localdb` and a fresh `CONFIG_ENCRYPTION_KEY`
+    - Creates a default `config.localdb.yaml`
+    - Builds the Docker image
+    - Starts Postgres, Redis, and the Mirobody backend
 
     <Check>
-    Wait for all services to start. You should see logs indicating successful startup.
+    When you see the backend log line `Uvicorn running on http://0.0.0.0:18080`, you're good.
     </Check>
   </Step>
 
-  <Step title="Verify the installation">
-    Open your browser and navigate to:
+  <Step title="Add at least one LLM API key">
+    Open `config.localdb.yaml` and fill in **at least one** of:
 
-    ```
-    http://localhost:18080
+    ```yaml config.localdb.yaml
+    # Required for DeepAgent (the default agent)
+    OPENROUTER_API_KEY: 'sk-or-...'
+
+    # Optional alternatives
+    OPENAI_API_KEY: 'sk-...'
+    GOOGLE_API_KEY: '...'
+    ANTHROPIC_API_KEY: 'sk-ant-...'
     ```
 
-    You should see the Mirobody Health welcome page.
+    <Warning>
+    **`OPENROUTER_API_KEY` is required for the default DeepAgent.** Get one at <a href="https://openrouter.ai/keys">openrouter.ai/keys</a>. Keys are auto-encrypted with your `CONFIG_ENCRYPTION_KEY` the first time Mirobody loads them.
+    </Warning>
+
+    <Info>
+    Mirobody includes three agents:
+    - **DeepAgent** — single-model tool orchestration, the default
+    - **MixAgent** — two-phase fusion (orchestrator + responder) for cost/quality balance
+    - **BaselineAgent** — direct LLM chat, no tools
+
+    See [Tools Overview](/en/tools/overview) for switching agents.
+    </Info>
   </Step>
 
-  <Step title="Log in">
-    Log in with the default demo account or the accounts set up in `config.yaml`.
+  <Step title="(Optional) Configure providers and OAuth">
+    To connect wearables or sign in with Google/Apple, add the corresponding credentials in `config.localdb.yaml`:
 
-    ``` 
+    ```yaml
+    # Wearables
+    GARMIN_CLIENT_ID: ''
+    GARMIN_CLIENT_SECRET: ''
+
+    WHOOP_CLIENT_ID: ''
+    WHOOP_CLIENT_SECRET: ''
+
+    # OAuth sign-in
+    GOOGLE_OAUTH_CLIENT_ID: ''
+    GOOGLE_OAUTH_CLIENT_SECRET: ''
+    ```
+
+    Full reference: [Configuration](/en/configuration).
+  </Step>
+
+  <Step title="Open the web app">
+    Visit <a href="http://localhost:18080">http://localhost:18080</a> and sign in with a preset demo account:
+
+    ```
     demo1@mirobody.ai
     777777
     ```
 
-    Once logged in, you can:
-    - **Upload files**: Lab reports, medical records, health documents (see [File Processing](/en/concepts/file-processing))
-    - **Chat with AI**: Ask questions about your health data
-    - **Connect providers**: Link Garmin, Whoop, and other devices (see [Using Providers](/en/providers/using-providers))
+    Other preset accounts (`demo2@mirobody.ai`, `demo3@mirobody.ai`) use the same password by default — see `EMAIL_PREDEFINE_CODES` in `config.localdb.yaml`.
+
+    Once in, you can:
+    - **Upload files** — lab reports, medical records, photos, audio (see [File Processing](/en/concepts/file-processing))
+    - **Chat with the agent** — ask anything about your data
+    - **Link providers** — Garmin, Whoop, Oura, Renpho, Apple Health (see [Using Providers](/en/providers/using-providers))
+  </Step>
+
+  <Step title="(Optional) Use the hosted client instead">
+    Prefer a polished web client over the local UI? Open [https://mirobody.ai](https://mirobody.ai) — it's our official hosted frontend that talks to your local backend over your machine.
+
+    <Tip>
+    The hosted client is convenient, but data flow stays local: it connects directly to your local API. Set your backend URL in the client's settings.
+    </Tip>
   </Step>
 </Steps>
 
-## Test the API
-
-Once the services are running, you can test the API endpoints:
+## Verify the API
 
 <Tabs>
-  <Tab title="Health Check">
-    Verify the server is running:
-
+  <Tab title="Health check">
     ```bash
     curl http://localhost:18080/health
     ```
   </Tab>
 
-  <Tab title="List Providers">
-    Get available health providers:
-
+  <Tab title="List providers">
     ```bash
     curl http://localhost:18080/api/v1/pulse/providers
     ```
   </Tab>
 
-  <Tab title="MCP Interface">
-    Test the MCP protocol endpoint:
-
+  <Tab title="MCP tools/list">
     ```bash
     curl -X POST http://localhost:18080/mcp \
       -H "Content-Type: application/json" \
@@ -188,87 +155,75 @@ Once the services are running, you can test the API endpoints:
   </Tab>
 </Tabs>
 
-## Available Endpoints
-
-After deployment, the following endpoints are available:
+## Endpoints
 
 <CardGroup cols={2}>
-  <Card title="Web Interface" icon="browser" href="http://localhost:18080">
-    Main web interface and documentation
+  <Card title="Web app" icon="browser" href="http://localhost:18080">
+    Local UI, file upload, chat
   </Card>
-  <Card title="MCP Protocol" icon="bolt" href="http://localhost:18080/mcp">
-    JSON-RPC 2.0 interface for AI agents
+  <Card title="MCP server (local)" icon="bolt" href="http://localhost:18080/mcp">
+    For Claude Desktop / Cursor
   </Card>
   <Card title="Chat API" icon="comments" href="http://localhost:18080/api/chat">
-    AI chat interface endpoint
+    OpenAI-compatible chat endpoint
   </Card>
-  <Card title="History" icon="clock-rotate-left" href="http://localhost:18080/api/history">
-    Session history endpoint
+  <Card title="History API" icon="clock-rotate-left" href="http://localhost:18080/api/history">
+    Session history
   </Card>
 </CardGroup>
 
-## Docker Services
+For ChatGPT Apps and other remote integrations, set `MCP_PUBLIC_URL=https://yourdomain.com` to expose the MCP server publicly over HTTPS — see [ChatGPT Apps](/en/tools/chatgpt-apps).
 
-The deployment includes three containerized services:
+## Docker services
 
 | Service | Port | Description |
 |---------|------|-------------|
-| backend | 18080 | FastAPI application server |
-| postgres | 5432 | PostgreSQL database |
-| redis | 6379 | Redis cache and session store |
+| `mirobody` | 18080 | FastAPI app, MCP server, chart renderer |
+| `pg` | 5432 | PostgreSQL with pgvector |
+| `redis` | 6379 | Cache and session store |
 
 <Tip>
-You can view logs for any service using:
+View logs:
 
 ```bash
-docker-compose logs -f backend
-docker-compose logs -f postgres
-docker-compose logs -f redis
+docker compose logs -f mirobody
+docker compose logs -f pg
+docker compose logs -f redis
 ```
 </Tip>
 
-## Common Commands
+## Common commands
 
 <AccordionGroup>
-  <Accordion title="Stop all services" icon="stop">
+  <Accordion title="Stop everything" icon="stop">
     ```bash
-    docker-compose down
+    docker compose down
     ```
   </Accordion>
 
-  <Accordion title="Restart services" icon="rotate">
+  <Accordion title="Restart" icon="rotate">
     ```bash
-    docker-compose restart
+    docker compose restart
     ```
   </Accordion>
 
-  <Accordion title="View logs" icon="file-lines">
+  <Accordion title="Rebuild image after code changes" icon="hammer">
     ```bash
-    # All services
-    docker-compose logs -f
-    
-    # Specific service
-    docker-compose logs -f backend
+    docker compose down
+    docker compose build --no-cache
+    docker compose up -d
     ```
   </Accordion>
 
-  <Accordion title="Rebuild containers" icon="hammer">
+  <Accordion title="Open the Postgres shell" icon="database">
     ```bash
-    docker-compose down
-    docker-compose build --no-cache
-    docker-compose up -d
+    docker compose exec pg psql -U mirobody -d mirobody
     ```
   </Accordion>
 
-  <Accordion title="Access database" icon="database">
+  <Accordion title="Open the Redis CLI" icon="terminal">
     ```bash
-    docker-compose exec postgres psql -U holistic_user -d holistic_db
-    ```
-  </Accordion>
-
-  <Accordion title="Access Redis CLI" icon="terminal">
-    ```bash
-    docker-compose exec redis redis-cli
+    docker compose exec redis redis-cli
     ```
   </Accordion>
 </AccordionGroup>
@@ -276,68 +231,58 @@ docker-compose logs -f redis
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Port already in use" icon="circle-exclamation">
-    If port 18080 is already in use, edit `config.yaml`:
+  <Accordion title="Port 18080 already in use" icon="circle-exclamation">
+    Change `HTTP_PORT` in `config.localdb.yaml`:
 
     ```yaml
-    HTTP_PORT: 18081  # Change to an available port
+    HTTP_PORT: 18081
     ```
 
-    Then restart the services.
+    Then `docker compose restart mirobody`.
   </Accordion>
 
-  <Accordion title="Database connection failed" icon="database">
-    Ensure PostgreSQL container is running:
-
+  <Accordion title="Postgres connection failed" icon="database">
     ```bash
-    docker-compose ps postgres
-    ```
-
-    Check database logs:
-
-    ```bash
-    docker-compose logs postgres
+    docker compose ps pg
+    docker compose logs pg
     ```
   </Accordion>
 
   <Accordion title="Redis connection failed" icon="server">
-    Verify Redis is running and accessible:
-
     ```bash
-    docker-compose exec redis redis-cli ping
+    docker compose exec redis redis-cli ping
     ```
-
-    Should return `PONG` if working correctly.
+    Should return `PONG`.
   </Accordion>
 
-  <Accordion title="Permission denied on deploy.sh" icon="lock">
-    Make the script executable:
-
+  <Accordion title="Permission denied on ./deploy.sh" icon="lock">
     ```bash
     chmod +x deploy.sh
     ```
+  </Accordion>
+
+  <Accordion title="DeepAgent fails to start" icon="robot">
+    `OPENROUTER_API_KEY` is missing or invalid. Fill it in `config.localdb.yaml` and restart.
   </Accordion>
 </AccordionGroup>
 
 ## Next Steps
 
-Now that you have Mirobody Health running:
-
 <CardGroup cols={2}>
-  <Card title="Configure Providers" icon="gear" href="/en/configuration">
-    Set up OAuth credentials for Garmin, Whoop, and other providers
+  <Card title="Configure providers" icon="gear" href="/en/configuration">
+    Set OAuth credentials for Garmin, Whoop, Oura, Renpho, and more
   </Card>
   <Card title="Explore the API" icon="code" href="/en/api-reference/introduction">
-    Learn how to use the Pulse API to link users and retrieve health data
+    Pulse, Chat, and MCP endpoints
   </Card>
-  <Card title="Understand Architecture" icon="diagram-project" href="/en/concepts/architecture">
-    Learn how Mirobody Health processes and standardizes health data
+  <Card title="Understand the architecture" icon="diagram-project" href="/en/concepts/architecture">
+    How data flows from devices through agents to your screen
   </Card>
-  <Card title="Add New Providers" icon="plus" href="/en/development/provider-integration">
-    Follow the guide to integrate additional health device providers
+  <Card title="Add a new provider" icon="plus" href="/en/development/provider-integration">
+    Hook in a new wearable or data source
   </Card>
 </CardGroup>
 
 <Note>
-For production deployment, see the [Production Deployment guide](/en/deployment/production) for security hardening and performance optimization.
+For production deployment, see [Production](/en/deployment/production) for security hardening and performance tuning.
 </Note>

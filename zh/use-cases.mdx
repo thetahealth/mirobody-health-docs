@@ -1,90 +1,112 @@
 ---
 title: "用例与示例"
-description: "通过合成数据展示 Mirobody Health 的真实世界能力"
+description: "Mirobody 在个人健康场景下能做什么 —— 基于合成数据的真实对话片段。"
 ---
 
 <Info>
-以下所有示例均使用合成健康数据生成。部分示例还使用了 Theta 的额外私有工具。
+下文所有示例跑在与 [快速开始](/zh/quickstart) 中相同的 **Mirobody 引擎** 上，配以 [Theta Wellness](https://www.thetahealth.ai/) 的精致前端和若干私有工具。对话内容均使用 **合成健康数据**。
 </Info>
 
-## 私有健康数据管理与对话
+<Warning>
+**关于示例图片：** 当前对话里内嵌的图表图片暂时无法显示 —— demo 录制后 S3 access key 已轮换。文字内容仍可正常打开。读取时重新签名图表 URL 的后端修复正在跟进中。
+</Warning>
 
-将分布在可穿戴设备、医疗门户、PDF 和跨越多年的纸质报告中的碎片化数据整理成一个连贯的记忆。通过内置对话或在 ChatGPT 或 Claude 等外部平台上访问完整的健康上下文。
+## 个人健康数据管理与对话
+
+把分散在可穿戴、医疗门户、PDF 和纸质报告中、跨越多年的碎片数据，整理成一段连贯记忆；再用本地对话访问它，或通过 MCP 暴露给 ChatGPT / Claude 使用。
 
 <AccordionGroup>
-  <Accordion title="跨多个系统和年份追踪健康问题" icon="timeline">
-    在多个医疗系统（甚至跨国）中查询跨越多年的同一个健康问题：
+  <Accordion title="跨系统、跨年份追踪同一健康问题" icon="timeline">
+    跨多个医疗系统、甚至跨国家，查询跨越多年的同一个问题：
 
     <CardGroup cols={2}>
       <Card title="膝痛进展" icon="link" href="https://test-mirobody.thetahealth.ai/share/5d2d324f-d71b-4bf1-9cd0-8c23e94a272d">
-        跨不同提供商追踪膝痛随时间的进展
+        在不同 Provider 间追踪膝痛进展
       </Card>
-      <Card title="心血管疾病历史" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
-        跨多个医疗系统监测心血管健康状况
+      <Card title="心血管历史" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
+        跨医疗系统监测心血管健康
       </Card>
     </CardGroup>
   </Accordion>
 
-  <Accordion title="统一健康问题分析" icon="chart-line">
-    结合设备数据、医疗记录等，获取某个健康问题的全面数据：
+  <Accordion title="统一的健康问题分析" icon="chart-line">
+    把设备数据、病历、自述笔记合并到一起做分析：
 
     <CardGroup cols={2}>
-      <Card title="心血管总结" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
-        总结来自不同数据源的心血管状况
+      <Card title="心血管摘要" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
+        跨数据源汇总心血管状况
       </Card>
       <Card title="糖尿病追踪" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
-        使用设备、记录和其他来源追踪糖尿病病史和进展
+        从设备、病历、其他来源追踪糖尿病
       </Card>
     </CardGroup>
   </Accordion>
 
-  <Accordion title="就诊准备" icon="user-doctor">
-    <Card title="家庭医生就诊准备" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
-      为您的一般健康检查生成全面的摘要和问题建议
+  <Accordion title="为就诊做准备" icon="user-doctor">
+    <Card title="PCP 就诊准备" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
+      给初级保健（PCP）就诊生成完整摘要与待问问题清单
     </Card>
   </Accordion>
 </AccordionGroup>
 
-## 个人健康的深度研究
+## 个人健康深度研究
 
-将个人健康数据与来自在线搜索、工具或 MCP 的公共知识联系起来。进行深度健康研究，生成类似于 Gemini/GPT 深度研究但高度针对您个人情况的报告。
+把个人数据与公开知识（搜索、MCP 工具、开放网络）连起来做深度研究 —— 深度堪比 Gemini / GPT Deep Research，但完全锚定 *你的* 数据。
 
 <AccordionGroup>
-  <Accordion title="识别健康模式与驱动因素" icon="magnifying-glass-chart">
-    分析数据以发现对您健康有益或有害的因素：
+  <Accordion title="识别健康规律与驱动因素" icon="magnifying-glass-chart">
+    找出真正在帮助或拖累你的因素：
 
     <CardGroup cols={2}>
       <Card title="血糖分析" icon="link" href="https://test-mirobody.thetahealth.ai/share/24c2a626-63c4-4f5b-b860-dec65cbd69da">
-        在不同数据源中找出影响您血糖水平的因素
+        跨数据源定位影响血糖的因子
       </Card>
-      <Card title="症状和感受驱动因素" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
-        发现您症状和感受背后的主要驱动因素
+      <Card title="症状与情绪驱动因素" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
+        发现症状与情绪背后的主导原因
       </Card>
     </CardGroup>
   </Accordion>
 
   <Accordion title="个性化治疗研究" icon="flask">
-    <Card title="糖尿病治疗方案" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
-      研究用于糖尿病管理的个性化方法（药物、治疗、设备、生活方式）
+    <Card title="糖尿病治疗选项" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
+      研究个性化的糖尿病管理方案（药物、设备、生活方式）
     </Card>
   </Accordion>
 </AccordionGroup>
 
 ## 开发者应用场景
 
-对于开发者，Mirobody Health 可作为 AI 健康应用的数据引擎，提供必要的基础设施，使您可以专注于创造独特的用户体验。
+对开发者而言，Mirobody 是你不必再造的"数据 + AI 后端"。把精力放在自己产品的独特部分上，剩下的事（接入、归一化、Agent 运行时、MCP、存储）交给 Mirobody。
 
 <CardGroup cols={2}>
-  <Card title="可穿戴设备制造商" icon="watch">
-    集成您的设备并立即提供带有设备数据的 AI 聊天功能
+  <Card title="可穿戴设备厂商" icon="watch">
+    一次集成你的设备，立刻获得基于设备数据的 AI 对话能力
   </Card>
-  <Card title="研究应用" icon="microscope">
-    添加自定义工具以部署面向受试者的研究应用，而无需大量开发
+  <Card title="研究类应用" icon="microscope">
+    把自定义工具丢进 `tools/`，无需重写后端即可部署面向受试者的研究 App
   </Card>
-  <Card title="健康应用" icon="mobile">
-    使用完整的数据和 AI 后端构建消费者健康应用
+  <Card title="消费健康 App" icon="mobile">
+    以完整的数据 + AI 引擎为底座构建你的消费产品
   </Card>
-  <Card title="企业解决方案" icon="building">
-    联系我们获取额外的企业级支持和自定义集成
+  <Card title="企业级" icon="building">
+    定制集成与企业支持 —— 欢迎联系我们
   </Card>
 </CardGroup>
+
+## 不止健康
+
+同一套 Mirobody 架构适用于任何"个人数据 × AI"的垂直：
+
+<CardGroup cols={3}>
+  <Card title="金融分析助手" icon="chart-line">
+    通过自定义 Provider 接入银行账户、券商数据、税务记录；让 Agent 帮你分析投资组合
+  </Card>
+  <Card title="法律助理" icon="scale-balanced">
+    把案件材料放进 `files/`，写一份针对你所在司法辖区的 SKILL，让 Agent 起草并引用
+  </Card>
+  <Card title="DevOps 助手" icon="terminal">
+    接入指标、日志、配置；用代码沙箱跑事后复盘和修复方案
+  </Card>
+</CardGroup>
+
+换掉 `tools/` 和 `skills/` 里的文件 —— 同一引擎，下一个垂直。

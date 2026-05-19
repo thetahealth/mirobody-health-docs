@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-description: "Detailed installation instructions for Mirobody Health on various platforms"
+description: "Detailed installation instructions for Mirobody on various platforms"
 ---
 
 ## Installation Methods
@@ -15,7 +15,7 @@ Choose the installation method that best suits your needs:
 
     <Tabs>
       <Tab title="macOS">
-        Download and install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop):
+        Download and install <a href="https://www.docker.com/products/docker-desktop">Docker Desktop for Mac</a>:
 
         ```bash
         brew install --cask docker
@@ -43,7 +43,7 @@ Choose the installation method that best suits your needs:
       </Tab>
 
       <Tab title="Windows">
-        Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop):
+        Install <a href="https://www.docker.com/products/docker-desktop">Docker Desktop for Windows</a>:
 
         1. Download the installer
         2. Run the installer
@@ -56,57 +56,59 @@ Choose the installation method that best suits your needs:
       </Tab>
     </Tabs>
 
-    ### Step 2: Clone Repository
+    ### Step 2: Install Git LFS
+
+    Required to pull binary assets such as `fhir_concept_graph.bin`.
 
     ```bash
-    git clone https://github.com/thetahealth/mirobody-health.git
-    cd mirobody-health
+    # macOS
+    brew install git-lfs
+
+    # Linux
+    sudo apt install git-lfs
+
+    git lfs install
     ```
 
-    ### Step 3: Configure Environment
-
-    Create your configuration files:
+    ### Step 3: Clone Repository
 
     ```bash
-    cp .env.example .env
-    cp config.yaml config.localdb.yaml
-    ```
-
-    Edit `.env` to set your environment:
-
-    ```bash
-    ENV=localdb
-    ```
-
-    Add at least one LLM API key to `config.localdb.yaml`:
-
-    ```yaml
-    # ============ LLM API Keys (At least one required) ============
-    GOOGLE_API_KEY: ''      # For Gemini models
-    OPENAI_API_KEY: ''      # For GPT models  
-    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, and other models
-    
-    # ============ Agent Configuration ============
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    AGENT_DIRS:
-      - mirobody/pub/agents
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
     ```
 
     ### Step 4: Deploy
 
     ```bash
-    ./run.sh
+    ./deploy.sh
     ```
 
+    `deploy.sh` will:
+
+    - Generate `.env` with `ENV=localdb` and a fresh `CONFIG_ENCRYPTION_KEY`
+    - Create a default `config.localdb.yaml`
+    - Build the Docker image
+    - Start Postgres, Redis, and the Mirobody backend
+
     <Check>
-    The deployment script will build and start all required services.
+    Wait for the backend log line `Uvicorn running on http://0.0.0.0:18080`.
     </Check>
+
+    ### Step 5: Add at Least One LLM API Key
+
+    Open `config.localdb.yaml` and set **at least one** of:
+
+    ```yaml
+    # Required for the default DeepAgent
+    OPENROUTER_API_KEY: 'sk-or-...'
+
+    # Optional alternatives
+    OPENAI_API_KEY: 'sk-...'
+    GOOGLE_API_KEY: '...'
+    ANTHROPIC_API_KEY: 'sk-ant-...'
+    ```
+
+    Sensitive keys are auto-encrypted on first load using the `CONFIG_ENCRYPTION_KEY` in `.env`.
   </Tab>
 
   <Tab title="From Source">
@@ -114,13 +116,16 @@ Choose the installation method that best suits your needs:
 
     ### Step 1: Clone and Setup
 
+    Mirobody requires **Python 3.10+** and **Node.js 18+** (the chart renderer is JS).
+
     ```bash
-    git clone https://github.com/thetahealth/mirobody-health.git
-    cd mirobody-health
-    
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
+
     # Create virtual environment
-    python3.12 -m venv venv
+    python3 -m venv venv
     source venv/bin/activate
+    pip install --upgrade pip
     ```
 
     ### Step 2: Install System Dependencies
@@ -144,53 +149,56 @@ Choose the installation method that best suits your needs:
     ### Step 3: Install Python Dependencies
 
     ```bash
-    pip install mirobody -r requirements.txt
+    pip install -e .
+
+    # Optional extras
+    # pip install -e ".[cn]"    # China region (Aliyun OSS, Volcengine, Dashscope)
+    # pip install -e ".[fin]"   # Financial data (yfinance)
+    # pip install -e ".[test]"  # Test suite
     ```
+
+    Mirobody is also published on PyPI as `mirobody` — `pip install mirobody` works for a non-editable install.
 
     ### Step 4: Install Node.js Dependencies
 
     ```bash
-    npm install @antv/gpt-vis-ssr ws
+    npm install --omit=dev
     ```
 
-    ### Step 5: Setup External Services
+    ### Step 5: Setup Backing Services
 
-    Start PostgreSQL and Redis (using Docker for simplicity):
+    Start PostgreSQL and Redis from the bundled compose file:
 
     ```bash
-    docker-compose up -d postgres redis
+    docker compose up -d pg redis
     ```
 
     ### Step 6: Configure
 
     ```bash
-    cp .env.example .env
-    cp config.yaml config.localdb.yaml
+    echo "ENV=localdb" > .env
+    echo "CONFIG_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
     ```
 
-    Edit `.env`:
-
-    ```bash
-    ENV=localdb
-    ```
-
-    Add at least one API key and database settings to `config.localdb.yaml`:
+    Add at least one API key (and any DB / Redis overrides) to `config.localdb.yaml`:
 
     ```yaml
-    # ============ LLM API Keys (At least one required) ============
-    GOOGLE_API_KEY: ''
+    # Required for the default DeepAgent
+    OPENROUTER_API_KEY: 'sk-or-...'
+
+    # Optional alternatives
     OPENAI_API_KEY: ''
-    OPENROUTER_API_KEY: ''
-    
-    # ============ Database Configuration ============
+    GOOGLE_API_KEY: ''
+    ANTHROPIC_API_KEY: ''
+
+    # ============ Database (defaults work with the compose file above) ============
     PG_HOST: 'localhost'
     PG_PORT: 5432
-    PG_USER: ''
+    PG_USER: 'mirobody'
     PG_PASSWORD: ''
-    PG_DBNAME: ''
-    PG_SCHEMA: ''
-    
-    # ============ Redis Configuration ============
+    PG_DBNAME: 'mirobody'
+
+    # ============ Redis ============
     REDIS_HOST: 'localhost'
     REDIS_PORT: 6379
     REDIS_DB: 0
@@ -200,7 +208,7 @@ Choose the installation method that best suits your needs:
     ### Step 7: Run
 
     ```bash
-    python main.py
+    python -m main
     ```
 
     <Check>
@@ -288,7 +296,7 @@ After installation, verify everything is working:
     ```
 
     <Info>
-    Mirobody Health includes two agent types:
+    Mirobody includes two agent types:
     - **DeepAgent** (LangChain-based): Best for complex tasks, file operations, multi-step planning
     - **BaselineAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
     
@@ -326,36 +334,45 @@ After installation, verify everything is working:
 After installation, your directory structure will look like this:
 
 ```
-mirobody-health/
-├── mirobody/                  # Main application package
-│   ├── chat/                 # Chat and agent services
-│   ├── mcp/                  # MCP protocol implementation
-│   ├── pulse/                # Health data providers
-│   │   ├── theta/           # OAuth providers (Garmin, Whoop, etc.)
-│   │   ├── apple/           # Apple Health platform
-│   │   ├── core/            # Core health data services
-│   │   └── file_parser/     # File processing handlers
-│   ├── pub/                  # Public tools and agents
-│   │   ├── tools/           # General-purpose MCP tools
-│   │   ├── tools_health/    # Health-specific MCP tools
-│   │   ├── resources/       # MCP resources
-│   │   └── agents/          # Agent implementations
-│   ├── server/               # HTTP server
-│   ├── user/                 # User authentication
-│   └── utils/                # Utilities
-├── database/                  # Database schemas and migrations
-│   └── resource/             # SQL initialization files
-├── image/                     # Logo and branding assets
-├── compose.yaml              # Docker Compose configuration
-├── config.yaml               # Base configuration (immutable)
-├── config.localdb.yaml       # Your environment configuration
-├── .env                      # Environment variables
+mirobody/
+├── mirobody/                  # Core engine package
+│   ├── chat/                 # Sessions, history, streaming, memory
+│   ├── mcp/                  # MCP JSON-RPC 2.0 server (local + remote HTTP)
+│   ├── pulse/                # Data pipeline (Pulse)
+│   │   ├── theta/           # Wearables: Garmin, Whoop, Oura, Renpho, Vital, ...
+│   │   ├── apple/           # Apple Health + CDA medical records
+│   │   ├── core/            # FHIR mapping, indicator registry, units, aggregation
+│   │   └── file_parser/     # PDF, Excel, CSV, audio, image, genetic
+│   ├── pub/                  # Built-in agents and tools
+│   │   ├── agents/          # DeepAgent / MixAgent / BaselineAgent
+│   │   ├── tools/           # Built-in MCP tools (file ops, chart, execute)
+│   │   └── resources/       # MCP resources
+│   ├── indicator/           # 400+ indicators, LOINC/SNOMED CT/RxNorm search
+│   ├── server/              # Starlette ASGI, JWT middleware, rate limiting
+│   ├── user/                # JWT, OAuth, WebAuthn/FIDO2, email verification
+│   └── utils/               # Config, LLM clients, embeddings, db, storage
+│
+├── tools/                    # ★ Drop-in Python tools → auto-exposed as MCP tools
+├── skills/                   # ★ Claude Agent Skills (SKILL.md + metadata.json)
+├── agents/                   # ★ Custom agent implementations
+├── providers/                # ★ Custom data providers
+├── prompts/                  # Jinja2 prompt templates
+├── resources/                # Static resources (HTML, JSON) exposed via MCP
+│
+├── database/                 # SQL schemas and migrations
+├── tests/                    # Integration tests (pytest)
+├── compose.yaml              # Docker Compose config
+├── config.yaml               # Base configuration (do not edit; copy to env file)
+├── config.localdb.yaml       # Your environment config (ENV=localdb)
+├── .env                      # ENV + CONFIG_ENCRYPTION_KEY
 ├── main.py                   # Application entry point
-├── requirements.txt          # Python dependencies
-├── package.json              # Node.js dependencies
-├── run.sh                    # Deployment script
-└── README.md                 # Documentation
+├── pyproject.toml            # Python package metadata
+├── package.json              # Node.js dependencies (chart renderer)
+├── deploy.sh                 # One-command Docker deploy
+└── README.md                 # Project overview
 ```
+
+The directories marked ★ are **the recommended extension points** — drop your files in and Mirobody auto-discovers them. See [Tools Overview](/en/tools/overview) for the full lifecycle.
 
 ## Troubleshooting Installation
 
@@ -427,7 +444,7 @@ mirobody-health/
       </Tab>
 
       <Tab title="Windows">
-        Download from [python.org](https://www.python.org/downloads/) or use `pyenv`:
+        Download from <a href="https://www.python.org/downloads/">python.org</a> or use `pyenv`:
         ```bash
         pyenv install 3.12
         pyenv global 3.12
@@ -475,7 +492,7 @@ mirobody-health/
     
     # Remove project directory
     cd ..
-    rm -rf mirobody-health
+    rm -rf mirobody
     ```
   </Tab>
 </Tabs>
@@ -490,7 +507,7 @@ mirobody-health/
     Follow the quick start guide to test your installation
   </Card>
   <Card title="Architecture" icon="diagram-project" href="/en/concepts/architecture">
-    Understand how Mirobody Health works
+    Understand how Mirobody works
   </Card>
   <Card title="Development" icon="code" href="/en/development/setup">
     Set up your development environment

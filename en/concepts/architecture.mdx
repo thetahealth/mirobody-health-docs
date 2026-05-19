@@ -1,505 +1,229 @@
 ---
 title: "Architecture Overview"
-description: "Understanding the architecture and design of Mirobody Health"
+description: "How Mirobody is laid out: AI & agent engine, FHIR + health standards, data pipeline, and infrastructure."
 ---
 
-## System Architecture
-
-Mirobody Health is built with a modular, layered architecture that separates concerns and enables easy extensibility.
-
-## Core Components
-
-<CardGroup cols={2}>
-  <Card title="API Layer" icon="server">
-    FastAPI-based REST API for external integrations
-  </Card>
-  <Card title="Provider System" icon="plug">
-    Pluggable OAuth integrations for health devices
-  </Card>
-  <Card title="Data Pipeline" icon="arrow-progress">
-    ETL pipeline for health data transformation
-  </Card>
-  <Card title="AI Services" icon="brain">
-    Multi-provider LLM integration for chat
-  </Card>
-  <Card title="MCP Protocol" icon="bolt">
-    Model Context Protocol for AI agents
-  </Card>
-  <Card title="Storage Layer" icon="database">
-    PostgreSQL and Redis for data persistence
-  </Card>
-</CardGroup>
-
-## Architecture Layers
-
-### 1. API Layer
-
-The API layer provides RESTful endpoints for all system interactions:
+Mirobody is a layered, plugin-friendly engine. Each layer can be replaced or extended independently — no monoliths, no hidden coupling.
 
 ```
-HTTP Server (FastAPI)
-├── /api/v1/pulse/          # Health provider endpoints
-├── /api/chat               # AI chat interface
-├── /api/history            # Session history
-└── /mcp                    # MCP protocol endpoint
+┌──────────────────────────────────────────────────────────────────┐
+│  Clients                                                          │
+│  ─────────────────────────────────────────────────────────────    │
+│  Web app (local + mirobody.ai)  •  ChatGPT Apps  •  Claude        │
+│  Cursor  •  any MCP client                                         │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │  HTTP / MCP (JSON-RPC 2.0) / OAuth
+┌─────────────────────────▼────────────────────────────────────────┐
+│  AI & Agent Engine                                                │
+│  ─────────────────────────────────────────────────────────────    │
+│  Chat service · DeepAgent / MixAgent / BaselineAgent · MCP        │
+│  server · LLM clients · Tools · Skills · Embeddings · Prompts     │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼────────────────────────────────────────┐
+│  FHIR & Health Standards                                          │
+│  ─────────────────────────────────────────────────────────────    │
+│  400+ StandardIndicator · FHIR / LOINC / SNOMED CT / RxNorm /     │
+│  CVX / DCM cross-vocab · unit normalization · concept graph       │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼────────────────────────────────────────┐
+│  Health Data Pipeline (Pulse)                                     │
+│  ─────────────────────────────────────────────────────────────    │
+│  300+ wearables · Apple/Google Health · EHR · file parser         │
+│  (PDF/Excel/CSV/audio/image/genetic) · aggregation · insights     │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼────────────────────────────────────────┐
+│  Infrastructure                                                   │
+│  ─────────────────────────────────────────────────────────────    │
+│  Starlette ASGI · JWT / OAuth / WebAuthn · async PostgreSQL +     │
+│  pgvector · Redis · Local / S3 / Aliyun OSS storage · E2B sandbox │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Features:**
-- Async request handling with FastAPI
-- Automatic API documentation (OpenAPI/Swagger)
-- CORS support for web clients
-- Request validation with Pydantic models
-- JWT-based authentication
+## AI & Agent Engine
 
-### 2. Provider System
+| Module | Path | Description |
+|--------|------|-------------|
+| **Chat Service** | `mirobody/chat/` | Session management, conversation history, HTTP + WebSocket streaming adapters, memory integration, session sharing |
+| **Agent Implementations** | `mirobody/pub/agents/` | DeepAgent (LangChain-based), MixAgent (two-phase fusion), BaselineAgent (direct LLM) |
+| **LLM Clients** | `mirobody/utils/llm/` | Provider-agnostic adapter for OpenAI, Gemini, Anthropic, Azure OpenAI, Volcengine, Dashscope. HIPAA-compliant routing for clinical workloads |
+| **MCP Server** | `mirobody/mcp/` | JSON-RPC 2.0, local + HTTP remote endpoint, auto-discovers tools and resources |
+| **Tools** | `mirobody/pub/tools/`, `tools/` | Built-in tools (file ops, charts, `execute`) + your drop-in Python files |
+| **Skills** | `skills/` | Claude Agent Skills (`SKILL.md` + `metadata.json`) auto-discovered at startup |
+| **Embeddings** | `mirobody/utils/embedding.py` | 1024-dim provider-agnostic embeddings (Gemini / Qwen), pgvector semantic search |
+| **Prompt Templates** | `prompts/` | Jinja2 system prompts with dynamic context (user timezone, available tools, health profile) |
 
-Pluggable architecture for health device integrations:
+### Three agents, three jobs
+
+| Agent | Phases | Use case |
+|---|---|---|
+| **DeepAgent** | Single model handles tools + response | Complex multi-step research, file ops, planning |
+| **MixAgent** | Orchestrator model (e.g. Claude Sonnet) → Responder model (e.g. Gemini Flash) | High-volume workloads where reasoning matters more than narration |
+| **BaselineAgent** | Direct LLM chat, no tools | Simple Q&A, low-latency, testing |
+
+DeepAgent is the default. See [Tools Overview](/en/tools/overview) for switching and configuration.
+
+### Tools and Skills
+
+**Tools** are plain Python functions in `tools/` — type hints + docstrings are the only "schema". Mirobody parses them once at startup and exposes them via MCP.
+
+```python
+# tools/my_tool.py
+def get_my_metric(date: str, user_info: dict) -> dict:
+    """
+    Fetch a custom metric for the given date.
+
+    Args:
+        date: ISO 8601 date string.
+
+    Returns:
+        Dict containing the metric value and unit.
+    """
+    user_id = user_info["user_id"]    # injected by Mirobody from JWT
+    return {"value": 42, "unit": "steps"}
+```
+
+**Skills** are Claude Agent Skills — a `SKILL.md` (the playbook the agent reads when the skill activates) plus a `metadata.json` (Mirobody-specific, used for discovery and IDE integration).
+
+```
+skills/glucose-coach/
+├── metadata.json   # name, summary, when_to_use, when_not_to_use, tags
+└── SKILL.md        # YAML frontmatter (name, description, license) + body
+```
+
+See [Adding Tools](/en/tools/adding-tools) and [MCP Integration](/en/tools/mcp-integration) for details.
+
+## FHIR & Health Standards
+
+| Module | Path | Description |
+|--------|------|-------------|
+| **FHIR Mapping** | `mirobody/pulse/core/fhir_mapping.py` | In-memory cache `indicator → FHIR code`, with optional auto-registration of new codes |
+| **Indicator Registry** | `mirobody/pulse/core/indicators_info.py` | 400+ `StandardIndicator` enum, multi-source (Vital, Apple Health, Garmin, Whoop, Renpho, ...) |
+| **Unit Conversion** | `mirobody/pulse/core/units.py` | Bidirectional: kg ↔ lb, °C ↔ °F, mg·dL⁻¹ ↔ mmol·L⁻¹, mmHg ↔ kPa, etc. |
+| **Indicator Search** | `mirobody/indicator/` | Embedding-based free-text → indicator code + concept-graph expansion across LOINC / SNOMED CT / RxNorm / CVX / DCM |
+| **Concept Graph** | `mirobody/indicator/concept_graph.py` + `fhir_concept_graph.bin` | Cross-vocabulary bridges and same-system siblings; pulled via Git LFS |
+
+### Two retrieval modes
+
+| Method | Scope | Input | Returns |
+|--------|-------|-------|---------|
+| `adapter.search(user_id, embeddings, top_k)` | Per-user | Pre-computed query embeddings | What does *this user* have that matches? |
+| `adapter.resolve(term, top_k)` | Global | Free text | What canonical codes does this term map to? |
+| `adapter.resolve_many(terms, top_k)` | Global, batched | List of free text | ~20–30× faster than looping `resolve()` |
+
+`search` joins `th_series_data` to scope to one user; `resolve` runs cosine over the full vocabulary and returns the global top-k *per code system* (LOINC, SNOMED CT, RXNORM, CVX, DCM, THETA).
+
+### Unit normalization
+
+Free-text "value + unit" strings from any device or chart, in any of the supported languages (en, zh, ja, ko, ru, de, fr, es), get normalized to a canonical UCUM unit plus a LOINC PROPERTY family:
+
+```
+"90次每分钟"    → ParsedQuantity(value=90.0,  unit="/min",   family="NRat")
+"<5.6 mg/dL"   → ParsedQuantity(value=5.6,   unit="mg/dL",  family="MCnc", comparator="<")
+"Millimol pro Liter" → "mmol/L"
+"600步"        → ParsedQuantity(value=600.0, unit="{steps}", family="Num")
+```
+
+Pure local computation — no DB, no embedding API.
+
+## Health Data Pipeline (Pulse)
+
+| Module | Path | Description |
+|--------|------|-------------|
+| **Platform Manager** | `mirobody/pulse/` | Platform–Provider plugin architecture, normalization to `StandardPulseData` |
+| **Theta Platform** | `mirobody/pulse/theta/` | Direct device integrations: Garmin, Whoop, Oura, Renpho, PostgreSQL, more |
+| **Apple Health** | `mirobody/pulse/apple/` | Apple Health import, CDA (Clinical Document Architecture) processing |
+| **Data Upload** | `mirobody/pulse/data_upload/` | `StandardPulseData` → `th_series_data` write pipeline |
+| **File Parser** | `mirobody/pulse/file_parser/` | Multi-format: PDF, CSV, Excel, audio, image, genetic; LLM-powered indicator extraction |
+| **Aggregation** | `mirobody/pulse/core/aggregate_indicator/` | Series → daily summaries; derived metrics; sleep window 18:00–18:00 |
+| **Health Insights** | `mirobody/pulse/core/insight/` | AI-powered trend detection, anomaly analysis, pattern recipes (multi-signal, recovery, glucose) |
+
+### Provider lifecycle
 
 ```mermaid
-graph TD
-    A[Provider Discovery] --> B[Provider Registration]
-    B --> C{Provider Type}
-    C --> |OAuth 1.0| D[OAuth1 Provider]
-    C --> |OAuth 2.0| E[OAuth2 Provider]
-    D --> F[Data Puller]
-    E --> F
-    F --> G[Data Formatter]
-    G --> H[Database Service]
+graph LR
+    A[Provider Discovery] --> B[OAuth Link]
+    B --> C[Periodic Pull]
+    C --> D[Save Raw to th_raw_data]
+    D --> E[Format → StandardPulseData]
+    E --> F[Push to th_series_data]
+    F --> G[Aggregate → Daily Summaries]
+    G --> H[Insights + Indicator Search]
 ```
 
-**Components:**
-- `BaseThetaProvider`: Abstract base class for all providers
-- `ThetaDataFormatter`: Standard data transformation utilities
-- `ThetaTimeUtils`: Timezone and timestamp handling
-- Provider-specific implementations (Garmin, Whoop, etc.)
+Every provider, whether built-in (`mirobody/pulse/theta/mirobody_garmin/`) or custom (`providers/mirobody_mydevice/`), implements the same `BaseThetaProvider` contract — see [Provider Integration](/en/development/provider-integration).
 
-### 3. Data Pipeline (TBD)
+## Infrastructure
 
-ETL (Extract, Transform, Load) pipeline for health data:
+| Module | Path | Description |
+|--------|------|-------------|
+| **Configuration** | `mirobody/utils/config/` | YAML + env var layered config, Fernet encryption for `_KEY`/`_SECRET`/`_TOKEN`/etc. |
+| **Storage Backend** | `mirobody/utils/config/storage/` | Pluggable: Local filesystem, AWS S3, Aliyun OSS |
+| **Auth & User** | `mirobody/user/` | JWT, OAuth 2.0 (Google / Apple), WebAuthn / FIDO2, email verification |
+| **Server** | `mirobody/server/` | Starlette ASGI, JWT middleware, rate limiting |
+| **Database** | `mirobody/utils/db.py` | Async PostgreSQL (psycopg) + pgvector, Redis cache/session store |
+| **Sandbox** | E2B (external) | `execute` tool runs shell + Python in isolated cloud sandboxes |
 
-```
-┌─────────────┐
-│  Pull Data  │ ─┐
-└─────────────┘  │
-                 │
-┌─────────────┐  │  ┌──────────────┐
-│  Save Raw   │ ◄┴─▶│ Push Service │
-└─────────────┘     └──────────────┘
-        │                   │
-        ▼                   ▼
-┌─────────────┐    ┌──────────────┐
-│  Format     │    │  Upload      │
-└─────────────┘    └──────────────┘
-        │                   │
-        ▼                   ▼
-┌─────────────┐    ┌──────────────┐
-│ Standardize │    │  Platform    │
-└─────────────┘    └──────────────┘
-```
-
-**Flow:**
-1. **Pull**: Fetch data from vendor API
-2. **Save**: Store raw data in database
-3. **Format**: Transform to standard format
-4. **Upload**: Push to Mirobody platform
-
-### 4. AI Services
-
-Multi-provider LLM integration for intelligent health insights:
-
-```python
-AI Services
-├── OpenRouter (Multi-model)
-├── OpenAI 
-├── Google
-├── Anthropic
-└── Local LLMs (coming later)
-```
-
-**Features:**
-- Provider-agnostic interface
-- Context management for conversations
-- Tool calling for health data access
-- Session history persistence
-
-### 5. MCP Protocol
-
-Model Context Protocol support for AI agent integration:
+### Configuration layering
 
 ```
-MCP Server
-├── Tools/        # Available tools
-│   ├── get_user_health_profile
-│   ├── get_health_indicator
-│   ├── genetic_service
-│   └── your custom tools
-├── Resources/    # Available resources
+config.yaml            ← base, do not edit
+  └── config.{env}.yaml  ← your overrides; ENV=localdb → config.localdb.yaml
+       └── env vars       ← highest precedence; injected by .env or shell
 ```
 
-**Capabilities:**
-- JSON-RPC 2.0 interface
-- Tool discovery and execution
-- Resource management
-- Agent orchestration
+Sensitive keys (anything whose name contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, `_TOKEN`) are auto-encrypted on first load using your `CONFIG_ENCRYPTION_KEY`. See [Configuration](/en/configuration).
 
-### 6. Storage Layer
+## Extension Points
 
-Dual storage system for different data types:
+Drop a file in and Mirobody picks it up at next startup:
 
-<Tabs>
-  <Tab title="PostgreSQL">
-    **Used for:**
-    - User credentials (encrypted)
-    - OAuth tokens and refresh tokens
-    - Raw health data (JSONB)
-    - Provider configurations
-    - Session history
+| Directory | Discovered as | Naming convention |
+|-----------|---------------|-------------------|
+| `tools/` | MCP tools | Files ending in `.py`; functions or `*Service` classes; `_*.py` files are ignored |
+| `skills/` | Claude Agent Skills | One sub-directory per skill, each with `SKILL.md` + `metadata.json` |
+| `agents/` | Conversational agents | `*Agent` classes; require an async `generate_response` |
+| `providers/` | Data providers | `mirobody_<slug>/provider_<slug>.py` extending `BaseThetaProvider` |
+| `prompts/` | Prompt templates | Jinja2 `.jinja` files referenced via `PROMPTS_<AGENT>` |
+| `resources/` | MCP resources | HTML, JSON, or other static files exposed over MCP |
 
-  </Tab>
+Custom directories take precedence over built-ins of the same name.
 
-  <Tab title="Redis">
-    **Used for:**
-    - OAuth state parameters (short-lived)
-    - Session tokens
-    - Rate limiting counters
-    - Caching API responses
-    - Temporary data storage
+## End-to-end request flow
 
-    **Key Patterns:**
-    ```
-    oauth2:state:{state}      # OAuth state
-    oauth:secret:{token}      # OAuth 1.0 secrets
-    cache:user:{user_id}      # User data cache
-    rate:{provider}:{user}    # Rate limiting
-    ```
-  </Tab>
-</Tabs>
+Here's what happens when a user sends "Show me my knee pain trend" in the web UI:
 
-## Data Flow
-
-### OAuth Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as API Server
-    participant R as Redis
-    participant P as Provider
-    participant DB as PostgreSQL
-
-    U->>API: Request link
-    API->>R: Store state
-    API->>U: Return OAuth URL
-    U->>P: Authorize
-    P->>API: Callback with code
-    API->>R: Validate state
-    API->>P: Exchange for tokens
-    P->>API: Return tokens
-    API->>DB: Save credentials
-    API->>U: Link complete
+```
+1. Browser POSTs to /api/chat (SSE).
+2. JWT middleware → user_id.
+3. Chat service creates/uses a session, persists user message to th_messages.
+4. DeepAgent (default) is loaded with the user's PROVIDERS_DEEP config.
+5. Agent calls tools/list via MCP, plans, then calls tools:
+   - get_user_profile  → user_id, timezone, available providers
+   - indicator search  → "knee pain" → SNOMED CT / LOINC candidates
+   - get_health_data   → time series joined by user_id + indicator
+   - chart_service     → renders PNG, uploads to S3, returns presigned URL
+6. Agent streams thinking / reply chunks via SSE; response is persisted.
+7. Aggregator + insights run in background for next session.
 ```
 
-### Health Data Synchronization
+For the session-sharing read-path (no auth), see [Session Sharing](/en/api-reference/chat/share).
 
-```mermaid
-sequenceDiagram
-    participant S as Scheduler
-    participant PP as Provider (Plugin)
-    participant V as Vendor API
-    participant DB as Database
-    participant PL as Platform
-
-    S->>PP: Trigger sync
-    PP->>DB: Get credentials
-    PP->>V: Fetch data
-    V->>PP: Return raw data
-    PP->>DB: Save raw data
-    PP->>PP: Format data
-    PP->>PL: Upload formatted data
-    PL->>DB: Store processed data
-```
-
-## Design Patterns
-
-### Plugin Architecture
-
-Providers are discovered and loaded dynamically:
-
-```python
-# Provider discovery
-THETA_PROVIDER_DIRS = ["connect/theta"]
-
-# Automatic loading
-for directory in THETA_PROVIDER_DIRS:
-    providers = discover_providers(directory)
-    for provider_class in providers:
-        provider = provider_class.create_provider(config)
-        if provider:
-            register_provider(provider)
-```
-
-### Factory Pattern
-
-Providers use factory methods for conditional instantiation:
-
-```python
-@classmethod
-def create_provider(cls, config: Dict) -> Optional['Provider']:
-    """Factory method - returns None if config invalid"""
-    if not cls._validate_config(config):
-        return None
-    return cls()
-```
-
-### Strategy Pattern
-
-Different OAuth strategies for OAuth 1.0 vs 2.0:
-
-```python
-class BaseThetaProvider:
-    def link(self, request) -> Dict:
-        """Implemented by OAuth1 or OAuth2 strategy"""
-        pass
-    
-    def callback(self, *args, **kwargs) -> Dict:
-        """Implemented by OAuth1 or OAuth2 strategy"""
-        pass
-```
-
-### Repository Pattern
-
-Database operations abstracted through services:
-
-```python
-class DatabaseService:
-    async def save_oauth2_credentials(self, ...): pass
-    async def get_user_credentials(self, ...): pass
-    async def delete_user_theta_provider(self, ...): pass
-```
-
-## Security Architecture
-
-<AccordionGroup>
-  <Accordion title="Authentication & Authorization" icon="key">
-    - JWT-based API authentication
-    - OAuth 1.0/2.0 for provider access
-    - Encrypted credential storage
-    - Per-user provider access control
-  </Accordion>
-
-  <Accordion title="Data Protection" icon="shield">
-    - Database-level encryption
-    - Encrypted OAuth tokens
-    - HTTPS for all external communication
-    - Sensitive data never logged
-  </Accordion>
-
-  <Accordion title="Access Control" icon="lock">
-    - User-scoped data access
-    - Provider-specific permissions
-    - API rate limiting
-    - CORS policies
-  </Accordion>
-
-  <Accordion title="Secure Communication" icon="shield-halved">
-    - TLS/SSL for external APIs
-    - State parameter for OAuth CSRF protection
-    - Token refresh mechanisms
-    - Secure session management
-  </Accordion>
-</AccordionGroup>
-
-## Scalability Considerations
-
-### Horizontal Scaling
-
-The system supports horizontal scaling:
+## Where to go next
 
 <CardGroup cols={2}>
-  <Card title="Stateless API" icon="server">
-    API servers are stateless, enabling horizontal scaling behind a load balancer
-  </Card>
-  <Card title="Distributed Cache" icon="layer-group">
-    Redis supports clustering for distributed caching
-  </Card>
-  <Card title="Database Pooling" icon="database">
-    Connection pooling enables multiple API instances
-  </Card>
-  <Card title="Async Processing" icon="arrows-spin">
-    Async/await enables high concurrency per instance
-  </Card>
-</CardGroup>
-
-
-## Deployment Architecture
-
-### Docker Compose Architecture
-
-```yaml
-services:
-  backend:
-    image: mirobody-backend
-    ports: ["18080:18080"]
-    depends_on: [db, redis]
-    
-  db:
-    image: postgres:15
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-    
-  redis:
-    image: redis:7
-    volumes: ["redis-data:/data"]
-
-volumes:
-  pgdata:
-  redis-data:
-```
-
-## Monitoring & Observability
-
-### Logging
-
-Structured logging throughout the system:
-
-```python
-# Log levels
-LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-
-# Contextual logging
-logging.info(
-    "Data pull completed",
-    extra={
-        "user_id": user_id,
-        "provider": provider_slug,
-        "records": len(data),
-        "duration_ms": duration
-    }
-)
-```
-
-### Metrics
-
-Track key performance indicators:
-
-- Request latency
-- Provider success rates
-- Data processing throughput
-- Error rates by provider
-- Token refresh rates
-
-### Health Checks
-
-```python
-GET /health
-{
-  "status": "healthy",
-  "version": "1.0.1",
-  "services": {
-    "database": "connected",
-    "redis": "connected"
-  }
-}
-```
-
-## Technology Stack
-
-<Tabs>
-  <Tab title="Backend">
-    - **Python 3.12+**: Core language
-    - **FastAPI**: Web framework
-    - **asyncio**: Async I/O
-    - **Pydantic**: Data validation
-    - **SQLAlchemy**: Database ORM
-  </Tab>
-
-  <Tab title="Storage">
-    - **PostgreSQL 15**: Relational database
-    - **Redis 7**: Cache and session store
-    - **JSONB**: Flexible data storage
-    - **S3 (optional)**: Object storage
-  </Tab>
-
-  <Tab title="Integration">
-    - **aiohttp**: Async HTTP client
-    - **requests-oauthlib**: OAuth 1.0
-    - **OAuth 2.0**: Modern auth
-    - **JSON-RPC 2.0**: MCP protocol
-  </Tab>
-
-  <Tab title="DevOps">
-    - **Docker**: Containerization
-    - **Docker Compose**: Local deployment
-    - **pytest**: Testing framework
-    - **GitHub Actions**: CI/CD
-  </Tab>
-</Tabs>
-
-## Extensibility Points
-
-The architecture provides multiple extension points:
-
-<AccordionGroup>
-  <Accordion title="New Providers" icon="plus">
-    See [Development](/en/development/setup) new health device integrations:
-  </Accordion>
-
-  <Accordion title="Tools & MCPs" icon="wrench">
-    1. See [Adding Custom Tools](/en/tools/adding-tools) to add new tools for AI agents
-    2. See [Adding Custom MCPs](/en/tools/adding-mcps) to add new MCPs for AI agents
-  </Accordion>
-
-  <Accordion title="Custom Indicators" icon="chart-line">
-    Add new health metrics:
-    1. Define in `StandardIndicator` enum
-    2. Specify standard unit
-    3. Update provider mappings
-  </Accordion>
-
-  <Accordion title="AI Providers" icon="robot">
-    Add new LLM providers:
-    1. Implement provider interface
-    2. Add configuration
-    3. Register in agent system
-    4. Deploy
-  </Accordion>
-</AccordionGroup>
-
-## Best Practices
-
-<CardGroup cols={2}>
-  <Card title="Separation of Concerns" icon="layer-group">
-    Each layer has a single responsibility
-  </Card>
-  <Card title="Dependency Injection" icon="syringe">
-    Services injected, not hard-coded
-  </Card>
-  <Card title="Interface-Based Design" icon="cube">
-    Program to interfaces, not implementations
-  </Card>
-  <Card title="Configuration-Driven" icon="gears">
-    Behavior controlled via configuration
-  </Card>
-  <Card title="Async First" icon="bolt">
-    Async/await for all I/O operations
-  </Card>
-  <Card title="Error Handling" icon="triangle-exclamation">
-    Graceful degradation and recovery
-  </Card>
-</CardGroup>
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="Provider System" icon="plug" href="/en/concepts/providers">
-    Deep dive into the provider system
+  <Card title="Providers" icon="plug" href="/en/concepts/providers">
+    How devices and EHRs hook in
   </Card>
   <Card title="Data Flow" icon="arrow-progress" href="/en/concepts/data-flow">
-    Understanding data transformation
+    From raw vendor payloads to normalized indicators
   </Card>
-  <Card title="Development Setup" icon="code" href="/en/development/setup">
-    Set up your development environment
+  <Card title="File Processing" icon="file" href="/en/concepts/file-processing">
+    Multi-format file ingestion and parsing
   </Card>
-  <Card title="Deployment" icon="rocket" href="/en/deployment/docker">
-    Deploy Mirobody Health
+  <Card title="Tools & MCP" icon="bolt" href="/en/tools/overview">
+    Build and expose tools across the MCP ecosystem
   </Card>
 </CardGroup>

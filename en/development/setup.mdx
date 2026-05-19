@@ -1,6 +1,6 @@
 ---
 title: "Development Setup"
-description: "Set up your local development environment for Mirobody Health"
+description: "Set up your local development environment for Mirobody"
 ---
 
 ## Prerequisites
@@ -8,7 +8,7 @@ description: "Set up your local development environment for Mirobody Health"
 Before setting up your development environment, ensure you have:
 
 <CardGroup cols={2}>
-  <Card title="Python 3.12+" icon="python">
+  <Card title="Python 3.10+" icon="python">
     Required for running the application
   </Card>
   <Card title="Node.js 18+" icon="node">
@@ -33,8 +33,8 @@ Before setting up your development environment, ensure you have:
 <Steps>
   <Step title="Clone the repository">
     ```bash
-    git clone https://github.com/thetahealth/mirobody-health.git
-    cd mirobody-health
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
     ```
   </Step>
 
@@ -58,91 +58,82 @@ Before setting up your development environment, ensure you have:
 
   <Step title="Create virtual environment">
     ```bash
-    python3.12 -m venv .venv
+    python3 -m venv .venv
     source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    pip install --upgrade pip
     ```
   </Step>
 
   <Step title="Install Python dependencies">
     ```bash
-    pip install mirobody -r requirements.txt
+    pip install -e .
+
+    # Optional extras
+    # pip install -e ".[cn]"    # China region (Aliyun OSS, Volcengine, Dashscope)
+    # pip install -e ".[fin]"   # Financial data (yfinance)
+    # pip install -e ".[test]"  # Test suite
     ```
-    
-    <Info>
-    The `mirobody` package contains core utilities. Installing in development mode with `-e .` is optional.
-    </Info>
+
+    Mirobody is also published on PyPI as `mirobody` — `pip install mirobody` works for a non-editable install.
   </Step>
 
   <Step title="Install Node.js dependencies">
     ```bash
-    npm install @antv/gpt-vis-ssr ws
+    npm install --omit=dev
     ```
-    
-    Required for chart rendering service.
+
+    Required for the server-side chart renderer.
   </Step>
 
-  <Step title="Start services">
+  <Step title="Start backing services">
     ```bash
-    docker-compose up -d postgres redis
+    docker compose up -d pg redis
     ```
-    
-    Or use your own PostgreSQL and Redis instances.
+
+    Or point Mirobody at your own PostgreSQL and Redis.
   </Step>
 
   <Step title="Configure environment">
     ```bash
-    cp .env.example .env
-    cp config.yaml config.localdb.yaml
+    echo "ENV=localdb" > .env
+    echo "CONFIG_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
     ```
-    
-    Edit `.env`:
-    ```bash
-    ENV=localdb
-    ```
-    
-    Edit `config.localdb.yaml` with your settings:
+
+    Then edit `config.localdb.yaml`:
+
     ```yaml
-    # At least one LLM API key required
-    GOOGLE_API_KEY: ''
+    # Required for the default DeepAgent
+    OPENROUTER_API_KEY: 'sk-or-...'
+
+    # Optional alternatives
     OPENAI_API_KEY: ''
-    OPENROUTER_API_KEY: ''
-    
-    # Database settings
+    GOOGLE_API_KEY: ''
+    ANTHROPIC_API_KEY: ''
+
+    # Database (defaults match the compose file)
     PG_HOST: 'localhost'
     PG_PORT: 5432
-    PG_USER: 'holistic_user'
-    PG_PASSWORD: 'holistic_password'
-    PG_DBNAME: 'holistic_db'
-    PG_SCHEMA: 'theta_ai'
-    
-    # Redis settings
+    PG_USER: 'mirobody'
+    PG_PASSWORD: ''
+    PG_DBNAME: 'mirobody'
+
+    # Redis
     REDIS_HOST: 'localhost'
     REDIS_PORT: 6379
     REDIS_DB: 0
     REDIS_PASSWORD: ''
-    
-    # MCP and Agent directories
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    AGENT_DIRS:
-      - mirobody/pub/agents
     ```
   </Step>
 
   <Step title="Run the application">
     ```bash
-    python main.py
+    python -m main
     ```
 
-    Server should start on http://localhost:18080
-    
+    Server starts on `http://localhost:18080`.
+
     <Tip>
-    If running under WSL, access from Windows via `http://localhost:18080`
+    Under WSL, the same URL is reachable from Windows.
     </Tip>
   </Step>
 </Steps>
@@ -196,7 +187,7 @@ pytest -m integration
 ## Project Structure
 
 ```
-mirobody-health/
+mirobody/
 ├── mirobody/                # Main application package
 │   ├── chat/               # Chat and agent services
 │   │   ├── adapters/      # Protocol adapters (HTTP, WebSocket)

@@ -1,307 +1,121 @@
 ---
 title: "使用 Provider"
-description: "将您的 Garmin、Whoop 和其他健康设备连接到 Mirobody Health"
+description: "将可穿戴设备、移动健康平台和电子病历数据源接入 Mirobody"
 ---
 
-## 概览
+## 什么是 Provider
 
-Provider 允许您将可穿戴设备和健康平台连接到 Mirobody Health。连接后，您的健康数据将自动同步并可用于 AI 分析。
+**Provider** 是一种可插拔的适配器，负责从外部数据源（可穿戴 API、移动健康平台、数据库等）拉取原始数据，并将其归一化为 Mirobody 的 `StandardPulseData` 标准结构。每个 Provider 位于 `mirobody/pulse/` 下的独立目录中（自定义 Provider 则放在 `providers/`），启动时自动加载。
 
-<CardGroup cols={2}>
-  <Card title="Garmin Connect" icon="heartbeat">
-    全面的健身和健康追踪
-  </Card>
-  <Card title="Whoop" icon="bolt">
-    恢复、负荷和睡眠优化
-  </Card>
-</CardGroup>
+健康垂直下的 Provider 大致分为三类：
 
-<Note>
-更多 Provider 即将推出。您也可以自己 [添加自定义 Provider](/zh/development/provider-integration)！
-</Note>
+- **Theta 平台**（`mirobody/pulse/theta/`）—— 由 Mirobody 自行维护的直连 OAuth/凭据集成：Garmin、Whoop、Oura、Renpho、Vital、PostgreSQL。
+- **Apple**（`mirobody/pulse/apple/`）—— iOS Health 导出以及 CDA（Clinical Document Architecture）医疗记录。
+- **Vital**（位于 Theta 平台之下）—— 一个聚合层，通过单一 OAuth 流程对接 300+ 可穿戴和 EHR 端点，覆盖约 90% 的美国医疗记录。
 
-## 连接 Provider
+所有 Provider 最终都写入相同的归一化表（`th_series_data`、`th_event_data`），因此下游工具、Agent 和 MCP 客户端无论数据来源如何，看到的都是统一的数据模型。
+
+## Provider 矩阵
+
+| Provider | 模块 | 数据 | 认证方式 | 配置键 | 凭据获取 |
+|----------|------|------|----------|--------|----------|
+| **Garmin** | `mirobody/pulse/theta/mirobody_garmin_connect/` | 活动、睡眠、心率、HRV、压力、身体成分、训练 | OAuth 1.0a | `GARMIN_CLIENT_ID`、`GARMIN_CLIENT_SECRET`、`GARMIN_REDIRECT_URL` | <a href="https://developer.garmin.com/">Garmin 开发者门户</a> |
+| **Whoop** | `mirobody/pulse/theta/mirobody_whoop/` | 恢复、睡眠、负荷、训练、周期 | OAuth 2.0 | `WHOOP_CLIENT_ID`、`WHOOP_CLIENT_SECRET`、`WHOOP_REDIRECT_URL` | <a href="https://developer.whoop.com/">Whoop 开发者门户</a> |
+| **Oura** | `mirobody/pulse/theta/mirobody_oura/` | 睡眠、准备度、活动、HRV | OAuth 2.0 | `OURA_CLIENT_ID`、`OURA_CLIENT_SECRET`、`OURA_REDIRECT_URL` | [cloud.ouraring.com](https://cloud.ouraring.com/) |
+| **Renpho** | `mirobody/pulse/theta/mirobody_renpho/` | 体重、体脂、BMI、肌肉量、水分 | 邮箱 + 密码 | `RENPHO_*`（绑定时由用户提供） | Renpho 移动应用账号 |
+| **Vital** | `mirobody/pulse/theta/mirobody_vital/` | 300+ 可穿戴及 EHR 端点（Fitbit、Polar、Withings、Dexcom、Epic、Cerner 等） | 通过 Vital 的 OAuth | `VITAL_API_KEY`、`VITAL_ENVIRONMENT`、`VITAL_REDIRECT_URL` | [tryvital.io](https://tryvital.io/) |
+| **PostgreSQL** | `mirobody/pulse/theta/mirobody_pgsql/` | 用户自有 Postgres 数据库中的任意表 | 连接串 | 绑定时的 `host`、`port`、`database`、`user`、`password` | 您自己的数据库 |
+| **Apple Health** | `mirobody/pulse/apple/` | iOS Health 导出、CDA 医疗记录 | iOS App + Apple OAuth | `APPLE_CLIENT_ID`、`APPLE_TEAM_ID`、`APPLE_KEY_ID`、`APPLE_PRIVATE_KEY` | <a href="https://developer.apple.com/">Apple 开发者门户</a> |
+| **Google Health** | 通过 Vital | Android Health Connect、Google Fit | 通过 Vital 的 OAuth | （在 Vital 下配置） | <a href="https://console.cloud.google.com/">Google Cloud Console</a> |
+
+各配置键的写入位置和首次加载时的 Fernet 加密机制，参见 [配置](/zh/configuration)。
+
+## 如何连接一个 Provider
 
 <Steps>
-  <Step title="获取您的设备凭据">
-    从您的健康设备提供商处获取 API 凭据：
-    - **Garmin**: 在 [Garmin 开发者门户](https://developer.garmin.com/) 注册
-    - **Whoop**: 联系 Whoop 开发者支持以获取 API 访问权限
-    
-    <Tip>
-    您需要这些凭据来配置您的 Provider 连接。
-    </Tip>
-  </Step>
-
-  <Step title="配置 Provider">
-    将您的凭据添加到 `config.localdb.yaml`：
+  <Step title="在配置文件中填入 OAuth 凭据">
+    先到对应厂商的开发者门户（见上方矩阵中的链接）注册应用，然后将凭据写入 `config.{env}.yaml`。以 Garmin 为例：
 
     ```yaml config.localdb.yaml
-    # 对于 Garmin
-    GARMIN_CLIENT_ID: '您的_consumer_key'
-    GARMIN_CLIENT_SECRET: '您的_consumer_secret'
+    GARMIN_CLIENT_ID: 'your_consumer_key'
+    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
     GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
-    
-    # 对于 Whoop
-    WHOOP_CLIENT_ID: '您的_client_id'
-    WHOOP_CLIENT_SECRET: '您的_client_secret'
-    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
-    ```
-  </Step>
-
-  <Step title="绑定您的账号">
-    使用 API 发起 OAuth 流程：
-
-    ```bash
-    # 获取授权 URL
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=您的_用户_ID"
     ```
 
-    访问返回的 URL 以授权访问。
+    重启 Mirobody，让加密后的值重新加载。完整的配置键列表见 [配置](/zh/configuration)。
   </Step>
 
-  <Step title="验证连接">
-    检查您的 Provider 是否已绑定：
+  <Step title="打开 Web 界面">
+    访问 <a href="http://localhost:18080">localhost:18080</a> 登录，进入 **Drive → Providers**。所有在配置中找到凭据的 Provider 都会出现在列表里，其余则灰显并附带提示，指引你回到这里。
+  </Step>
+
+  <Step title="点击 Connect">
+    按钮会在新标签页中打开厂商的 OAuth 同意页。授权后，厂商会重定向回上一步配置的回调地址，Mirobody 会把（加密的）刷新令牌写入该用户记录。
+
+    对于密码型 Provider（Renpho）和 DSN 型 Provider（PostgreSQL），看到的是一个小表单而不是 OAuth 跳转。
+  </Step>
+
+  <Step title="验证">
+    Provider 卡片切换为 **Connected** 并显示最近同步时间。也可以通过 API 验证：
 
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/providers"
+    curl "http://localhost:18080/api/v1/pulse/providers?user_id=YOUR_USER_ID"
     ```
 
     <Check>
-    您连接的 Provider 应显示 `"status": "connected"`
+    该 Provider 的 `"status"` 应为 `"connected"`，`last_sync` 不为空。
     </Check>
   </Step>
 </Steps>
 
-## 可用 Provider
+## 拉取节奏与同步
 
-### Garmin Connect
+Provider 绑定后，`mirobody/pulse/theta/platform/pull_task.py` 会为该用户调度一个 pull 任务：
 
-<Tabs>
-  <Tab title="概览">
-    **身份验证**: OAuth 1.0  
-    **状态**: 生产就绪 (Production Ready)  
-    **数据同步**: 每日自动同步
-    
-    Garmin Connect 提供来自 Garmin 可穿戴设备（包括健身追踪器、智能手表和自行车码表）的全面健康数据。
-    
-    <Info>
-    Garmin 数据包括详细的活动追踪、高级睡眠分析和全面的心率指标。
-    </Info>
-  </Tab>
+- **初次回填** 立即执行。窗口长度由厂商决定 —— Garmin 与 Whoop 默认 30 天，Oura 默认 90 天，Vital 按上游 API 允许的范围拉取。
+- **增量拉取** 按固定节奏运行（多数 Provider 每小时一次；仅体成分类的 Provider 改为每日一次）。每次拉取以 `last_sync` 为窗口起点，并按 `msg_id` 去重。
+- **Token 刷新** 对 OAuth 2.0 Provider 自动完成；OAuth 1.0a Token（Garmin）不过期。
+- **失败** 会按 用户/Provider 组合记录日志，并在下一次轮询时重试 —— 不会阻塞其他 Provider。
 
-  <Tab title="支持的指标">
-    | 类别 | 指标 |
-    |----------|---------|
-    | **活动** | 步数、距离、卡路里（活动和基础）、爬楼层数、活动时间 |
-    | **心率** | 每日最低、最高、平均、静息心率、时间序列样本 |
-    | **睡眠** | 时长、深睡/浅睡/REM 睡眠、清醒时间、血氧饱和度、呼吸频率 |
-    | **HRV** | 心率变异性测量值 |
-    | **呼吸** | 呼吸频率样本 |
-    | **压力** | 压力水平测量值 |
-    | **身体** | 体重、BMI、体脂率、骨骼肌重量 |
-    | **锻炼** | 锻炼会话时长、强度、心率区间 |
-  </Tab>
-
-  <Tab title="设置步骤">
-    **1. 获取 Garmin 开发者凭据**
-    
-    - 访问 [Garmin 开发者门户](https://developer.garmin.com/)
-    - 创建一个应用程序
-    - 记录您的 Consumer Key 和 Consumer Secret
-    
-    **2. 在 Mirobody Health 中配置**
-    
-    ```yaml config.localdb.yaml
-    GARMIN_CLIENT_ID: '您的_consumer_key'
-    GARMIN_CLIENT_SECRET: '您的_consumer_secret'
-    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
-    ```
-    
-    **3. 绑定用户账号**
-    
-    ```bash
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_garmin/link?user_id=您的_用户_ID"
-    ```
-    
-    访问返回的授权 URL 以完成连接。
-  </Tab>
-</Tabs>
-
-### Whoop
-
-<Tabs>
-  <Tab title="概览">
-    **身份验证**: OAuth 2.0  
-    **状态**: 生产就绪 (Production Ready)  
-    **数据同步**: 可配置频率的自动同步
-    
-    Whoop 专注于恢复、负荷和睡眠优化数据，提供有关训练准备度和表现的见解。
-    
-    <Info>
-    Whoop 在面向运动员和健身爱好者的恢复指标、睡眠指导和负荷追踪方面表现出色。
-    </Info>
-  </Tab>
-
-  <Tab title="支持的指标">
-    | 类别 | 指标 |
-    |----------|---------|
-    | **恢复** | 恢复分数、HRV、静息心率、呼吸频率 |
-    | **睡眠** | 总睡眠时间、睡眠阶段、效率、潜伏期、干扰情况 |
-    | **负荷** | 日负荷、心血管负荷、活动负荷 |
-    | **锻炼** | 锻炼会话及负荷、卡路里、心率区间 |
-    | **周期** | 睡眠周期、恢复周期 |
-  </Tab>
-
-  <Tab title="设置步骤">
-    **1. 获取 Whoop 开发者权限**
-    
-    - 联系 [Whoop 开发者支持](https://developer.whoop.com/)
-    - 为您的应用程序请求 API 访问权限
-    - 接收您的 Client ID 和 Client Secret
-    
-    **2. 在 Mirobody Health 中配置**
-    
-    ```yaml config.localdb.yaml
-    WHOOP_CLIENT_ID: '您的_client_id'
-    WHOOP_CLIENT_SECRET: '您的_client_secret'
-    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
-    ```
-    
-    **3. 绑定用户账号**
-    
-    ```bash
-    curl "http://localhost:18080/api/v1/pulse/theta/theta_whoop/link?user_id=您的_用户_ID"
-    ```
-    
-    在浏览器中完成 OAuth 授权。
-  </Tab>
-</Tabs>
-
-## 管理已连接的 Provider
-
-### 列出所有 Provider
+手动触发同步：
 
 ```bash
-curl http://localhost:18080/api/v1/pulse/providers
-```
-
-### 断开 Provider 连接
-
-```bash
-curl -X POST http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink \
+curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_garmin/pull" \
   -H "Content-Type: application/json" \
-  -d '{"user_id": "您的_用户_ID"}'
+  -d '{"user_id": "YOUR_USER_ID"}'
 ```
 
-## 数据同步
+解除绑定：
 
-一旦连接了 Provider，数据同步就会自动进行：
-
-<AccordionGroup>
-  <Accordion title="初始同步" icon="download">
-    当您第一次连接 Provider 时，Mirobody Health 会拉取历史数据。
-    
-    这可能需要几分钟时间，具体取决于数据量。
-  </Accordion>
-
-  <Accordion title="持续同步" icon="rotate">
-    初始同步后，数据将自动更新：
-    - **计划任务**: 每天按配置的时间间隔运行
-    - **增量拉取**: 仅获取新数据
-    - **去重机制**: 防止记录重复
-    
-    <Tip>
-    如有需要，您也可以通过 API 手动触发同步。
-    </Tip>
-  </Accordion>
-
-  <Accordion title="数据格式" icon="database">
-    所有 Provider 数据都会转换为标准化指标：
-    - 不同 Provider 之间的命名保持一致
-    - 统一的单位（SI 国际单位制）
-    - ISO 8601 格式的时间戳
-    - 存储在 `theta_ai.th_series_data` 表中
-    
-    有关详细信息，请参阅 [数据格式](/zh/concepts/data-flow#standardized-format)。
-  </Accordion>
-</AccordionGroup>
-
-## 常见问题排查
-
-<AccordionGroup>
-  <Accordion title="连接失败" icon="link-slash">
-    **问题**: OAuth 授权失败或超时
-    
-    **解决方案**:
-    1. 验证 `config.localdb.yaml` 中的 API 凭据是否正确
-    2. 检查回调 URL 是否完全匹配（包括 http/https）
-    3. 确保 Mirobody Health 可以通过回调 URL 访问
-    4. 查看提供商的开发者控制台是否有错误提示
-    5. 检查 OAuth Token 是否已过期
-  </Accordion>
-
-  <Accordion title="连接后没有数据" icon="database">
-    **问题**: Provider 已连接，但没有数据出现
-    
-    **解决方案**:
-    1. 等待初始同步完成（查看日志）
-    2. 验证用户在其提供商账户中是否有数据
-    3. 检查是否存在 API 速率限制问题
-    4. 查看同步日志中的错误信息
-    5. 如果需要，触发手动同步
-  </Accordion>
-
-  <Accordion title="数据未同步" icon="clock">
-    **问题**: 健康数据已过时
-    
-    **解决方案**:
-    1. 检查配置中的同步计划
-    2. 验证提供商 API 是否可访问
-    3. 查看同步日志中的失败记录
-    4. 检查提供商 API 是否有变动或服务停机
-    5. 触发手动重新同步
-  </Accordion>
-</AccordionGroup>
-
-## Provider 状态检查
-
-检查 Provider 的连接状态：
-
-```python
-import aiohttp
-import asyncio
-
-async def check_provider_status(user_id: str):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            f"http://localhost:18080/api/v1/pulse/providers",
-            params={"user_id": user_id}
-        ) as resp:
-            data = await resp.json()
-            
-            for provider in data["providers"]:
-                print(f"{provider['name']}: {provider['status']}")
-                if provider['status'] == 'connected':
-                    print(f"  最后同步时间: {provider.get('last_sync', 'N/A')}")
-
-# 使用示例
-# asyncio.run(check_provider_status("您的_用户_ID"))
+```bash
+curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "YOUR_USER_ID"}'
 ```
+
+## 自定义 Provider
+
+如果上面的矩阵里没有你需要的设备或数据源，自己写一个即可。在项目根目录的 `providers/` 下新建一个 `mirobody_<slug>/` 目录，继承 `BaseThetaProvider`，实现 `info`、凭据校验方法以及（可选的）`pull_from_vendor_api`。Mirobody 下次启动时会自动发现并加载。
+
+<CardGroup cols={1}>
+  <Card title="Provider 集成指南" icon="plug" href="/zh/development/provider-integration">
+    完整流程：目录结构、基类、OAuth 模式、数据映射、测试。
+  </Card>
+</CardGroup>
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="配置指南" icon="gear" href="/zh/configuration">
-    配置 Provider 凭据
+  <Card title="配置" icon="gear" href="/zh/configuration">
+    所有 Provider 的配置键及其写入位置
   </Card>
-  <Card title="API 参考" icon="book" href="/zh/api-reference/pulse/providers">
-    Provider API 文档
+  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
+    Theta Provider 使用的 OAuth 1.0a 与 2.0 模式
   </Card>
-  <Card title="Provider 示例" icon="code" href="/zh/examples/garmin-provider">
-    查看 Provider 使用示例
+  <Card title="数据映射" icon="arrows-rotate" href="/zh/development/data-mapping">
+    厂商原始数据到 `StandardPulseData`
   </Card>
-  <Card title="添加自定义 Provider" icon="plus" href="/zh/development/provider-integration">
-    构建您自己的 Provider 集成
+  <Card title="Provider 测试" icon="flask" href="/zh/development/provider-testing">
+    端到端测试 link、callback、pull 与 unlink
   </Card>
 </CardGroup>

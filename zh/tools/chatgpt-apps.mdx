@@ -1,135 +1,152 @@
 ---
 title: "ChatGPT Apps"
-description: "将 Mirobody Health 的能力连接到 ChatGPT 作为自定义应用"
+description: "通过 HTTP Remote MCP server 把 Mirobody 接入 ChatGPT App"
 ---
 
 ## 概览
 
-ChatGPT Apps 允许你通过连接到外部服务来扩展 ChatGPT 的功能。Mirobody Health 通过其 MCP 端点支持 ChatGPT Apps，让 ChatGPT 能够访问健康数据检索、Provider 连接等功能。
+ChatGPT Apps 通过外部 MCP 服务器扩展 ChatGPT 的能力。Mirobody 本身就是一个支持 OAuth 的 **HTTP Remote MCP server** —— 你需要做的，仅仅是把一个公网 HTTPS URL 指向你的 Mirobody 实例。
 
 <Info>
-在 [官方公告](https://openai.com/index/introducing-apps-in-chatgpt/) 中了解更多关于 ChatGPT Apps 的信息。
+背景阅读：<a href="https://openai.com/index/introducing-apps-in-chatgpt/">ChatGPT Apps 官方公告</a> 与 <a href="https://modelcontextprotocol.io">Model Context Protocol 规范</a>。
 </Info>
+
+## 工作原理
+
+Mirobody 的 MCP 服务器本身就是一个 HTTP 一等公民。一旦你把 `MCP_PUBLIC_URL` 配进配置，Mirobody 就会把这个 URL 作为它的 remote endpoint 暴露出去，并在 `<MCP_PUBLIC_URL>/mcp` 上接受 MCP 流量。ChatGPT（或任何其他远程 MCP 客户端）连过来后走 OAuth 验证，然后就可以调工具了。
 
 ## 前置要求
 
-在将 Mirobody Health 连接到 ChatGPT 之前，你需要让本地 MCP 端点能够被公开访问：
+你需要一个能转发到 Mirobody 实例的公网 HTTPS URL。
 
 <Steps>
-  <Step title="确保 Mirobody Health 正在运行">
-    你的 Mirobody Health 实例应该正在运行，并可以通过 `http://localhost:18080/mcp` 访问。
+  <Step title="确认 Mirobody 正在运行">
+    本地 `http://localhost:18080/mcp` 应该返回合法的 MCP JSON。可用以下命令验证：
+
+    ```bash
+    curl -X POST http://localhost:18080/mcp \
+      -H "Content-Type: application/json" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+    ```
   </Step>
 
-  <Step title="暴露本地端点">
-    使用隧道服务使你的本地端点可以被公开访问：
-    
+  <Step title="选择公网暴露方案">
+    **方案 A —— 临时演示（隧道到笔记本）：**
+
     ```bash
-    # 使用 ngrok
+    # ngrok
     ngrok http 18080
-    
-    # 或使用 cloudflared
+
+    # 或者 cloudflared
     cloudflared tunnel --url http://localhost:18080
     ```
-    
-    这将为你提供一个公开 URL（例如 `https://abc123.ngrok.io`），它会转发到你的本地实例。
+
+    用得到的 HTTPS URL（如 `https://abc123.ngrok.io`）。
+
+    **方案 B —— 生产部署（自己的域名）：** 在反向代理（Caddy / nginx / 托管 LB）上做 TLS 终止，转发到 Mirobody 容器。
   </Step>
 
-  <Step title="记录你的公开 MCP URL">
-    你的公开 MCP 端点将是：`https://your-tunnel-domain/mcp`
-    
+  <Step title="设置 MCP_PUBLIC_URL">
+    在 `config.{env}.yaml` 里加：
+
+    ```yaml
+    MCP_PUBLIC_URL: "https://abc123.ngrok.io"   # 或你的生产域名
+    ```
+
+    重启 Mirobody。公网 MCP 端点就是 `https://abc123.ngrok.io/mcp`。
+
     <Warning>
-    请保管好此 URL。任何可以访问此 URL 的人都可以与你的 Mirobody Health 实例交互。
+    这个 URL 等同于秘密，不要公开 —— 拿到它的人可以尝试发起 OAuth 登录你的 Mirobody。
     </Warning>
   </Step>
 </Steps>
 
 ## 创建 ChatGPT App
 
-一旦你的 MCP 端点可以被公开访问，你就可以创建 ChatGPT App 了：
+`MCP_PUBLIC_URL` 配好、隧道/域名可达之后，去 ChatGPT 注册 App：
 
 <Steps>
-  <Step title="访问 ChatGPT Apps">
-    打开 ChatGPT 并导航到 Apps 部分。你将看到现有的应用以及创建新应用的选项。
+  <Step title="进入 ChatGPT Apps">
+    打开 ChatGPT，进入 Apps 页面。你会看到已有的 App 以及新增入口。
 
     <Frame>
-      <img src="/images/ChatGPT App Main.png" alt="ChatGPT Apps 主界面显示可用的应用" />
+      <img src="/images/ChatGPT App Main.png" alt="ChatGPT Apps 主界面" />
     </Frame>
   </Step>
 
   <Step title="启用开发者模式">
-    点击"创建你自己的"或访问开发者模式以开始构建自定义应用。这将打开应用创建界面，你可以在其中配置 Mirobody Health 连接。
+    点击"创建你自己的"或开发者模式，进入 App 创建界面。
 
     <Frame>
-      <img src="/images/ChatGPT App Dev Mode.png" alt="用于创建自定义应用的 ChatGPT 开发者模式" />
+      <img src="/images/ChatGPT App Dev Mode.png" alt="ChatGPT 开发者模式" />
     </Frame>
   </Step>
 
-  <Step title="添加你的 MCP 端点">
-    在应用配置中：
-    
-    1. **命名你的应用**：为其取一个描述性名称，如"Mirobody Health"
-    2. **添加 MCP 端点**：输入你的公开 MCP URL：`https://your-tunnel-domain/mcp`
-    3. **描述**（可选）：添加此应用提供的健康功能的描述
-    4. **测试连接**：ChatGPT 将验证它是否可以连接到你的 MCP 端点
+  <Step title="填入 MCP 端点">
+    在 App 配置里：
+
+    1. **App 名称**：例如 "Mirobody"
+    2. **MCP 端点**：你的 `MCP_PUBLIC_URL` 加 `/mcp`（如 `https://abc123.ngrok.io/mcp`）
+    3. **描述**（可选）：简述这个 App 能做什么
+    4. **测试连接**：ChatGPT 会校验连通性并发现工具
 
     <Frame>
-      <img src="/images/ChatGPT App Add New App.png" alt="添加新的 ChatGPT 应用并配置 MCP 端点" />
+      <img src="/images/ChatGPT App Add New App.png" alt="添加新的 ChatGPT App" />
     </Frame>
 
     <Tip>
-    ChatGPT 连接后将自动发现你的 Mirobody Health 实例中的所有可用 Tools。
+    ChatGPT 会自动发现 Mirobody 注册的所有工具 —— 包括你放进根目录 `tools/` 和 `skills/` 的所有内容。
     </Tip>
   </Step>
 
-  <Step title="通过 OAuth 认证">
-    当 ChatGPT 首次连接到你的 Mirobody Health 应用时，会自动重定向到登录页面进行 OAuth 认证。
-    
-    <Info>
-    Mirobody Health 已内置 OAuth 支持。只需在提示时使用你的凭据登录，认证流程将自动完成。
-    </Info>
-    
-    这个 OAuth 流程确保了对你健康数据的安全访问，每个 ChatGPT 会话只需完成一次。
+  <Step title="OAuth 登录">
+    首次调用时 ChatGPT 会跳转到 Mirobody 内置的 OAuth 登录页。登录一次即可，token 会被复用整个 ChatGPT 会话。
   </Step>
 
-  <Step title="开始使用你的应用">
-    认证完成后，你的 ChatGPT 会话现在可以：
-    - 检索用户健康 profile
-    - 从已连接的 Providers 查询健康数据
-    - 访问你添加到 Mirobody Health 的任何自定义 Tools
-    - 使用通过 MCP server 暴露的 resources
+  <Step title="开始使用">
+    连接好后，这个 ChatGPT 会话可以：
+    - 检索健康 profile 与时序数据
+    - 查询已连接的 Provider（Garmin / Whoop / Oura / Renpho / Apple/Google Health / EHR）
+    - 调用 `tools/` 里的任何自定义工具
+    - 激活 `skills/` 里的任何 Skill
+    - 读取 `resources/` 暴露的资源
 
     <Check>
-    你的 ChatGPT App 现在已连接到 Mirobody Health！
+    你的 ChatGPT App 已接入 Mirobody。
     </Check>
   </Step>
 </Steps>
 
-## 可用功能
+## 可用能力
 
-连接后，ChatGPT 将能够访问：
+接入后 ChatGPT 可以访问：
 
 <CardGroup cols={2}>
   <Card title="健康 Profile" icon="user">
-    检索全面的用户健康数据和已连接设备信息
+    完整的用户健康上下文与已连接设备
   </Card>
-  <Card title="健康数据查询" icon="chart-line">
-    查询特定的健康指标和时间序列数据
+  <Card title="时序查询" icon="chart-line">
+    400+ 标准化指标，FHIR/LOINC/SNOMED CT 跨术语搜索
   </Card>
-  <Card title="自定义 Tools" icon="wrench">
-    你添加到 Mirobody Health 实例的任何自定义 Tools
+  <Card title="自定义工具" icon="wrench">
+    任何注册在 `tools/` 下的函数
   </Card>
-  <Card title="MCP Resources" icon="database">
-    通过 MCP 实现暴露的 resources 访问
+  <Card title="Skills" icon="bolt">
+    `skills/` 下的 Claude Agent Skills 自动发现
+  </Card>
+  <Card title="MCP 资源" icon="database">
+    `resources/` 下的静态/动态资源
+  </Card>
+  <Card title="代码沙箱" icon="terminal">
+    `execute` 工具把 Python / Shell 跑在 E2B 沙箱里
   </Card>
 </CardGroup>
 
-## 使用案例示例
+## 示例用例
 
-连接后，ChatGPT 可以通过从所有已连接的设备、健康记录和其他相关来源提取信息，来执行复杂的健康数据分析。以下是一些真实案例：
+ChatGPT 能跨设备、病历、上传文件做整体合成。一些真实示例：
 
-### 快速查询
-
-对于简单的问题，你可以询问：
+### 简单查询
 
 ```
 "显示我的健康档案"
@@ -138,66 +155,60 @@ ChatGPT Apps 允许你通过连接到外部服务来扩展 ChatGPT 的功能。M
 "我连接了哪些健康设备？"
 ```
 
-### 高级分析：糖尿病管理
+### 进阶分析：糖尿病管理
 
-**提示词：** "总结我糖尿病的历史和近期进展。使用 Theta 从设备、记录和其他相关来源查找数据。"
+**Prompt：** "总结我糖尿病的历史和近期进展。使用 Theta 从设备、记录和其他相关来源查找数据。"
 
 <CardGroup cols={2}>
   <Card title="查看完整对话" icon="comments" href="https://chatgpt.com/share/6945032b-86f8-8002-9bc1-03a19f890dca">
-    查看完整的糖尿病分析对话
+    完整的糖尿病分析对话
   </Card>
   <Card title="交互式图表" icon="chart-line" href="https://chatgpt.com/canvas/shared/6945031a455c8191885abb2f1d4deb39">
-    探索交互式血糖趋势可视化
+    交互式血糖趋势可视化
   </Card>
 </CardGroup>
 
-### 高级分析：疼痛模式识别
+### 进阶分析：疼痛模式识别
 
-**提示词：** "帮我理解膝盖疼痛的全貌和进展。使用所有相关数据并找到潜在驱动因素。如果有帮助的话，使用可视化说明。"
+**Prompt：** "帮我理解膝盖疼痛的全貌和进展。使用所有相关数据并找到潜在驱动因素。如果有帮助的话，使用可视化说明。"
 
 <Card title="查看完整分析" icon="magnifying-glass-chart" href="https://chatgpt.com/share/6944b5aa-38fc-8002-932f-bdf60b690eba">
-  查看 ChatGPT 如何使用多源数据分析复杂的疼痛模式
+  ChatGPT 如何用多源数据分析复杂的疼痛模式
 </Card>
 
 <Tip>
-这些示例展示了 ChatGPT 综合多个来源数据、执行纵向分析并生成可操作见解的能力 - 所有这些都由你的 Mirobody Health 数据提供支持。
+同一个 MCP 端点也能接 Claude Desktop、Cursor 等任意 MCP 客户端 —— 参见 [MCP 集成](/zh/tools/mcp-integration)。
 </Tip>
 
 ## 安全注意事项
 
 <Info>
-**内置 OAuth 认证：**
-
-Mirobody Health 包含 OAuth 认证功能，这意味着用户必须先登录，ChatGPT 才能访问其健康数据。这为所有请求提供了安全的认证层。
+**OAuth 是内置的。** 任何对 MCP 端点的调用都必须先走完 Mirobody 的 OAuth 流程，所以即便 URL 泄露，没有合法会话也无法被使用。
 </Info>
 
 <Warning>
-**其他安全建议：**
+**额外加固建议：**
 
-- 你的公开 MCP 端点 URL 应该保密，只与可信服务共享
-- 考虑在隧道层面实现速率限制
-- 监控访问日志以发现异常活动
-- 仅在主动使用 ChatGPT 时暴露端点
-- 对于生产环境，建议采取额外的安全措施，如 IP 白名单
-- OAuth tokens 有过期时间 - token 过期时用户需要重新认证
+- 把 `MCP_PUBLIC_URL` 当作机密，不要公开
+- 在反向代理或 Mirobody 的 `server/` 中间件层加限流
+- 监控 `/mcp` 的访问日志
+- 仅在确实需要使用时再开隧道
+- 生产环境：托管代理上做 TLS 终止、可选的 IP 白名单、可观测性
+- OAuth token 会过期，用户需要周期性重新登录
 </Warning>
 
-## 故障排除
+## 故障排查
 
 ### 连接失败
 
-如果 ChatGPT 无法连接到 your MCP 端点：
+1. 验证隧道 / 域名可达：`curl -I https://<MCP_PUBLIC_URL>/mcp`
+2. 确认 Mirobody 容器绑定的是 `0.0.0.0:18080`
+3. 确认 ChatGPT 里填的 URL 与 `MCP_PUBLIC_URL` 完全一致
+4. 改了配置之后**必须重启** Mirobody —— 配置只在启动时读取一次
 
-1. 验证你的隧道正在运行且可访问
-2. 检查 Mirobody Health 是否在端口 18080 上运行
-3. 直接测试 MCP 端点：`curl https://your-tunnel-domain/mcp`
-4. 确保没有防火墙阻止连接
+### Tools 不显示
 
-### Tools 未显示
-
-如果 Tools 未在 ChatGPT 中显示：
-
-1. 验证你的 MCP 端点返回 tool 定义
-2. 检查 Mirobody Health 日志是否有错误
-3. 重启你的隧道并尝试重新连接
-4. 确保你的 Tools 在 Mirobody Health 中正确注册
+1. 直接调用 `/mcp` 的 `tools/list` 看是否返回工具
+2. 检查 Mirobody 启动日志里有没有加载错误
+3. 确保 `tools/` 下的文件符合 docstring 规范（参见 [添加工具](/zh/tools/adding-tools)）
+4. 如果改了 `mirobody/pub/tools/` 没生效，加 `--no-cache` 重建镜像

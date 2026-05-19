@@ -5,7 +5,7 @@ description: "Model Context Protocol 接口简介"
 
 ## 什么是 MCP？
 
-Model Context Protocol (MCP) 是一个 JSON-RPC 2.0 接口，使 AI agent 和应用程序能够发现 Mirobody Health 的工具（tools）和资源（resources）并与之交互。它为 LLM 访问健康数据、调用函数和检索上下文信息提供了一种标准化方式。
+Model Context Protocol (MCP) 是一个 JSON-RPC 2.0 接口，使 AI agent 和应用程序能够发现 Mirobody 的工具（tools）和资源（resources）并与之交互。它为 LLM 访问健康数据、调用函数和检索上下文信息提供了一种标准化方式。
 
 <Info>
 **MCP 端点**: `http://localhost:18080/mcp` (公开) 或 `http://localhost:18080/mcp/{user_secret}` (用户特定)
@@ -256,7 +256,7 @@ MCP 使用标准的 JSON-RPC 2.0 错误代码：
 
 ## 工具分类
 
-Mirobody Health MCP 工具按类别组织：
+Mirobody MCP 工具按类别组织：
 
 <CardGroup cols={2}>
   <Card title="健康数据工具" icon="heartbeat" href="/zh/api-reference/mcp/tools">

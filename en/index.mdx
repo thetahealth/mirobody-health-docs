@@ -1,259 +1,261 @@
 ---
-title: "Welcome to Mirobody Health"
-description: "A comprehensive health data AI service built on the Mirobody framework for seamless integration with health and fitness devices"
+title: "Welcome to Mirobody"
+description: "An open-source, self-hosted data engine that bridges your personal data with the latest AI. This documentation covers Mirobody's health vertical, the foundation of Theta Wellness."
 ---
 
-## What is Mirobody Health?
+## What is Mirobody?
 
-Mirobody Health is an **open-source AI-native data engine** that bridges rich health context and the latest AI capabilities, enabling deeply personalized and comprehensive health AI experiences.
+**Mirobody** is an open-source, self-hosted **data + agent engine** for *personal* AI — built on the belief that the next frontier of AI is not knowing more about the world, but knowing more about *you*.
 
-It connects to various devices, handles files (lab reports, medical documents), and provides autonomous agent capabilities with MCP/Tools/Skills support, along with out-of-the-box Auth/Frontend/MCP server functions – ideal for managing personal health data with privacy or building customized health AI applications.
+- 🔌 **HTTP Remote MCP Server** — your tools instantly become callable by ChatGPT, Claude, Cursor, or any MCP client.
+- 🤖 **Native agent runtime** — a self-developed engine that reproduces Claude Code's autonomous capabilities locally, plus support for **Claude Agent Skills** (`SKILL.md`).
+- 🔄 **Pluggable data providers** — bring your own data source via the Providers API; 300+ wearables, Apple Health, Google Health, and EHR coverage for ~90% of US records are already wired up.
+- 🏥 **Health-grade standards** — 400+ health indicators normalized to **FHIR / LOINC / SNOMED CT / RxNorm** with cross-vocabulary search.
+
+> **Health, Finance & More.** Mirobody is domain-agnostic: this docs site focuses on the health vertical (the engine behind [Theta Wellness](https://www.thetahealth.ai/)), but the same architecture powers finance, legal, devops, or any vertical where personal data meets AI. Drop your own modules into `tools/` and `skills/` to start.
 
 <CardGroup cols={2}>
-  <Card
-    title="Quick Start"
-    icon="rocket"
-    href="/en/quickstart"
-  >
-    Get up and running in under 5 minutes with Docker
+  <Card title="Quick Start" icon="rocket" href="/en/quickstart">
+    One-command Docker deploy in under 5 minutes
   </Card>
-  <Card
-    title="Use Cases & Examples"
-    icon="lightbulb"
-    href="/en/use-cases"
-  >
-    See real examples with synthetic health data
+  <Card title="Use Cases & Examples" icon="lightbulb" href="/en/use-cases">
+    Real conversations with synthetic health data
   </Card>
-  <Card
-    title="Provider Integration"
-    icon="plug"
-    href="/en/development/provider-integration"
-    >
-    Learn how to integrate new health device providers
+  <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
+    Add a new device or data source in hours
   </Card>
-  <Card
-    title="API Reference"
-    icon="code"
-    href="/en/api-reference/introduction"
-  >
-    Explore the complete API documentation
+  <Card title="API Reference" icon="code" href="/en/api-reference/introduction">
+    Pulse, Chat, and MCP protocol endpoints
   </Card>
 </CardGroup>
 
-## Key Features
+## Why Mirobody?
 
 <AccordionGroup>
-  <Accordion title="Integrate External Health Data" icon="link">
-    Connect wearables, devices, and medical records (coming later). Bring Your Own Data Provider (BYOP) in hours using our integration framework. OAuth-secured connections to Garmin, Whoop, and more.
+  <Accordion title="Write tools once, run everywhere" icon="wrench">
+    Forget JSON schemas and manual bindings — **your Python code is the only definition required**. A function in `tools/` instantly works in ChatGPT (via Apps SDK), Claude / Cursor (via MCP), and the local web client. Mirobody runs simultaneously as an MCP **client** (to use tools) and an OAuth-enabled MCP **server** (to expose them).
   </Accordion>
 
-  <Accordion title="Files, Processed and Managed" icon="file">
-    Supports multimodal documents: PDFs, Excel files, photos (PNG, JPEG, WebP, HEIC, HEIF), and audio (WAV, MP3, AIFF, AAC, OGG, FLAC). Enables agent access to context within files, from lab reports to handwritten notes.
+  <Accordion title="Your data, never leaves your machine" icon="lock">
+    The engine runs locally end-to-end — Postgres, Redis, agent runtime, MCP server, file pipeline. Bring your own LLM via OpenRouter or first-party keys (OpenAI, Gemini, Anthropic, Azure, Volcengine, Dashscope). No third-party data hop required.
   </Accordion>
 
-  <Accordion title="Tools, MCPs & Skills, Natively Supported" icon="wrench">
-    Includes health-focused tools out of the box. Add custom tools using Python without complex JSON schemas or manual bindings. Connect to third-party MCPs. Directly load standard Claude Agent Skills (coming later).
+  <Accordion title="Three agents for three jobs" icon="robot">
+    - **DeepAgent** — single-model tool orchestration, best for complex multi-step research
+    - **MixAgent** — two-phase fusion: a capable model orchestrates tools, a cheaper model writes the response. Cost/quality balance for high-volume workloads.
+    - **BaselineAgent** — direct LLM chat with no tools, ideal for low-latency Q&A
   </Accordion>
 
-  <Accordion title="Chat with the SOTA Agentic Framework" icon="comments">
-    Powerful agent harness replicates Claude Code's autonomous capabilities locally. Leverages tools intelligently and utilizes relevant health context for deep research and insights.
+  <Accordion title="Claude Agent Skills, natively" icon="bolt">
+    Drop a `SKILL.md` + `metadata.json` into `skills/` and the agent auto-discovers it. The full Skill body is loaded into the agent's context when activated — write detailed playbooks, examples, edge cases freely.
   </Accordion>
 
-  <Accordion title="MCP Server & ChatGPT App" icon="bolt">
-    Functions as an OAuth-enabled MCP Server connecting to Claude, Cursor, or custom clients. Also operates as a GPT app, enabling capabilities within ChatGPT.
+  <Accordion title="Files, multimodally processed" icon="file">
+    PDFs, Excel, CSV, audio (WAV/MP3/AIFF/AAC/OGG/FLAC), images (PNG/JPEG/WebP/HEIC/HEIF), genetic data. LLM-powered extraction maps free text to standard indicators automatically.
   </Accordion>
 
-  <Accordion title="Deploy Anywhere with Full Control" icon="server">
-    All components are open-source and run on-premises with full privacy. Bring your own LLM providers via OpenRouter or first-party keys. One-line install with Docker.
+  <Accordion title="Sandbox code execution" icon="terminal">
+    The built-in `execute` tool runs shell + Python in isolated [E2B](https://e2b.dev) cloud sandboxes for data analysis, chart generation, and computation — with PostgreSQL-backed file persistence so `write_file` in one turn is visible to `execute` in the next.
+  </Accordion>
+
+  <Accordion title="Deploy anywhere" icon="server">
+    One-command `./deploy.sh` for Docker, `pip install -e .` for local Python dev, or `MCP_PUBLIC_URL=https://yourdomain.com` to expose your MCP server publicly for ChatGPT Apps.
   </Accordion>
 </AccordionGroup>
 
-## Supported Providers
+## Architecture at a glance
+
+| Layer | Path | Notes |
+|-------|------|-------|
+| **Agent runtime** | `mirobody/pub/agents/` | DeepAgent, MixAgent, BaselineAgent |
+| **LLM clients** | `mirobody/utils/llm/` | OpenAI, Gemini, Anthropic, Azure, Volcengine, Dashscope (HIPAA-compliant routing) |
+| **MCP server** | `mirobody/mcp/` | JSON-RPC 2.0, local + HTTP remote |
+| **Chat service** | `mirobody/chat/` | Sessions, history, streaming (HTTP/WebSocket), memory |
+| **Data pipeline (Pulse)** | `mirobody/pulse/` | 300+ wearables, Apple/Google Health, EHR, file parser, aggregation |
+| **Health standards** | `mirobody/indicator/`, `mirobody/pulse/core/` | 400+ indicators, FHIR/LOINC/SNOMED CT/RxNorm |
+| **Embeddings** | `mirobody/utils/embedding.py` | 1024-dim, Gemini/Qwen, pgvector |
+
+**Extension points** are top-level directories — drop files in, they're auto-discovered:
+
+| Directory | Purpose |
+|-----------|---------|
+| `tools/` | Python tools → auto-exposed as MCP tools |
+| `skills/` | Claude Agent Skills (`SKILL.md` + `metadata.json`) |
+| `agents/` | Custom agent implementations |
+| `providers/` | Custom data providers |
+| `prompts/` | Jinja2 prompt templates |
+| `resources/` | Static resources exposed via MCP |
+
+## Supported Providers (Health Vertical)
 
 <CardGroup cols={3}>
-  <Card title="Garmin" icon="watch">
-    Activity, sleep, heart rate, HRV, and more
-  </Card>
-  <Card title="Whoop" icon="heartbeat">
-    Recovery, sleep, cycles, workouts, body metrics
-  </Card>
-  <Card title="Apple Health" icon="apple">
-    Health data and records (coming later)
-  </Card>
-  <Card title="Custom Providers" icon="plus">
-    Easy integration guide for adding your own
-  </Card>
+  <Card title="Garmin" icon="watch">Activity, sleep, heart rate, HRV</Card>
+  <Card title="Whoop" icon="heart-pulse">Recovery, sleep, workouts, cycles</Card>
+  <Card title="Oura" icon="ring">Sleep, readiness, activity</Card>
+  <Card title="Renpho" icon="weight-scale">Body composition, weight</Card>
+  <Card title="Apple Health" icon="apple">iOS Health + CDA medical records</Card>
+  <Card title="Google Health" icon="google">Android health data</Card>
 </CardGroup>
+
+300+ devices are reachable via the Vital integration; EHR coverage spans ~90% of US records. Custom providers can be added in hours — see [Provider Integration](/en/development/provider-integration).
 
 ## Tech Stack
 
-Mirobody Health is built with modern, production-ready technologies:
+- **Python 3.10+** with async/await throughout
+- **FastAPI / Starlette ASGI** for the HTTP layer
+- **PostgreSQL** for primary storage + **pgvector** for semantic search
+- **Redis** for caching and session store
+- **Docker Compose** for one-command deploy
+- **E2B** for sandboxed code execution
+- **OAuth 1.0a / 2.0 / OIDC / WebAuthn / FIDO2** for auth
 
-- **Python 3.12+**: Async/await patterns for high performance
-- **FastAPI**: Fast, modern web framework for building APIs
-- **PostgreSQL**: Robust relational database for data storage
-- **Redis**: High-performance caching and session management
-- **Docker**: Containerized deployment for consistency
-- **OAuth 1.0 & 2.0**: Industry-standard authentication protocols
-
-## Who is Mirobody Health For?
+## Who is this for?
 
 <CardGroup cols={2}>
-  <Card title="Individual Users" icon="user">
-    Anyone seeking a private, intelligent platform to manage and understand their health data
+  <Card title="Individual users" icon="user">
+    Anyone who wants a private, AI-powered home for their health data — without handing it over to a third party
   </Card>
   <Card title="Developers" icon="code">
-    Developers building health AI applications for themselves or organizations
+    Engineers building personal-data AI products: health, finance, legal, devops, or anywhere else `tools/` + `skills/` can take you
   </Card>
 </CardGroup>
 
 ## Real-World Examples
 
 <Info>
-All examples below were generated using synthetic health data. Some examples also utilize additional Theta private tools.
+Showcase conversations below use **synthetic health data** and some Theta-private tools.
 </Info>
+
+<Warning>
+**Heads-up:** the inline chart images in the current showcase conversations are temporarily broken (S3 access key was rotated after the demos were recorded). The conversation text still loads; chart re-signing on read is tracked as a backend fix.
+</Warning>
 
 ### Private Health Data Management & Chat
 
-Organize scattered data from wearables, healthcare portals, PDFs, and paper reports spanning years into one coherent memory. Access your full health context via built-in chat or on external platforms like ChatGPT or Claude.
-
 <AccordionGroup>
-  <Accordion title="Track Health Issues Across Multiple Systems & Years" icon="timeline">
-    Query the same health issue across multiple health systems (even across countries) spanning years:
+  <Accordion title="Track health issues across systems and years" icon="timeline">
+    Query the same condition across multiple health systems, even across countries:
 
     <CardGroup cols={2}>
       <Card title="Knee Pain Progress" icon="link" href="https://test-mirobody.thetahealth.ai/share/5d2d324f-d71b-4bf1-9cd0-8c23e94a272d">
-        Track the progression of knee pain over time across different providers
+        Track knee pain progression across providers
       </Card>
       <Card title="Cardiovascular Disorders" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
-        Monitor cardiovascular health across multiple health systems
+        Monitor cardiovascular health across health systems
       </Card>
     </CardGroup>
   </Accordion>
 
-  <Accordion title="Unified Health Issue Analysis" icon="chart-line">
-    Get comprehensive data for a health issue combining device data, medical records, and more:
+  <Accordion title="Unified health issue analysis" icon="chart-line">
+    Combine device data, medical records, and self-reported notes:
 
     <CardGroup cols={2}>
       <Card title="Cardiovascular Summary" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
-        Summarize cardiovascular conditions across different data sources
+        Summarize cardiovascular conditions across sources
       </Card>
       <Card title="Diabetes History & Progress" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
-        Track diabetes history using devices, records, and other sources
+        Track diabetes from devices, records, and other sources
       </Card>
     </CardGroup>
   </Accordion>
 
-  <Accordion title="Prepare for Doctor Visits" icon="user-doctor">
+  <Accordion title="Prepare for doctor visits" icon="user-doctor">
     <Card title="PCP Visit Preparation" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
-      Generate comprehensive summaries and questions for your primary care visit
+      Generate a comprehensive summary and questions for your primary care visit
     </Card>
   </Accordion>
 </AccordionGroup>
 
 ### Deep Research for Personal Health
 
-Connect personal health data with public knowledge from online searches, tools, or MCPs. Conduct deep health research with reports similar to Gemini/GPT's deep research, but highly tailored to your situation.
-
 <AccordionGroup>
-  <Accordion title="Identify Health Patterns & Drivers" icon="magnifying-glass-chart">
-    Analyze data to discover what helps or harms your health:
+  <Accordion title="Identify patterns and drivers" icon="magnifying-glass-chart">
+    Figure out what's actually helping or hurting you:
 
     <CardGroup cols={2}>
       <Card title="Blood Glucose Analysis" icon="link" href="https://test-mirobody.thetahealth.ai/share/24c2a626-63c4-4f5b-b860-dec65cbd69da">
-        Find factors that help or harm your blood glucose levels
+        Find factors that help or harm your blood glucose
       </Card>
       <Card title="Symptoms & Feelings Drivers" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
-        Discover the main drivers behind your symptoms and feelings
+        Discover the main drivers behind your symptoms and mood
       </Card>
     </CardGroup>
   </Accordion>
 
-  <Accordion title="Personalized Treatment Research" icon="flask">
+  <Accordion title="Personalized treatment research" icon="flask">
     <Card title="Diabetes Treatment Options" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
-      Research personalized methods (medications, treatments, devices, lifestyle) for diabetes management
+      Research personalized options (meds, devices, lifestyle) for diabetes management
     </Card>
   </Accordion>
 </AccordionGroup>
 
-### All-in-One Health Data Engine
-
-For developers, Mirobody Health serves as the data engine for AI health applications, providing essential infrastructure so you can focus on creating unique user experiences.
+### Mirobody as a Data Engine for Developers
 
 <CardGroup cols={2}>
-  <Card title="Wearable Manufacturers" icon="watch">
-    Integrate your device and instantly offer AI chat features with device data
+  <Card title="Wearable manufacturers" icon="watch">
+    Add AI chat over your device data without building the backend
   </Card>
-  <Card title="Research Applications" icon="microscope">
-    Add customized tools to deploy subject-facing research apps without extensive development
+  <Card title="Research applications" icon="microscope">
+    Drop custom tools into `tools/` to deploy subject-facing research apps
   </Card>
-  <Card title="Health Apps" icon="mobile">
-    Build consumer health apps with a complete data and AI backend
+  <Card title="Consumer health apps" icon="mobile">
+    Use Mirobody as the data + AI backend behind your product
   </Card>
-  <Card title="Enterprise Solutions" icon="building">
-    Contact us for additional enterprise-level support and custom integrations
+  <Card title="Enterprise" icon="building">
+    Contact us for custom integrations and enterprise support
   </Card>
 </CardGroup>
+
+## Theta Wellness: Mirobody in Production
+
+[**Theta Wellness**](https://www.thetahealth.ai/) is our flagship application built on Mirobody — a personal health intelligence app that demonstrates what Mirobody can do at production scale. It connects 300+ devices, Apple/Google Health, and EHR records, and supports voice, image, file, and text as inputs.
+
+We're open-sourcing the engine because the same architecture that powers a medical-grade health agent can power your finance analyzer, legal assistant, or devops bot. Swap the files in `tools/` and you're in a new vertical.
 
 ## Next Steps
 
 <Steps>
-  <Step title="Get Started">
-    Follow our [Quick Start guide](/en/quickstart) to deploy Mirobody Health locally in minutes using Docker.
+  <Step title="Get started">
+    Follow the [Quick Start](/en/quickstart) to deploy locally with `./deploy.sh`.
   </Step>
-  
-  <Step title="Configure Providers">
-    Set up OAuth credentials for the health providers you want to integrate. See the [Configuration guide](/en/configuration).
+  <Step title="Configure providers">
+    Set OAuth credentials for the devices you want — see [Configuration](/en/configuration).
   </Step>
-  
   <Step title="Explore the API">
-    Review the [API Reference](/en/api-reference/introduction) to understand how to link users, pull data, and access health information.
+    Read the [API Reference](/en/api-reference/introduction) for Pulse, Chat, and MCP endpoints.
   </Step>
-  
-  <Step title="Add Custom Providers">
-    Follow the [Provider Integration Guide](/en/development/provider-integration) to add support for additional health devices.
+  <Step title="Add custom providers or tools">
+    Use [Provider Integration](/en/development/provider-integration) for new devices, or just drop a Python file into `tools/`.
   </Step>
 </Steps>
 
 ## Contributing
 
-We welcome contributions! When you add a new device, a new tool, or improve the framework in any way, we would like you to share that with the community.
+We welcome contributions — new providers, new tools, framework improvements, anything.
 
 <CardGroup cols={2}>
-  <Card title="GitHub Repository" icon="github" href="https://github.com/thetahealth/mirobody-health">
-    View source code, report issues, and contribute
+  <Card title="GitHub Repository" icon="github" href="https://github.com/thetahealth/mirobody">
+    Source code, issues, and PRs
   </Card>
   <Card title="Contributing Guide" icon="code-pull-request" href="/en/development/contributing">
-    Learn how to contribute to the project
+    How to submit changes
   </Card>
 </CardGroup>
 
 ## Community & Support
 
 <CardGroup cols={2}>
-  <Card title="Discord Community" icon="discord">
-    Join our community for discussions and support (Coming Soon)
+  <Card title="Discord" icon="discord">
+    Community discussions (coming soon)
   </Card>
-  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody-health/issues">
-    Report bugs and request features
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
+    Bug reports and feature requests
   </Card>
   <Card title="Email Support" icon="envelope" href="mailto:developer@thetahealth.ai">
-    Get technical support from our team
+    Direct technical support
   </Card>
 </CardGroup>
 
-## Hackathon Coming Soon
-
-We will launch hackathon(s) with prizes in the coming weeks. Potential themes include:
-
-- **Best health application use case**
-- **Tool design challenge**
-- **Best prompts to one-shot device integration**
-
-<Info>
-*Stay tuned for announcement details!*
-</Info>
-
 <Note>
-Mirobody Health is built on the Mirobody framework. For core framework documentation, visit the Mirobody documentation.
+This docs site covers Mirobody's **health vertical**. For the open-source engine repo, see <a href="https://github.com/thetahealth/mirobody">github.com/thetahealth/mirobody</a>.
 </Note>

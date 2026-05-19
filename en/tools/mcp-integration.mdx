@@ -1,11 +1,11 @@
 ---
 title: "Mirobody MCP Server"
-description: "Connect Mirobody Health tools to Claude, Cursor, ChatGPT, and other MCP clients"
+description: "Connect Mirobody tools to Claude, Cursor, ChatGPT, and other MCP clients"
 ---
 
 ## Overview
 
-Mirobody Health functions as an **OAuth-enabled MCP Server** that exposes all your tools to AI clients like Claude Desktop, Cursor, and custom MCP clients.
+Mirobody functions as an **OAuth-enabled MCP Server** that exposes all your tools to AI clients like Claude Desktop, Cursor, and custom MCP clients.
 
 <Info>
 The Model Context Protocol (MCP) is a standard interface for AI applications to access tools, resources, and context.
@@ -15,7 +15,7 @@ The Model Context Protocol (MCP) is a standard interface for AI applications to 
 
 ### For Claude Desktop & Cursor
 
-Add Mirobody Health to your MCP configuration:
+Add Mirobody to your MCP configuration:
 
 ```json ~/Library/Application Support/Claude/claude_desktop_config.json
 {
@@ -91,7 +91,7 @@ After updating the configuration:
 </Steps>
 
 <Check>
-You should see your Mirobody Health tools available in the AI client!
+You should see your Mirobody tools available in the AI client!
 </Check>
 
 ## Authentication Flow
@@ -114,7 +114,7 @@ sequenceDiagram
 ```
 
 <Note>
-The OAuth token is managed by Mirobody Health. Users authenticate once, and tools have secure access to their data.
+The OAuth token is managed by Mirobody. Users authenticate once, and tools have secure access to their data.
 </Note>
 
 ## Available Endpoints
@@ -133,7 +133,7 @@ The MCP server exposes the following endpoint:
 
 ## For ChatGPT
 
-Mirobody Health can also function as a GPT app, enabling capabilities within ChatGPT. Read more at [ChatGPT Apps](/en/tools/chatgpt-apps).
+Mirobody can also function as a GPT app, enabling capabilities within ChatGPT. Read more at [ChatGPT Apps](/en/tools/chatgpt-apps).
 
 ## Custom MCP Clients
 

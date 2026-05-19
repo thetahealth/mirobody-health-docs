@@ -1,181 +1,148 @@
 ---
 title: "快速开始"
-description: "使用 Docker 在 5 分钟内启动并运行 Mirobody Health"
+description: "一行命令，5 分钟内把 Mirobody 在本地跑起来。"
 ---
 
 ## 前置条件
 
-开始之前，请确保您已安装以下内容：
-
-<CardGroup cols={2}>
-  <Card title="Docker" icon="docker">
+<CardGroup cols={3}>
+  <Card title="Docker + Compose" icon="docker">
+    Docker Desktop 或 `docker` + `docker compose`
   </Card>
-  <Card title="Docker Compose" icon="layer-group">
+  <Card title="Git" icon="code-branch">
+    用于克隆仓库
+  </Card>
+  <Card title="Git LFS" icon="boxes-stacked">
+    用于拉取 `fhir_concept_graph.bin` 等二进制资产
   </Card>
 </CardGroup>
 
 <Check>
-您可以通过运行 `docker --version` 和 `docker-compose --version` 来验证 Docker 是否安装成功。
+环境自检：
+
+```bash
+docker --version
+docker compose version
+git --version
+git lfs version
+```
+
+Git LFS 安装：macOS `brew install git-lfs`，Linux `apt install git-lfs`；安装后跑一次 `git lfs install` 完成初始化。
 </Check>
 
-## 安装步骤
+## 一键部署
 
 <Steps>
   <Step title="克隆仓库">
-    将 Mirobody Health 仓库克隆到本地机器：
-
     ```bash
-    git clone https://github.com/thetahealth/mirobody-health.git
-    cd mirobody-health
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
     ```
   </Step>
 
-  <Step title="初始化配置文件">
-    创建您的 `.env` 文件和配置文件：
-
+  <Step title="运行部署脚本">
     ```bash
-    cp .env.example .env
-    cp config.yaml config.localdb.yaml
-    ```
-    
-    <Tip>
-    `ENV` 变量告诉系统使用哪个配置文件。`ENV=localdb` 将加载 `config.localdb.yaml`。
-    </Tip>
-  </Step>
-
-  <Step title="设置环境变量">
-    编辑 `.env` 设置您的配置文件：
-
-    ```bash .env
-    ENV=localdb
+    ./deploy.sh
     ```
 
-    这会告诉系统使用 `config.localdb.yaml` 进行配置。
-  </Step>
-
-  <Step title="添加 API 密钥并配置 Agent">
-    创建 `config.localdb.yaml` 并添加至少一个 LLM API 密钥：
-
-    ```yaml config.localdb.yaml
-    # ============ LLM API 密钥 (至少需要一个) ============
-    GOOGLE_API_KEY: ''      # 用于 Gemini 模型
-    OPENAI_API_KEY: ''      # 用于 GPT 模型  
-    OPENROUTER_API_KEY: ''  # 用于通过 OpenRouter 访问 Claude、DeepSeek 等模型
-    
-    # ============ Agent 配置 ============
-    # MCP 工具目录
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    # MCP 资源目录  
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    # Agent 目录
-    AGENT_DIRS:
-      - mirobody/pub/agents
-    ```
-
-    <Warning>
-    **系统正常运行至少需要一个 API 密钥**：
-    - **GOOGLE_API_KEY**: 从 [Google AI Studio](https://aistudio.google.com/app/apikey) 获取
-    - **OPENAI_API_KEY**: 从 [OpenAI Platform](https://platform.openai.com/api-keys) 获取
-    - **OPENROUTER_API_KEY**: 从 [OpenRouter](https://openrouter.ai/keys) 获取 - 提供对 Claude、DeepSeek 等模型的访问
-    </Warning>
-    
-    <Info>
-    Mirobody Health 包含两种 Agent 类型：
-    - **DeepAgent** (基于 LangChain): 最适合处理复杂任务、文件操作、多步骤规划
-    - **BaselineAgent** (原生 Gemini): 最适合简单对话、轻量级 MCP 集成
-    
-    有关 Agent 能力和配置的详情，请参阅 [工具概览](/zh/tools/overview)。
-    </Info>
-  </Step>
-
-  <Step title="配置提供商 (可选)">
-    如果您想连接 Garmin 或 Whoop 等可穿戴设备，请添加它们的 OAuth 凭据：
-
-    ```yaml config.localdb.yaml
-    # 提供商 OAuth 凭据 (可选)
-    GARMIN_CLIENT_ID: ''
-    GARMIN_CLIENT_SECRET: ''
-    GARMIN_REDIRECT_URI: ''
-    
-    WHOOP_CLIENT_ID: ''
-    WHOOP_CLIENT_SECRET: ''
-    WHOOP_REDIRECT_URI: ''
-    ```
-
-    有关完整的提供商设置，请参阅 [配置指南](/zh/configuration)。
-  </Step>
-
-  <Step title="使用 Docker 部署">
-    运行部署脚本启动所有服务：
-
-    ```bash
-    ./run.sh
-    ```
-
-    这将启动三个服务：
-    - **后端 API**，端口 18080
-    - **PostgreSQL** 数据库，端口 5432
-    - **Redis** 缓存，端口 6379
+    脚本会自动完成：
+    - 生成 `.env`（含 `ENV=localdb` 和新鲜的 `CONFIG_ENCRYPTION_KEY`）
+    - 创建默认 `config.localdb.yaml`
+    - 构建 Docker 镜像
+    - 启动 Postgres、Redis 和 Mirobody 后端
 
     <Check>
-    等待所有服务启动。您应该能看到表示启动成功的日志。
+    看到后端日志 `Uvicorn running on http://0.0.0.0:18080` 即代表启动完成。
     </Check>
   </Step>
 
-  <Step title="验证安装">
-    打开浏览器并导航至：
+  <Step title="至少配置一个 LLM API Key">
+    打开 `config.localdb.yaml`，在以下选项里**至少**填一个：
 
-    ```
-    http://localhost:18080
+    ```yaml config.localdb.yaml
+    # DeepAgent（默认 Agent）必需
+    OPENROUTER_API_KEY: 'sk-or-...'
+
+    # 可选替代项
+    OPENAI_API_KEY: 'sk-...'
+    GOOGLE_API_KEY: '...'
+    ANTHROPIC_API_KEY: 'sk-ant-...'
     ```
 
-    您应该能看到 Mirobody Health 的欢迎页面。
+    <Warning>
+    **`OPENROUTER_API_KEY` 是默认 DeepAgent 必需的**。可在 <a href="https://openrouter.ai/keys">openrouter.ai/keys</a> 申请。所有密钥在 Mirobody 首次加载时会用 `CONFIG_ENCRYPTION_KEY` 自动加密。
+    </Warning>
+
+    <Info>
+    Mirobody 内置三种 Agent：
+    - **DeepAgent** —— 单模型工具编排，默认选择
+    - **MixAgent** —— 两阶段融合（编排者 + 回复者），平衡成本与质量
+    - **BaselineAgent** —— 不调工具的直连 LLM 对话
+
+    切换方式见 [工具概览](/zh/tools/overview)。
+    </Info>
   </Step>
 
-  <Step title="登录">
-    使用默认的演示账号或在 `config.yaml` 中设置的账号登录。
+  <Step title="（可选）配置 Providers 与 OAuth">
+    需要接入可穿戴设备或启用 Google / Apple 登录时，在 `config.localdb.yaml` 中补上对应凭据：
 
-    ``` 
+    ```yaml
+    # 可穿戴设备
+    GARMIN_CLIENT_ID: ''
+    GARMIN_CLIENT_SECRET: ''
+
+    WHOOP_CLIENT_ID: ''
+    WHOOP_CLIENT_SECRET: ''
+
+    # 第三方登录
+    GOOGLE_OAUTH_CLIENT_ID: ''
+    GOOGLE_OAUTH_CLIENT_SECRET: ''
+    ```
+
+    完整参考：[配置](/zh/configuration)。
+  </Step>
+
+  <Step title="打开本地 Web 应用">
+    访问 <a href="http://localhost:18080">http://localhost:18080</a>，用预置 demo 账号登录：
+
+    ```
     demo1@mirobody.ai
     777777
     ```
 
-    登录后，您可以：
-    - **上传文件**: 化验单、医疗记录、健康文档（参见 [文件处理](/zh/concepts/file-processing)）
-    - **与 AI 对话**: 针对您的健康数据提问
-    - **连接提供商**: 绑定 Garmin、Whoop 和其他设备（参见 [使用提供商](/zh/providers/using-providers)）
+    其他预置账号（`demo2@mirobody.ai`、`demo3@mirobody.ai`）默认同密码 —— 详见 `config.localdb.yaml` 中的 `EMAIL_PREDEFINE_CODES`。
+
+    登录后即可：
+    - **上传文件** —— 化验单、病历、照片、音频（参见 [文件处理](/zh/concepts/file-processing)）
+    - **与 Agent 对话** —— 自然语言提问你的数据
+    - **关联 Provider** —— Garmin、Whoop、Oura、Renpho、Apple Health 等（参见 [使用 Providers](/zh/providers/using-providers)）
+  </Step>
+
+  <Step title="（可选）使用官方托管客户端">
+    想要更精致的前端？直接访问 [https://mirobody.ai](https://mirobody.ai) —— Theta 官方托管的 Web 客户端，连接你本机的后端服务。
+
+    <Tip>
+    数据流仍然完全在你本机：托管客户端只是 UI，会直接调用你本地的 API。在客户端设置里填上你的后端地址即可。
+    </Tip>
   </Step>
 </Steps>
 
-## 测试 API
-
-服务运行后，您可以测试 API 端点：
+## 验证 API
 
 <Tabs>
   <Tab title="健康检查">
-    验证服务器是否正在运行：
-
     ```bash
     curl http://localhost:18080/health
     ```
   </Tab>
 
-  <Tab title="列出提供商">
-    获取可用的健康提供商：
-
+  <Tab title="列出 Providers">
     ```bash
     curl http://localhost:18080/api/v1/pulse/providers
     ```
   </Tab>
 
-  <Tab title="MCP 接口">
-    测试 MCP 协议端点：
-
+  <Tab title="MCP tools/list">
     ```bash
     curl -X POST http://localhost:18080/mcp \
       -H "Content-Type: application/json" \
@@ -188,87 +155,75 @@ description: "使用 Docker 在 5 分钟内启动并运行 Mirobody Health"
   </Tab>
 </Tabs>
 
-## 可用端点
-
-部署后，以下端点可用：
+## 各端点
 
 <CardGroup cols={2}>
-  <Card title="Web 界面" icon="browser" href="http://localhost:18080">
-    主 Web 界面和文档
+  <Card title="Web 应用" icon="browser" href="http://localhost:18080">
+    本地 UI、文件上传、对话
   </Card>
-  <Card title="MCP 协议" icon="bolt" href="http://localhost:18080/mcp">
-    面向 AI Agent 的 JSON-RPC 2.0 接口
+  <Card title="MCP 服务器（本地）" icon="bolt" href="http://localhost:18080/mcp">
+    给 Claude Desktop / Cursor 用
   </Card>
-  <Card title="聊天 API" icon="comments" href="http://localhost:18080/api/chat">
-    AI 聊天接口端点
+  <Card title="Chat API" icon="comments" href="http://localhost:18080/api/chat">
+    OpenAI 兼容的对话端点
   </Card>
-  <Card title="历史记录" icon="clock-rotate-left" href="http://localhost:18080/api/history">
-    会话历史记录端点
+  <Card title="History API" icon="clock-rotate-left" href="http://localhost:18080/api/history">
+    会话历史
   </Card>
 </CardGroup>
 
+需要让 ChatGPT Apps 等远程客户端访问，设置 `MCP_PUBLIC_URL=https://yourdomain.com` 把 MCP 服务器公开到 HTTPS —— 详见 [ChatGPT Apps](/zh/tools/chatgpt-apps)。
+
 ## Docker 服务
 
-部署包含三个容器化服务：
-
-| 服务 | 端口 | 描述 |
-|---------|------|-------------|
-| backend | 18080 | FastAPI 应用程序服务器 |
-| postgres | 5432 | PostgreSQL 数据库 |
-| redis | 6379 | Redis 缓存和会话存储 |
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| `mirobody` | 18080 | FastAPI 应用、MCP 服务、图表渲染器 |
+| `pg` | 5432 | 内置 pgvector 的 PostgreSQL |
+| `redis` | 6379 | 缓存与会话存储 |
 
 <Tip>
-您可以使用以下命令查看任何服务的日志：
+查看日志：
 
 ```bash
-docker-compose logs -f backend
-docker-compose logs -f postgres
-docker-compose logs -f redis
+docker compose logs -f mirobody
+docker compose logs -f pg
+docker compose logs -f redis
 ```
 </Tip>
 
 ## 常用命令
 
 <AccordionGroup>
-  <Accordion title="停止所有服务" icon="stop">
+  <Accordion title="停止全部服务" icon="stop">
     ```bash
-    docker-compose down
+    docker compose down
     ```
   </Accordion>
 
-  <Accordion title="重启服务" icon="rotate">
+  <Accordion title="重启" icon="rotate">
     ```bash
-    docker-compose restart
+    docker compose restart
     ```
   </Accordion>
 
-  <Accordion title="查看日志" icon="file-lines">
+  <Accordion title="改完代码后重新构建" icon="hammer">
     ```bash
-    # 所有服务
-    docker-compose logs -f
-    
-    # 特定服务
-    docker-compose logs -f backend
+    docker compose down
+    docker compose build --no-cache
+    docker compose up -d
     ```
   </Accordion>
 
-  <Accordion title="重建容器" icon="hammer">
+  <Accordion title="打开 Postgres 控制台" icon="database">
     ```bash
-    docker-compose down
-    docker-compose build --no-cache
-    docker-compose up -d
+    docker compose exec pg psql -U mirobody -d mirobody
     ```
   </Accordion>
 
-  <Accordion title="访问数据库" icon="database">
+  <Accordion title="打开 Redis CLI" icon="terminal">
     ```bash
-    docker-compose exec postgres psql -U holistic_user -d holistic_db
-    ```
-  </Accordion>
-
-  <Accordion title="访问 Redis CLI" icon="terminal">
-    ```bash
-    docker-compose exec redis redis-cli
+    docker compose exec redis redis-cli
     ```
   </Accordion>
 </AccordionGroup>
@@ -276,68 +231,58 @@ docker-compose logs -f redis
 ## 故障排查
 
 <AccordionGroup>
-  <Accordion title="端口已被占用" icon="circle-exclamation">
-    如果端口 18080 已被占用，请编辑 `config.yaml`：
+  <Accordion title="18080 端口被占用" icon="circle-exclamation">
+    修改 `config.localdb.yaml` 里的 `HTTP_PORT`：
 
     ```yaml
-    HTTP_PORT: 18081  # 更改为可用端口
+    HTTP_PORT: 18081
     ```
 
-    然后重启服务。
+    然后 `docker compose restart mirobody`。
   </Accordion>
 
-  <Accordion title="数据库连接失败" icon="database">
-    确保 PostgreSQL 容器正在运行：
-
+  <Accordion title="Postgres 连接失败" icon="database">
     ```bash
-    docker-compose ps postgres
-    ```
-
-    检查数据库日志：
-
-    ```bash
-    docker-compose logs postgres
+    docker compose ps pg
+    docker compose logs pg
     ```
   </Accordion>
 
   <Accordion title="Redis 连接失败" icon="server">
-    验证 Redis 正在运行且可访问：
-
     ```bash
-    docker-compose exec redis redis-cli ping
+    docker compose exec redis redis-cli ping
     ```
-
-    如果正常工作应返回 `PONG`。
+    应返回 `PONG`。
   </Accordion>
 
-  <Accordion title="deploy.sh 权限被拒绝" icon="lock">
-    使脚本可执行：
-
+  <Accordion title="./deploy.sh 权限被拒" icon="lock">
     ```bash
     chmod +x deploy.sh
     ```
+  </Accordion>
+
+  <Accordion title="DeepAgent 启动失败" icon="robot">
+    多半是 `OPENROUTER_API_KEY` 缺失或无效。补上后重启服务即可。
   </Accordion>
 </AccordionGroup>
 
 ## 下一步
 
-现在您已运行了 Mirobody Health：
-
 <CardGroup cols={2}>
-  <Card title="配置提供商" icon="gear" href="/zh/configuration">
-    为 Garmin、Whoop 等提供商设置 OAuth 凭据
+  <Card title="配置 Providers" icon="gear" href="/zh/configuration">
+    给 Garmin、Whoop、Oura、Renpho 等配置 OAuth 凭据
   </Card>
   <Card title="探索 API" icon="code" href="/zh/api-reference/introduction">
-    了解如何使用 Pulse API 链接用户并检索健康数据
+    Pulse、Chat、MCP 端点
   </Card>
-  <Card title="了解架构" icon="diagram-project" href="/zh/concepts/architecture">
-    了解 Mirobody Health 如何处理和标准化健康数据
+  <Card title="理解架构" icon="diagram-project" href="/zh/concepts/architecture">
+    数据如何从设备走到你的屏幕
   </Card>
-  <Card title="添加新提供商" icon="plus" href="/zh/development/provider-integration">
-    按照指南集成其他健康设备提供商
+  <Card title="接入新 Provider" icon="plus" href="/zh/development/provider-integration">
+    把新的可穿戴或数据源接进来
   </Card>
 </CardGroup>
 
 <Note>
-有关生产环境部署，请参阅 [生产环境部署指南](/zh/deployment/production) 以了解安全加固和性能优化建议。
+生产部署请参见 [生产部署](/zh/deployment/production)，含安全加固与性能调优。
 </Note>

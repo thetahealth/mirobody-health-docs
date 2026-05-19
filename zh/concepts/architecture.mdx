@@ -1,504 +1,229 @@
 ---
 title: "架构概览"
-description: "了解 Mirobody Health 的架构与设计"
+description: "Mirobody 的分层结构：AI 与 Agent 引擎、FHIR 与健康标准、数据管线、基础设施。"
 ---
 
-## 系统架构
-
-Mirobody Health 采用模块化、分层架构，将关注点分离，并支持轻松扩展。
-
-## 核心组件
-
-<CardGroup cols={2}>
-  <Card title="API 层" icon="server">
-    基于 FastAPI 的 REST API，用于对外集成
-  </Card>
-  <Card title="提供商系统" icon="plug">
-    面向健康设备的可插拔 OAuth 集成
-  </Card>
-  <Card title="数据流水线" icon="arrow-progress">
-    健康数据转换的 ETL 流水线
-  </Card>
-  <Card title="AI 服务" icon="brain">
-    面向对话的多 LLM 提供商集成
-  </Card>
-  <Card title="MCP 协议" icon="bolt">
-    面向 AI agent 的 Model Context Protocol
-  </Card>
-  <Card title="存储层" icon="database">
-    PostgreSQL 与 Redis 用于数据持久化
-  </Card>
-</CardGroup>
-
-## 架构分层
-
-### 1. API 层
-
-API 层为系统交互提供 RESTful 端点（endpoints）：
+Mirobody 是一套分层、可插拔的引擎。每一层都可以独立替换或扩展 —— 没有单体，没有隐藏耦合。
 
 ```
-HTTP Server (FastAPI)
-├── /api/v1/pulse/          # 健康提供商端点
-├── /api/chat               # AI 聊天接口
-├── /api/history            # 会话历史
-└── /mcp                    # MCP 协议端点
+┌──────────────────────────────────────────────────────────────────┐
+│  客户端                                                            │
+│  ─────────────────────────────────────────────────────────────    │
+│  Web 应用（本地 + mirobody.ai） · ChatGPT Apps · Claude            │
+│  Cursor · 任意 MCP 客户端                                          │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │  HTTP / MCP (JSON-RPC 2.0) / OAuth
+┌─────────────────────────▼────────────────────────────────────────┐
+│  AI 与 Agent 引擎                                                  │
+│  ─────────────────────────────────────────────────────────────    │
+│  Chat 服务 · DeepAgent / MixAgent / BaselineAgent · MCP 服务器     │
+│  LLM 客户端 · Tools · Skills · Embeddings · Prompts                │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼────────────────────────────────────────┐
+│  FHIR 与健康标准                                                   │
+│  ─────────────────────────────────────────────────────────────    │
+│  400+ StandardIndicator · FHIR / LOINC / SNOMED CT / RxNorm /     │
+│  CVX / DCM 跨术语 · 单位归一化 · 概念图                            │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼────────────────────────────────────────┐
+│  健康数据管线 (Pulse)                                              │
+│  ─────────────────────────────────────────────────────────────    │
+│  300+ 可穿戴 · Apple/Google Health · EHR · 文件解析                │
+│  (PDF/Excel/CSV/音频/图像/基因) · 聚合 · Insight                    │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼────────────────────────────────────────┐
+│  基础设施                                                          │
+│  ─────────────────────────────────────────────────────────────    │
+│  Starlette ASGI · JWT / OAuth / WebAuthn · 异步 PostgreSQL +       │
+│  pgvector · Redis · Local / S3 / 阿里 OSS · E2B 沙箱               │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-**核心特性:**
-- 使用 FastAPI 进行异步请求处理
-- 自动生成 API 文档（OpenAPI/Swagger）
-- 为 Web 客户端提供 CORS 支持
-- 使用 Pydantic 模型进行请求校验
-- 基于 JWT 的身份验证
+## AI 与 Agent 引擎
 
-### 2. 提供商系统
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **Chat 服务** | `mirobody/chat/` | 会话管理、对话历史、HTTP + WebSocket 流式适配器、记忆集成、会话分享 |
+| **Agent 实现** | `mirobody/pub/agents/` | DeepAgent（基于 LangChain）、MixAgent（两阶段融合）、BaselineAgent（直连 LLM） |
+| **LLM 客户端** | `mirobody/utils/llm/` | 适配 OpenAI、Gemini、Anthropic、Azure OpenAI、火山引擎、阿里 Dashscope；含 HIPAA 合规路由 |
+| **MCP 服务器** | `mirobody/mcp/` | JSON-RPC 2.0，本地 + HTTP 远程端点，自动发现工具与资源 |
+| **Tools** | `mirobody/pub/tools/`、`tools/` | 内置工具（文件操作、图表、`execute`）+ 你拖入的 Python 文件 |
+| **Skills** | `skills/` | Claude Agent Skills（`SKILL.md` + `metadata.json`），启动时自动发现 |
+| **Embeddings** | `mirobody/utils/embedding.py` | 1024 维、提供商无关（Gemini / Qwen），pgvector 语义检索 |
+| **Prompt 模板** | `prompts/` | Jinja2 系统 prompt，可动态注入上下文（用户时区、可用工具、健康 profile） |
 
-面向健康设备集成的可插拔架构：
+### 三种 Agent，各司其职
+
+| Agent | 阶段 | 适用场景 |
+|---|---|---|
+| **DeepAgent** | 单模型处理工具 + 回复 | 复杂多步研究、文件操作、规划 |
+| **MixAgent** | 编排者模型（如 Claude Sonnet）→ 回复者模型（如 Gemini Flash） | 高吞吐场景，对推理要求高过文笔 |
+| **BaselineAgent** | 直连 LLM，无工具 | 简单 Q&A、低延迟、测试 |
+
+默认是 DeepAgent。切换方式与配置见 [工具概览](/zh/tools/overview)。
+
+### Tools 与 Skills
+
+**Tools** 就是 `tools/` 下的普通 Python 函数 —— 类型提示 + docstring 就是它唯一的"schema"。Mirobody 在启动时解析一次，然后通过 MCP 暴露出去。
+
+```python
+# tools/my_tool.py
+def get_my_metric(date: str, user_info: dict) -> dict:
+    """
+    获取指定日期的自定义指标。
+
+    Args:
+        date: ISO 8601 日期字符串。
+
+    Returns:
+        包含指标值与单位的字典。
+    """
+    user_id = user_info["user_id"]    # 由 Mirobody 从 JWT 中自动注入
+    return {"value": 42, "unit": "steps"}
+```
+
+**Skills** 即 Claude Agent Skills —— 一个 `SKILL.md`（被激活时 Agent 读取的 playbook）加上一个 `metadata.json`（Mirobody 用于发现与 IDE 集成的元数据）。
+
+```
+skills/glucose-coach/
+├── metadata.json   # name、summary、when_to_use、when_not_to_use、tags
+└── SKILL.md        # YAML frontmatter（name、description、license）+ 正文
+```
+
+参见 [添加工具](/zh/tools/adding-tools) 与 [MCP 集成](/zh/tools/mcp-integration)。
+
+## FHIR 与健康标准
+
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **FHIR 映射** | `mirobody/pulse/core/fhir_mapping.py` | 内存缓存 `indicator → FHIR code`，可选自动注册新代码 |
+| **指标注册表** | `mirobody/pulse/core/indicators_info.py` | 400+ `StandardIndicator` 枚举，多源（Vital、Apple Health、Garmin、Whoop、Renpho ……） |
+| **单位换算** | `mirobody/pulse/core/units.py` | 双向：kg ↔ lb、°C ↔ °F、mg·dL⁻¹ ↔ mmol·L⁻¹、mmHg ↔ kPa 等 |
+| **指标搜索** | `mirobody/indicator/` | 基于 Embedding 的自由文本 → 指标代码，跨 LOINC / SNOMED CT / RxNorm / CVX / DCM 的概念图扩展 |
+| **概念图** | `mirobody/indicator/concept_graph.py` + `fhir_concept_graph.bin` | 跨术语桥与同体系兄弟节点；通过 Git LFS 拉取 |
+
+### 两种检索模式
+
+| 方法 | 范围 | 输入 | 返回 |
+|------|------|------|------|
+| `adapter.search(user_id, embeddings, top_k)` | 单用户 | 预先算好的查询 Embedding | *这个用户* 有什么与查询相符 |
+| `adapter.resolve(term, top_k)` | 全局 | 自由文本 | 这个术语映射到哪些规范代码 |
+| `adapter.resolve_many(terms, top_k)` | 全局批处理 | 自由文本列表 | 比循环 `resolve()` 快 ~20–30× |
+
+`search` 会 join `th_series_data` 把范围限定到一个用户；`resolve` 对整个词表做余弦匹配，按每个代码体系（LOINC、SNOMED CT、RXNORM、CVX、DCM、THETA）各自取 top-k。
+
+### 单位归一化
+
+来自任何设备或图表、覆盖多语言（en、zh、ja、ko、ru、de、fr、es）的"数值 + 单位"自由文本，会被归一化到一个规范的 UCUM 单位 + 一个 LOINC PROPERTY 家族：
+
+```
+"90次每分钟"    → ParsedQuantity(value=90.0,  unit="/min",   family="NRat")
+"<5.6 mg/dL"   → ParsedQuantity(value=5.6,   unit="mg/dL",  family="MCnc", comparator="<")
+"Millimol pro Liter" → "mmol/L"
+"600步"        → ParsedQuantity(value=600.0, unit="{steps}", family="Num")
+```
+
+完全本地计算 —— 不依赖数据库，不调用 Embedding API。
+
+## 健康数据管线 (Pulse)
+
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **Platform 管理器** | `mirobody/pulse/` | Platform–Provider 插件架构，统一归一化到 `StandardPulseData` |
+| **Theta 平台** | `mirobody/pulse/theta/` | 直接对接：Garmin、Whoop、Oura、Renpho、PostgreSQL 等 |
+| **Apple Health** | `mirobody/pulse/apple/` | Apple Health 导入、CDA（临床文档架构）处理 |
+| **数据上行** | `mirobody/pulse/data_upload/` | `StandardPulseData` → `th_series_data` 写入流水线 |
+| **文件解析** | `mirobody/pulse/file_parser/` | 多格式：PDF、CSV、Excel、音频、图像、基因；LLM 抽取指标 |
+| **聚合** | `mirobody/pulse/core/aggregate_indicator/` | 时间序列 → 日聚合；派生指标；睡眠窗口 18:00–18:00 |
+| **健康 Insight** | `mirobody/pulse/core/insight/` | AI 趋势识别、异常分析、模式 recipe（多信号、恢复、血糖） |
+
+### Provider 生命周期
 
 ```mermaid
-graph TD
-    A[Provider Discovery] --> B[Provider Registration]
-    B --> C{Provider Type}
-    C --> |OAuth 1.0| D[OAuth1 Provider]
-    C --> |OAuth 2.0| E[OAuth2 Provider]
-    D --> F[Data Puller]
-    E --> F
-    F --> G[Data Formatter]
-    G --> H[Database Service]
+graph LR
+    A[Provider 发现] --> B[OAuth 绑定]
+    B --> C[周期性拉取]
+    C --> D[保存原始数据到 th_raw_data]
+    D --> E[格式化 → StandardPulseData]
+    E --> F[推送到 th_series_data]
+    F --> G[聚合 → 日摘要]
+    G --> H[Insight + 指标搜索]
 ```
 
-**组件:**
-- `BaseThetaProvider`: 所有提供商的抽象基类
-- `ThetaDataFormatter`: 标准数据转换工具
-- `ThetaTimeUtils`: 时区和时间戳处理
-- 提供商特定实现（Garmin, Whoop 等）
+无论是内置 Provider（`mirobody/pulse/theta/mirobody_garmin/`）还是自定义 Provider（`providers/mirobody_mydevice/`），都实现同一份 `BaseThetaProvider` 契约 —— 参见 [Provider 集成](/zh/development/provider-integration)。
 
-### 3. 数据流水线 (TBD)
+## 基础设施
 
-健康数据的 ETL（提取、转换、加载）流水线：
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **配置** | `mirobody/utils/config/` | 分层 YAML + 环境变量；含 `_KEY` / `_SECRET` / `_TOKEN` 等字段的 Fernet 自动加密 |
+| **存储后端** | `mirobody/utils/config/storage/` | 可插拔：本地文件系统、AWS S3、阿里云 OSS |
+| **认证与用户** | `mirobody/user/` | JWT、OAuth 2.0（Google / Apple）、WebAuthn / FIDO2、邮箱验证 |
+| **服务端** | `mirobody/server/` | Starlette ASGI、JWT 中间件、限流 |
+| **数据库** | `mirobody/utils/db.py` | 异步 PostgreSQL（psycopg）+ pgvector，Redis 缓存 / 会话存储 |
+| **沙箱** | E2B（外部） | `execute` 工具在隔离的云沙箱内跑 shell + Python |
 
-```
-┌─────────────┐
-│  Pull Data  │ ─┐
-└─────────────┘  │
-                 │
-┌─────────────┐  │  ┌──────────────┐
-│  Save Raw   │ ◄┴─▶│ Push Service │
-└─────────────┘     └──────────────┘
-        │                   │
-        ▼                   ▼
-┌─────────────┐    ┌──────────────┐
-│  Format     │    │  Upload      │
-└─────────────┘    └──────────────┘
-        │                   │
-        ▼                   ▼
-┌─────────────┐    ┌──────────────┐
-│ Standardize │    │  Platform    │
-└─────────────┘    └──────────────┘
-```
-
-**流程:**
-1. **Pull (拉取)**：从厂商 API 获取数据
-2. **Save (保存)**：将原始数据存入数据库
-3. **Format (格式化)**：转换为标准格式
-4. **Upload (上传)**：推送到 Mirobody 平台
-
-### 4. AI 服务
-
-面向智能健康洞察的多 LLM 提供商集成：
-
-```python
-AI Services
-├── OpenRouter (多模型)
-├── OpenAI 
-├── Google
-├── Anthropic
-└── 本地 LLM (即将推出)
-```
-
-**特性:**
-- 与提供商无关的接口
-- 对话上下文管理
-- 用于健康数据访问的工具调用 (Tool calling)
-- 会话历史持久化
-
-### 5. MCP 协议
-
-支持通过 Model Context Protocol 集成 AI agent：
+### 配置层级
 
 ```
-MCP Server
-├── Tools/        # 可用工具
-│   ├── get_user_health_profile
-│   ├── get_health_indicator
-│   ├── genetic_service
-│   └── 您的自定义工具
-├── Resources/    # 可用资源
+config.yaml                ← 基础配置，不要修改
+  └── config.{env}.yaml     ← 你的覆盖；ENV=localdb → config.localdb.yaml
+       └── 环境变量          ← 优先级最高，通过 .env 或 shell 注入
 ```
 
-**能力:**
-- JSON-RPC 2.0 接口
-- 工具发现与执行
-- 资源管理
-- Agent 编排
-
-### 6. 存储层
-
-面向不同数据类型的双存储系统：
-
-<Tabs>
-  <Tab title="PostgreSQL">
-    **用于:**
-    - 用户凭据（加密）
-    - OAuth 令牌与刷新令牌
-    - 健康原始数据（JSONB）
-    - 提供商配置
-    - 会话历史
-  </Tab>
-
-  <Tab title="Redis">
-    **用于:**
-    - OAuth state 参数（短期）
-    - 会话令牌
-    - 速率限制计数器
-    - 缓存 API 响应
-    - 临时数据存储
-
-    **核心模式:**
-    ```
-    oauth2:state:{state}      # OAuth state
-    oauth:secret:{token}      # OAuth 1.0 secrets
-    cache:user:{user_id}      # 用户数据缓存
-    rate:{provider}:{user}    # 速率限制
-    ```
-  </Tab>
-</Tabs>
-
-## 数据流
-
-### OAuth 身份验证流程
-
-```mermaid
-sequenceDiagram
-    participant U as 用户
-    participant API as API 服务器
-    participant R as Redis
-    participant P as 提供商
-    participant DB as PostgreSQL
-
-    U->>API: 请求链接
-    API->>R: 存储 state
-    API->>U: 返回 OAuth URL
-    U->>P: 授权
-    P->>API: 携带 code 的回调
-    API->>R: 验证 state
-    API->>P: 交换令牌
-    P->>API: 返回令牌
-    API->>DB: 保存凭据
-    API->>U: 链接完成
-```
-
-### 健康数据同步
-
-```mermaid
-sequenceDiagram
-    participant S as 调度器
-    participant PP as 提供商 (插件)
-    participant V as 厂商 API
-    participant DB as 数据库
-    participant PL as 平台
-
-    S->>PP: 触发同步
-    PP->>DB: 获取凭据
-    PP->>V: 获取数据
-    V->>PP: 返回原始数据
-    PP->>DB: 保存原始数据
-    PP->>PP: 格式化数据
-    PP->>PL: 上传格式化后的数据
-    PL->>DB: 存储已处理的数据
-```
-
-## 设计模式
-
-### 插件架构
-
-提供商是动态发现并加载的：
-
-```python
-# 提供商发现
-THETA_PROVIDER_DIRS = ["connect/theta"]
-
-# 自动加载
-for directory in THETA_PROVIDER_DIRS:
-    providers = discover_providers(directory)
-    for provider_class in providers:
-        provider = provider_class.create_provider(config)
-        if provider:
-            register_provider(provider)
-```
-
-### 工厂模式
-
-提供商使用工厂方法进行有条件的实例化：
-
-```python
-@classmethod
-def create_provider(cls, config: Dict) -> Optional['Provider']:
-    """工厂方法 - 如果配置无效则返回 None"""
-    if not cls._validate_config(config):
-        return None
-    return cls()
-```
-
-### 策略模式
-
-针对 OAuth 1.0 vs 2.0 的不同 OAuth 策略：
-
-```python
-class BaseThetaProvider:
-    def link(self, request) -> Dict:
-        """由 OAuth1 或 OAuth2 策略实现"""
-        pass
-    
-    def callback(self, *args, **kwargs) -> Dict:
-        """由 OAuth1 或 OAuth2 策略实现"""
-        pass
-```
-
-### 仓库模式
-
-通过服务抽象数据库操作：
-
-```python
-class DatabaseService:
-    async def save_oauth2_credentials(self, ...): pass
-    async def get_user_credentials(self, ...): pass
-    async def delete_user_theta_provider(self, ...): pass
-```
-
-## 安全架构
-
-<AccordionGroup>
-  <Accordion title="身份验证与授权" icon="key">
-    - 基于 JWT 的 API 身份验证
-    - 用于提供商访问的 OAuth 1.0/2.0
-    - 加密存储凭据
-    - 按用户隔离的提供商访问控制
-  </Accordion>
-
-  <Accordion title="数据保护" icon="shield">
-    - 数据库级别加密
-    - 加密 OAuth 令牌
-    - 所有外部通信使用 HTTPS
-    - 敏感数据绝不记录到日志
-  </Accordion>
-
-  <Accordion title="访问控制" icon="lock">
-    - 用户范围的数据访问
-    - 提供商特定的权限
-    - API 速率限制
-    - CORS 策略
-  </Accordion>
-
-  <Accordion title="安全通信" icon="shield-halved">
-    - 外部 API 使用 TLS/SSL
-    - 针对 OAuth CSRF 保护的 state 参数
-    - 令牌刷新机制
-    - 安全的会话管理
-  </Accordion>
-</AccordionGroup>
-
-## 可扩展性考虑
-
-### 水平扩展
-
-系统支持水平扩展：
-
-<CardGroup cols={2}>
-  <Card title="无状态 API" icon="server">
-    API 服务器是无状态的，可在负载均衡器后实现水平扩展
-  </Card>
-  <Card title="分布式缓存" icon="layer-group">
-    Redis 支持集群，用于分布式缓存
-  </Card>
-  <Card title="数据库连接池" icon="database">
-    连接池支持多个 API 实例并发访问
-  </Card>
-  <Card title="异步处理" icon="arrows-spin">
-    Async/await 提升了每个实例的并发处理能力
-  </Card>
-</CardGroup>
-
-
-## 部署架构
-
-### Docker Compose 架构
-
-```yaml
-services:
-  backend:
-    image: mirobody-backend
-    ports: ["18080:18080"]
-    depends_on: [db, redis]
-    
-  db:
-    image: postgres:15
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-    
-  redis:
-    image: redis:7
-    volumes: ["redis-data:/data"]
-
-volumes:
-  pgdata:
-  redis-data:
-```
-
-## 监控与可观测性
-
-### 日志
-
-整个系统使用结构化日志：
-
-```python
-# 日志级别
-LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-
-# 上下文日志
-logging.info(
-    "Data pull completed",
-    extra={
-        "user_id": user_id,
-        "provider": provider_slug,
-        "records": len(data),
-        "duration_ms": duration
-    }
-)
-```
-
-### 指标
-
-追踪关键性能指标：
-
-- 请求延迟
-- 提供商成功率
-- 数据处理吞吐量
-- 按提供商分类的错误率
-- 令牌刷新率
-
-### 健康检查
-
-```python
-GET /health
-{
-  "status": "healthy",
-  "version": "1.0.1",
-  "services": {
-    "database": "connected",
-    "redis": "connected"
-  }
-}
-```
-
-## 技术栈
-
-<Tabs>
-  <Tab title="后端">
-    - **Python 3.12+**: 核心语言
-    - **FastAPI**: Web 框架
-    - **asyncio**: 异步 I/O
-    - **Pydantic**: 数据校验
-    - **SQLAlchemy**: 数据库 ORM
-  </Tab>
-
-  <Tab title="存储">
-    - **PostgreSQL 15**: 关系型数据库
-    - **Redis 7**: 缓存与会话存储
-    - **JSONB**: 灵活的数据存储
-    - **S3 (可选)**: 对象存储
-  </Tab>
-
-  <Tab title="集成">
-    - **aiohttp**: 异步 HTTP 客户端
-    - **requests-oauthlib**: OAuth 1.0
-    - **OAuth 2.0**: 现代认证
-    - **JSON-RPC 2.0**: MCP 协议
-  </Tab>
-
-  <Tab title="DevOps">
-    - **Docker**: 容器化
-    - **Docker Compose**: 本地部署
-    - **pytest**: 测试框架
-    - **GitHub Actions**: CI/CD
-  </Tab>
-</Tabs>
+敏感字段（键名包含 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK`、`_TOKEN`）在首次加载时使用你的 `CONFIG_ENCRYPTION_KEY` 自动加密。详见 [配置](/zh/configuration)。
 
 ## 扩展点
 
-该架构提供了多个扩展点：
+把文件丢进去，下次启动自动生效：
 
-<AccordionGroup>
-  <Accordion title="新增提供商" icon="plus">
-    新增健康设备集成请参见[开发](/zh/development/setup)：
-  </Accordion>
+| 目录 | 被识别为 | 命名约定 |
+|------|----------|----------|
+| `tools/` | MCP 工具 | `.py` 结尾；顶层函数或 `*Service` 类；`_*.py` 文件被忽略 |
+| `skills/` | Claude Agent Skills | 每个 skill 一个子目录，含 `SKILL.md` + `metadata.json` |
+| `agents/` | 对话 Agent | `*Agent` 类；需要 async `generate_response` |
+| `providers/` | 数据 Provider | `mirobody_<slug>/provider_<slug>.py`，继承 `BaseThetaProvider` |
+| `prompts/` | Prompt 模板 | Jinja2 `.jinja` 文件，被 `PROMPTS_<AGENT>` 引用 |
+| `resources/` | MCP 资源 | HTML、JSON 或其他静态文件，通过 MCP 暴露 |
 
-  <Accordion title="工具与 MCP" icon="wrench">
-    1. 请参阅[添加自定义工具](/zh/tools/adding-tools)以为 AI agent 添加新工具
-    2. 请参阅[添加自定义 MCP](/zh/tools/adding-mcps)以为 AI agent 添加新 MCP
-  </Accordion>
+同名时，自定义目录优先于内置。
 
-  <Accordion title="自定义指标" icon="chart-line">
-    添加新的健康指标：
-    1. 在 `StandardIndicator` 枚举中定义
-    2. 指定标准单位
-    3. 更新提供商映射
-  </Accordion>
+## 端到端请求流程
 
-  <Accordion title="AI 提供商" icon="robot">
-    添加新的 LLM 提供商：
-    1. 实现提供商接口
-    2. 添加配置
-    3. 在 agent 系统中注册
-    4. 部署
-  </Accordion>
-</AccordionGroup>
+用户在 Web UI 里发 "Show me my knee pain trend" 之后会发生什么：
 
-## 最佳实践
+```
+1. 浏览器 POST 到 /api/chat（SSE）。
+2. JWT 中间件 → user_id。
+3. Chat 服务建立或复用 session，把用户消息持久化到 th_messages。
+4. DeepAgent（默认）按用户的 PROVIDERS_DEEP 配置加载。
+5. Agent 调用 MCP tools/list 规划，然后顺序调用工具：
+   - get_user_profile   → user_id、时区、可用 provider
+   - 指标搜索           → "knee pain" → SNOMED CT / LOINC 候选
+   - get_health_data    → 按 user_id + 指标 join 时间序列
+   - chart_service      → 渲染 PNG、上传 S3、返回 presigned URL
+6. Agent 通过 SSE 流式输出 thinking / reply chunk；响应持久化。
+7. 聚合 + Insight 在后台运行，为下一次会话准备好。
+```
 
-<CardGroup cols={2}>
-  <Card title="关注点分离" icon="layer-group">
-    每一层只负责单一职责
-  </Card>
-  <Card title="依赖注入" icon="syringe">
-    通过注入使用服务，而非硬编码
-  </Card>
-  <Card title="面向接口设计" icon="cube">
-    面向接口编程，而非面向实现
-  </Card>
-  <Card title="配置驱动" icon="gears">
-    行为通过配置控制
-  </Card>
-  <Card title="异步优先" icon="bolt">
-    所有 I/O 操作使用 Async/await
-  </Card>
-  <Card title="错误处理" icon="triangle-exclamation">
-    优雅降级与恢复
-  </Card>
-</CardGroup>
+会话分享（无需登录的只读路径）见 [会话分享](/zh/api-reference/chat/share)。
 
-## 下一步
+## 下一步去哪
 
 <CardGroup cols={2}>
-  <Card title="提供商系统" icon="plug" href="/zh/concepts/providers">
-    深入了解提供商系统
+  <Card title="Providers" icon="plug" href="/zh/concepts/providers">
+    设备和 EHR 如何接入
   </Card>
   <Card title="数据流" icon="arrow-progress" href="/zh/concepts/data-flow">
-    理解数据转换流程
+    从厂商原始 payload 到归一化指标
   </Card>
-  <Card title="开发设置" icon="code" href="/zh/development/setup">
-    搭建您的开发环境
+  <Card title="文件处理" icon="file" href="/zh/concepts/file-processing">
+    多格式文件的接入与解析
   </Card>
-  <Card title="部署" icon="rocket" href="/zh/deployment/docker">
-    部署 Mirobody Health
+  <Card title="Tools 与 MCP" icon="bolt" href="/zh/tools/overview">
+    构建工具并跨 MCP 生态暴露
   </Card>
 </CardGroup>

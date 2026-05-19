@@ -1,6 +1,6 @@
 ---
 title: "开发环境搭建"
-description: "搭建 Mirobody Health 的本地开发环境"
+description: "搭建 Mirobody 的本地开发环境"
 ---
 
 ## 前置条件
@@ -8,7 +8,7 @@ description: "搭建 Mirobody Health 的本地开发环境"
 开始搭建开发环境前，请确保你已安装：
 
 <CardGroup cols={2}>
-  <Card title="Python 3.12+" icon="python">
+  <Card title="Python 3.10+" icon="python">
     运行应用程序所需
   </Card>
   <Card title="Node.js 18+" icon="node">
@@ -33,8 +33,8 @@ description: "搭建 Mirobody Health 的本地开发环境"
 <Steps>
   <Step title="克隆仓库">
     ```bash
-    git clone https://github.com/thetahealth/mirobody-health.git
-    cd mirobody-health
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
     ```
   </Step>
 
@@ -58,91 +58,82 @@ description: "搭建 Mirobody Health 的本地开发环境"
 
   <Step title="创建虚拟环境">
     ```bash
-    python3.12 -m venv .venv
-    source .venv/bin/activate  # Windows 用户: .venv\Scripts\activate
+    python3 -m venv .venv
+    source .venv/bin/activate  # Windows: .venv\Scripts\activate
+    pip install --upgrade pip
     ```
   </Step>
 
   <Step title="安装 Python 依赖">
     ```bash
-    pip install mirobody -r requirements.txt
+    pip install -e .
+
+    # 可选额外依赖
+    # pip install -e ".[cn]"    # 国内可选：阿里 OSS、火山、Dashscope
+    # pip install -e ".[fin]"   # 金融数据：yfinance
+    # pip install -e ".[test]"  # 测试套件
     ```
-    
-    <Info>
-    `mirobody` 包包含核心实用程序。使用 `-e .` 进行开发模式安装是可选的。
-    </Info>
+
+    Mirobody 也发布在 PyPI 上，可用 `pip install mirobody` 做非可编辑安装。
   </Step>
 
   <Step title="安装 Node.js 依赖">
     ```bash
-    npm install @antv/gpt-vis-ssr ws
+    npm install --omit=dev
     ```
-    
-    图表渲染服务所需。
+
+    服务端图表渲染器依赖。
   </Step>
 
   <Step title="启动后台服务">
     ```bash
-    docker-compose up -d postgres redis
+    docker compose up -d pg redis
     ```
-    
-    你也可以使用自己现有的 PostgreSQL 和 Redis 实例。
+
+    也可以让 Mirobody 连接你已有的 PostgreSQL / Redis 实例。
   </Step>
 
   <Step title="配置环境变量">
     ```bash
-    cp .env.example .env
-    cp config.yaml config.localdb.yaml
+    echo "ENV=localdb" > .env
+    echo "CONFIG_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
     ```
-    
-    编辑 `.env`：
-    ```bash
-    ENV=localdb
-    ```
-    
-    根据你的环境编辑 `config.localdb.yaml`：
+
+    然后编辑 `config.localdb.yaml`：
+
     ```yaml
-    # 至少需要一个 LLM API 密钥
-    GOOGLE_API_KEY: ''
+    # 默认 DeepAgent 必需
+    OPENROUTER_API_KEY: 'sk-or-...'
+
+    # 可选替代项
     OPENAI_API_KEY: ''
-    OPENROUTER_API_KEY: ''
-    
-    # 数据库设置
+    GOOGLE_API_KEY: ''
+    ANTHROPIC_API_KEY: ''
+
+    # 数据库（默认值匹配 compose 文件）
     PG_HOST: 'localhost'
     PG_PORT: 5432
-    PG_USER: 'holistic_user'
-    PG_PASSWORD: 'holistic_password'
-    PG_DBNAME: 'holistic_db'
-    PG_SCHEMA: 'theta_ai'
-    
-    # Redis 设置
+    PG_USER: 'mirobody'
+    PG_PASSWORD: ''
+    PG_DBNAME: 'mirobody'
+
+    # Redis
     REDIS_HOST: 'localhost'
     REDIS_PORT: 6379
     REDIS_DB: 0
     REDIS_PASSWORD: ''
-    
-    # MCP 和 Agent 目录
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    AGENT_DIRS:
-      - mirobody/pub/agents
     ```
   </Step>
 
   <Step title="运行应用">
     ```bash
-    python main.py
+    python -m main
     ```
 
-    服务器应在 http://localhost:18080 启动。
-    
+    服务器在 `http://localhost:18080` 启动。
+
     <Tip>
-    如果使用 WSL 运行，可以通过 Windows 浏览器访问 `http://localhost:18080`。
+    在 WSL 下运行同样可以从 Windows 直接访问该地址。
     </Tip>
   </Step>
 </Steps>
@@ -196,7 +187,7 @@ pytest -m integration
 ## 项目结构
 
 ```
-mirobody-health/
+mirobody/
 ├── mirobody/                # 主应用程序包
 │   ├── chat/               # 聊天和 Agent 服务
 │   │   ├── adapters/      # 协议适配器 (HTTP, WebSocket)
