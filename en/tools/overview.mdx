@@ -5,37 +5,43 @@ description: "Understanding agents, tools, and MCP integration in Mirobody"
 
 ## Agent Architecture
 
-Mirobody provides two types of AI agents, each optimized for different use cases:
+Mirobody provides three agent types, each optimized for a different cost/quality/latency point:
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="DeepAgent" icon="brain">
-    **Recommended for Complex Tasks**
-    
-    LangChain-based agent with advanced capabilities for file operations, multi-step planning, and complex workflows.
+    **Complex workflows**
+
+    Single-model tool orchestration. Multi-step planning, file ops, subagents, persistent memory. The default for tool-assisted conversations.
+  </Card>
+  <Card title="MixAgent" icon="layer-group">
+    **Cost/quality balance**
+
+    Two-phase model fusion: a capable model orchestrates tool calls, a cheaper model writes the final reply with the collected context.
   </Card>
   <Card title="BaselineAgent" icon="bolt">
-    **Best for Simple Tasks**
-    
-    Native Gemini/MiroThinker agent optimized for lightweight operations and direct MCP integration.
+    **Simple Q&A**
+
+    Direct LLM conversation without tools. Lowest latency. Good for trivial questions and benchmarking.
   </Card>
 </CardGroup>
 
 ## Agent Comparison
 
-| Feature | DeepAgent | BaselineAgent |
-|---------|-----------|---------------|
-| **Framework** | LangChain DeepAgents | Gemini/MiroThinker MCP |
-| **Planning** | ✅ Built-in todos | ❌ |
-| **File System** | ✅ Full support | ❌ |
-| **Subagents** | ✅ Task isolation | ❌ |
-| **MCP Tools** | ✅ Full integration | ✅ Native |
-| **MCP Resources** | ❌ | ✅ Native |
-| **MCP Prompt Templates** | ❌ | ✅ Native |
-| **Memory** | ✅ PostgreSQL | ❌ |
-| **Streaming** | ✅ | ✅ |
-| **Model Support** | Multi-provider | Gemini 2.5/3.0, MiroThinker |
-| **Best For** | Complex workflows, file operations | Simple tasks, native MCP |
-| **Setup Complexity** | Medium | Low |
+| Feature | DeepAgent | MixAgent | BaselineAgent |
+|---------|-----------|----------|---------------|
+| **Architecture** | Single-model tool loop | Orchestrator + Responder (two-phase) | Direct LLM, no tools |
+| **Planning** | ✅ Built-in todos | ✅ (orchestrator phase) | ❌ |
+| **File System** | ✅ Full support | ✅ (orchestrator phase) | ❌ |
+| **Subagents** | ✅ Task isolation | ✅ (orchestrator phase) | ❌ |
+| **MCP Tools** | ✅ Full integration | ✅ (orchestrator phase) | ❌ |
+| **MCP Resources** | ❌ | ❌ | ✅ Native |
+| **MCP Prompt Templates** | ❌ | ❌ | ✅ Native |
+| **Memory** | ✅ PostgreSQL | ✅ PostgreSQL | ❌ |
+| **Streaming** | ✅ | ✅ (responder phase) | ✅ |
+| **Model Support** | Multi-provider | Two providers (one per phase) | Gemini 2.5/3.0, MiroThinker |
+| **Cost Profile** | One expensive model | Expensive orchestrator + cheap responder | One cheap model |
+| **Best For** | Complex workflows, file ops | Long contexts where reply phase doesn't need top-tier reasoning | Simple/lightweight tasks |
+| **Setup Complexity** | Medium | Medium | Low |
 
 ## DeepAgent (Recommended for Complex Tasks)
 
@@ -140,6 +146,45 @@ async for event in agent.generate_response(
 ):
     print(event)
 ```
+
+## MixAgent (Two-Phase Cost/Quality Fusion)
+
+MixAgent splits a single response into two model calls:
+
+1. **Orchestrator phase** — a capable model (e.g. Claude Sonnet 4.5) handles the tool-calling loop. It plans, searches data, reads files, and stops when it has enough context.
+2. **Responder phase** — a cheaper model (e.g. Gemini 2.5 Flash) consumes the orchestrator's collected context and writes the final user-facing reply.
+
+The orchestrator never speaks to the user directly; the responder never calls tools. This lets you put expensive intelligence only where you need it.
+
+### When to choose MixAgent
+
+- Long, tool-heavy conversations where the final summary doesn't need top-tier reasoning (cost saver vs. DeepAgent).
+- You want consistent voice/tone from a single model for the final reply while letting a different model handle tool dispatch.
+- You're billing by token and the responder's context will be large.
+
+### When NOT to choose MixAgent
+
+- Short Q&A — the two-pass overhead isn't worth it; use DeepAgent or BaselineAgent.
+- The final reply quality is the bottleneck — promote it to DeepAgent with one strong model.
+
+### Configuration
+
+The two phases are configured via the `orchestrator` / `responder` keys under `PROVIDERS_MIX`. See [Agent Providers in Configuration](/en/configuration#mixagent-configuration) for the full YAML.
+
+```yaml
+PROVIDERS_MIX:
+  orchestrator:
+    llm_type: openai
+    api_key: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    model: anthropic/claude-sonnet-4.5
+  responder:
+    llm_type: google-genai
+    api_key: GOOGLE_API_KEY
+    model: gemini-2.5-flash
+```
+
+Tool filtering uses `ALLOWED_TOOLS_MIX` / `DISALLOWED_TOOLS_MIX` (only the orchestrator phase touches tools).
 
 ## BaselineAgent (Best for Simple Tasks)
 
@@ -297,7 +342,7 @@ AGENT_DIRS:
   </Step>
 
   <Step title="Use in agents">
-    Both DeepAgent and BaselineAgent can use your custom tools automatically.
+    Both DeepAgent and MixAgent (orchestrator phase) can use your custom tools automatically. BaselineAgent runs without tools by design.
   </Step>
 </Steps>
 

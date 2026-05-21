@@ -4,71 +4,136 @@ description: "What Mirobody can do for personal health — real conversations on
 ---
 
 <Info>
-The examples below all run on the **same Mirobody engine** you'll deploy from [Quick Start](/en/quickstart), with [Theta Wellness](https://www.thetahealth.ai/) supplying the polished UI plus some private tools. All chat content uses **synthetic health data**.
+All examples below run on the same **Mirobody engine** you'll deploy from [Quick Start](/en/quickstart), with [Theta Wellness](https://www.thetahealth.ai/) supplying the polished UI plus some private tools. Chat content uses **synthetic health data** generated for these demos.
 </Info>
+
+Each showcase below is a real chat session you can open and read in full. Look at:
+
+- **Question** — the verbatim prompt the user typed, in plain English (no jargon, no tool names).
+- **What the agent does** — at a high level, which capabilities of the engine fire to answer it.
+- **Open the conversation** — the share link to the full transcript with charts.
+
+The eight scenarios target the same three demo personas (a 60-year-old female with cardiovascular history, a middle-aged adult with type-2 diabetes, an adult with anxiety/sleep complaints, etc.) so you can see how one engine reframes the same data for different questions.
 
 ## Private Health Data Management & Chat
 
 Organize scattered data from wearables, healthcare portals, PDFs, and paper reports spanning years into one coherent memory. Then chat over the full context locally or expose it to ChatGPT / Claude via MCP.
 
 <AccordionGroup>
-  <Accordion title="Track Health Issues Across Systems & Time" icon="timeline">
-    Query the same health issue across multiple health systems (even across countries), spanning years:
+  <Accordion title="Track a health issue across systems and time" icon="timeline">
 
-    <CardGroup cols={2}>
-      <Card title="Knee Pain Progress" icon="link" href="https://test-mirobody.thetahealth.ai/share/5d2d324f-d71b-4bf1-9cd0-8c23e94a272d">
-        Progression of knee pain across different providers
-      </Card>
-      <Card title="Cardiovascular History" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
-        Cardiovascular health across multiple health systems
-      </Card>
-    </CardGroup>
-  </Accordion>
+    The hardest part of personal health data isn't collecting it — it's joining "the wearable said X" with "the lab in 2019 said Y" with "the GP in 2024 noted Z". These two showcases walk through that join from two angles.
 
-  <Accordion title="Unified Health Analysis" icon="chart-line">
-    Combine device data, medical records, and self-reported notes:
+    ### Knee Pain Progress
 
-    <CardGroup cols={2}>
-      <Card title="Cardiovascular Summary" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
-        Summarize cardiovascular conditions across data sources
-      </Card>
-      <Card title="Diabetes Tracking" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
-        Track diabetes from devices, records, and other sources
-      </Card>
-    </CardGroup>
-  </Accordion>
+    > **Question:** "Help me understand the whole picture and the progress of my knee pain, use all relevant data and find potential drivers. Use visual illustrations if it's helpful."
 
-  <Accordion title="Doctor Visit Preparation" icon="user-doctor">
-    <Card title="PCP Visit Prep" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
-      A complete summary plus the questions you should bring to your primary care visit
+    Behind the scenes the agent fetches the user's [health profile](/en/api-reference/chat/history), searches their indicator history for joint-related markers, pulls events / journal entries / medications, and surfaces a timeline with charts of mechanical-load surrogates (steps, walking pace) layered against pain event dates.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/5d2d324f-d71b-4bf1-9cd0-8c23e94a272d">
+      Knee pain across providers, with synthesized drivers.
     </Card>
+
+    ### Cardiovascular History
+
+    > **Question:** "What's the history and recent progress of my cardiovascular issues?"
+
+    Same user has 6 years of records spanning two health systems plus device data. The agent cross-references EHR diagnoses, lab trends (lipids, BP), and device data (HRV, resting HR) — and reads the patient profile so the narrative is calibrated to their age, history, and current medications.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/0054e61b-df9e-4498-8bf6-b1d098d7f58f">
+      Cardiovascular history across multiple health systems.
+    </Card>
+
+  </Accordion>
+
+  <Accordion title="Unified analysis across data sources" icon="chart-line">
+
+    Combine device data, medical records, lab work, and self-reported notes into one coherent answer.
+
+    ### Cardiovascular Summary
+
+    > **Question:** "Summarize all my data related to my cardiovascular conditions across different data sources."
+
+    Same persona as above, different ask: a one-page summary rather than a chronology. The agent pulls vitals, lab series (lipid panel, troponin if present), uploaded reports (e.g. an ultrasound .xlsx parsed via the [xlsx skill](/en/tools/skills-guide)), and groups everything by clinical theme.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/a603cfd0-a65d-4920-b851-d5e4844ecfa7">
+      Cardio summary across sources.
+    </Card>
+
+    ### Diabetes Tracking
+
+    > **Question:** "Summarize the history and recent progress of my diabetes, use data from devices, records, and other relevant sources."
+
+    Type-2 diabetes persona. The agent stitches HbA1c trend, fasting glucose series, medication start/stop events, and the most recent doctor-visit summary — then highlights deltas that matter clinically (e.g. HbA1c trajectory crossing thresholds).
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/12e8522a-ff00-43f4-a5eb-76947c0fbe20">
+      Diabetes tracking from devices, records, and other sources.
+    </Card>
+
+  </Accordion>
+
+  <Accordion title="Visit preparation — bring a real document to your doctor" icon="user-doctor">
+
+    ### PCP Visit Preparation (with linked relative data)
+
+    > **Question:** "My relative (data linked) just changed their primary care doctor. Help prepare a medical history and conditions document they can bring to the first visit with the new PCP, and the questions they should discuss with the doctor."
+
+    This one demonstrates **multi-user data sharing**: the asking user has read access to a relative's full record via a `th_share_relationship` row (see [API Reference](/en/api-reference)). The agent reads the linked record, produces a print-ready summary doc, and adds a "questions to raise" list tailored to the gaps it notices in the relative's history.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/871f55e9-e41a-436b-ba0b-0172ea324962">
+      Visit-prep doc + question list for a linked relative.
+    </Card>
+
   </Accordion>
 </AccordionGroup>
 
 ## Deep Research for Personal Health
 
-Connect your personal data to public knowledge (search, MCP tools, the open web) for deep research reports — same depth as Gemini / GPT Deep Research, but anchored to *your* data.
+Connect your personal data to public knowledge (search, MCP tools, the open web) for deep-research reports — same depth as the agentic research products you've seen, but **anchored to your data** instead of generic guidance.
 
 <AccordionGroup>
-  <Accordion title="Identify Health Patterns & Drivers" icon="magnifying-glass-chart">
-    Find what's actually helping or hurting you:
+  <Accordion title="Identify what's helping and what's hurting" icon="magnifying-glass-chart">
 
-    <CardGroup cols={2}>
-      <Card title="Blood Glucose Analysis" icon="link" href="https://test-mirobody.thetahealth.ai/share/24c2a626-63c4-4f5b-b860-dec65cbd69da">
-        Factors that help or harm your blood glucose across data sources
-      </Card>
-      <Card title="Symptoms & Feelings Drivers" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
-        Main drivers behind your symptoms and mood
-      </Card>
-    </CardGroup>
+    ### Blood Glucose Analysis
+
+    > **Question:** "Help me analyze across different data sources — find out things that help my blood glucose and things that hurt it. Use charts and tables to visualize the findings."
+
+    The agent pivots glucose-series data against food logs, exercise events, sleep duration, and stress markers. Output includes per-factor charts and a ranked "what to keep / what to fix" list.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/24c2a626-63c4-4f5b-b860-dec65cbd69da">
+      Drivers of blood glucose, helpful vs harmful.
+    </Card>
+
+    ### Symptoms and Feelings Drivers
+
+    > **Question:** "Look at my data and analyze the main drivers of my anxiety / stress. Visualize with charts if helpful."
+
+    Anxiety persona. The agent correlates self-reported mood entries with sleep quality, HRV, exercise patterns, and ambient stressors logged in journal entries — then surfaces the top three explanatory factors.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/d82ed53a-2c68-49b2-9b5d-58e422fc3813">
+      Main drivers behind symptoms and mood.
+    </Card>
+
   </Accordion>
 
-  <Accordion title="Personalized Treatment Research" icon="flask">
-    <Card title="Diabetes Treatment Options" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
-      Research personalized methods (meds, devices, lifestyle) for diabetes management
+  <Accordion title="Personalized treatment research" icon="flask">
+
+    ### Diabetes Treatment Options
+
+    > **Question:** "Use Theta tools to find out if there are any new methods (new medications, treatments, devices, lifestyle changes, etc.) that could help with my diabetes. I prefer options specifically suited to my situation."
+
+    The agent doesn't just google "diabetes options" — it grounds the research in the user's profile (current meds, contraindications, recent lab values, comorbidities) and only surfaces options that match. Sources are cited inline.
+
+    <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/65c5fc5a-e33f-4094-9374-f4822f11f60c">
+      Personalized diabetes treatment options research.
     </Card>
+
   </Accordion>
 </AccordionGroup>
+
+<Tip>
+Behind every showcase above is the **[DeepAgent](/en/tools/overview#deepagent-recommended-for-complex-tasks)** runtime — single-model, tool-orchestrating, file-aware. The reason that one agent type carries all eight is that personal-health questions almost always require: read profile → search indicator dictionary → fetch the relevant time series → optionally pull files / events / medications → write a synthesis. That's DeepAgent's home territory. For cost-sensitive deployments the same workflows run under [MixAgent](/en/tools/overview#mixagent-two-phase-cost-quality-fusion) with a cheaper responder phase.
+</Tip>
 
 ## Developer Applications
 
@@ -76,16 +141,16 @@ For developers, Mirobody is the data + AI backend you don't have to write. Focus
 
 <CardGroup cols={2}>
   <Card title="Wearable Manufacturers" icon="watch">
-    Integrate your device once and instantly offer AI chat over device data
+    Integrate your device once and instantly offer AI chat over device data.
   </Card>
   <Card title="Research Applications" icon="microscope">
-    Drop custom tools into `tools/` to deploy subject-facing research apps without rebuilding the backend
+    Drop custom tools into [`tools/`](/en/tools/adding-tools) and SKILL.md playbooks into [`skills/`](/en/tools/skills-guide) to deploy subject-facing research apps without rebuilding the backend.
   </Card>
   <Card title="Consumer Health Apps" icon="mobile">
-    Build consumer apps on a complete data + AI engine
+    Build consumer apps on a complete data + AI engine.
   </Card>
   <Card title="Enterprise" icon="building">
-    Custom integrations and enterprise support — talk to us
+    Custom integrations and enterprise support — talk to us.
   </Card>
 </CardGroup>
 
@@ -95,14 +160,14 @@ The same Mirobody architecture works for any "personal data × AI" vertical:
 
 <CardGroup cols={3}>
   <Card title="Finance Analyzer" icon="chart-line">
-    Connect bank accounts, brokerage data, and tax records via custom providers; ask the agent about your portfolio
+    Connect bank accounts, brokerage data, and tax records via custom providers; ask the agent about your portfolio.
   </Card>
   <Card title="Legal Assistant" icon="scale-balanced">
-    Drop case files into `files/`, write a SKILL for your jurisdiction, and let the agent draft and cite
+    Drop case files into `files/`, write a SKILL.md for your jurisdiction, and let the agent draft and cite.
   </Card>
   <Card title="DevOps Copilot" icon="terminal">
-    Pipe in metrics, logs, and configs; use sandbox code execution for postmortems and remediation plans
+    Pipe in metrics, logs, and configs; use sandbox code execution for postmortems and remediation plans.
   </Card>
 </CardGroup>
 
-Swap the files in `tools/` and `skills/` — same engine, new vertical.
+Swap the files in [`tools/`](/en/tools/adding-tools) and [`skills/`](/en/tools/skills-guide) — same engine, new vertical.

@@ -5,37 +5,43 @@ description: "了解 Mirobody 中的 Agent、工具和 MCP 集成"
 
 ## Agent 架构
 
-Mirobody 提供两种类型的 AI Agent，每种都针对不同的用例进行了优化：
+Mirobody 提供三种 Agent，分别面向不同的成本 / 质量 / 延迟取舍：
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="DeepAgent" icon="brain">
-    **推荐用于复杂任务**
-    
-    基于 LangChain 的 Agent，具有文件操作、多步骤规划和复杂工作流的高级能力。
+    **复杂工作流**
+
+    单模型的工具编排循环，支持多步规划、文件操作、子 Agent 和持久化记忆。带工具对话的默认选择。
+  </Card>
+  <Card title="MixAgent" icon="layer-group">
+    **成本 / 质量平衡**
+
+    两阶段模型融合：能力强的模型负责工具调度，便宜的模型基于收集到的上下文生成最终回答。
   </Card>
   <Card title="BaselineAgent" icon="bolt">
-    **最适合简单任务**
-    
-    原生 Gemini/MiroThinker Agent，针对轻量级操作和直接 MCP 集成进行了优化。
+    **简单问答**
+
+    无工具的直接 LLM 对话，延迟最低。适合琐碎问题和基线对比。
   </Card>
 </CardGroup>
 
 ## Agent 对比
 
-| 特性 | DeepAgent | BaselineAgent |
-|---------|-----------|---------------|
-| **框架** | LangChain DeepAgents | Gemini/MiroThinker MCP |
-| **规划能力** | ✅ 内置 TODO 系统 | ❌ |
-| **文件系统** | ✅ 完整支持 | ❌ |
-| **子 Agent** | ✅ 任务隔离 | ❌ |
-| **MCP 工具** | ✅ 完整集成 | ✅ 原生支持 |
-| **MCP 资源** | ❌ | ✅ 原生支持 |
-| **MCP Prompt 模板** | ❌ | ✅ 原生支持 |
-| **记忆能力** | ✅ PostgreSQL 持久化 | ❌ |
-| **流式传输** | ✅ | ✅ |
-| **模型支持** | 多提供商支持 | Gemini 2.5/3.0, MiroThinker |
-| **最适合** | 复杂工作流、文件操作 | 简单任务、原生 MCP |
-| **设置复杂度** | 中等 | 低 |
+| 特性 | DeepAgent | MixAgent | BaselineAgent |
+|------|-----------|----------|---------------|
+| **架构** | 单模型工具循环 | Orchestrator + Responder 两阶段 | 直连 LLM、不调工具 |
+| **规划能力** | ✅ 内置 TODO 系统 | ✅（orchestrator 阶段） | ❌ |
+| **文件系统** | ✅ 完整支持 | ✅（orchestrator 阶段） | ❌ |
+| **子 Agent** | ✅ 任务隔离 | ✅（orchestrator 阶段） | ❌ |
+| **MCP 工具** | ✅ 完整集成 | ✅（orchestrator 阶段） | ❌ |
+| **MCP 资源** | ❌ | ❌ | ✅ 原生支持 |
+| **MCP Prompt 模板** | ❌ | ❌ | ✅ 原生支持 |
+| **记忆能力** | ✅ PostgreSQL 持久化 | ✅ PostgreSQL 持久化 | ❌ |
+| **流式传输** | ✅ | ✅（responder 阶段） | ✅ |
+| **模型支持** | 多提供商 | 两个提供商（每阶段一个） | Gemini 2.5/3.0、MiroThinker |
+| **成本结构** | 一个昂贵模型 | 昂贵 orchestrator + 便宜 responder | 一个便宜模型 |
+| **最适合** | 复杂工作流、文件操作 | 上下文较长、回答阶段不需要顶级推理 | 简单 / 轻量任务 |
+| **设置复杂度** | 中等 | 中等 | 低 |
 
 ## DeepAgent (推荐用于复杂任务)
 
@@ -124,6 +130,45 @@ async for event in agent.generate_response(
 ):
     print(event)
 ```
+
+## MixAgent（两阶段成本 / 质量融合）
+
+MixAgent 把一次回复拆成两次模型调用：
+
+1. **Orchestrator 阶段** —— 能力强的模型（例如 Claude Sonnet 4.5）负责工具调度循环：规划、查数据、读文件，攒够上下文就停。
+2. **Responder 阶段** —— 便宜的模型（例如 Gemini 2.5 Flash）拿着 orchestrator 收集到的上下文，生成最终面向用户的回答。
+
+Orchestrator 永远不直接对用户说话，Responder 永远不调工具。这样可以**只在真正需要的地方花贵模型的钱**。
+
+### 什么时候选 MixAgent
+
+- 工具调用密集、回答较长的对话 —— 比 DeepAgent 省钱
+- 想让"对外口吻"由特定模型固定，工具调度让另一个模型负责
+- 按 token 计费，且 responder 的上下文会很大
+
+### 什么时候**不**选
+
+- 简短问答 —— 两阶段开销不值，直接 DeepAgent 或 BaselineAgent
+- 瓶颈在于最终回答的质量 —— 升回 DeepAgent，全程用一个强模型
+
+### 配置
+
+两个阶段分别通过 `PROVIDERS_MIX` 下的 `orchestrator` / `responder` 配置，完整 YAML 见 [配置文档中的 MixAgent 配置](/zh/configuration#mixagent-configuration)。
+
+```yaml
+PROVIDERS_MIX:
+  orchestrator:
+    llm_type: openai
+    api_key: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    model: anthropic/claude-sonnet-4.5
+  responder:
+    llm_type: google-genai
+    api_key: GOOGLE_API_KEY
+    model: gemini-2.5-flash
+```
+
+工具过滤用 `ALLOWED_TOOLS_MIX` / `DISALLOWED_TOOLS_MIX`（只有 orchestrator 阶段会接触工具）。
 
 ## BaselineAgent (最适合简单任务)
 
@@ -277,7 +322,7 @@ AGENT_DIRS:
   </Step>
 
   <Step title="在 Agent 中使用">
-    DeepAgent 和 BaselineAgent 都可以自动使用您的自定义工具。
+    DeepAgent 和 MixAgent（orchestrator 阶段）都可以自动使用您的自定义工具。BaselineAgent 按设计不接工具。
   </Step>
 </Steps>
 

@@ -2,5 +2,18 @@ reference/
 .DS_Store
 
 config.yaml
-snippets/
+
+# Personal scratch — login codes + private share-URL collection.
+snippets/links_cn.txt
+
+# Local-only dev snippets + scripts not shipped via mintlify.
+snippets/external-links.mdx
+snippets/external-links_en.mdx
+snippets/external-links_zh.mdx
+snippets/snippet-intro.mdx
+snippets/dump_demo_users.py
+
+# Demo-user bundle + post-import patches; large data dumps and
+# environment-specific SQL meant to be applied directly to the DB,
+# not deployed via docs.
 migration/

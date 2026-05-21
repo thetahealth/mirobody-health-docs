@@ -1,0 +1,152 @@
+---
+title: "编写一个 Skill"
+description: "把 SKILL.md + metadata.json 丢进 skills/，Agent 自动识别"
+---
+
+Skill 是 Agent 接到任务时翻看的**作业指南**。如果说 [Tool](/zh/tools/adding-tools) 是「Agent 调用的代码」，Skill 就是「Agent 加载进上下文的散文」—— 长篇说明、示例、格式规范、边界条件。Agent 根据 Skill 的 `description` 自己决定什么时候用哪份。
+
+Mirobody 直接支持 [Claude Agent Skills](https://docs.anthropic.com/en/docs/claude-skills) 格式：`skills/` 下任何包含 `SKILL.md` 的目录都会在启动时被自动发现，并暴露给所有启用了 skill 加载器的 Agent。
+
+## 文件布局
+
+```
+skills/<your-skill>/
+├── SKILL.md           # 必需 —— YAML frontmatter + 正文
+├── metadata.json      # 必需 —— Mirobody 发现机制用
+├── LICENSE.txt        # 建议带上（分发时用）
+└── ...                # 任何 playbook 引用的辅助文件
+    ├── reference.md
+    ├── forms.md
+    └── scripts/
+```
+
+整个文件夹是一个单位。Skill 激活时 Agent 通读 `SKILL.md`；同目录其它文件通过相对路径在 playbook 里引用。
+
+## `SKILL.md`
+
+```markdown
+---
+name: xlsx
+description: >
+  Comprehensive spreadsheet creation, editing, and analysis with support for
+  formulas, formatting, data analysis, and visualization. When Claude needs to
+  work with spreadsheets (.xlsx, .xlsm, .csv, .tsv, etc) for: (1) Creating new
+  spreadsheets with formulas and formatting, (2) Reading or analyzing data,
+  (3) Modify existing spreadsheets while preserving formulas, (4) Data analysis
+  and visualization in spreadsheets, or (5) Recalculating formulas.
+license: Proprietary. LICENSE.txt has complete terms
+---
+
+# Requirements for Outputs
+
+## All Excel files
+
+### Zero Formula Errors
+- Every Excel model MUST be delivered with ZERO formula errors (#REF!, #DIV/0!, …)
+
+### Preserve Existing Templates (when updating templates)
+- Study and EXACTLY match existing format, style, and conventions when modifying files
+
+…
+```
+
+Frontmatter 字段：
+
+| 字段 | 是否必需 | 用途 |
+|---|---|---|
+| `name` | 是 | 稳定标识，kebab-case。日志和工具调用里会用到。 |
+| `description` | 是 | 这个 Skill 做什么、**什么时候用**。模型决定要不要加载该 skill 时**逐字看到**这段。一定要把触发条件说清楚。 |
+| `license` | 建议 | 自由文本，标注许可证。 |
+
+正文是不受约束的 Markdown，写给模型看：明确的规则、走通的例子、do/don't 清单、边界条件。**篇幅长不要紧**，只有 Agent 决定使用该 skill 时，正文才会被加载进上下文。
+
+## `metadata.json`
+
+```json
+{
+  "name": "xlsx",
+  "summary": "Comprehensive spreadsheet creation, editing, and analysis …",
+  "when_to_use": [
+    "用户上传了 .xlsx / .csv 文件并要求分析",
+    "用户要求从零构建一个财务模型"
+  ],
+  "when_not_to_use": [
+    "用户只想要 CSV 里某一行 —— 直接走 tool"
+  ],
+  "tags": ["documents"]
+}
+```
+
+`metadata.json` 是 Mirobody 专有的，比 SKILL.md 正文轻量许多，是 Skill 加载器优先扫描的内容。
+
+| 字段 | 用途 |
+|---|---|
+| `name` | 必须和 frontmatter `name` 一致 |
+| `summary` | 一两句话的卖点描述。Skill 列表里展示用。 |
+| `when_to_use` | 意图触发关键词数组。Orchestrator 把用户请求和这些匹配。 |
+| `when_not_to_use` | 反向触发 —— 防止过度激活。 |
+| `tags` | 自由标签，过滤用。 |
+
+如果 `when_to_use` / `when_not_to_use` 留空，加载器退回去匹配 `SKILL.md` 里的 `description`。
+
+## 一个完整例子：`xlsx` skill
+
+上游仓库在 [`skills/`](https://github.com/thetahealth/mirobody/tree/main/skills) 下自带 4 个参考 skill：`xlsx`、`pdf`、`pptx`、`docx`。`xlsx` 最有代表性：
+
+```
+skills/xlsx/
+├── SKILL.md       # 200+ 行：公式 / 格式 / 财务模型规范
+├── metadata.json
+├── recalc.py      # playbook 调用的辅助脚本
+└── LICENSE.txt
+```
+
+用户上传 Excel 文件之后的流程：
+
+1. Agent（例如 DeepAgent）在用户消息里看到 `.xlsx` 附件。
+2. Skill 加载器扫描 `metadata.json`，`xlsx` 的 `summary` 命中。
+3. 整份 `SKILL.md` 正文被注入本轮的 system context。
+4. Agent 此时已经掌握所有格式标准、配色规范、`recalc.py` 用法 —— 不需要额外的工具调用。
+
+## 添加你自己的 Skill
+
+<Steps>
+  <Step title="在 `skills/` 里建目录">
+    用 kebab-case，例如 `glucose-coach`、`legal-citation`。
+  </Step>
+  <Step title="写 `SKILL.md`">
+    先写 frontmatter（`name`、`description`、`license`）。正文用纯 Markdown 写 playbook —— 像"给新同事 onboarding"那种调调：明确、配走通的示例。
+  </Step>
+  <Step title="写 `metadata.json`">
+    至少包含 `name`、`summary`，加上填好的 `when_to_use` 或者 SKILL.md 里写到位的 `description`。需要在自定义 Agent 里过滤就再加 `tags`。
+  </Step>
+  <Step title="重启服务">
+    Skill 在启动时自动发现。`./deploy.sh`（或本地开发模式重启）之后，凡是跑 skill 加载器的 Agent 都能用到。
+  </Step>
+  <Step title="确认生效">
+    问一个本该触发该 skill 的问题。会话日志里 skill 名一旦激活就会出现在 system context。
+  </Step>
+</Steps>
+
+## Skill 与 Tool 的速查对比
+
+| | Tool | Skill |
+|---|---|---|
+| 形式 | Python 函数 | Markdown playbook + 元数据 |
+| Agent 怎么用 | 当函数调，读返回值 | 满足条件时把整份正文加载进上下文 |
+| 最适合 | 有副作用的动作、结构化数据获取 | 领域规则、格式、示例、风格指南 |
+| 发现机制 | 从 `tools/` 自动加载 | 从 `skills/` 自动加载 |
+| 版本管理 | 用 pinned import | 用文件夹本身 + git |
+
+Tool 回答"我能做什么？"；Skill 回答"应该怎么做？"。真实场景里两者通常都要 —— 比如一个 `health-coach` skill 规定给用户建议时的语气和结构，配上 `fetch_health_data`、`search_health_indicators`、`chart_*` 这些 tool 提供底层数据。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="添加 Tool" icon="wrench" href="/zh/tools/adding-tools">
+    另一半：写 Agent 能调用的 Python 函数。
+  </Card>
+  <Card title="Tool 与 Agent 概览" icon="brain" href="/zh/tools/overview">
+    了解 Skill、Tool、三种 Agent 如何配合。
+  </Card>
+</CardGroup>
