@@ -5,42 +5,9 @@ description: "How Mirobody is laid out: AI & agent engine, FHIR + health standar
 
 Mirobody is a layered, plugin-friendly engine. Each layer can be replaced or extended independently — no monoliths, no hidden coupling.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Clients                                                          │
-│  ─────────────────────────────────────────────────────────────    │
-│  Web app (local + mirobody.ai)  •  ChatGPT Apps  •  Claude        │
-│  Cursor  •  any MCP client                                         │
-└─────────────────────────┬────────────────────────────────────────┘
-                          │  HTTP / MCP (JSON-RPC 2.0) / OAuth
-┌─────────────────────────▼────────────────────────────────────────┐
-│  AI & Agent Engine                                                │
-│  ─────────────────────────────────────────────────────────────    │
-│  Chat service · DeepAgent / MixAgent / BaselineAgent · MCP        │
-│  server · LLM clients · Tools · Skills · Embeddings · Prompts     │
-└─────────────────────────┬────────────────────────────────────────┘
-                          │
-┌─────────────────────────▼────────────────────────────────────────┐
-│  FHIR & Health Standards                                          │
-│  ─────────────────────────────────────────────────────────────    │
-│  400+ StandardIndicator · FHIR / LOINC / SNOMED CT / RxNorm /     │
-│  CVX / DCM cross-vocab · unit normalization · concept graph       │
-└─────────────────────────┬────────────────────────────────────────┘
-                          │
-┌─────────────────────────▼────────────────────────────────────────┐
-│  Health Data Pipeline (Pulse)                                     │
-│  ─────────────────────────────────────────────────────────────    │
-│  300+ wearables · Apple/Google Health · EHR · file parser         │
-│  (PDF/Excel/CSV/audio/image/genetic) · aggregation · insights     │
-└─────────────────────────┬────────────────────────────────────────┘
-                          │
-┌─────────────────────────▼────────────────────────────────────────┐
-│  Infrastructure                                                   │
-│  ─────────────────────────────────────────────────────────────    │
-│  Starlette ASGI · JWT / OAuth / WebAuthn · async PostgreSQL +     │
-│  pgvector · Redis · Local / S3 / Aliyun OSS storage · E2B sandbox │
-└──────────────────────────────────────────────────────────────────┘
-```
+<Frame caption="Mirobody architecture: Clients → AI & Agent Engine → FHIR & Health Standards → Health Data Pipeline (Pulse) → Infrastructure">
+  <img src="/images/architecture.jpeg" alt="Mirobody architecture overview" />
+</Frame>
 
 ## AI & Agent Engine
 
