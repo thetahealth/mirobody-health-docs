@@ -1,0 +1,21 @@
+---
+title: "LLM Analysis Upload (WebSocket)"
+description: "wss /ws/upload-with-llm-analysis — end-to-end upload + LLM analysis; requires BYOK"
+---
+
+<Warning>
+**This endpoint requires LLM credentials.** Pass them as query params. See [BYOK](/en/cloud/byok/index).
+</Warning>
+
+## Endpoint
+
+```text
+wss://mcp.thetahealth.cn/ws/upload-with-llm-analysis?token=<access_token>&llm_provider=dashscope&llm_api_key=<...>
+```
+
+## Differences from `/ws/upload-health-report`
+
+- Same upload protocol (`upload_start` / `upload_chunk` / `upload_end`).
+- After upload, runs the full LLM analysis pipeline in one go — designed for the "upload and immediately get a complete report" UX.
+
+Server response sequence includes all upload events plus a final, more detailed AI summary embedded in `upload_completed.analysis`.

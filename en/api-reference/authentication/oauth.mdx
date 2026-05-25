@@ -1,0 +1,81 @@
+---
+title: "OAuth 2.0"
+description: "SSO via authorization_code grant, or server-side via credentials grant"
+---
+
+For B2B partners with their own user system — avoids duplicating end-user email/password management.
+
+## 1. Register a client
+
+Either through your Mirobody account manager, or self-register:
+
+```http
+POST /oauth/register
+Content-Type: application/json
+```
+
+```json
+{
+  "client_name":   "your-app",
+  "redirect_uris": ["https://your-domain.com/oauth/callback"],
+  "grant_types":   ["authorization_code", "refresh_token"]
+}
+```
+
+You'll receive `client_id` / `client_secret` — keep them safe.
+
+## 2. Authorization code flow (SSO)
+
+**Step 1**: redirect the user to the authorize endpoint.
+
+```text
+GET /oauth2/authorize?response_type=code&client_id=<id>&redirect_uri=<uri>&state=<csrf>&scope=mcp:read mcp:write
+```
+
+**Step 2**: after sign-in, the browser is redirected to `redirect_uri?code=<code>&state=<csrf>`.
+
+**Step 3**: server-side, exchange the code for a token.
+
+```http
+POST /oauth/token
+Content-Type: application/x-www-form-urlencoded
+```
+
+```text
+grant_type=authorization_code&code=<code>&client_id=<id>&client_secret=<secret>&redirect_uri=<uri>
+```
+
+## 3. Server-side credentials grant
+
+For headless usage when the user is pre-bound to the registered client:
+
+```http
+POST /oauth/token
+Content-Type: application/x-www-form-urlencoded
+```
+
+```text
+grant_type=credentials&client_id=<id>&client_secret=<secret>
+```
+
+The returned access_token's `sub` claim is the user_id registered with the client.
+
+## Response format
+
+OAuth 2.0 standard format (**not** `{success, code, msg, data}`):
+
+```json
+{
+  "access_token":  "eyJhbGci...",
+  "token_type":    "Bearer",
+  "expires_in":    2592000,
+  "refresh_token": "eyJhbGci...",
+  "scope":         "mcp:read mcp:write"
+}
+```
+
+HTTP 200 = success; HTTP 401 / 400 returns:
+
+```json
+{ "error": "invalid_client", "error_description": "..." }
+```

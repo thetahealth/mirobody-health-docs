@@ -1,153 +1,81 @@
 ---
-title: "获取聊天历史记录"
-description: "检索用户会话的对话历史记录"
+title: "历史"
+description: "GET /api/history（列摘要或消息详情）、POST /api/history/delete"
 ---
 
-## 端点
+## 列出会话 / 获取单会话消息
 
-```
-GET /api/history
-```
-
-## 概览
-
-检索特定用户和可选会话的聊天对话历史记录。返回用户与 AI agent 之间交换的所有消息。
-
-<Info>
-所有对话的聊天历史记录都会自动持久化到数据库中。会话（Sessions）可用于组织相关的对话。
-</Info>
-
-## 请求参数
-
-<ParamField query="user_id" type="string" required>
-  要检索其历史记录的用户的唯一标识符
-</ParamField>
-
-<ParamField query="query_user_id" type="string">
-  被查询数据的用户 ID（用于帮助询问功能）。默认为 `user_id`。
-</ParamField>
-
-<ParamField query="session_id" type="string">
-  可选的会话 ID，用于按特定对话线程进行筛选
-</ParamField>
-
-<ParamField query="limit" type="integer" default="50">
-  返回消息的最大数量（最大值：100）
-</ParamField>
-
-<ParamField query="offset" type="integer" default="0">
-  跳过的消息数量（用于分页）
-</ParamField>
-
-<RequestExample>
-```bash cURL
-curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```http
+GET /api/history                  # 当前用户全部会话 summary
+GET /api/history?session_id=<s>   # 该会话所有消息
 ```
 
-```python Python
-import httpx
+### 不传 `session_id`
 
-async with httpx.AsyncClient() as client:
-    response = await client.get(
-        "http://localhost:18080/api/history",
-        params={
-            "user_id": "user_123",
-            "session_id": "session_abc",
-            "limit": 20
-        },
-        headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
-    )
-    history = response.json()
-```
-</RequestExample>
+返回全部 summary，按时间倒序：
 
-## 响应格式
-
-<ResponseExample>
-```json 成功
-{
-  "code": 0,
-  "msg": "ok",
-  "data": {
-    "messages": [
-      {
-        "msg_id": "q_550e8400-e29b-41d4-a716-446655440000",
-        "role": "user",
-        "content": "我昨天走了多少步？",
-        "timestamp": "2024-01-15T10:30:00.123Z",
-        "session_id": "session_abc",
-        "file_list": []
-      },
-      {
-        "msg_id": "a_660e8400-e29b-41d4-a716-446655440001",
-        "role": "assistant",
-        "content": "根据您的 Garmin 数据，您昨天走了 10,543 步。这比您的每日平均步数多出约 200 步！",
-        "timestamp": "2024-01-15T10:30:02.456Z",
-        "session_id": "session_abc",
-        "agent": "deep",
-        "provider": "openrouter",
-        "model": "anthropic/claude-3.5-sonnet",
-        "tool_calls": [
-          {
-            "tool_name": "get_health_data",
-            "arguments": "{\"indicator\": \"steps\", \"date\": \"2024-01-14\"}",
-            "result": "{\"value\": 10543, \"unit\": \"steps\"}"
-          }
-        ]
-      }
-    ],
-    "total": 2,
-    "session_id": "session_abc"
-  }
+```json
+{ "success": true, "code": 0, "msg": "ok",
+  "data": { "summaries": [
+    {
+      "session_id":    "...",
+      "timestamp":     "2026-05-22T03:33:00+00:00",
+      "summary":       "看下我最近一周的睡眠",
+      "query_user_id": "504"
+    }
+  ] }
 }
 ```
 
-```json 无历史记录
-{
-  "code": 0,
-  "msg": "ok",
-  "data": {
-    "messages": [],
-    "total": 0
-  }
+> **已知限制**：`/api/history` 目前不分页，用户使用时间长后可能返回上万条。
+>
+> **客户端建议**：
+>
+> - 列表页只展示最近 N 条（如 30 条），按 `timestamp` 倒序取前 N。
+> - 本地缓存 + 增量更新：保存 `last_timestamp`，下次拉取后过滤新于该时间的条目即可。
+> - 分页能力会在后续版本提供，届时会保持响应结构向后兼容。
+
+### 传 `session_id`
+
+返回该会话内的消息列表：
+
+```json
+{ "success": true, "code": 0, "msg": "ok",
+  "data": { "history": [
+    {
+      "role":      "user",
+      "content":   "...",
+      "content_dict": [],
+      "timestamp": "...",
+      "id":        "...",
+      "agent":     "App",
+      "provider":  "DeepSeekFlash",
+      "messageType": "text"
+    }
+  ] }
 }
 ```
-</ResponseExample>
 
-## 消息对象
+`role` 为 `user` 或 `assistant`；`content_dict` 携带流式过程中的工具调用步骤列表。
 
-| 字段 | 类型 | 描述 |
-|-------|------|-------------|
-| `msg_id` | string | 唯一消息标识符 |
-| `role` | string | `user` 或 `assistant` |
-| `content` | string | 消息文本内容 |
-| `timestamp` | string | ISO 8601 时间戳 |
-| `session_id` | string | 会话标识符 |
-| `file_list` | array | 附加文件（仅限用户消息） |
-| `agent` | string | 使用的 Agent（仅限助手消息） |
-| `provider` | string | LLM 提供商（仅限助手消息） |
-| `model` | string | 模型名称（仅限助手消息） |
-| `tool_calls` | array | 调用的 MCP 工具（仅限助手消息） |
+## 按人聚合（家庭场景）
 
-## 其他端点
+```http
+GET /api/history_by_person
+```
 
-<CardGroup cols={2}>
-  <Card title="获取会话列表" icon="list">
-    ```
-    GET /api/session
-    ```
-    返回用户的所有会话及摘要
-  </Card>
+按可见用户（自己 + 已授权家人）聚合的会话列表，适合"切换家人视角"UI。
 
-  <Card title="删除历史记录" icon="trash">
-    ```
-    POST /api/history/delete
-    ```
-    删除特定消息或整个会话
-  </Card>
-</CardGroup>
+## 删除会话
 
-<Note>
-对于共享会话（帮助询问功能），请使用 `/api/history_by_person` 端点检索您帮助其他用户的对话。
-</Note>
+```http
+POST /api/history/delete
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{ "session_id": "..." }
+```
+
+幂等 —— 会话不存在也返回 `ok`。

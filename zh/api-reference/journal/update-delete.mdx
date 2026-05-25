@@ -1,0 +1,72 @@
+---
+title: "更新 / 删除 / 重处理日记"
+description: "日记条目的生命周期操作"
+---
+
+## 更新
+
+```http
+POST /api/v1/holywell/journal/update
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "id":         "<session_id>",
+  "text_input": "更新后的文本（可选）",
+  "files":      [ /* 可选，新文件列表 */ ],
+  "symptom":    [ /* 可选，症状数据 */ ],
+  "ts":         1779431900000
+}
+```
+
+<Warning>
+**仅当请求体携带新 `text_input` 或 `files` 时需要 BYOK header**（会触发 AI 重处理）。仅更新 `symptom` / `ts` 等元数据时，只需 `Authorization`。
+</Warning>
+
+## 删除
+
+```http
+POST /api/v1/holywell/journal/delete
+```
+
+```json
+{ "id": "<session_id>" }
+```
+
+或：
+
+```json
+{ "journal_id": 109 }
+```
+
+## 标已读
+
+```http
+POST /api/v1/holywell/journal/mark_read
+```
+
+```json
+{ "session_id": "..." }
+```
+
+## 重处理（重跑 AI）
+
+<Warning>
+**此接口需要 BYOK header。** 详见 [BYOK 协议](/zh/cloud/byok/index)。
+</Warning>
+
+```http
+POST /api/v1/holywell/journal/reprocess
+Authorization:   Bearer <access_token>
+X-LLM-Provider:  dashscope | volcengine | openai | gemini
+X-LLM-Api-Key:   <您的 LLM Key>
+Content-Type:    application/json
+```
+
+```json
+{ "id": "<session_id>" }
+```
+
+重跑分类 / 摘要 / 症状抽取。前一次失败或切换 LLM 时可用。

@@ -1,0 +1,22 @@
+---
+title: "文件进度（WebSocket）"
+description: "wss /api/ws/file-progress — 文件解析进度被动通道"
+---
+
+文件解析（长 PDF、基因报告等）的进度由服务端推送到这个专用通道。该通道**只读**——不在此处上传文件。
+
+## 端点
+
+```text
+wss://mcp.thetahealth.cn/api/ws/file-progress
+```
+
+连接后服务端验证 token（由客户端稍后发送）。客户端以 `ping` 文本或 `{ "type":"heartbeat", "timestamp":... }` 维持心跳。
+
+## 服务端 → 客户端事件
+
+- `connection_status` — accepted / connected / error
+- `heartbeat_response` — 心跳回声
+- 文件解析事件：进度百分比、完成通知、错误通知
+
+这是按当前连接用户范围内的**广播通道**。适合在上传流程旁挂一个进度可视化连接，避免高频轮询。

@@ -1,0 +1,72 @@
+---
+title: "Update / Delete / Reprocess Journal"
+description: "Lifecycle operations on journal entries"
+---
+
+## Update
+
+```http
+POST /api/v1/holywell/journal/update
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "id":         "<session_id>",
+  "text_input": "Updated text (optional)",
+  "files":      [ /* optional new files */ ],
+  "symptom":    [ /* optional symptom data */ ],
+  "ts":         1779431900000
+}
+```
+
+<Warning>
+**BYOK header required ONLY when** the body carries new `text_input` or `files` (those trigger AI re-processing). For `symptom` / `ts`-only updates, the `Authorization` header is sufficient.
+</Warning>
+
+## Delete
+
+```http
+POST /api/v1/holywell/journal/delete
+```
+
+```json
+{ "id": "<session_id>" }
+```
+
+Or:
+
+```json
+{ "journal_id": 109 }
+```
+
+## Mark as read
+
+```http
+POST /api/v1/holywell/journal/mark_read
+```
+
+```json
+{ "session_id": "..." }
+```
+
+## Reprocess (re-run AI)
+
+<Warning>
+**Requires BYOK header.** See [BYOK](/en/cloud/byok/index).
+</Warning>
+
+```http
+POST /api/v1/holywell/journal/reprocess
+Authorization:   Bearer <access_token>
+X-LLM-Provider:  dashscope | volcengine | openai | gemini
+X-LLM-Api-Key:   <your LLM key>
+Content-Type:    application/json
+```
+
+```json
+{ "id": "<session_id>" }
+```
+
+Runs the AI classification / summary / symptom extraction again. Useful if the previous run failed or LLM was switched.

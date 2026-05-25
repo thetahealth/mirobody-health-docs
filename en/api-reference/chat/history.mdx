@@ -1,153 +1,81 @@
 ---
-title: "Get Chat History"
-description: "Retrieve conversation history for a user session"
+title: "History"
+description: "GET /api/history (list summaries or message detail), POST /api/history/delete"
 ---
 
-## Endpoint
+## List sessions / get session messages
 
-```
-GET /api/history
-```
-
-## Overview
-
-Retrieve the chat conversation history for a specific user and optional session. Returns all messages exchanged between the user and AI agents.
-
-<Info>
-Chat history is automatically persisted to the database for all conversations. Sessions can be used to organize related conversations.
-</Info>
-
-## Request Parameters
-
-<ParamField query="user_id" type="string" required>
-  Unique identifier for the user whose history to retrieve
-</ParamField>
-
-<ParamField query="query_user_id" type="string">
-  User ID whose data was queried (for help-ask feature). Defaults to `user_id`.
-</ParamField>
-
-<ParamField query="session_id" type="string">
-  Optional session ID to filter by specific conversation thread
-</ParamField>
-
-<ParamField query="limit" type="integer" default="50">
-  Maximum number of messages to return (max: 100)
-</ParamField>
-
-<ParamField query="offset" type="integer" default="0">
-  Number of messages to skip (for pagination)
-</ParamField>
-
-<RequestExample>
-```bash cURL
-curl "http://localhost:18080/api/history?user_id=user_123&session_id=session_abc&limit=20" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```http
+GET /api/history                  # all session summaries for the current user
+GET /api/history?session_id=<s>   # all messages of a single session
 ```
 
-```python Python
-import httpx
+### No `session_id`
 
-async with httpx.AsyncClient() as client:
-    response = await client.get(
-        "http://localhost:18080/api/history",
-        params={
-            "user_id": "user_123",
-            "session_id": "session_abc",
-            "limit": 20
-        },
-        headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
-    )
-    history = response.json()
-```
-</RequestExample>
+Returns all summaries in reverse-time order:
 
-## Response Format
-
-<ResponseExample>
-```json Success
-{
-  "code": 0,
-  "msg": "ok",
-  "data": {
-    "messages": [
-      {
-        "msg_id": "q_550e8400-e29b-41d4-a716-446655440000",
-        "role": "user",
-        "content": "How many steps did I take yesterday?",
-        "timestamp": "2024-01-15T10:30:00.123Z",
-        "session_id": "session_abc",
-        "file_list": []
-      },
-      {
-        "msg_id": "a_660e8400-e29b-41d4-a716-446655440001",
-        "role": "assistant",
-        "content": "Based on your Garmin data, you took 10,543 steps yesterday. That's about 200 steps more than your daily average!",
-        "timestamp": "2024-01-15T10:30:02.456Z",
-        "session_id": "session_abc",
-        "agent": "deep",
-        "provider": "openrouter",
-        "model": "anthropic/claude-3.5-sonnet",
-        "tool_calls": [
-          {
-            "tool_name": "get_health_data",
-            "arguments": "{\"indicator\": \"steps\", \"date\": \"2024-01-14\"}",
-            "result": "{\"value\": 10543, \"unit\": \"steps\"}"
-          }
-        ]
-      }
-    ],
-    "total": 2,
-    "session_id": "session_abc"
-  }
+```json
+{ "success": true, "code": 0, "msg": "ok",
+  "data": { "summaries": [
+    {
+      "session_id":    "...",
+      "timestamp":     "2026-05-22T03:33:00+00:00",
+      "summary":       "Show me last week's sleep",
+      "query_user_id": "504"
+    }
+  ] }
 }
 ```
 
-```json No History
-{
-  "code": 0,
-  "msg": "ok",
-  "data": {
-    "messages": [],
-    "total": 0
-  }
+> **Known limitation**: `/api/history` does not paginate yet — for users with long history this may return thousands of records.
+>
+> **Client guidance**:
+>
+> - On a list page, show only the most recent N (e.g. 30) by `timestamp` descending.
+> - Cache locally with `last_timestamp` to do incremental fetch.
+> - Pagination will be added in a future version with backward-compatible shape.
+
+### With `session_id`
+
+Returns the chat messages for the session:
+
+```json
+{ "success": true, "code": 0, "msg": "ok",
+  "data": { "history": [
+    {
+      "role":      "user",
+      "content":   "...",
+      "content_dict": [],
+      "timestamp": "...",
+      "id":        "...",
+      "agent":     "App",
+      "provider":  "DeepSeekFlash",
+      "messageType": "text"
+    }
+  ] }
 }
 ```
-</ResponseExample>
 
-## Message Object
+`role` is `user` or `assistant`. `content_dict` carries the tool-call step list captured during streaming.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `msg_id` | string | Unique message identifier |
-| `role` | string | `user` or `assistant` |
-| `content` | string | Message text content |
-| `timestamp` | string | ISO 8601 timestamp |
-| `session_id` | string | Session identifier |
-| `file_list` | array | Attached files (user messages only) |
-| `agent` | string | Agent used (assistant messages only) |
-| `provider` | string | LLM provider (assistant messages only) |
-| `model` | string | Model name (assistant messages only) |
-| `tool_calls` | array | MCP tool calls made (assistant messages only) |
+## By-person view (family scenario)
 
-## Additional Endpoints
+```http
+GET /api/history_by_person
+```
 
-<CardGroup cols={2}>
-  <Card title="Get Session List" icon="list">
-    ```
-    GET /api/session
-    ```
-    Returns all sessions for a user with summaries
-  </Card>
+Returns sessions grouped by each visible user (yourself + authorized family members) — handy for a "switch family member" UI.
 
-  <Card title="Delete History" icon="trash">
-    ```
-    POST /api/history/delete
-    ```
-    Delete specific messages or entire sessions
-  </Card>
-</CardGroup>
+## Delete a session
 
-<Note>
-For shared sessions (help-ask feature), use `/api/history_by_person` endpoint to retrieve conversations where you helped another user.
-</Note>
+```http
+POST /api/history/delete
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{ "session_id": "..." }
+```
+
+Idempotent — returns `ok` even for nonexistent IDs.

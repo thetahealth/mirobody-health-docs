@@ -1,0 +1,125 @@
+---
+title: "POST /api/chat"
+description: "流式对话接口（SSE）。核心入口，需要 BYOK header。"
+---
+
+<Warning>
+**此接口需要 LLM 凭证。** 调用时需在 `Authorization` 之外额外携带 `X-LLM-Provider` 与 `X-LLM-Api-Key` header，详见 [BYOK 协议](/zh/cloud/byok/index)。
+</Warning>
+
+## 端点
+
+```http
+POST /api/chat
+Authorization:   Bearer <access_token>
+X-LLM-Provider:  dashscope | volcengine | openai | gemini
+X-LLM-Api-Key:   <您的 LLM Key>
+Content-Type:    application/json
+```
+
+返回 **SSE 流式** (`text/event-stream`)。
+
+## 请求体
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `question` | string | ✅ | 用户提问；空字符串会被拒绝 |
+| `agent` | string |  | 国内固定为 `App` |
+| `provider` | string |  | LLM 选型，见 [Provider 列表](#provider-列表) |
+| `session_id` | string |  | 维持上下文。不传时后端自动生成并通过首条 `id` 事件下发 |
+| `prompt_name` | string |  | 启用通过 [`/api/user/prompt/set`](/zh/api-reference/chat/custom-prompt) 保存的自定义 system prompt |
+| `query_user_id` | string |  | 询问 [家人](/zh/api-reference/authentication/beneficiary) 的健康数据，需共享权限 |
+| `file_list` | array |  | 携带文件提问，详见 [携带文件](#携带文件) |
+| `language` | string |  | `zh-CN` / `en`；缺省走 Header `X-Language` → 用户 profile |
+| `timezone` | string |  | 如 `Asia/Shanghai` |
+
+## Provider 列表
+
+国内 5 个 provider，全部支持多轮上下文、流式输出与工具调用：
+
+| `provider` | 底层模型 | 适用场景 |
+| --- | --- | --- |
+| `DeepSeekFlash` | DeepSeek v4 Flash | 默认首选，响应快、成本低 |
+| `DeepSeekPro` | DeepSeek v4 Pro | 复杂分析、需要更深推理 |
+| `kimi` | Kimi K2.6 | 长上下文友好 |
+| `minimax` | MiniMax M2.7 | 中文表达自然 |
+| `豆包` | 豆包 Doubao Seed 2.0 Lite | 中文场景备选，走火山引擎 |
+
+`GET /api/providers` 可在运行时获取当前列表。
+
+## 携带文件
+
+`file_list` **五个字段全部必填** —— `file_url` / `file_name` / `file_key` / `file_type` / `file_size`。建议直接复用 [`POST /files/upload`](/zh/api-reference/files/upload) 返回的 `data` 数组：
+
+```json
+"file_list": [
+  {
+    "file_url":  "<signed CDN URL returned by /files/upload>",
+    "file_name": "report.pdf",
+    "file_key":  "uploads/20260522_xxx.pdf",
+    "file_type": "application/pdf",
+    "file_size": 102400
+  }
+]
+```
+
+> `file_url` 必须是 `/files/upload` 返回的**完整带签名 URL**，LLM 下游会真正去下载；剥掉签名参数会 403。
+
+## SSE 事件类型
+
+每条事件：
+
+```text
+data: {"type": "...", "content": ..., "tool_id": "?", "is_delete": null}\n\n
+```
+
+| `type` | 时机 | `content` |
+| --- | --- | --- |
+| `id` | 流首条 | `web_<uuid>` —— 本轮提问的 message id |
+| `queryTitle` | 工具调用 / 阶段标题 | 工具名或阶段描述 |
+| `queryDetail` | 工具调用结果 | 字符串（一般是 JSON 化的工具返回） |
+| `reply` | 模型答复增量 | 文本片段 —— **前端需拼接** |
+| `thinking` | 内部思考 | 文本片段 |
+| `costStatistics` | 临近结束 | `{ model, input_tokens, output_tokens, total_tokens, total_cost }` |
+| `error` | 异常 | 错误描述 |
+| `end` | 流结束 | 空 |
+
+`tool_id` 用于关联同一次工具调用的 `queryTitle` / `queryDetail`。
+
+## Agent 可调用的工具
+
+Agent 按需调用健康 / 文件 / 图表工具，例如：
+
+- `user-get_profile`、`user-search_health_indicators`、`user-fetch_health_data`、`user-get_genetic_data`、`user-get_journal_entries`
+- `file-list_global_files`、`file-ls`、`file-fetch_remote_files`、`file-read_file`
+- 图表工具：line / column / pie / radar / dual-axes / scatter / boxplot / sankey / 等
+- `data-search_medical_literature`、`data-get_fda_drugs`、`data-search_clinical_trials` 等
+
+### 国内未开放的工具
+
+国内集群通过 `CHAT_DISALLOWED_TOOLS` 关闭了以下工具，Agent **不会**调用它们：
+
+- `tool-*`（全部 `tool-` 前缀工具，主要是 Apple Watch / 医生推荐）
+- `user-get_events`、`user-get_food_records`、`user-list_medications`、`user-get_medication_details`
+
+如用户问"我最近吃了什么 / 在吃什么药 / 推荐医生"，Agent 不会自动取数据——请通过专用 REST 接口拉数据由前端展示。
+
+## 实测示例
+
+```bash
+curl -N -X POST https://mcp.thetahealth.cn/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: dashscope" \
+  -H "X-LLM-Api-Key: $LLM_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"你好","agent":"App","provider":"DeepSeekFlash"}'
+```
+
+节选输出：
+
+```text
+data: {"type": "id", "content": "web_223aa2af-..."}
+data: {"type": "reply", "content": "你好呀！..."}
+data: {"type": "costStatistics", "content": {"model": "dashscope/deepseek-v4-flash", ...}}
+data: {"type": "end", "content": ""}
+```

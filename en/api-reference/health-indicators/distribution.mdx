@@ -1,0 +1,24 @@
+---
+title: "Data Distribution"
+description: "GET /api/v1/data/data-distribution — per-category record counts and last update times"
+---
+
+```http
+GET /api/v1/data/data-distribution[?user_id=<other_uid>]
+Authorization: Bearer <access_token>
+```
+
+```json
+{
+  "code": 0, "msg": "ok",
+  "data": {
+    "user_id": "504", "total_categories": 48, "total_records": 1891,
+    "distribution": [
+      { "category": "Internal Medicine", "last_update_time": "2026-05-09T17:20:21+08:00", "record_count": 932 },
+      { "category": "genetic",            "last_update_time": "2026-05-12T10:23:39+08:00", "record_count": 538 }
+    ]
+  }
+}
+```
+
+Useful for building a dashboard overview of where a user's health data sits.

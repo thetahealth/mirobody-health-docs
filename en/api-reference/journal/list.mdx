@@ -1,0 +1,61 @@
+---
+title: "List Journal Entries"
+description: "GET /api/v1/holywell/journal/list"
+---
+
+User journal entries with input, AI output, classification scene, and processing status.
+
+## Endpoint
+
+```http
+GET /api/v1/holywell/journal/list?page=1&page_size=20
+Authorization: Bearer <access_token>
+```
+
+## Memo types
+
+Look up the type enum via:
+
+```http
+GET /api/v1/holywell/journal/memo/types
+```
+
+```json
+{ "code": 0, "msg": "success", "data": [
+  { "code": "journal",  "name": "Memo" },
+  { "code": "food",     "name": "Meal log" },
+  { "code": "report",   "name": "Medical Report" },
+  { "code": "medicine", "name": "Medication" }
+] }
+```
+
+## Response entry
+
+```json
+{
+  "input": {
+    "content":   "Lunch today",
+    "file_list": [ /* same shape as /api/chat file_list */ ],
+    "ts":        1778644100000
+  },
+  "output": {
+    "content2": [
+      { "type": "scene", "content": "journal" },
+      { "type": "reply", "content": "Looks like a hearty lunch — burger with multiple toppings." }
+    ],
+    "topics": ["Nutrition"],
+    "type":   "journal"
+  },
+  "ts":           1778644100000,
+  "session_id":   "today_504_2026_05_13_...",
+  "journal_id":   106,
+  "read_status":  0,
+  "write_status": 1,
+  "ai_status":    1,
+  "summary":      "...",
+  "symptom":      null,
+  "version":      1
+}
+```
+
+`ai_status`: `0` = processing, `1` = success, `2` = failed.

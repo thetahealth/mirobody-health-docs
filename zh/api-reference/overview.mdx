@@ -1,0 +1,118 @@
+---
+title: "API 概览"
+description: "Mirobody Platform API 的通用规范：鉴权、响应壳、SSE、路径风格、限流、错误码"
+---
+
+## 接入 Base URL
+
+| 集群 | Base URL | 状态 |
+| --- | --- | --- |
+| 🇨🇳 中国 | `https://mcp.thetahealth.cn` | ✅ 已上线 |
+| 🌐 海外 | 暂未对外开放 | 🚧 API 筹备中（前端 mirobody.thetahealth.ai 已上线） |
+
+## 鉴权
+
+所有受保护接口都需要 HTTP header：
+
+```text
+Authorization: Bearer <access_token>
+```
+
+WebSocket 因浏览器无法设置 Header，统一改用 query：
+
+```text
+?token=<access_token>
+```
+
+详见 [鉴权](/zh/api-reference/authentication/email)。
+
+**部分 AI 接口还需要 BYOK header**：
+
+```text
+X-LLM-Provider: dashscope | volcengine | openai | gemini
+X-LLM-Api-Key:  <您的 LLM 厂商 key>
+```
+
+详见 [BYOK 协议](/zh/cloud/byok/index)。
+
+## 标准响应壳
+
+```json
+{ "success": true|false, "code": 0|<负数>, "msg": "ok|<error>", "data": <object|array|null> }
+```
+
+- `code == 0` 表示成功；非 0 时 `msg` 即错误描述。
+- HTTP 状态码：业务错误一般仍是 200；**鉴权失败统一返回 401**。
+
+## 路径风格
+
+| 前缀 | 内容 | 响应壳 |
+| --- | --- | --- |
+| `/api/*` | 核心对话、会话、用户配置、家庭共享 | `{success, code, msg, data}` |
+| `/api/v1/holywell/*` | 健康业务（journal / health-indicator / file-upload） | `{code, msg, data}`（多数无 `success`） |
+| `/api/v1/data/*`、`/api/v1/food/*` | 数据视图与营养分析 | `{code, msg, data}` |
+| `/files/*` | 公共文件上传管线 | `{code, msg, data}` |
+| `/oauth/*`、`/email/*` | 鉴权 | OAuth 端点用 OAuth 2.0 标准格式 |
+
+## SSE 协议
+
+流式接口（`/api/chat`、`/api/v1/food/analyze` 等）返回 `Content-Type: text/event-stream`。
+
+- 每条事件结构：`data: <json>\n\n`
+- 流以 `data: {"type":"end","content":""}\n\n` 结束
+- **`reply` 是增量片段，前端需拼接**
+- 禁用代理缓冲：`X-Accel-Buffering: no`、`Cache-Control: no-cache, no-transform`
+
+事件类型对照：
+
+| `type` | 时机 | `content` |
+| --- | --- | --- |
+| `id` | 流首条 | 本轮提问的 message id |
+| `queryTitle` | 工具调用 / 阶段标题 | 工具名或阶段描述 |
+| `queryDetail` | 工具调用结果 | 字符串（一般是 JSON 化的工具返回） |
+| `reply` | 模型答复增量 | 文本片段 |
+| `thinking` | 内部思考 | 文本片段 |
+| `costStatistics` | 临近结束 | `{ model, input_tokens, output_tokens, total_tokens, total_cost }` |
+| `error` | 异常 | 错误描述 |
+| `end` | 流结束 | 空 |
+
+## 国际化
+
+按优先级判定语言：
+
+1. body 中的 `language`
+2. Header `X-Language`
+3. Header `Accept-Language`
+4. 用户 profile 字段
+5. 兜底 `en`
+
+时区同理（body `timezone` → 用户 profile → 默认）。
+
+## 限流
+
+- 按 **每用户 × 每路径 × 每分钟** 计数。
+- 超限返回 HTTP `429` + `Retry-After`（秒）。
+- 客户端应严格遵守 `Retry-After`，并做指数退避。
+
+详细推荐 RPM 见 [限流](/zh/cloud/rate-limits)。
+
+## 异步轮询节奏
+
+当前**不提供** Webhook 推送；所有异步状态需轮询：
+
+- 上传 / 解析进度：[WebSocket 通道](/zh/api-reference/websocket/file-progress)。
+- 日记 AI 状态：轮询 [`/journal/list`](/zh/api-reference/journal/list)，看 `ai_status` 变 `1`。
+- **推荐间隔：2~5 秒**，最多 60 秒，超过仍未完成视为后台失败。
+- **不建议 < 1s 高频探活**，会触发限流。
+
+## 错误码速查
+
+| HTTP | 业务 code | 含义 |
+| --- | --- | --- |
+| 200 | 0 | 成功 |
+| 200 | 非 0 | 业务错误，`msg` 详述 |
+| 400 | - | 参数 / 文件格式非法 |
+| 401 | - | token 无效或缺失 |
+| 403 | - | 无该用户的访问权限（`query_user_id` 未授权） |
+| 429 | - | 限流 |
+| 500 | - | 服务器内部错误 / LLM 上游超时 |

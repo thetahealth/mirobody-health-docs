@@ -1,0 +1,34 @@
+---
+title: "Latest Indicators"
+description: "GET /api/v1/holywell/health-indicator/watch/latest"
+---
+
+Returns the most recent value of each indicator.
+
+```http
+GET /api/v1/holywell/health-indicator/watch/latest
+Authorization: Bearer <access_token>
+```
+
+```json
+{
+  "code": 0, "msg": "success",
+  "data": {
+    "total": 20,
+    "data": [
+      {
+        "id":              144085,
+        "indicator":       "Daily Sedentary Duration",
+        "value":           "8.4 h",
+        "start_time":      "2026-05-08 11:08:00",
+        "end_time":        "2026-05-08 11:08:00",
+        "source_table":    "th_files",
+        "source_table_id": "web_uploads/...pdf",
+        "comment":         "<encrypted>"
+      }
+    ]
+  }
+}
+```
+
+The `comment` field is encrypted at rest.

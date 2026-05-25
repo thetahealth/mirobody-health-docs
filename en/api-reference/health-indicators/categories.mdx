@@ -1,0 +1,20 @@
+---
+title: "Categories & Sources"
+description: "GET /api/v1/holywell/health-indicator/categories"
+---
+
+Returns the enum of categories and sources used in the health-indicator system.
+
+```http
+GET /api/v1/holywell/health-indicator/categories
+Authorization: Bearer <access_token>
+```
+
+```json
+{ "code": 0, "msg": "success", "data": {
+  "category": ["medication","encounter","lab_results","exam_reports","food","other"],
+  "source":   ["chat","journal","excel","document","cda","ehr","device","other"]
+} }
+```
+
+Use these enum values when filtering via [`POST /health-indicator/watch`](/en/api-reference/health-indicators/query).

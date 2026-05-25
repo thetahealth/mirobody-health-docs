@@ -1,0 +1,36 @@
+---
+title: "食物图像识别"
+description: "POST /api/v1/food/analyze — SSE 流；需 BYOK"
+---
+
+<Warning>
+**此接口需要 LLM 凭证。** 调用时需携带 `X-LLM-Provider` 与 `X-LLM-Api-Key`，详见 [BYOK 协议](/zh/cloud/byok/index)。
+</Warning>
+
+## 端点
+
+```http
+POST /api/v1/food/analyze
+Authorization:   Bearer <access_token>
+X-LLM-Provider:  dashscope | volcengine | openai | gemini
+X-LLM-Api-Key:   <您的 LLM Key>
+X-Language:      zh-CN
+Content-Type:    multipart/form-data
+```
+
+表单字段：
+
+- `file=@/path/food.jpg`（必填，PNG / JPEG / WEBP / HEIC / HEIF）
+- `query=减脂`（可选，注入用户健康目标）
+
+## SSE 事件
+
+| `type` | 含义 |
+| --- | --- |
+| `id` | `food_analysis_<ts>_<uid>` |
+| `thinking` | 阶段提示文字（"正在分析..."） |
+| `food` | `content` 是**字符串化 JSON**，含 `is_food`（1 成功 / 0 失败）、`food_items`、`nutrition`、`advice` 等 |
+| `error` | 例：`Recognition failed!` |
+| `end` | 结束 |
+
+> `food.content` 是字符串，前端需 `JSON.parse` 一次。

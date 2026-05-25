@@ -1,0 +1,54 @@
+---
+title: "已上传文件列表"
+description: "GET /api/v1/data/uploaded-files — 同时为签名 URL 续签"
+---
+
+## 端点
+
+```http
+GET /api/v1/data/uploaded-files?limit=20&offset=0
+Authorization: Bearer <access_token>
+```
+
+可选 `?target_user_id=<other_uid>` 查询授权 [家人](/zh/api-reference/authentication/beneficiary) 的文件。
+
+## 响应
+
+```json
+{
+  "code": 0, "msg": "ok",
+  "data": {
+    "files": [
+      {
+        "id":           379,
+        "user_id":      "504",
+        "query_user_id":"504",
+        "file_name":    "2025_体检报告.pdf",
+        "original_name":"2025_体检报告.pdf",
+        "file_type":    "pdf",
+        "file_key":     "web_uploads/4e51f0cb-....pdf",
+        "file_size":    8626594,
+        "url_full":     "<signed CDN URL, re-issued on each list call>",
+        "url_thumb":    "https://...",
+        "scene":        "report",
+        "created_source":"web_drive",
+        "create_time":  "2026-03-17T23:39:59",
+        "upload_status":"complete",
+        "processed":    true,
+        "indicators_count": 37,
+        "file_abstract":"AI 自动生成的文件摘要",
+        "session_id":   "..."
+      }
+    ],
+    "total": 7, "limit": 20, "offset": 0
+  }
+}
+```
+
+## 签名 URL 过期处理
+
+`file_url` / `url_full` 都是带 OSS 签名的 URL，**默认 ~2 小时过期**。续签做法：
+
+- 若 chat 调用紧跟在上传后，无需特殊处理。
+- 若需要长期展示（如收藏夹、历史报告封面），再次调本接口即可——每次响应都会重新签名。
+- **已过期的 URL 不能"refresh"原对象，必须重新查询拿新签名。**

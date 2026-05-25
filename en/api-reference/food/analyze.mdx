@@ -1,0 +1,36 @@
+---
+title: "Food Image Analysis"
+description: "POST /api/v1/food/analyze — SSE streaming; requires BYOK"
+---
+
+<Warning>
+**This endpoint requires LLM credentials.** Pass `X-LLM-Provider` and `X-LLM-Api-Key`. See [BYOK](/en/cloud/byok/index).
+</Warning>
+
+## Endpoint
+
+```http
+POST /api/v1/food/analyze
+Authorization:   Bearer <access_token>
+X-LLM-Provider:  dashscope | volcengine | openai | gemini
+X-LLM-Api-Key:   <your LLM key>
+X-Language:      zh-CN
+Content-Type:    multipart/form-data
+```
+
+Form fields:
+
+- `file=@/path/food.jpg` (required, PNG / JPEG / WEBP / HEIC / HEIF)
+- `query=Maintain healthy diet` (optional — inject user's health goal)
+
+## SSE events
+
+| `type` | Meaning |
+| --- | --- |
+| `id` | `food_analysis_<ts>_<uid>` |
+| `thinking` | Phase prompts ("Analyzing image...") |
+| `food` | `content` is a **stringified JSON** containing `is_food` (1 = success / 0 = not food), `food_items`, `nutrition`, `advice` |
+| `error` | e.g. `Recognition failed!` |
+| `end` | End |
+
+> `food.content` is a string — the client must `JSON.parse` it.

@@ -1,0 +1,48 @@
+---
+title: "通用查询（过滤 + 语义搜索）"
+description: "POST /api/v1/holywell/health-indicator/watch"
+---
+
+## 端点
+
+```http
+POST /api/v1/holywell/health-indicator/watch
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "filters":    { "category": ["lab_results","medication"], "source": ["excel","cda"] },
+  "query":      "blood pressure",
+  "start_time": "2024-01-01 00:00:00",
+  "end_time":   "2024-12-31 23:59:59",
+  "page": 1, "page_size": 20,
+  "order": [ { "order_key": "start_time", "order_type": "desc" } ]
+}
+```
+
+- `filters` 使用 [类别枚举](/zh/api-reference/health-indicators/categories) 的值。
+- `query` 可选，启用语义搜索。
+- `order` 支持的 key：`start_time`, `indicator`, `id`, `source_ref`。
+
+可选 `?target_user_id=<other_uid>` 查询授权 [家人](/zh/api-reference/authentication/beneficiary) 的数据。
+
+## 响应
+
+```json
+{
+  "code": 0, "msg": "success",
+  "data": { "total": 26, "page": 1, "page_size": 20, "data": [...] }
+}
+```
+
+## 更新 / 删除单条
+
+```http
+PUT    /api/v1/holywell/health-indicator/watch/<record_id>
+       body: { "value": "...", "unit": "...", "indicator": "...", "start_time": "..." 等 }
+
+DELETE /api/v1/holywell/health-indicator/watch
+       body: { "ids": [<id1>, <id2>, ...] }
+```

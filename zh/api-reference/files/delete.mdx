@@ -1,0 +1,28 @@
+---
+title: "删除文件"
+description: "POST /api/v1/data/delete-files"
+---
+
+## 端点
+
+```http
+POST /api/v1/data/delete-files
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "message_id": "<int 或 str>",
+  "file_keys":  ["uploads/xxx.pdf"]
+}
+```
+
+- `message_id` 为该文件所属的日记 / chat 消息。
+- `file_keys` 可缺省 —— 缺省时删除该 `message_id` 关联的**全部**文件。
+
+## 响应
+
+```json
+{ "code": 0, "msg": "ok", "data": { "deleted_count": 1 } }
+```

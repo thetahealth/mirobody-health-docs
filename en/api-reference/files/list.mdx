@@ -1,0 +1,54 @@
+---
+title: "List Uploaded Files"
+description: "GET /api/v1/data/uploaded-files — also re-issues signed URLs"
+---
+
+## Endpoint
+
+```http
+GET /api/v1/data/uploaded-files?limit=20&offset=0
+Authorization: Bearer <access_token>
+```
+
+Optional `?target_user_id=<other_uid>` to view a [family member's](/en/api-reference/authentication/beneficiary) files.
+
+## Response
+
+```json
+{
+  "code": 0, "msg": "ok",
+  "data": {
+    "files": [
+      {
+        "id":           379,
+        "user_id":      "504",
+        "query_user_id":"504",
+        "file_name":    "2025_physical_exam.pdf",
+        "original_name":"2025_physical_exam.pdf",
+        "file_type":    "pdf",
+        "file_key":     "web_uploads/4e51f0cb-....pdf",
+        "file_size":    8626594,
+        "url_full":     "<signed CDN URL, re-issued on each list call>",
+        "url_thumb":    "https://...",
+        "scene":        "report",
+        "created_source":"web_drive",
+        "create_time":  "2026-03-17T23:39:59",
+        "upload_status":"complete",
+        "processed":    true,
+        "indicators_count": 37,
+        "file_abstract":"AI-generated short summary of the file",
+        "session_id":   "..."
+      }
+    ],
+    "total": 7, "limit": 20, "offset": 0
+  }
+}
+```
+
+## Re-signing expired URLs
+
+`file_url` and `url_full` are OSS signed URLs with **~2h expiry**. To refresh:
+
+- If chat follows immediately after upload, no action needed.
+- For long-term displays (history list, drive view), call this endpoint again — every response re-signs the URLs.
+- **You cannot "refresh" an expired URL on the same object — you must re-query.**

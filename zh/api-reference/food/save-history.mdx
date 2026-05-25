@@ -1,0 +1,44 @@
+---
+title: "保存与历史"
+description: "保存食物识别结果、列出历史、删除"
+---
+
+## 保存
+
+```http
+POST /api/v1/food/save
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "name":      "番茄炒蛋",
+  "category":  "主菜",
+  "calories":  380,
+  "time":      "12:30:00",
+  "date":      "2026-05-22",
+  "image_url": "https://...",
+  "nutrition": [],
+  "nut":       [],
+  "advice":    ["..."]
+}
+```
+
+## 历史
+
+```http
+GET /api/v1/food/history
+```
+
+## 删除
+
+```http
+DELETE /api/v1/food/delete/<food_id>
+```
+
+## 按日期取已识别食物（holywell 侧）
+
+```http
+GET /food/get_recognized?date=YYYY-MM-DD
+```

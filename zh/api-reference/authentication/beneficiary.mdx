@@ -1,0 +1,50 @@
+---
+title: "家庭共享 / 询问家人健康"
+description: "/api/beneficiary-users + query_user_id"
+---
+
+合作伙伴可以让一个账号询问 N 个授权"家人"的健康数据。
+
+## 1. 查询可见用户列表
+
+```http
+GET /api/beneficiary-users
+Authorization: Bearer <access_token>
+```
+
+返回当前账号有权 query 的用户列表（包含自己 + 已授权共享的家人）：
+
+```json
+{
+  "success": true, "code": 0, "msg": "ok",
+  "data": [
+    { "id": "504", "name": "user10", "nickname": null, "gender": null, "blood_type": null, "age": null, "is_current_user": true }
+  ]
+}
+```
+
+## 2. 在 Chat 中切换视角
+
+在 [`POST /api/chat`](/zh/api-reference/chat/chat) body 中加 `query_user_id`：
+
+```json
+{
+  "question": "看一下这位家人最近的睡眠",
+  "agent": "App",
+  "provider": "DeepSeekFlash",
+  "query_user_id": "<家人 uid>"
+}
+```
+
+前提：被授权了 `chat` 权限；否则返回 HTTP 403。
+
+## 3. 其他可携带 `query_user_id` 的接口
+
+- [`/api/v1/data/uploaded-files`](/zh/api-reference/files/list)
+- [`/api/v1/holywell/health-indicator/watch`](/zh/api-reference/health-indicators/query)
+- [`/api/v1/data/data-distribution`](/zh/api-reference/health-indicators/distribution)
+- [`/api/history_by_person`](/zh/api-reference/chat/history)
+
+## 授权关系的建立
+
+> 当前授权关系由 Mirobody 运营按合约线下配置；自助邀请 / 撤销能力暂未对外开放。如需为家庭账号建立授权，请联系 Mirobody 商务对接人。

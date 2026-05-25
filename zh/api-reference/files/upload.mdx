@@ -1,0 +1,57 @@
+---
+title: "上传文件"
+description: "POST /files/upload — multipart 上传到 OSS"
+---
+
+上传响应快。返回的 `file_url` 是带签名的临时 URL，**默认 ~2 小时过期**。
+
+## 端点
+
+```http
+POST /files/upload
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+表单字段：
+
+- `files=@/path/file`（可重复，多文件一次上传）
+- query 可选 `?folder=<前缀>`，默认 `uploads`
+
+## 响应
+
+```json
+{
+  "code": 0, "msg": "All 1 files uploaded successfully",
+  "data": [
+    {
+      "file_url":    "<signed CDN URL returned by /files/upload>",
+      "file_name":   "report.pdf",
+      "file_key":    "uploads/20260522_xxx.pdf",
+      "file_size":   102400,
+      "file_type":   "application/pdf",
+      "upload_time": "2026-05-22T06:23:12",
+      "duration":    0
+    }
+  ]
+}
+```
+
+## 在 chat 中使用
+
+直接把 `data` 数组塞进 [`/api/chat`](/zh/api-reference/chat/chat) 的 `file_list` 即可，五个字段已经齐全。
+
+## 支持的文件类型
+
+PDF / PNG / JPEG / WEBP / HEIC / HEIF / PPTX / DOCX / TXT / WAV / MP3 等。
+
+- 建议单文件 ≤ 10 MB。更大请走 [WebSocket / 健康报告上传](/zh/api-reference/websocket/health-report)。
+- 食物图像识别仅支持 PNG / JPEG / WEBP / HEIC / HEIF。
+
+## holywell 风味上传
+
+```http
+POST /api/v1/holywell/file-upload/upload
+```
+
+请求 / 响应与上同，但额外在 `th_files` 表登记并触发文件解析（指标抽取、摘要生成）。前端绑定到健康业务时（体检报告、化验单）应使用此路径。

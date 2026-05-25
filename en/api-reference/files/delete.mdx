@@ -1,0 +1,28 @@
+---
+title: "Delete Files"
+description: "POST /api/v1/data/delete-files"
+---
+
+## Endpoint
+
+```http
+POST /api/v1/data/delete-files
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "message_id": "<int or string>",
+  "file_keys":  ["uploads/xxx.pdf"]
+}
+```
+
+- `message_id` is the journal / chat message that owns the file.
+- `file_keys` is optional — if omitted, **all** files attached to that message are deleted.
+
+## Response
+
+```json
+{ "code": 0, "msg": "ok", "data": { "deleted_count": 1 } }
+```

@@ -1,0 +1,50 @@
+---
+title: "Family Sharing"
+description: "/api/beneficiary-users + query_user_id"
+---
+
+A single account can query the health data of multiple authorized "family members".
+
+## 1. List the accounts you can query
+
+```http
+GET /api/beneficiary-users
+Authorization: Bearer <access_token>
+```
+
+Returns the current user + all authorized family members:
+
+```json
+{
+  "success": true, "code": 0, "msg": "ok",
+  "data": [
+    { "id": "504", "name": "user10", "nickname": null, "gender": null, "blood_type": null, "age": null, "is_current_user": true }
+  ]
+}
+```
+
+## 2. Switch perspective in chat
+
+Add `query_user_id` to [`POST /api/chat`](/en/api-reference/chat/chat):
+
+```json
+{
+  "question": "Check this family member's recent sleep",
+  "agent": "App",
+  "provider": "DeepSeekFlash",
+  "query_user_id": "<family-member uid>"
+}
+```
+
+Requires `chat` permission to be granted; otherwise returns HTTP 403.
+
+## 3. Other endpoints that accept `query_user_id`
+
+- [`/api/v1/data/uploaded-files`](/en/api-reference/files/list)
+- [`/api/v1/holywell/health-indicator/watch`](/en/api-reference/health-indicators/query)
+- [`/api/v1/data/data-distribution`](/en/api-reference/health-indicators/distribution)
+- [`/api/history_by_person`](/en/api-reference/chat/history)
+
+## Establishing the sharing relationship
+
+> Sharing relationships are configured by Mirobody operations per partner contract; self-service invite / revoke is not yet exposed. To set up family-account sharing, contact your Mirobody account manager.
