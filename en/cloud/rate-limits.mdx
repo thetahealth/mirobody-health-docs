@@ -1,0 +1,33 @@
+---
+title: "Rate Limits"
+description: "Quota mechanism + client pacing"
+---
+
+Mirobody counts requests per **user × path × minute**. On overflow you get HTTP 429 with a `Retry-After` header (seconds).
+
+```text
+HTTP/1.1 429 Too Many Requests
+Retry-After: 47
+
+Too Many Requests
+```
+
+## Recommended pacing
+
+| Path | Recommended RPM | Notes |
+| --- | --- | --- |
+| `/email/login` | ≤ 1 | Resending within 60s for the same email is rejected |
+| `/api/chat` | ≤ 60 | Concurrent chats count too |
+| `/files/upload` | ≤ 30 | Batch multiple files into one request |
+| `/api/v1/food/analyze` | ≤ 20 | Compute-heavy path |
+| `/api/v1/holywell/journal/*` | ≤ 60 | All journal CRUD shares quota |
+| Other read endpoints | ≤ 120 | history / file-list / indicator queries |
+
+> **Confirm the exact numbers for your deployment with your Mirobody account manager before going live** — thresholds are injected per deployment via the `REQUEST_RATE_LIMITER` env var.
+
+## Client backoff guidance
+
+- On 429, **respect `Retry-After`** — never retry immediately.
+- Double the backoff after two consecutive 429s, up to 5 minutes.
+- Don't fire chat calls in parallel; wait for the previous `end` event.
+- For polling, see the [recommended cadence](/en/api-reference/overview).

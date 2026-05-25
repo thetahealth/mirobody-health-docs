@@ -1,0 +1,79 @@
+---
+title: "Configure DashScope (Aliyun Model Studio)"
+description: "China cluster's recommended LLM backend — DeepSeek / Qwen / Kimi / GLM / MiniMax all behind one key"
+---
+
+[**Aliyun Model Studio**](https://bailian.console.aliyun.com/) (DashScope) is Mirobody's recommended LLM backend for the China cluster. One key gives you access to Alibaba's Qwen family, plus DeepSeek / Kimi / GLM / MiniMax, plus embeddings and rerankers.
+
+<Note>
+**Official docs**: [What is Model Studio](https://help.aliyun.com/zh/model-studio/what-is-model-studio) · [Model list](https://help.aliyun.com/zh/model-studio/getting-started/models) · [API Key console](https://bailian.console.aliyun.com/?tab=model#/api-key)
+</Note>
+
+## 1. Register and get a key
+
+<Steps>
+  <Step title="Open Model Studio">
+    Sign in to the [Bailian console](https://bailian.console.aliyun.com/). Accounts are auto-enrolled; some models require pay-as-you-go activation.
+  </Step>
+  <Step title="Create an API Key">
+    On the [API Key page](https://bailian.console.aliyun.com/?tab=model#/api-key), create a key and copy it — shown once.
+  </Step>
+  <Step title="Confirm billing">
+    Under **Billing**, enable paid usage for the models you want; some new models include free tier.
+  </Step>
+</Steps>
+
+## 2. Endpoint info
+
+DashScope offers both the native protocol and an OpenAI-compatible mode. Mirobody talks to the **native** protocol — you only need to pass the API key via BYOK headers; no base URL configuration is required on your side.
+
+| Field | Value |
+| --- | --- |
+| OpenAI-compatible base URL (reference) | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| Native base URL (used by Mirobody) | `https://dashscope.aliyuncs.com/api/v1` |
+| Auth | `Authorization: Bearer <DASHSCOPE_API_KEY>` |
+| Regions | Hangzhou (default) · Virginia · Singapore · Frankfurt |
+
+## 3. Available models
+
+The Mirobody `/api/chat` `provider` field routes to one of these. Refer to the [official model list](https://help.aliyun.com/zh/model-studio/getting-started/models) for the live catalog.
+
+### Text generation
+
+| Mirobody `provider` | Underlying model id | When to use |
+| --- | --- | --- |
+| `DeepSeekFlash` | `deepseek-v4-flash` | Default — fast, low cost |
+| `DeepSeekPro` | `deepseek-v4-pro` | Complex reasoning, medical interpretation |
+| `kimi` | `kimi-k2.6` | Long-context document analysis |
+| `minimax` | `MiniMax-M2.7` | Natural Chinese expression |
+| — (direct via DashScope) | `qwen3.7-max` | Qwen flagship for long, multi-step tasks |
+| — (direct via DashScope) | `qwen3.6-plus` | Balanced cost/performance — **official default pick** |
+| — (direct via DashScope) | `qwen3.6-flash` | High throughput, low latency |
+| — (direct via DashScope) | `glm-5.1` | Zhipu GLM |
+| — (direct via DashScope) | `mimo-v2.5-pro` | Xiaomi MiMo |
+
+### Embeddings & rerank
+
+| Model | Use case |
+| --- | --- |
+| `text-embedding-v4` | Text embedding |
+| `tongyi-embedding-vision-plus` | Multimodal embedding |
+| `qwen3-rerank` | Reranker |
+
+## 4. Use it in Mirobody
+
+```bash
+curl -N -X POST https://mcp.thetahealth.cn/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: dashscope" \
+  -H "X-LLM-Api-Key: sk-xxx-from-dashscope" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"hi","agent":"App","provider":"DeepSeekFlash"}'
+```
+
+## Troubleshooting
+
+- Upstream `InvalidApiKey` → check that the Bailian key is active and the chosen model is enabled.
+- Upstream `Throttling.User` → DashScope-side RPM/TPM limit; adjust quotas in [API Key Usage](https://bailian.console.aliyun.com/?tab=model#/api-key).
+- Model ID not found → some newer models require explicit activation in the "Model Plaza".
+- No VPN needed — DashScope is reachable directly from mainland China.

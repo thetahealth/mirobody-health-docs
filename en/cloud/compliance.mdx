@@ -1,0 +1,61 @@
+---
+title: "Compliance"
+description: "Independent CN / US deployments; both built to health-grade privacy standards"
+---
+
+Mirobody Platform runs as two independent deployments — one for mainland China and one for international markets. The two clusters are **fully isolated**: accounts, files, and health data **never cross the border**. Each cluster is designed, operated, and audited under the laws of its jurisdiction.
+
+<Note>
+Both clusters are designed to **HIPAA-grade health-privacy** standards. The US side is additionally subject to continuous third-party audit. The China cluster complies with the PRC's privacy and data-security laws and voluntarily aligns with HIPAA design principles.
+</Note>
+
+## Core commitments
+
+<AccordionGroup>
+  <Accordion title="Health-record privacy by design" icon="user-shield">
+    Strict minimum-necessary principle. Health indicators / files / journals are user-scoped; analytics surface only the necessary fields; sensitive fields are encrypted at rest; service operators do not have access to plaintext PHI.
+  </Accordion>
+  <Accordion title="No mid-process retention" icon="ghost">
+    LLM calls follow the [BYOK protocol](/en/cloud/byok/index) — partner LLM keys are **never persisted, never logged**, and discarded at request end. Upstream LLM intermediate inference and tool-call traces are not persisted; only the user-visible chat content stays in the user's own session history.
+  </Accordion>
+  <Accordion title="Encryption" icon="lock">
+    TLS 1.2+ enforced for HTTPS and WSS in transit. Industry-standard encryption at rest. Sensitive fields receive an additional layer of field-level encryption before write.
+  </Accordion>
+  <Accordion title="We do not sell your data" icon="ban">
+    Mirobody **never** sells user health data, never uses it for advertising, never monetizes it via third parties.
+  </Accordion>
+  <Accordion title="User rights" icon="key">
+    Account deletion (`POST /user/del` triggers soft-delete); data export via API ([health profile](/en/api-reference/health-indicators/query) / [journals](/en/api-reference/journal/list) / [files](/en/api-reference/files/list) / [chat history](/en/api-reference/chat/history)).
+  </Accordion>
+</AccordionGroup>
+
+## Per-cluster framework
+
+<CardGroup cols={2}>
+  <Card title="🇨🇳 China Cluster" icon="check">
+    **Live** · PRC law compliant · Aligned with HIPAA design principles
+  </Card>
+  <Card title="🇺🇸 Global Cluster" icon="check">
+    **HIPAA-compliant since day one** · Continuously third-party audited · GDPR-aligned for EU users
+  </Card>
+</CardGroup>
+
+### China cluster
+
+| Law | Adopted | Official text |
+| --- | --- | --- |
+| Personal Information Protection Law (PIPL) | 2021 | [State Council](https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm) |
+| Data Security Law | 2021 | [State Council](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
+| Cybersecurity Law | 2017 | [State Council](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+
+### Global cluster
+
+| Framework | Scope | Official text / Attestation |
+| --- | --- | --- |
+| HIPAA | US market | [HHS HIPAA Hub](https://www.hhs.gov/hipaa/index.html) · [Theta Vanta Trust Report](https://app.vanta.com/thetahealth/trust/hdtz5tifn8kd4ab4tx01) |
+| GDPR | EU / EEA users | [EUR-Lex 32016R0679](https://eur-lex.europa.eu/eli/reg/2016/679/oj) |
+| BAA (Business Associate Agreement) | HIPAA covered entities | Signed via your Mirobody account manager |
+
+## Compliance package
+
+For the compliance questionnaire, Data Processing Agreement (DPA), HIPAA BAA, or SOC 2 / Vanta audit report, contact your Mirobody account manager.

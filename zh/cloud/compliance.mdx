@@ -1,0 +1,61 @@
+---
+title: "合规"
+description: "中美独立部署、各自合规；两个集群均按健康级隐私标准设计"
+---
+
+Mirobody Platform 在中国大陆与美国分别独立运营。两个集群**完全独立** —— 账号、文件、健康数据**不会跨境复制**，每个集群按所在司法辖区的法律设计、运营、审计。
+
+<Note>
+两个集群都按 **HIPAA 健康级隐私** 标准设计；美国侧另外接受第三方持续审计。中国集群依法遵循 PRC 隐私与数据安全法律，并主动对齐 HIPAA 设计原则。
+</Note>
+
+## 核心承诺
+
+<AccordionGroup>
+  <Accordion title="健康档案隐私化" icon="user-shield">
+    遵循"最小必要"原则。健康指标 / 文件 / 日记按用户维度隔离；分析层面只接触必要字段，敏感字段静态加密存储；服务运维人员不接触明文 PHI。
+  </Accordion>
+  <Accordion title="中间过程不留存" icon="ghost">
+    LLM 调用走 [BYOK 协议](/zh/cloud/byok/index) —— 合作伙伴的 LLM Key **永不入库、永不入日志**，请求结束即丢弃。上游 LLM 的中间推理 / 工具调用 trace 不持久化；仅在用户自己的会话历史中保留可见的对话内容。
+  </Accordion>
+  <Accordion title="加密保护" icon="lock">
+    传输层强制 TLS 1.2+（HTTPS / WSS）；静态存储采用行业领先标准的加密；用户敏感字段在入库前另作字段级加密。
+  </Accordion>
+  <Accordion title="不出售用户数据" icon="ban">
+    我们**绝不**将用户健康数据用于销售、广告投放或第三方变现。
+  </Accordion>
+  <Accordion title="用户权利" icon="key">
+    账号注销（`POST /user/del` 触发软删除）；数据导出（[健康档案](/zh/api-reference/health-indicators/query) / [日记](/zh/api-reference/journal/list) / [文件](/zh/api-reference/files/list) / [对话历史](/zh/api-reference/chat/history) 均可经 API 自取）。
+  </Accordion>
+</AccordionGroup>
+
+## 集群对应法律框架
+
+<CardGroup cols={2}>
+  <Card title="🇨🇳 中国集群" icon="check">
+    **已上线** · 遵循 PRC 法律 + 对齐 HIPAA 设计原则
+  </Card>
+  <Card title="🇺🇸 海外集群" icon="check">
+    **HIPAA day one** · 第三方持续审计 · 欧盟用户对齐 GDPR
+  </Card>
+</CardGroup>
+
+### 中国集群
+
+| 法律 | 通过年份 | 官方原文 |
+| --- | --- | --- |
+| 个人信息保护法（PIPL） | 2021 | [中国政府网](https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm) |
+| 数据安全法 | 2021 | [中国政府网](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
+| 网络安全法 | 2017 | [中国政府网](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+
+### 海外集群
+
+| 框架 | 适用范围 | 官方原文 / 凭证 |
+| --- | --- | --- |
+| HIPAA | 美国市场 | [HHS HIPAA Hub](https://www.hhs.gov/hipaa/index.html) · [Theta Vanta Trust Report](https://app.vanta.com/thetahealth/trust/hdtz5tifn8kd4ab4tx01) |
+| GDPR | 欧盟 / EEA 用户 | [EUR-Lex 32016R0679](https://eur-lex.europa.eu/eli/reg/2016/679/oj) |
+| BAA（业务伙伴协议） | HIPAA covered entity 接入 | 经商务对接人签署 |
+
+## 索取材料
+
+合规问卷、数据处理协议（DPA）、HIPAA BAA、SOC 2 / Vanta 审计报告等正式文件，请联系 Mirobody 商务对接人。

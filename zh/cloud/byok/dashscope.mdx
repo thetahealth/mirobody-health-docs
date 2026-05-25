@@ -1,0 +1,79 @@
+---
+title: "配置 DashScope（阿里云百炼）"
+description: "国内集群首选 LLM 后端 — DeepSeek / Qwen / Kimi / GLM / MiniMax 一把 key 全覆盖"
+---
+
+[**阿里云百炼**](https://bailian.console.aliyun.com/)（DashScope / Model Studio）是 Mirobody 中国集群推荐的 LLM 后端。它聚合了阿里自研 Qwen 系列、第三方 DeepSeek / Kimi / GLM / MiniMax，以及嵌入、reranker，全部走同一个 API Key。
+
+<Note>
+**官方资料**：[百炼是什么](https://help.aliyun.com/zh/model-studio/what-is-model-studio) · [模型列表](https://help.aliyun.com/zh/model-studio/getting-started/models) · [API Key 管理](https://bailian.console.aliyun.com/?tab=model#/api-key)
+</Note>
+
+## 1. 注册并拿 Key
+
+<Steps>
+  <Step title="开通百炼">
+    登录 [阿里云百炼控制台](https://bailian.console.aliyun.com/)。新账号会自动开通，部分模型需要先开通付费。
+  </Step>
+  <Step title="创建 API Key">
+    在 [API Key 管理](https://bailian.console.aliyun.com/?tab=model#/api-key) 创建一个 key，复制保存——key 仅显示一次。
+  </Step>
+  <Step title="确认计费状态">
+    在 **计费管理** 启用对应模型的付费订阅；部分新模型有免费额度。
+  </Step>
+</Steps>
+
+## 2. 端点信息
+
+DashScope 同时提供原生协议与 OpenAI 兼容协议。Mirobody 走的是 DashScope **原生**协议，您只需把 API Key 通过 BYOK header 传入即可，无需关心 base URL。
+
+| 项目 | 值 |
+| --- | --- |
+| OpenAI 兼容 base URL（参考） | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| DashScope 原生 base URL（Mirobody 用） | `https://dashscope.aliyuncs.com/api/v1` |
+| 认证方式 | `Authorization: Bearer <DASHSCOPE_API_KEY>` |
+| 海外区域 | 杭州（默认）· 弗吉尼亚 · 新加坡 · 法兰克福 |
+
+## 3. 可调用模型
+
+下表是百炼当前主推的模型，Mirobody `/api/chat` 的 `provider` 字段决定调哪一个。完整最新列表以 [百炼模型列表](https://help.aliyun.com/zh/model-studio/getting-started/models) 为准。
+
+### 文本生成
+
+| Mirobody `provider` | 底层 model id | 适用场景 |
+| --- | --- | --- |
+| `DeepSeekFlash` | `deepseek-v4-flash` | 默认首选，响应快、成本低 |
+| `DeepSeekPro` | `deepseek-v4-pro` | 复杂推理、医学解读 |
+| `kimi` | `kimi-k2.6` | 长上下文、长文档解读 |
+| `minimax` | `MiniMax-M2.7` | 中文表达自然 |
+| —（百炼直调） | `qwen3.7-max` | Qwen 旗舰款，超长任务链 |
+| —（百炼直调） | `qwen3.6-plus` | 性能 / 速度 / 成本平衡，**官方推荐通用款** |
+| —（百炼直调） | `qwen3.6-flash` | 高吞吐、低延迟 |
+| —（百炼直调） | `glm-5.1` | 智谱 GLM |
+| —（百炼直调） | `mimo-v2.5-pro` | 小米 MiMo |
+
+### 嵌入与 Rerank
+
+| 模型 | 用途 |
+| --- | --- |
+| `text-embedding-v4` | 文本嵌入 |
+| `tongyi-embedding-vision-plus` | 多模态嵌入 |
+| `qwen3-rerank` | reranker |
+
+## 4. 在 Mirobody 请求中使用
+
+```bash
+curl -N -X POST https://mcp.thetahealth.cn/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: dashscope" \
+  -H "X-LLM-Api-Key: sk-xxx-from-dashscope" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"你好","agent":"App","provider":"DeepSeekFlash"}'
+```
+
+## 故障排查
+
+- 上游返回 `InvalidApiKey` → 检查百炼控制台 key 是否启用、是否已订阅对应模型。
+- 上游返回 `Throttling.User` → DashScope 侧 RPM/TPM 限流，到 [API Key 用量](https://bailian.console.aliyun.com/?tab=model#/api-key) 调整额度。
+- 模型 ID 找不到 → 部分新模型需要先在控制台"模型广场"申请开通。
+- 网络无需 VPN → DashScope 国内直连。

@@ -1,0 +1,33 @@
+---
+title: "限流"
+description: "API 配额机制 + 客户端节奏建议"
+---
+
+Mirobody 按 **每用户 × 每路径 × 每分钟** 计数；触发后返回 HTTP 429，带 `Retry-After`（单位：秒）。
+
+```text
+HTTP/1.1 429 Too Many Requests
+Retry-After: 47
+
+Too Many Requests
+```
+
+## 推荐节奏
+
+| 路径 | 推荐 RPM | 备注 |
+| --- | --- | --- |
+| `/email/login` | ≤ 1 | 60s 内同一邮箱重发会被拒 |
+| `/api/chat` | ≤ 60 | 并发对话也算入 |
+| `/files/upload` | ≤ 30 | 多文件请合并到一次请求 |
+| `/api/v1/food/analyze` | ≤ 20 | 重计算路径 |
+| `/api/v1/holywell/journal/*` | ≤ 60 | 增删改查共享配额 |
+| 其他读接口 | ≤ 120 | history / file-list / 指标查询 |
+
+> **正式接入前请向运营确认贵方部署的精确数值**——具体阈值由部署侧通过 `REQUEST_RATE_LIMITER` 环境变量注入。
+
+## 客户端退避建议
+
+- 收到 429 后**严格遵守 `Retry-After`**，不要立即重试。
+- 连续两次 429 后将 backoff 翻倍，上限 5 分钟。
+- chat 调用不要并发；上一轮 `end` 事件到达后再发下一轮。
+- 状态查询走 [推荐轮询节奏](/zh/api-reference/overview)。

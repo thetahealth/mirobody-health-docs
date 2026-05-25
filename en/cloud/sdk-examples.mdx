@@ -1,0 +1,111 @@
+---
+title: "SDK Examples"
+description: "End-to-end examples in curl / Python / Node.js"
+---
+
+Minimum-viable end-to-end examples. BYOK headers included; works as-is on the China cluster.
+
+## curl
+
+```bash
+CN=https://mcp.thetahealth.cn
+TOKEN="<your access_token>"
+LLM_KEY="<your DashScope API key>"
+
+# Basic chat
+curl -N -X POST $CN/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: dashscope" \
+  -H "X-LLM-Api-Key: $LLM_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Hello","agent":"App","provider":"DeepSeekFlash"}'
+
+# Upload file + ask about it
+UP=$(curl -sS -X POST $CN/files/upload \
+     -H "Authorization: Bearer $TOKEN" \
+     -F "files=@report.pdf")
+FL=$(echo "$UP" | jq -c .data)
+
+REQ=$(jq -n --arg q "Analyze this report" --argjson fl "$FL" \
+     '{question:$q, agent:"App", provider:"DeepSeekFlash", file_list:$fl}')
+curl -N -X POST $CN/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: dashscope" \
+  -H "X-LLM-Api-Key: $LLM_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary "$REQ"
+```
+
+## Python (requests + SSE parser)
+
+```python
+import requests
+import json
+
+CN = "https://mcp.thetahealth.cn"
+TOKEN = "<your access_token>"
+LLM_KEY = "<your DashScope key>"
+
+headers = {
+    "Authorization":  f"Bearer {TOKEN}",
+    "X-LLM-Provider": "dashscope",
+    "X-LLM-Api-Key":  LLM_KEY,
+    "Content-Type":   "application/json",
+}
+
+resp = requests.post(
+    f"{CN}/api/chat",
+    headers=headers,
+    json={"question": "Hello", "agent": "App", "provider": "DeepSeekFlash"},
+    stream=True,
+)
+
+for line in resp.iter_lines(decode_unicode=True):
+    if not line or not line.startswith("data: "):
+        continue
+    evt = json.loads(line[6:])
+    if evt["type"] == "reply":
+        print(evt["content"], end="", flush=True)
+    elif evt["type"] == "end":
+        break
+```
+
+## Node.js (fetch + ReadableStream)
+
+```javascript
+const CN = "https://mcp.thetahealth.cn";
+const TOKEN = "<your access_token>";
+const LLM_KEY = "<your DashScope key>";
+
+const resp = await fetch(`${CN}/api/chat`, {
+  method: "POST",
+  headers: {
+    "Authorization":  `Bearer ${TOKEN}`,
+    "X-LLM-Provider": "dashscope",
+    "X-LLM-Api-Key":  LLM_KEY,
+    "Content-Type":   "application/json",
+  },
+  body: JSON.stringify({ question: "Hello", agent: "App", provider: "DeepSeekFlash" }),
+});
+
+const reader = resp.body.getReader();
+const decoder = new TextDecoder();
+let buf = "";
+
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  buf += decoder.decode(value, { stream: true });
+  let idx;
+  while ((idx = buf.indexOf("\n\n")) !== -1) {
+    const chunk = buf.slice(0, idx);
+    buf = buf.slice(idx + 2);
+    if (!chunk.startsWith("data: ")) continue;
+    const evt = JSON.parse(chunk.slice(6));
+    if (evt.type === "reply") process.stdout.write(evt.content);
+    if (evt.type === "end") return;
+  }
+}
+```
+
+More examples: [Food analyze](/en/api-reference/food/analyze), [Journal create](/en/api-reference/journal/create), [WebSocket upload](/en/api-reference/websocket/health-report).

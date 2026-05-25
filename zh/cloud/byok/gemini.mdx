@@ -1,0 +1,85 @@
+---
+title: "配置 Google Gemini"
+description: "海外集群备选 LLM 后端 — Gemini 3 / 2.5 系列、多模态原生"
+---
+
+[**Google Gemini API**](https://ai.google.dev/) 是 Mirobody 海外集群的备选 LLM 后端，由 Google AI Studio 提供，**原生支持多模态**（图像、音频、视频）。
+
+<Warning>
+**中国集群提示**：Gemini API（`generativelanguage.googleapis.com`）在中国大陆无服务。CN 集群请使用 [DashScope](/zh/cloud/byok/dashscope) 或 [火山方舟](/zh/cloud/byok/volcengine)。
+</Warning>
+
+<Note>
+**官方资料**：[Google AI Studio](https://aistudio.google.com/) · [Gemini API 文档](https://ai.google.dev/gemini-api/docs) · [模型列表](https://ai.google.dev/gemini-api/docs/models) · [OpenAI 兼容](https://ai.google.dev/gemini-api/docs/openai)
+</Note>
+
+## 1. 注册并拿 Key
+
+<Steps>
+  <Step title="登录 Google AI Studio">
+    打开 [aistudio.google.com](https://aistudio.google.com/)，用 Google 账号登录。
+  </Step>
+  <Step title="创建 API Key">
+    在 [API Keys 页](https://aistudio.google.com/app/apikey) 创建一个 key（与 Cloud Console 中 GCP 项目绑定）。
+  </Step>
+  <Step title="确认计费">
+    免费层级用免费配额；超出后需在对应 GCP 项目里启用计费。
+  </Step>
+</Steps>
+
+## 2. 端点信息
+
+| 项目 | 值 |
+| --- | --- |
+| Gemini 原生 base URL | `https://generativelanguage.googleapis.com/v1beta` |
+| OpenAI 兼容 base URL | `https://generativelanguage.googleapis.com/v1beta/openai` |
+| 认证方式 | `Authorization: Bearer <GEMINI_API_KEY>` |
+| 区域 | 全球，部分模型欧盟 / 印度暂不可用 |
+
+## 3. 可调用模型
+
+最新主推：
+
+### Gemini 3 系列
+
+| model id | 说明 |
+| --- | --- |
+| `gemini-3.1-pro` | 旗舰，深推理 + agentic coding（Preview） |
+| `gemini-3.5-flash` | 当前主力 — agentic 与代码任务（Stable） |
+| `gemini-3-flash` | 前沿性能 + 低成本（Preview） |
+| `gemini-3.1-flash-lite` | 极致预算款 |
+
+### Gemini 2.5 系列（稳定回退）
+
+| model id | 说明 |
+| --- | --- |
+| `gemini-2.5-pro` | 复杂深推理 |
+| `gemini-2.5-flash` | 低延迟 + 推理任务最佳性价比 |
+| `gemini-2.5-flash-lite` | 多模态预算款 |
+
+### 嵌入
+
+| model id | 用途 |
+| --- | --- |
+| `gemini-embedding-001` | 文本嵌入（稳定） |
+| `gemini-embedding-2-preview` | 多模态嵌入（Preview） |
+
+完整最新列表见 [Gemini Models](https://ai.google.dev/gemini-api/docs/models)。
+
+## 4. 在 Mirobody 请求中使用（海外集群）
+
+```bash
+curl -N -X POST <global-cluster-base-url>/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: gemini" \
+  -H "X-LLM-Api-Key: <您的 Gemini API key>" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"hi","agent":"Baseline","provider":"gemini-2.5-flash"}'
+```
+
+## 故障排查
+
+- `API_KEY_INVALID` → 检查 AI Studio key 是否被吊销。
+- `RESOURCE_EXHAUSTED` → 超出免费配额 / RPM，在 [配额页](https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas) 调整。
+- `PERMISSION_DENIED` → 模型在您所在区域不可用。
+- 中国大陆请求超时 → 走不通；改用 DashScope / Volcengine。

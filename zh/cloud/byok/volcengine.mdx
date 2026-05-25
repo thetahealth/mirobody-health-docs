@@ -1,0 +1,73 @@
+---
+title: "配置火山方舟（字节跳动）"
+description: "国内集群备选 LLM 后端 — 豆包系列 + DeepSeek / Kimi / Qwen 等第三方"
+---
+
+[**火山方舟**](https://www.volcengine.com/product/ark)（Ark）是字节跳动旗下的大模型服务，主要用于调用**豆包（Doubao）系列**模型，也接入了 DeepSeek、Kimi、Qwen 等第三方。
+
+<Note>
+**官方资料**：[方舟产品页](https://www.volcengine.com/product/ark) · [模型列表](https://www.volcengine.com/docs/82379/1330310) · [API Key 控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey)
+</Note>
+
+## 1. 注册并拿 Key
+
+<Steps>
+  <Step title="开通方舟">
+    登录 [火山引擎控制台](https://console.volcengine.com/ark)，开通方舟服务（首次需实名认证）。
+  </Step>
+  <Step title="开通模型订阅">
+    在 [模型广场](https://console.volcengine.com/ark/region:ark+cn-beijing/model) 给您要用的模型逐个点 **开通** → **立即体验**。豆包系列大部分免费试用，部分按 token 计费。
+  </Step>
+  <Step title="创建 API Key">
+    在 [API Key 管理](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey) 创建一个 key，复制保存（仅显示一次）。
+  </Step>
+  <Step title="（可选）创建 Endpoint">
+    部分模型走"在线推理 Endpoint"调用，需在 [Endpoint 列表](https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint) 为模型创建 endpoint，得到形如 `ep-xxxxxxxxxxxx` 的 ID。Mirobody 当前调用走 model id 直连，无需手动建 endpoint。
+  </Step>
+</Steps>
+
+## 2. 端点信息
+
+| 项目 | 值 |
+| --- | --- |
+| OpenAI 兼容 base URL | `https://ark.cn-beijing.volces.com/api/v3` |
+| 认证方式 | `Authorization: Bearer <ARK_API_KEY>` |
+| 区域 | 北京（`ark+cn-beijing`，主要） |
+
+## 3. 可调用模型
+
+火山方舟主推**豆包系列**，并接入了 DeepSeek / Kimi 等第三方。Mirobody `/api/chat` 的 `provider` 字段路由到对应模型；完整最新列表以 [方舟模型列表](https://www.volcengine.com/docs/82379/1330310) 为准。
+
+### 豆包系列（推荐）
+
+| Mirobody `provider` | 底层 model id | 说明 |
+| --- | --- | --- |
+| `豆包` | `doubao-seed-2-0-lite-260428` | Mirobody 当前默认选型，中文场景成熟 |
+| — | `doubao-seed-1-6` | 豆包 Seed 多模态系列 |
+| — | `doubao-1-5-pro-32k` / `doubao-1-5-pro-256k` | 豆包 1.5 Pro，32k / 256k 上下文 |
+| — | `doubao-1-5-vision-pro-32k` | 豆包视觉理解 |
+| — | `doubao-1-5-lite-32k` | 轻量、低成本 |
+
+### 第三方（在方舟订阅后即可调用）
+
+- `deepseek-r1` / `deepseek-v3.1` — 推理 / 通用对话
+- `moonshot-v1-128k`、`moonshot-kimi-k2` — Kimi 系列
+- `qwen2.5-72b-instruct` 等 Qwen 系列
+
+## 4. 在 Mirobody 请求中使用
+
+```bash
+curl -N -X POST https://mcp.thetahealth.cn/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: volcengine" \
+  -H "X-LLM-Api-Key: <您的火山方舟 API Key>" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"你好","agent":"App","provider":"豆包"}'
+```
+
+## 故障排查
+
+- `Model not found` → 该模型未在方舟控制台开通订阅，到 [模型广场](https://console.volcengine.com/ark/region:ark+cn-beijing/model) 点开通。
+- `AuthenticationError` → API Key 失效或被禁用；新生成一个。
+- `RateLimitExceeded` → 方舟侧 QPS / TPM 限流；在控制台调整配额或申请白名单。
+- 模型 ID 经常变 → 方舟模型 ID 包含日期后缀（如 `260428`），跟随官方版本更新。Mirobody 后端会维护一份当前可用的映射；如发现某 `provider` 调不通，请联系 Mirobody 商务对接人确认。

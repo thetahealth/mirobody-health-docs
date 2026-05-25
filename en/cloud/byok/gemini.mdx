@@ -1,0 +1,83 @@
+---
+title: "Configure Google Gemini"
+description: "Global cluster alternative LLM backend — Gemini 3 / 2.5, native multimodal"
+---
+
+[**Google Gemini API**](https://ai.google.dev/) is Mirobody's alternative global-cluster LLM backend, provided by Google AI Studio. **Multimodal native** (image, audio, video).
+
+<Warning>
+**China cluster note**: The Gemini API endpoint (`generativelanguage.googleapis.com`) is not available in mainland China. On CN, use [DashScope](/en/cloud/byok/dashscope) or [Volcengine Ark](/en/cloud/byok/volcengine).
+</Warning>
+
+<Note>
+**Official docs**: [Google AI Studio](https://aistudio.google.com/) · [Gemini API docs](https://ai.google.dev/gemini-api/docs) · [Models](https://ai.google.dev/gemini-api/docs/models) · [OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai)
+</Note>
+
+## 1. Register and get a key
+
+<Steps>
+  <Step title="Sign in to AI Studio">
+    Open [aistudio.google.com](https://aistudio.google.com/) and sign in with a Google account.
+  </Step>
+  <Step title="Create an API key">
+    On the [API Keys page](https://aistudio.google.com/app/apikey), create a key (bound to a GCP project).
+  </Step>
+  <Step title="Confirm billing">
+    Use the free tier or enable billing on the GCP project for higher quotas.
+  </Step>
+</Steps>
+
+## 2. Endpoint info
+
+| Field | Value |
+| --- | --- |
+| Native Gemini base URL | `https://generativelanguage.googleapis.com/v1beta` |
+| OpenAI-compatible base URL | `https://generativelanguage.googleapis.com/v1beta/openai` |
+| Auth | `Authorization: Bearer <GEMINI_API_KEY>` |
+| Region | Global; some models unavailable in EU / IN |
+
+## 3. Available models
+
+### Gemini 3 series
+
+| Model id | Notes |
+| --- | --- |
+| `gemini-3.1-pro` | Flagship — deep reasoning + agentic coding (Preview) |
+| `gemini-3.5-flash` | Current workhorse — agentic + coding (Stable) |
+| `gemini-3-flash` | Frontier performance + reduced cost (Preview) |
+| `gemini-3.1-flash-lite` | Budget tier |
+
+### Gemini 2.5 series (stable fallback)
+
+| Model id | Notes |
+| --- | --- |
+| `gemini-2.5-pro` | Complex deep reasoning |
+| `gemini-2.5-flash` | Best price/perf for low-latency reasoning |
+| `gemini-2.5-flash-lite` | Budget multimodal |
+
+### Embeddings
+
+| Model id | Use case |
+| --- | --- |
+| `gemini-embedding-001` | Text embedding (Stable) |
+| `gemini-embedding-2-preview` | Multimodal embedding (Preview) |
+
+See [Gemini Models](https://ai.google.dev/gemini-api/docs/models) for the live catalog.
+
+## 4. Use it in Mirobody (global cluster)
+
+```bash
+curl -N -X POST <global-cluster-base-url>/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-LLM-Provider: gemini" \
+  -H "X-LLM-Api-Key: <your Gemini API key>" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"hi","agent":"Baseline","provider":"gemini-2.5-flash"}'
+```
+
+## Troubleshooting
+
+- `API_KEY_INVALID` → key revoked in AI Studio.
+- `RESOURCE_EXHAUSTED` → free-tier quota or RPM exceeded; adjust under [Quotas](https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas).
+- `PERMISSION_DENIED` → model unavailable in your region.
+- Mainland-China timeout → expected; switch to DashScope / Volcengine.

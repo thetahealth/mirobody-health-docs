@@ -1,0 +1,55 @@
+---
+title: "中国集群"
+description: "mcp.thetahealth.cn ｜ 已上线"
+---
+
+国内集群是 Mirobody Platform 当前的主要部署，全部数据存储于中国大陆。
+
+## Base URL
+
+```text
+https://mcp.thetahealth.cn
+```
+
+## 关键能力
+
+- 全部 [API Reference](/zh/api-reference/overview) 列出的 REST 接口与 WebSocket。
+- LLM 后端：`DeepSeekFlash` / `DeepSeekPro` / `kimi` / `minimax` / `豆包`（通过 [BYOK](/zh/cloud/byok/index) 自带 key）。
+
+## 前端
+
+- **主前端**：[**mirobody.thetahealth.cn**](https://mirobody.thetahealth.cn/) —— Mirobody 平台的默认 Web 前端，覆盖 Mirobody 的核心能力。
+- **分站 CDM**：[**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/) —— 在 Mirobody 基础上增加了**数据记录**能力的扩展版本。合作伙伴可以把任一个作为参考实现 / 演示站，也可以直接二次开发自己的前端。
+
+下面是 CDM 分站涵盖的核心场景（主前端 mirobody.thetahealth.cn 是其子集）：
+
+<CardGroup cols={2}>
+  <Card title="对话" icon="comments">
+    调用 `/api/chat`，可在 App·DeepSeek Flash 等多个 provider 间切换
+  </Card>
+  <Card title="数据" icon="database">
+    文件 / 基因 / 设备 / 医院数据多 tab 统一视图，对应 `/api/v1/data/uploaded-files` 等
+  </Card>
+  <Card title="日志" icon="book">
+    `/api/v1/holywell/journal/*`，按类别（饮食 / 发病 / 服药 / 就诊 / 其他）+ 时间段过滤
+  </Card>
+  <Card title="快速记录" icon="bolt">
+    一键 `journal/create`，自动跑 AI 分类与摘要
+  </Card>
+  <Card title="家庭共享" icon="users">
+    `/api/beneficiary-users` + 视角切换
+  </Card>
+  <Card title="登录" icon="user">
+    微信登录 + 邮箱码登录，中英文切换
+  </Card>
+</CardGroup>
+
+## 合规
+
+- 数据 100% 存储于中国大陆。
+- 符合 PIPL / 数据安全法 / 网络安全法，详见 [合规](/zh/cloud/compliance)。
+
+## 已知限制
+
+- 未启用 `tool-*` / `user-get_events` / `user-get_food_records` / `user-list_medications` / `user-get_medication_details` 工具（Agent 不会调用）。
+- `/api/history` 当前不分页，单次返回全部 summary —— 客户端自行截断。
