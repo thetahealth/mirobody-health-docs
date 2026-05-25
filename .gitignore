@@ -18,3 +18,5 @@ snippets/dump_demo_users.py
 # environment-specific SQL meant to be applied directly to the DB,
 # not deployed via docs.
 migration/
+
+api_docs/

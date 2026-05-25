@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Theta Health",
+  "name": "Mirobody",
   "colors": {
     "primary": "#2563EB",
     "light": "#3B82F6",
@@ -14,7 +14,7 @@
         "language": "en",
         "tabs": [
           {
-            "tab": "Documentation",
+            "tab": "Open Source",
             "groups": [
               {
                 "group": "Getting Started",
@@ -36,7 +36,7 @@
                 ]
               },
               {
-                "group": "Using Providers",
+                "group": "Data Providers",
                 "pages": [
                   "en/providers/using-providers",
                   "en/providers/overview"
@@ -60,59 +60,14 @@
                   "en/tools/adding-mcps",
                   "en/tools/chatgpt-apps"
                 ]
-              }
-            ]
-          },
-          {
-            "tab": "API Reference",
-            "groups": [
-              {
-                "group": "Overview",
-                "pages": [
-                  "en/api-reference/introduction"
-                ]
               },
               {
-                "group": "Pulse API",
-                "pages": [
-                  "en/api-reference/pulse/link",
-                  "en/api-reference/pulse/callback",
-                  "en/api-reference/pulse/unlink",
-                  "en/api-reference/pulse/providers"
-                ]
-              },
-              {
-                "group": "Chat API",
-                "pages": [
-                  "en/api-reference/chat/send-message",
-                  "en/api-reference/chat/history"
-                ]
-              },
-              {
-                "group": "MCP Protocol",
-                "pages": [
-                  "en/api-reference/mcp/overview",
-                  "en/api-reference/mcp/tools",
-                  "en/api-reference/mcp/resources"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "Development",
-            "groups": [
-              {
-                "group": "Developer Guide",
+                "group": "Development",
                 "pages": [
                   "en/development/setup",
                   "en/development/contributing",
                   "en/development/testing",
-                  "en/development/file-processing"
-                ]
-              },
-              {
-                "group": "Provider Development",
-                "pages": [
+                  "en/development/file-processing",
                   "en/development/provider-integration",
                   "en/development/oauth-implementation",
                   "en/development/data-mapping",
@@ -127,6 +82,129 @@
                 ]
               }
             ]
+          },
+          {
+            "tab": "Cloud",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "en/cloud/quickstart"
+                ]
+              },
+              {
+                "group": "Regions",
+                "pages": [
+                  "en/cloud/regions/overview",
+                  "en/cloud/regions/china",
+                  "en/cloud/regions/global"
+                ]
+              },
+              {
+                "group": "Bring Your Own LLM Key",
+                "pages": [
+                  "en/cloud/byok/index",
+                  "en/cloud/byok/dashscope",
+                  "en/cloud/byok/volcengine",
+                  "en/cloud/byok/openai",
+                  "en/cloud/byok/gemini"
+                ]
+              },
+              {
+                "group": "Integration",
+                "pages": [
+                  "en/cloud/sdk-examples",
+                  "en/cloud/rate-limits",
+                  "en/cloud/compliance"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "groups": [
+              {
+                "group": "Overview",
+                "pages": [
+                  "en/api-reference/overview"
+                ]
+              },
+              {
+                "group": "Authentication",
+                "pages": [
+                  "en/api-reference/authentication/email",
+                  "en/api-reference/authentication/oauth",
+                  "en/api-reference/authentication/refresh",
+                  "en/api-reference/authentication/beneficiary"
+                ]
+              },
+              {
+                "group": "Chat",
+                "pages": [
+                  "en/api-reference/chat/chat",
+                  "en/api-reference/chat/session",
+                  "en/api-reference/chat/history",
+                  "en/api-reference/chat/custom-prompt"
+                ]
+              },
+              {
+                "group": "Files",
+                "pages": [
+                  "en/api-reference/files/upload",
+                  "en/api-reference/files/list",
+                  "en/api-reference/files/delete"
+                ]
+              },
+              {
+                "group": "Journal",
+                "pages": [
+                  "en/api-reference/journal/list",
+                  "en/api-reference/journal/create",
+                  "en/api-reference/journal/update-delete"
+                ]
+              },
+              {
+                "group": "Health Indicators",
+                "pages": [
+                  "en/api-reference/health-indicators/categories",
+                  "en/api-reference/health-indicators/latest",
+                  "en/api-reference/health-indicators/query",
+                  "en/api-reference/health-indicators/distribution"
+                ]
+              },
+              {
+                "group": "Food",
+                "pages": [
+                  "en/api-reference/food/analyze",
+                  "en/api-reference/food/save-history"
+                ]
+              },
+              {
+                "group": "WebSocket",
+                "pages": [
+                  "en/api-reference/websocket/health-report",
+                  "en/api-reference/websocket/llm-analysis",
+                  "en/api-reference/websocket/file-progress"
+                ]
+              },
+              {
+                "group": "Pulse API",
+                "pages": [
+                  "en/api-reference/pulse/link",
+                  "en/api-reference/pulse/callback",
+                  "en/api-reference/pulse/unlink",
+                  "en/api-reference/pulse/providers"
+                ]
+              },
+              {
+                "group": "MCP Protocol",
+                "pages": [
+                  "en/api-reference/mcp/overview",
+                  "en/api-reference/mcp/tools",
+                  "en/api-reference/mcp/resources"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -134,7 +212,7 @@
         "language": "zh",
         "tabs": [
           {
-            "tab": "文档",
+            "tab": "开源部署",
             "groups": [
               {
                 "group": "快速开始",
@@ -156,7 +234,7 @@
                 ]
               },
               {
-                "group": "使用 Providers",
+                "group": "数据 Providers",
                 "pages": [
                   "zh/providers/using-providers",
                   "zh/providers/overview"
@@ -180,6 +258,63 @@
                   "zh/tools/adding-mcps",
                   "zh/tools/chatgpt-apps"
                 ]
+              },
+              {
+                "group": "开发",
+                "pages": [
+                  "zh/development/setup",
+                  "zh/development/contributing",
+                  "zh/development/testing",
+                  "zh/development/file-processing",
+                  "zh/development/provider-integration",
+                  "zh/development/oauth-implementation",
+                  "zh/development/data-mapping",
+                  "zh/development/provider-testing"
+                ]
+              },
+              {
+                "group": "部署",
+                "pages": [
+                  "zh/deployment/docker",
+                  "zh/deployment/production"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Cloud",
+            "groups": [
+              {
+                "group": "快速开始",
+                "pages": [
+                  "zh/cloud/quickstart"
+                ]
+              },
+              {
+                "group": "数据区域",
+                "pages": [
+                  "zh/cloud/regions/overview",
+                  "zh/cloud/regions/china",
+                  "zh/cloud/regions/global"
+                ]
+              },
+              {
+                "group": "BYOK（自带 LLM Key）",
+                "pages": [
+                  "zh/cloud/byok/index",
+                  "zh/cloud/byok/dashscope",
+                  "zh/cloud/byok/volcengine",
+                  "zh/cloud/byok/openai",
+                  "zh/cloud/byok/gemini"
+                ]
+              },
+              {
+                "group": "接入",
+                "pages": [
+                  "zh/cloud/sdk-examples",
+                  "zh/cloud/rate-limits",
+                  "zh/cloud/compliance"
+                ]
               }
             ]
           },
@@ -189,7 +324,65 @@
               {
                 "group": "概览",
                 "pages": [
-                  "zh/api-reference/introduction"
+                  "zh/api-reference/overview"
+                ]
+              },
+              {
+                "group": "鉴权",
+                "pages": [
+                  "zh/api-reference/authentication/email",
+                  "zh/api-reference/authentication/oauth",
+                  "zh/api-reference/authentication/refresh",
+                  "zh/api-reference/authentication/beneficiary"
+                ]
+              },
+              {
+                "group": "对话",
+                "pages": [
+                  "zh/api-reference/chat/chat",
+                  "zh/api-reference/chat/session",
+                  "zh/api-reference/chat/history",
+                  "zh/api-reference/chat/custom-prompt"
+                ]
+              },
+              {
+                "group": "文件",
+                "pages": [
+                  "zh/api-reference/files/upload",
+                  "zh/api-reference/files/list",
+                  "zh/api-reference/files/delete"
+                ]
+              },
+              {
+                "group": "日记",
+                "pages": [
+                  "zh/api-reference/journal/list",
+                  "zh/api-reference/journal/create",
+                  "zh/api-reference/journal/update-delete"
+                ]
+              },
+              {
+                "group": "健康指标",
+                "pages": [
+                  "zh/api-reference/health-indicators/categories",
+                  "zh/api-reference/health-indicators/latest",
+                  "zh/api-reference/health-indicators/query",
+                  "zh/api-reference/health-indicators/distribution"
+                ]
+              },
+              {
+                "group": "食物",
+                "pages": [
+                  "zh/api-reference/food/analyze",
+                  "zh/api-reference/food/save-history"
+                ]
+              },
+              {
+                "group": "WebSocket",
+                "pages": [
+                  "zh/api-reference/websocket/health-report",
+                  "zh/api-reference/websocket/llm-analysis",
+                  "zh/api-reference/websocket/file-progress"
                 ]
               },
               {
@@ -202,48 +395,11 @@
                 ]
               },
               {
-                "group": "对话 API",
-                "pages": [
-                  "zh/api-reference/chat/send-message",
-                  "zh/api-reference/chat/history"
-                ]
-              },
-              {
                 "group": "MCP 协议",
                 "pages": [
                   "zh/api-reference/mcp/overview",
                   "zh/api-reference/mcp/tools",
                   "zh/api-reference/mcp/resources"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "开发",
-            "groups": [
-              {
-                "group": "开发者指南",
-                "pages": [
-                  "zh/development/setup",
-                  "zh/development/contributing",
-                  "zh/development/testing",
-                  "zh/development/file-processing"
-                ]
-              },
-              {
-                "group": "Providers 开发",
-                "pages": [
-                  "zh/development/provider-integration",
-                  "zh/development/oauth-implementation",
-                  "zh/development/data-mapping",
-                  "zh/development/provider-testing"
-                ]
-              },
-              {
-                "group": "部署",
-                "pages": [
-                  "zh/deployment/docker",
-                  "zh/deployment/production"
                 ]
               }
             ]
@@ -290,20 +446,20 @@
     "primary": {
       "type": "button",
       "label": "Get Started",
-      "href": "/en/quickstart"
+      "href": "/en/cloud/quickstart"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
