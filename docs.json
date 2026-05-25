@@ -101,16 +101,6 @@
                 ]
               },
               {
-                "group": "Bring Your Own LLM Key",
-                "pages": [
-                  "en/cloud/byok/index",
-                  "en/cloud/byok/dashscope",
-                  "en/cloud/byok/volcengine",
-                  "en/cloud/byok/openai",
-                  "en/cloud/byok/gemini"
-                ]
-              },
-              {
                 "group": "Integration",
                 "pages": [
                   "en/cloud/sdk-examples",
@@ -296,16 +286,6 @@
                   "zh/cloud/regions/overview",
                   "zh/cloud/regions/china",
                   "zh/cloud/regions/global"
-                ]
-              },
-              {
-                "group": "BYOK（自带 LLM Key）",
-                "pages": [
-                  "zh/cloud/byok/index",
-                  "zh/cloud/byok/dashscope",
-                  "zh/cloud/byok/volcengine",
-                  "zh/cloud/byok/openai",
-                  "zh/cloud/byok/gemini"
                 ]
               },
               {

@@ -1,21 +1,15 @@
 ---
 title: "Food Image Analysis"
-description: "POST /api/v1/food/analyze — SSE streaming; requires BYOK"
+description: "POST /api/v1/food/analyze — food image analysis (SSE streaming)"
 ---
-
-<Warning>
-**This endpoint requires LLM credentials.** Pass `X-LLM-Provider` and `X-LLM-Api-Key`. See [BYOK](/en/cloud/byok/index).
-</Warning>
 
 ## Endpoint
 
 ```http
 POST /api/v1/food/analyze
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <your LLM key>
-X-Language:      zh-CN
-Content-Type:    multipart/form-data
+Authorization: Bearer <access_token>
+X-Language:    zh-CN
+Content-Type:  multipart/form-data
 ```
 
 Form fields:

@@ -3,20 +3,17 @@ title: "SDK 示例"
 description: "curl / Python / Node.js 三套接入示例"
 ---
 
-下面是端到端最小可用示例。已加入 BYOK header，CN 集群直接可跑。
+下面是端到端最小可用示例。CN 集群直接可跑。
 
 ## curl
 
 ```bash
 CN=https://mcp.thetahealth.cn
 TOKEN="<您的 access_token>"
-LLM_KEY="<您的 DashScope API Key>"
 
 # 基础对话
 curl -N -X POST $CN/api/chat \
   -H "Authorization: Bearer $TOKEN" \
-  -H "X-LLM-Provider: dashscope" \
-  -H "X-LLM-Api-Key: $LLM_KEY" \
   -H "Content-Type: application/json" \
   -d '{"question":"你好","agent":"App","provider":"DeepSeekFlash"}'
 
@@ -30,8 +27,6 @@ REQ=$(jq -n --arg q "帮我分析这份体检报告" --argjson fl "$FL" \
      '{question:$q, agent:"App", provider:"DeepSeekFlash", file_list:$fl}')
 curl -N -X POST $CN/api/chat \
   -H "Authorization: Bearer $TOKEN" \
-  -H "X-LLM-Provider: dashscope" \
-  -H "X-LLM-Api-Key: $LLM_KEY" \
   -H "Content-Type: application/json" \
   --data-binary "$REQ"
 ```
@@ -44,13 +39,10 @@ import json
 
 CN = "https://mcp.thetahealth.cn"
 TOKEN = "<your access_token>"
-LLM_KEY = "<your DashScope key>"
 
 headers = {
-    "Authorization":  f"Bearer {TOKEN}",
-    "X-LLM-Provider": "dashscope",
-    "X-LLM-Api-Key":  LLM_KEY,
-    "Content-Type":   "application/json",
+    "Authorization": f"Bearer {TOKEN}",
+    "Content-Type":  "application/json",
 }
 
 resp = requests.post(
@@ -75,15 +67,12 @@ for line in resp.iter_lines(decode_unicode=True):
 ```javascript
 const CN = "https://mcp.thetahealth.cn";
 const TOKEN = "<your access_token>";
-const LLM_KEY = "<your DashScope key>";
 
 const resp = await fetch(`${CN}/api/chat`, {
   method: "POST",
   headers: {
-    "Authorization":  `Bearer ${TOKEN}`,
-    "X-LLM-Provider": "dashscope",
-    "X-LLM-Api-Key":  LLM_KEY,
-    "Content-Type":   "application/json",
+    "Authorization": `Bearer ${TOKEN}`,
+    "Content-Type":  "application/json",
   },
   body: JSON.stringify({ question: "你好", agent: "App", provider: "DeepSeekFlash" }),
 });

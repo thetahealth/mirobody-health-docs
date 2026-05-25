@@ -16,7 +16,7 @@ Mirobody Platform 在中国大陆与美国分别独立运营。两个集群**完
     遵循"最小必要"原则。健康指标 / 文件 / 日记按用户维度隔离；分析层面只接触必要字段，敏感字段静态加密存储；服务运维人员不接触明文 PHI。
   </Accordion>
   <Accordion title="中间过程不留存" icon="ghost">
-    LLM 调用走 [BYOK 协议](/zh/cloud/byok/index) —— 合作伙伴的 LLM Key **永不入库、永不入日志**，请求结束即丢弃。上游 LLM 的中间推理 / 工具调用 trace 不持久化；仅在用户自己的会话历史中保留可见的对话内容。
+    上游 LLM 的中间推理 / 工具调用 trace 不持久化；仅在用户自己的会话历史中保留可见的对话内容。LLM 提供商凭证由 Mirobody 统一管理，不对外暴露。
   </Accordion>
   <Accordion title="加密保护" icon="lock">
     传输层强制 TLS 1.2+（HTTPS / WSS）；静态存储采用行业领先标准的加密；用户敏感字段在入库前另作字段级加密。

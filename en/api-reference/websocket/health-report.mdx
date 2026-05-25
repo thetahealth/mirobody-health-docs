@@ -1,16 +1,12 @@
 ---
 title: "Health Report Upload (WebSocket)"
-description: "wss /ws/upload-health-report — large file upload with real-time progress; requires BYOK"
+description: "wss /ws/upload-health-report — large file upload with real-time progress"
 ---
-
-<Warning>
-**This endpoint requires LLM credentials.** Because WebSocket cannot set HTTP headers, pass them as query params: `?llm_provider=...&llm_api_key=...`. See [BYOK](/en/cloud/byok/index).
-</Warning>
 
 ## Endpoint
 
 ```text
-wss://mcp.thetahealth.cn/ws/upload-health-report?token=<access_token>&llm_provider=dashscope&llm_api_key=<...>
+wss://mcp.thetahealth.cn/ws/upload-health-report?token=<access_token>
 ```
 
 Optional `&connectionId=<...>` for reconnection support.

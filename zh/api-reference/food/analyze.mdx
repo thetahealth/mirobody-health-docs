@@ -1,21 +1,15 @@
 ---
 title: "食物图像识别"
-description: "POST /api/v1/food/analyze — SSE 流；需 BYOK"
+description: "POST /api/v1/food/analyze — 食物图像分析（SSE 流）"
 ---
-
-<Warning>
-**此接口需要 LLM 凭证。** 调用时需携带 `X-LLM-Provider` 与 `X-LLM-Api-Key`，详见 [BYOK 协议](/zh/cloud/byok/index)。
-</Warning>
 
 ## 端点
 
 ```http
 POST /api/v1/food/analyze
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <您的 LLM Key>
-X-Language:      zh-CN
-Content-Type:    multipart/form-data
+Authorization: Bearer <access_token>
+X-Language:    zh-CN
+Content-Type:  multipart/form-data
 ```
 
 表单字段：

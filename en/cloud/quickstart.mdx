@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Hit Mirobody's first API in 5 minutes"
+description: "Get a token and make your first chat call in 5 minutes"
 ---
 
 This page walks you through your first Mirobody Platform API call in 5 minutes. You need either a partner email provisioned via [Mirobody Support](mailto:developer@thetahealth.ai), or one of the public [demo accounts](#demo-accounts) below.
@@ -26,41 +26,24 @@ This page walks you through your first Mirobody Platform API call in 5 minutes. 
     The response's `data.access_token` is a 30-day JWT.
   </Step>
 
-  <Step title="Prepare an LLM key (BYOK)">
-    For the China cluster we recommend [Aliyun DashScope](/en/cloud/byok/dashscope) (covers DeepSeek / Kimi / Qwen) or [Volcengine](/en/cloud/byok/volcengine) (Doubao).
-
-    Once you have an API key, **every** AI request must carry two headers:
-
-    ```text
-    X-LLM-Provider: dashscope
-    X-LLM-Api-Key:  <your LLM key>
-    ```
-
-    See the [BYOK protocol](/en/cloud/byok/index).
-  </Step>
-
   <Step title="Make your first call">
     <CodeGroup>
     ```bash curl
     TOKEN="<the access_token from step 1>"
-    LLM_KEY="<your DashScope key>"
 
     curl -N -X POST https://mcp.thetahealth.cn/api/chat \
       -H "Authorization: Bearer $TOKEN" \
-      -H "X-LLM-Provider: dashscope" \
-      -H "X-LLM-Api-Key: $LLM_KEY" \
       -H "Content-Type: application/json" \
       -d '{"question":"Hello","agent":"App","provider":"DeepSeekFlash"}'
     ```
 
     ```python Python
     import requests, json
+
     resp = requests.post(
         "https://mcp.thetahealth.cn/api/chat",
         headers={
             "Authorization":  f"Bearer {TOKEN}",
-            "X-LLM-Provider": "dashscope",
-            "X-LLM-Api-Key":  LLM_KEY,
             "Content-Type":   "application/json",
         },
         json={"question": "Hello", "agent": "App", "provider": "DeepSeekFlash"},
@@ -80,8 +63,6 @@ This page walks you through your first Mirobody Platform API call in 5 minutes. 
       method: "POST",
       headers: {
         "Authorization":  `Bearer ${TOKEN}`,
-        "X-LLM-Provider": "dashscope",
-        "X-LLM-Api-Key":  LLM_KEY,
         "Content-Type":   "application/json",
       },
       body: JSON.stringify({ question: "Hello", agent: "App", provider: "DeepSeekFlash" }),
@@ -139,12 +120,9 @@ For a private long-term partner account, email [Mirobody Support](mailto:develop
 
 ## Next steps
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Full API Reference" icon="code" href="/en/api-reference/overview">
     Request/response specs for every REST + WebSocket endpoint
-  </Card>
-  <Card title="BYOK Protocol" icon="key" href="/en/cloud/byok/index">
-    Header / query contract, provider picks, error codes
   </Card>
   <Card title="Compliance" icon="shield" href="/en/cloud/compliance">
     Independent CN/US deployments; request DPA / questionnaire

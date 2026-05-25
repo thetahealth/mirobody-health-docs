@@ -1,20 +1,14 @@
 ---
 title: "创建日记"
-description: "POST /api/v1/holywell/journal/create — 需 BYOK（异步 AI 处理）"
+description: "POST /api/v1/holywell/journal/create — 创建日记条目"
 ---
-
-<Warning>
-**此接口需要 LLM 凭证**（异步 AI 用于分类 / 摘要 / 症状抽取）。调用时需携带 `X-LLM-Provider` 与 `X-LLM-Api-Key`，详见 [BYOK 协议](/zh/cloud/byok/index)。
-</Warning>
 
 ## 端点
 
 ```http
 POST /api/v1/holywell/journal/create
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <您的 LLM Key>
-Content-Type:    application/json
+Authorization: Bearer <access_token>
+Content-Type:  application/json
 ```
 
 ```json

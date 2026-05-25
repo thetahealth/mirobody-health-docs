@@ -1,20 +1,14 @@
 ---
 title: "POST /api/chat"
-description: "Streaming chat endpoint (SSE). Core integration point — requires BYOK headers."
+description: "Streaming chat endpoint (SSE). Mirobody Platform's core integration entry point."
 ---
-
-<Warning>
-**This endpoint requires LLM credentials.** Pass `X-LLM-Provider` and `X-LLM-Api-Key` in addition to `Authorization`. See [Bring Your Own LLM Key](/en/cloud/byok/index).
-</Warning>
 
 ## Endpoint
 
 ```http
 POST /api/chat
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <your LLM key>
-Content-Type:    application/json
+Authorization: Bearer <access_token>
+Content-Type:  application/json
 ```
 
 Returns **SSE** (`text/event-stream`).
@@ -109,8 +103,6 @@ If users ask "what did I eat" / "what meds am I on" / "recommend a doctor", the 
 ```bash
 curl -N -X POST https://mcp.thetahealth.cn/api/chat \
   -H "Authorization: Bearer $TOKEN" \
-  -H "X-LLM-Provider: dashscope" \
-  -H "X-LLM-Api-Key: $LLM_KEY" \
   -H "Content-Type: application/json" \
   -d '{"question":"Hello","agent":"App","provider":"DeepSeekFlash"}'
 ```

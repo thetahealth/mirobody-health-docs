@@ -1,20 +1,14 @@
 ---
 title: "Create Journal"
-description: "POST /api/v1/holywell/journal/create — requires BYOK for AI processing"
+description: "POST /api/v1/holywell/journal/create — create a journal entry"
 ---
-
-<Warning>
-**This endpoint requires LLM credentials** for the async AI processing (classification / summary / symptom extraction). Pass `X-LLM-Provider` and `X-LLM-Api-Key`. See [BYOK](/en/cloud/byok/index).
-</Warning>
 
 ## Endpoint
 
 ```http
 POST /api/v1/holywell/journal/create
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <your LLM key>
-Content-Type:    application/json
+Authorization: Bearer <access_token>
+Content-Type:  application/json
 ```
 
 ```json

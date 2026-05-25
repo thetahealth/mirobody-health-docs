@@ -16,7 +16,7 @@ Both clusters are designed to **HIPAA-grade health-privacy** standards. The US s
     Strict minimum-necessary principle. Health indicators / files / journals are user-scoped; analytics surface only the necessary fields; sensitive fields are encrypted at rest; service operators do not have access to plaintext PHI.
   </Accordion>
   <Accordion title="No mid-process retention" icon="ghost">
-    LLM calls follow the [BYOK protocol](/en/cloud/byok/index) — partner LLM keys are **never persisted, never logged**, and discarded at request end. Upstream LLM intermediate inference and tool-call traces are not persisted; only the user-visible chat content stays in the user's own session history.
+    Upstream LLM intermediate inference and tool-call traces are not persisted; only the user-visible chat content stays in the user's own session history. LLM provider credentials are managed by Mirobody and never exposed in any user-accessible API.
   </Accordion>
   <Accordion title="Encryption" icon="lock">
     TLS 1.2+ enforced for HTTPS and WSS in transit. Industry-standard encryption at rest. Sensitive fields receive an additional layer of field-level encryption before write.

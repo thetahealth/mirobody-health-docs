@@ -1,16 +1,12 @@
 ---
 title: "健康报告上传（WebSocket）"
-description: "wss /ws/upload-health-report — 大文件上传 + 实时进度；需 BYOK"
+description: "wss /ws/upload-health-report — 大文件上传 + 实时进度"
 ---
-
-<Warning>
-**此接口需要 LLM 凭证。** WebSocket 无法设置 HTTP Header，统一通过 query 传：`?llm_provider=...&llm_api_key=...`。详见 [BYOK 协议](/zh/cloud/byok/index)。
-</Warning>
 
 ## 端点
 
 ```text
-wss://mcp.thetahealth.cn/ws/upload-health-report?token=<access_token>&llm_provider=dashscope&llm_api_key=<...>
+wss://mcp.thetahealth.cn/ws/upload-health-report?token=<access_token>
 ```
 
 可选 `&connectionId=<...>` 支持断线重连。

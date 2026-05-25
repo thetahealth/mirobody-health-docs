@@ -21,10 +21,6 @@ Content-Type: application/json
 }
 ```
 
-<Warning>
-**仅当请求体携带新 `text_input` 或 `files` 时需要 BYOK header**（会触发 AI 重处理）。仅更新 `symptom` / `ts` 等元数据时，只需 `Authorization`。
-</Warning>
-
 ## 删除
 
 ```http
@@ -53,16 +49,10 @@ POST /api/v1/holywell/journal/mark_read
 
 ## 重处理（重跑 AI）
 
-<Warning>
-**此接口需要 BYOK header。** 详见 [BYOK 协议](/zh/cloud/byok/index)。
-</Warning>
-
 ```http
 POST /api/v1/holywell/journal/reprocess
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <您的 LLM Key>
-Content-Type:    application/json
+Authorization: Bearer <access_token>
+Content-Type:  application/json
 ```
 
 ```json

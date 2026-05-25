@@ -21,10 +21,6 @@ Content-Type: application/json
 }
 ```
 
-<Warning>
-**BYOK header required ONLY when** the body carries new `text_input` or `files` (those trigger AI re-processing). For `symptom` / `ts`-only updates, the `Authorization` header is sufficient.
-</Warning>
-
 ## Delete
 
 ```http
@@ -53,16 +49,10 @@ POST /api/v1/holywell/journal/mark_read
 
 ## Reprocess (re-run AI)
 
-<Warning>
-**Requires BYOK header.** See [BYOK](/en/cloud/byok/index).
-</Warning>
-
 ```http
 POST /api/v1/holywell/journal/reprocess
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <your LLM key>
-Content-Type:    application/json
+Authorization: Bearer <access_token>
+Content-Type:  application/json
 ```
 
 ```json

@@ -1,16 +1,12 @@
 ---
 title: "LLM 分析上传（WebSocket）"
-description: "wss /ws/upload-with-llm-analysis — 端到端上传 + LLM 分析；需 BYOK"
+description: "wss /ws/upload-with-llm-analysis — 端到端上传 + LLM 分析"
 ---
-
-<Warning>
-**此接口需要 LLM 凭证。** 通过 query 传，详见 [BYOK 协议](/zh/cloud/byok/index)。
-</Warning>
 
 ## 端点
 
 ```text
-wss://mcp.thetahealth.cn/ws/upload-with-llm-analysis?token=<access_token>&llm_provider=dashscope&llm_api_key=<...>
+wss://mcp.thetahealth.cn/ws/upload-with-llm-analysis?token=<access_token>
 ```
 
 ## 与 `/ws/upload-health-report` 的差异

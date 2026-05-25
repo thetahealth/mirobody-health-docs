@@ -1,16 +1,12 @@
 ---
 title: "LLM Analysis Upload (WebSocket)"
-description: "wss /ws/upload-with-llm-analysis — end-to-end upload + LLM analysis; requires BYOK"
+description: "wss /ws/upload-with-llm-analysis — end-to-end upload + LLM analysis"
 ---
-
-<Warning>
-**This endpoint requires LLM credentials.** Pass them as query params. See [BYOK](/en/cloud/byok/index).
-</Warning>
 
 ## Endpoint
 
 ```text
-wss://mcp.thetahealth.cn/ws/upload-with-llm-analysis?token=<access_token>&llm_provider=dashscope&llm_api_key=<...>
+wss://mcp.thetahealth.cn/ws/upload-with-llm-analysis?token=<access_token>
 ```
 
 ## Differences from `/ws/upload-health-report`

@@ -1,6 +1,6 @@
 ---
 title: "5 分钟跑通 Mirobody"
-description: "登录拿 token、配置 LLM Key、发起第一次对话"
+description: "登录拿 token，发起第一次对话"
 ---
 
 本页带你 5 分钟内完成首次调用。开始前需要一个由 [Mirobody 支持](mailto:developer@thetahealth.ai) 开通的邮箱账号，或使用下方公开 [演示账号](#演示账号)。
@@ -26,41 +26,24 @@ description: "登录拿 token、配置 LLM Key、发起第一次对话"
     响应中的 `data.access_token` 即为 30 天有效的 JWT。
   </Step>
 
-  <Step title="准备 LLM Key（BYOK）">
-    国内集群推荐 [阿里 DashScope](/zh/cloud/byok/dashscope)（覆盖 DeepSeek / Kimi / 通义）或 [火山引擎](/zh/cloud/byok/volcengine)（豆包）。
-
-    注册并拿到 API Key 后，**每次** AI 接口调用需在 header 里带：
-
-    ```text
-    X-LLM-Provider: dashscope
-    X-LLM-Api-Key:  <您的 LLM Key>
-    ```
-
-    详见 [BYOK 协议](/zh/cloud/byok/index)。
-  </Step>
-
   <Step title="发起第一次对话">
     <CodeGroup>
     ```bash curl
     TOKEN="<上一步拿到的 access_token>"
-    LLM_KEY="<您的 DashScope Key>"
 
     curl -N -X POST https://mcp.thetahealth.cn/api/chat \
       -H "Authorization: Bearer $TOKEN" \
-      -H "X-LLM-Provider: dashscope" \
-      -H "X-LLM-Api-Key: $LLM_KEY" \
       -H "Content-Type: application/json" \
       -d '{"question":"你好","agent":"App","provider":"DeepSeekFlash"}'
     ```
 
     ```python Python
     import requests, json
+
     resp = requests.post(
         "https://mcp.thetahealth.cn/api/chat",
         headers={
             "Authorization":  f"Bearer {TOKEN}",
-            "X-LLM-Provider": "dashscope",
-            "X-LLM-Api-Key":  LLM_KEY,
             "Content-Type":   "application/json",
         },
         json={"question": "你好", "agent": "App", "provider": "DeepSeekFlash"},
@@ -80,8 +63,6 @@ description: "登录拿 token、配置 LLM Key、发起第一次对话"
       method: "POST",
       headers: {
         "Authorization":  `Bearer ${TOKEN}`,
-        "X-LLM-Provider": "dashscope",
-        "X-LLM-Api-Key":  LLM_KEY,
         "Content-Type":   "application/json",
       },
       body: JSON.stringify({ question: "你好", agent: "App", provider: "DeepSeekFlash" }),
@@ -139,12 +120,9 @@ Mirobody 在**生产环境**预置了 3 个公开评估账号，验证码恒为 
 
 ## 下一步
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="完整 API Reference" icon="code" href="/zh/api-reference/overview">
     所有 REST + WebSocket 接口的请求 / 响应规范
-  </Card>
-  <Card title="BYOK 协议详解" icon="key" href="/zh/cloud/byok/index">
-    Header / Query 协议、provider 选择、错误码
   </Card>
   <Card title="Compliance" icon="shield" href="/zh/cloud/compliance">
     中美独立部署、各自合规、可索取 DPA

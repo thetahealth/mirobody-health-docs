@@ -1,20 +1,14 @@
 ---
 title: "POST /api/chat"
-description: "流式对话接口（SSE）。核心入口，需要 BYOK header。"
+description: "流式对话接口（SSE）。Mirobody Platform 的核心集成入口。"
 ---
-
-<Warning>
-**此接口需要 LLM 凭证。** 调用时需在 `Authorization` 之外额外携带 `X-LLM-Provider` 与 `X-LLM-Api-Key` header，详见 [BYOK 协议](/zh/cloud/byok/index)。
-</Warning>
 
 ## 端点
 
 ```http
 POST /api/chat
-Authorization:   Bearer <access_token>
-X-LLM-Provider:  dashscope | volcengine | openai | gemini
-X-LLM-Api-Key:   <您的 LLM Key>
-Content-Type:    application/json
+Authorization: Bearer <access_token>
+Content-Type:  application/json
 ```
 
 返回 **SSE 流式** (`text/event-stream`)。
@@ -109,8 +103,6 @@ Agent 按需调用健康 / 文件 / 图表工具，例如：
 ```bash
 curl -N -X POST https://mcp.thetahealth.cn/api/chat \
   -H "Authorization: Bearer $TOKEN" \
-  -H "X-LLM-Provider: dashscope" \
-  -H "X-LLM-Api-Key: $LLM_KEY" \
   -H "Content-Type: application/json" \
   -d '{"question":"你好","agent":"App","provider":"DeepSeekFlash"}'
 ```
