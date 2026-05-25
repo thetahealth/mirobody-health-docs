@@ -70,4 +70,4 @@ curl -N -X POST https://mcp.thetahealth.cn/api/chat \
 - `Model not found` → 该模型未在方舟控制台开通订阅，到 [模型广场](https://console.volcengine.com/ark/region:ark+cn-beijing/model) 点开通。
 - `AuthenticationError` → API Key 失效或被禁用；新生成一个。
 - `RateLimitExceeded` → 方舟侧 QPS / TPM 限流；在控制台调整配额或申请白名单。
-- 模型 ID 经常变 → 方舟模型 ID 包含日期后缀（如 `260428`），跟随官方版本更新。Mirobody 后端会维护一份当前可用的映射；如发现某 `provider` 调不通，请联系 Mirobody 商务对接人确认。
+- 模型 ID 经常变 → 方舟模型 ID 包含日期后缀（如 `260428`），跟随官方版本更新。Mirobody 后端会维护一份当前可用的映射；如发现某 `provider` 调不通，请发送邮件至 [Mirobody 支持](mailto:developer@thetahealth.ai) 确认。
