@@ -30,17 +30,8 @@ The provider system follows a plugin architecture, making it easy to add new int
 
 ## Provider Lifecycle
 
-```mermaid
-stateDiagram-v2
-    [*] --> Discovered: Scan directories
-    Discovered --> Validated: Check configuration
-    Validated --> Registered: Add to registry
-    Registered --> Active: Ready for use
-    Active --> Linked: User connects
-    Linked --> Syncing: Pull data
-    Syncing --> Linked: Continue syncing
-    Linked --> Unlinked: User disconnects
-    Unlinked --> Active: Ready for new link
-```
+<Frame>
+  <img src="/images/provider-lifecycle.svg" alt="Provider lifecycle: Discovered → Validated → Registered → Active → Linked → Syncing, with continuous sync and unlink/re-link" />
+</Frame>
 
 For more details, see the [Provider Overview](/en/providers/overview).

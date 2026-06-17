@@ -18,7 +18,7 @@ Mirobody provides three agent types, each optimized for a different cost/quality
 
     Two-phase model fusion: a capable model orchestrates tool calls, a cheaper model writes the final reply with the collected context.
   </Card>
-  <Card title="BaselineAgent" icon="bolt">
+  <Card title="BaseAgent" icon="bolt">
     **Simple Q&A**
 
     Direct LLM conversation without tools. Lowest latency. Good for trivial questions and benchmarking.
@@ -27,7 +27,7 @@ Mirobody provides three agent types, each optimized for a different cost/quality
 
 ## Agent Comparison
 
-| Feature | DeepAgent | MixAgent | BaselineAgent |
+| Feature | DeepAgent | MixAgent | BaseAgent |
 |---------|-----------|----------|---------------|
 | **Architecture** | Single-model tool loop | Orchestrator + Responder (two-phase) | Direct LLM, no tools |
 | **Planning** | ✅ Built-in todos | ✅ (orchestrator phase) | ❌ |
@@ -164,7 +164,7 @@ The orchestrator never speaks to the user directly; the responder never calls to
 
 ### When NOT to choose MixAgent
 
-- Short Q&A — the two-pass overhead isn't worth it; use DeepAgent or BaselineAgent.
+- Short Q&A — the two-pass overhead isn't worth it; use DeepAgent or BaseAgent.
 - The final reply quality is the bottleneck — promote it to DeepAgent with one strong model.
 
 ### Configuration
@@ -186,7 +186,7 @@ PROVIDERS_MIX:
 
 Tool filtering uses `ALLOWED_TOOLS_MIX` / `DISALLOWED_TOOLS_MIX` (only the orchestrator phase touches tools).
 
-## BaselineAgent (Best for Simple Tasks)
+## BaseAgent (Best for Simple Tasks)
 
 ### Features
 
@@ -210,7 +210,7 @@ GOOGLE_API_KEY: 'your_google_api_key'           # For Gemini models
 MIROTHINKER_API_KEY: 'your_mirothinker_key'     # For MiroThinker
 
 # Provider Configurations
-PROVIDERS_BASELINE:
+PROVIDERS_BASE:
   gemini-3-pro:
     api_key: GOOGLE_API_KEY
     model: gemini-3-pro-preview
@@ -239,9 +239,9 @@ PROVIDERS_BASELINE:
 ### Usage Example
 
 ```python
-from mirobody.pub.agents.baseline_agent import BaselineAgent
+from mirobody.pub.agents.base_agent import BaseAgent
 
-agent = BaselineAgent(
+agent = BaseAgent(
     user_id="user123",
     user_name="John Doe"
 )
@@ -342,7 +342,7 @@ AGENT_DIRS:
   </Step>
 
   <Step title="Use in agents">
-    Both DeepAgent and MixAgent (orchestrator phase) can use your custom tools automatically. BaselineAgent runs without tools by design.
+    Both DeepAgent and MixAgent (orchestrator phase) can use your custom tools automatically. BaseAgent runs without tools by design.
   </Step>
 </Steps>
 

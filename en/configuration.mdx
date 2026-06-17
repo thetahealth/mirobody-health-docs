@@ -74,7 +74,7 @@ Mirobody ships with **three** agent types:
 
 - **DeepAgent** — single-model tool orchestration, the default; requires `OPENROUTER_API_KEY`
 - **MixAgent** — two-phase fusion (capable orchestrator + cheap responder) for cost/quality balance
-- **BaselineAgent** — direct LLM chat without tools, low-latency Q&A
+- **BaseAgent** — direct LLM chat without tools, low-latency Q&A
 
 ### DeepAgent Configuration
 
@@ -138,17 +138,17 @@ PROVIDERS_MIX:
     temperature: 0.4
 ```
 
-### BaselineAgent Configuration
+### BaseAgent Configuration
 
-BaselineAgent is optimized for lightweight operations:
+BaseAgent is optimized for lightweight operations:
 
 ```yaml config.localdb.yaml
-# API Keys for BaselineAgent
+# API Keys for BaseAgent
 GOOGLE_API_KEY: 'your_google_api_key'           # For Gemini models
 MIROTHINKER_API_KEY: 'your_mirothinker_key'     # For MiroThinker
 
-# Provider Configurations for BaselineAgent
-PROVIDERS_BASELINE:
+# Provider Configurations for BaseAgent
+PROVIDERS_BASE:
   gemini-3-flash:
     api_key: GOOGLE_API_KEY
     model: gemini-3-flash-preview

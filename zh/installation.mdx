@@ -298,7 +298,7 @@ description: "在不同平台上安装 Mirobody 的详细说明"
     <Info>
     Mirobody 包含两种 Agent 类型：
     - **DeepAgent** (基于 LangChain): 最适合复杂任务、文件操作、多步骤规划
-    - **BaselineAgent** (原生 Gemini): 最适合简单对话、轻量级 MCP 集成
+    - **BaseAgent** (原生 Gemini): 最适合简单对话、轻量级 MCP 集成
     
     有关配置详情，请参阅 [工具概览](/zh/tools/overview)。
     </Info>
@@ -344,7 +344,7 @@ mirobody/
 │   │   ├── core/           # FHIR 映射、指标注册表、单位、聚合
 │   │   └── file_parser/    # PDF / Excel / CSV / 音频 / 图像 / 基因
 │   ├── pub/                 # 内置 Agent 与工具
-│   │   ├── agents/         # DeepAgent / MixAgent / BaselineAgent
+│   │   ├── agents/         # DeepAgent / MixAgent / BaseAgent
 │   │   ├── tools/          # 内置 MCP 工具（文件操作、图表、execute）
 │   │   └── resources/      # MCP 资源
 │   ├── indicator/          # 400+ 指标，LOINC/SNOMED CT/RxNorm 搜索

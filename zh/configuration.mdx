@@ -74,7 +74,7 @@ Mirobody 内置 **三种** Agent：
 
 - **DeepAgent** —— 单模型工具编排，默认选择；需要 `OPENROUTER_API_KEY`
 - **MixAgent** —— 两阶段融合（强模型编排 + 便宜模型回复），兼顾成本与质量
-- **BaselineAgent** —— 不调工具的直连 LLM 对话，适合低延迟 Q&A
+- **BaseAgent** —— 不调工具的直连 LLM 对话，适合低延迟 Q&A
 
 ### DeepAgent 配置
 
@@ -138,17 +138,17 @@ PROVIDERS_MIX:
     temperature: 0.4
 ```
 
-### BaselineAgent 配置
+### BaseAgent 配置
 
-BaselineAgent 针对轻量级操作进行了优化：
+BaseAgent 针对轻量级操作进行了优化：
 
 ```yaml config.localdb.yaml
-# 用于 BaselineAgent 的 API 密钥
+# 用于 BaseAgent 的 API 密钥
 GOOGLE_API_KEY: '您的_google_api_key'           # 用于 Gemini 模型
 MIROTHINKER_API_KEY: '您的_mirothinker_key'     # 用于 MiroThinker
 
-# 用于 BaselineAgent 的提供商配置
-PROVIDERS_BASELINE:
+# 用于 BaseAgent 的提供商配置
+PROVIDERS_BASE:
   gemini-3-flash:
     api_key: GOOGLE_API_KEY
     model: gemini-3-flash-preview

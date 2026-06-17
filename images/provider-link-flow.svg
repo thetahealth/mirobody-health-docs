@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 150" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" role="img" aria-label="Provider link and sync: link via OAuth, store tokens, schedule, fetch, transform, save, then repeat fetch every cycle">
+  <style>
+    :root{ --ink:#0f172a; --c:#2563eb; --box:#ffffff; --boxln:#dbe3ee; --loop:#94a3b8; }
+    @media (prefers-color-scheme: dark){ :root{ --ink:#e8edf5; --c:#60a5fa; --box:#0e1726; --boxln:#26334a; --loop:#5b6b86; } }
+    .box{fill:var(--box);stroke:var(--c);stroke-width:1.3}
+    .n{fill:var(--ink);font-size:12px;font-weight:600;text-anchor:middle}
+    .fl{stroke:var(--c);stroke-width:1.6;fill:none}
+    .hd{fill:var(--c)}
+    .lp{stroke:var(--loop);stroke-width:1.4;fill:none;stroke-dasharray:4 3}
+    .lpt{fill:var(--loop);font-size:10px;text-anchor:middle}
+    .hdl{fill:var(--loop)}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd"/></marker>
+    <marker id="al" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hdl"/></marker>
+  </defs>
+  <g>
+    <rect class="box" x="16"  y="46" width="150" height="44" rx="9"/><text class="n" x="91"  y="73">Link · OAuth</text>
+    <rect class="box" x="182" y="46" width="150" height="44" rx="9"/><text class="n" x="257" y="73">Store tokens</text>
+    <rect class="box" x="348" y="46" width="150" height="44" rx="9"/><text class="n" x="423" y="73">Schedule</text>
+    <rect class="box" x="514" y="46" width="150" height="44" rx="9"/><text class="n" x="589" y="73">Fetch</text>
+    <rect class="box" x="680" y="46" width="150" height="44" rx="9"/><text class="n" x="755" y="73">Transform</text>
+    <rect class="box" x="846" y="46" width="138" height="44" rx="9"/><text class="n" x="915" y="73">Save</text>
+  </g>
+  <line class="fl" x1="166" y1="68" x2="180" y2="68" marker-end="url(#a)"/>
+  <line class="fl" x1="332" y1="68" x2="346" y2="68" marker-end="url(#a)"/>
+  <line class="fl" x1="498" y1="68" x2="512" y2="68" marker-end="url(#a)"/>
+  <line class="fl" x1="664" y1="68" x2="678" y2="68" marker-end="url(#a)"/>
+  <line class="fl" x1="830" y1="68" x2="844" y2="68" marker-end="url(#a)"/>
+  <!-- scheduled pull loop: Save back to Schedule -->
+  <path class="lp" d="M915,90 C915,128 423,128 423,92" marker-end="url(#al)"/>
+  <text class="lpt" x="669" y="142">scheduled pull · every cycle</text>
+</svg>

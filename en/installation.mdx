@@ -298,7 +298,7 @@ After installation, verify everything is working:
     <Info>
     Mirobody includes two agent types:
     - **DeepAgent** (LangChain-based): Best for complex tasks, file operations, multi-step planning
-    - **BaselineAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
+    - **BaseAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
     
     See [Tools Overview](/en/tools/overview) for configuration details.
     </Info>
@@ -344,7 +344,7 @@ mirobody/
 │   │   ├── core/            # FHIR mapping, indicator registry, units, aggregation
 │   │   └── file_parser/     # PDF, Excel, CSV, audio, image, genetic
 │   ├── pub/                  # Built-in agents and tools
-│   │   ├── agents/          # DeepAgent / MixAgent / BaselineAgent
+│   │   ├── agents/          # DeepAgent / MixAgent / BaseAgent
 │   │   ├── tools/           # Built-in MCP tools (file ops, chart, execute)
 │   │   └── resources/       # MCP resources
 │   ├── indicator/           # 400+ indicators, LOINC/SNOMED CT/RxNorm search

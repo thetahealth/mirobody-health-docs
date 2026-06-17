@@ -98,20 +98,9 @@ You should see your Mirobody tools available in the AI client!
 
 When using tools through MCP clients, OAuth authentication is handled automatically:
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Claude/Cursor
-    participant MirobodyMCP
-    participant MirobodyHealth
-    
-    User->>Claude/Cursor: Ask health question
-    Claude/Cursor->>MirobodyMCP: Call tool via MCP
-    MirobodyMCP->>MirobodyHealth: Forward request
-    MirobodyHealth->>MirobodyHealth: Validate OAuth token
-    MirobodyHealth->>Claude/Cursor: Return health data
-    Claude/Cursor->>User: Answer with health insights
-```
+<Frame>
+  <img src="/images/mcp-sequence.svg" alt="MCP request flow: user -> client -> MCP -> Mirobody -> answer" />
+</Frame>
 
 <Note>
 The OAuth token is managed by Mirobody. Users authenticate once, and tools have secure access to their data.

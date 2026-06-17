@@ -41,23 +41,9 @@ ws://<host>/ws/upload-health-report?token=<auth_token>
 
 #### Connection Flow
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-    
-    Client->>Server: WebSocket connection + token
-    Server->>Client: connection_established
-    Client->>Server: upload_start (file info)
-    Server->>Client: upload_start (confirmation)
-    loop File chunks
-        Client->>Server: upload_chunk (base64 data)
-        Server->>Client: file_progress (progress update)
-    end
-    Server->>Client: file_received (file reception complete)
-    Server->>Client: upload_progress (processing progress)
-    Server->>Client: upload_completed (processing complete)
-```
+<Frame>
+  <img src="/images/file-upload-flow.svg" alt="WebSocket upload: connect, upload_start, upload_chunk xN, file_received, processing, upload_completed" />
+</Frame>
 
 #### Message Types
 

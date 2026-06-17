@@ -30,17 +30,8 @@ description: "深入了解 Mirobody 提供商系统架构"
 
 ## 提供商生命周期
 
-```mermaid
-stateDiagram-v2
-    [*] --> 已发现: 扫描目录
-    已发现 --> 已验证: 检查配置
-    已验证 --> 已注册: 添加到注册表
-    已注册 --> 激活: 准备就绪
-    激活 --> 已链接: 用户连接
-    已链接 --> 同步中: 拉取数据
-    同步中 --> 已链接: 继续同步
-    已链接 --> 已取消链接: 用户断开连接
-    已取消链接 --> 激活: 准备重新链接
-```
+<Frame>
+  <img src="/images/provider-lifecycle.svg" alt="Provider 生命周期：Discovered → Validated → Registered → Active → Linked → Syncing，含持续同步与解绑/重连" />
+</Frame>
 
 更多细节，请参见 [提供商概览](/zh/providers/overview)。

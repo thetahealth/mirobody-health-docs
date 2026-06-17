@@ -227,16 +227,9 @@ For complete implementation details, see the <a href="https://github.com/thetahe
 
 ### Provider Lifecycle
 
-```mermaid
-graph LR
-    A[User Initiates Link] --> B[OAuth Flow]
-    B --> C[Tokens Stored]
-    C --> D[Data Pull Scheduled]
-    D --> E[Data Fetched]
-    E --> F[Data Transformed]
-    F --> G[Data Saved]
-    G --> D
-```
+<Frame>
+  <img src="/images/provider-link-flow.svg" alt="Provider link and scheduled-sync flow" />
+</Frame>
 
 ### Data Flow
 

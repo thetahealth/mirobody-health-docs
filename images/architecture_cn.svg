@@ -75,7 +75,7 @@
       <text class="h" x="18" y="26">对话服务</text>
       <text class="s" x="18" y="43">会话 · 历史 · 流式 · 分享</text>
       <rect class="chip" x="14" y="56" width="356" height="30" rx="7"/>
-      <text class="h" x="26" y="75" font-size="12">DeepAgent · MixAgent · BaselineAgent</text>
+      <text class="h" x="26" y="75" font-size="12">DeepAgent · MixAgent · BaseAgent</text>
       <text class="h" x="18" y="108">MCP 服务器</text>
       <text class="s" x="18" y="123">自动发现工具与资源</text>
     </g>

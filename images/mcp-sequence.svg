@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 110" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" role="img" aria-label="MCP request flow: user asks, client calls a tool over MCP, Mirobody validates OAuth and runs it, returns data, client answers">
+  <style>
+    :root{ --ink:#0f172a; --c:#2563eb; --box:#ffffff; --boxln:#dbe3ee; }
+    @media (prefers-color-scheme: dark){ :root{ --ink:#e8edf5; --c:#60a5fa; --box:#0e1726; --boxln:#26334a; } }
+    .box{fill:var(--box);stroke:var(--boxln);stroke-width:1.2}
+    .ac{fill:var(--c);font-size:10px;font-weight:700;text-anchor:middle}
+    .n{fill:var(--ink);font-size:12px;font-weight:600;text-anchor:middle}
+    .fl{stroke:var(--c);stroke-width:1.6;fill:none}
+    .hd{fill:var(--c)}
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd"/></marker></defs>
+  <g>
+    <rect class="box" x="16"  y="30" width="176" height="54" rx="9"/><text class="ac" x="104" y="52">User</text><text class="n" x="104" y="71">Ask a question</text>
+    <rect class="box" x="212" y="30" width="176" height="54" rx="9"/><text class="ac" x="300" y="52">Claude · Cursor</text><text class="n" x="300" y="71">Call tool · MCP</text>
+    <rect class="box" x="408" y="30" width="176" height="54" rx="9"/><text class="ac" x="496" y="52">Mirobody</text><text class="n" x="496" y="71">Validate OAuth</text>
+    <rect class="box" x="604" y="30" width="176" height="54" rx="9"/><text class="ac" x="692" y="52">Mirobody</text><text class="n" x="692" y="71">Run tool → data</text>
+    <rect class="box" x="800" y="30" width="184" height="54" rx="9"/><text class="ac" x="892" y="52">Claude · Cursor</text><text class="n" x="892" y="71">Answer + insights</text>
+  </g>
+  <line class="fl" x1="192" y1="57" x2="210" y2="57" marker-end="url(#a)"/>
+  <line class="fl" x1="388" y1="57" x2="406" y2="57" marker-end="url(#a)"/>
+  <line class="fl" x1="584" y1="57" x2="602" y2="57" marker-end="url(#a)"/>
+  <line class="fl" x1="780" y1="57" x2="798" y2="57" marker-end="url(#a)"/>
+</svg>

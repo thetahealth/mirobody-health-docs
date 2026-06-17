@@ -43,7 +43,7 @@ description: "An open-source, self-hosted data engine that bridges your personal
   <Accordion title="Three agents for three jobs" icon="robot">
     - **DeepAgent** — single-model tool orchestration, best for complex multi-step research
     - **MixAgent** — two-phase fusion: a capable model orchestrates tools, a cheaper model writes the response. Cost/quality balance for high-volume workloads.
-    - **BaselineAgent** — direct LLM chat with no tools, ideal for low-latency Q&A
+    - **BaseAgent** — direct LLM chat with no tools, ideal for low-latency Q&A
   </Accordion>
 
   <Accordion title="Claude Agent Skills, natively" icon="bolt">
@@ -67,7 +67,7 @@ description: "An open-source, self-hosted data engine that bridges your personal
 
 | Layer | Path | Notes |
 |-------|------|-------|
-| **Agent runtime** | `mirobody/pub/agents/` | DeepAgent, MixAgent, BaselineAgent |
+| **Agent runtime** | `mirobody/pub/agents/` | DeepAgent, MixAgent, BaseAgent |
 | **LLM clients** | `mirobody/utils/llm/` | OpenAI, Gemini, Anthropic, Azure, Volcengine, Dashscope (HIPAA-compliant routing) |
 | **MCP server** | `mirobody/mcp/` | JSON-RPC 2.0, local + HTTP remote |
 | **Chat service** | `mirobody/chat/` | Sessions, history, streaming (HTTP/WebSocket), memory |

@@ -14,7 +14,7 @@ Mirobody is a layered, plugin-friendly engine. Each layer can be replaced or ext
 | Module | Path | Description |
 |--------|------|-------------|
 | **Chat Service** | `mirobody/chat/` | Session management, conversation history, HTTP + WebSocket streaming adapters, memory integration, session sharing |
-| **Agent Implementations** | `mirobody/pub/agents/` | DeepAgent (LangChain-based), MixAgent (two-phase fusion), BaselineAgent (direct LLM) |
+| **Agent Implementations** | `mirobody/pub/agents/` | DeepAgent (LangChain-based), MixAgent (two-phase fusion), BaseAgent (direct LLM) |
 | **LLM Clients** | `mirobody/utils/llm/` | Provider-agnostic adapter for OpenAI, Gemini, Anthropic, Azure OpenAI, Volcengine, Dashscope. HIPAA-compliant routing for clinical workloads |
 | **MCP Server** | `mirobody/mcp/` | JSON-RPC 2.0, local + HTTP remote endpoint, auto-discovers tools and resources |
 | **Tools** | `mirobody/pub/tools/`, `tools/` | Built-in tools (file ops, charts, `execute`) + your drop-in Python files |
@@ -28,7 +28,7 @@ Mirobody is a layered, plugin-friendly engine. Each layer can be replaced or ext
 |---|---|---|
 | **DeepAgent** | Single model handles tools + response | Complex multi-step research, file ops, planning |
 | **MixAgent** | Orchestrator model (e.g. Claude Sonnet) → Responder model (e.g. Gemini Flash) | High-volume workloads where reasoning matters more than narration |
-| **BaselineAgent** | Direct LLM chat, no tools | Simple Q&A, low-latency, testing |
+| **BaseAgent** | Direct LLM chat, no tools | Simple Q&A, low-latency, testing |
 
 DeepAgent is the default. See [Tools Overview](/en/tools/overview) for switching and configuration.
 
@@ -109,16 +109,7 @@ Pure local computation — no DB, no embedding API.
 
 ### Provider lifecycle
 
-```mermaid
-graph LR
-    A[Provider Discovery] --> B[OAuth Link]
-    B --> C[Periodic Pull]
-    C --> D[Save Raw to th_raw_data]
-    D --> E[Format → StandardPulseData]
-    E --> F[Push to th_series_data]
-    F --> G[Aggregate → Daily Summaries]
-    G --> H[Insights + Indicator Search]
-```
+Discovery → OAuth link → periodic pull → save raw (`th_raw_data`) → normalize to `StandardPulseData` → write (`th_series_data`) → aggregate to daily summaries → insights + indicator search.
 
 Every provider, whether built-in (`mirobody/pulse/theta/mirobody_garmin/`) or custom (`providers/mirobody_mydevice/`), implements the same `BaseThetaProvider` contract — see [Provider Integration](/en/development/provider-integration).
 

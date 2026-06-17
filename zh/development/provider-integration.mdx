@@ -227,16 +227,9 @@ ThetaYourProvider (您的实现)
 
 ### 提供商生命周期
 
-```mermaid
-graph LR
-    A[用户发起链接] --> B[OAuth 流程]
-    B --> C[存储令牌]
-    C --> D[计划数据拉取]
-    D --> E[获取数据]
-    E --> F[数据转换]
-    F --> G[保存数据]
-    G --> D
-```
+<Frame>
+  <img src="/images/provider-link-flow.svg" alt="Provider link and scheduled-sync flow" />
+</Frame>
 
 ### 数据流
 

@@ -41,23 +41,9 @@ ws://<host>/ws/upload-health-report?token=<auth_token>
 
 #### 连接流程
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-    
-    Client->>Server: WebSocket connection + token
-    Server->>Client: connection_established
-    Client->>Server: upload_start (文件信息)
-    Server->>Client: upload_start (确认)
-    loop 文件分块
-        Client->>Server: upload_chunk (base64 数据)
-        Server->>Client: file_progress (进度更新)
-    end
-    Server->>Client: file_received (文件接收完成)
-    Server->>Client: upload_progress (处理进度)
-    Server->>Client: upload_completed (处理完成)
-```
+<Frame>
+  <img src="/images/file-upload-flow.svg" alt="WebSocket upload: connect, upload_start, upload_chunk xN, file_received, processing, upload_completed" />
+</Frame>
 
 #### 消息类型
 
