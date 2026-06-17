@@ -2,6 +2,9 @@ reference/
 .DS_Store
 .tmp/
 
+# Cursor IDE rules — local editor config, not docs.
+.cursor/
+
 config.yaml
 
 # Personal scratch — login codes + private share-URL collection.
