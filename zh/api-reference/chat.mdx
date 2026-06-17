@@ -1,0 +1,170 @@
+---
+title: "对话补全"
+description: "POST /v1/chat/completions —— 基于数据主体(Subject)真实数据、兼容 OpenAI 的健康智能体。"
+---
+
+## 端点
+
+```http
+POST /v1/chat/completions
+Authorization: Bearer mb_live_*
+Content-Type:  application/json
+```
+
+兼容 OpenAI。智能体用内置工具采集数据主体(Subject)的真实健康数据，再组织出**一段干净的回答**，并附带可追溯的引用。设 `stream: true` 以使用 SSE。
+
+## 快速开始
+
+<CodeGroup>
+```bash curl
+curl https://mcp.thetahealth.cn/v1/chat/completions \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
+        "user": "demo_diabetes"
+      }'
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+
+resp = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
+    user="demo_diabetes",                       # tenant-isolation key (a Subject)
+    extra_body={"include_tool_steps": True},    # Mirobody extensions go in extra_body
+)
+print(resp.choices[0].message.content)
+# resp.choices[0].message.reasoning_content     # gather-phase thinking
+# resp.choices[0].message.tool_steps            # search / fetch / eval trace
+```
+
+```javascript Node.js (OpenAI SDK)
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.MIROBODY_API_KEY,
+  baseURL: "https://mcp.thetahealth.cn/v1",
+});
+
+const resp = await client.chat.completions.create({
+  model: "mirobody-flash",
+  messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
+  user: "demo_diabetes",
+  include_tool_steps: true,
+});
+console.log(resp.choices[0].message.content);
+```
+</CodeGroup>
+
+## 请求体
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `model` | string | `mirobody-flash`（默认）或 `mirobody-expert`。详见[模型](/zh/api-reference/models)。 |
+| `messages` | array | OpenAI `{role, content}`。`system` 消息会被折叠进最后一轮用户消息，作为调用方指令（详见[系统提示词](#system-prompts)）。 |
+| `stream` | bool | `true` → `chat.completion.chunk` 帧的 SSE 流。 |
+| `user` | string | 多租户隔离键 → 一个数据主体(Subject)。传入每个终端用户的稳定 id。详见[多租户](/zh/api-reference/overview#multi-tenancy-the-user-field)。 |
+| `retention` | string | `permanent`（默认）/ `session` / `1d` / `none` —— 应用于你附带的任何 `health_context`。 |
+| `session_id` | string | 当 `retention=session` 时必填；同时用于串联多轮上下文。 |
+| `health_context` | array | 本次请求的内联健康记录，按 `retention` 处理。详见[内联数据](#inline-health-context)。 |
+| `mcp_servers` | array | 自带的远程 MCP 工具 `{name, url, access_token?}`。详见[自带工具](/zh/api-reference/mcp-servers)。 |
+| `include_tool_steps` | bool | 返回详细的 `tool_steps`（默认 `false`）。当为 `false` 时，`tool_steps[].result` 会被截断为 2000 字符。 |
+
+## 响应
+
+`message.content` 携带**一段干净的最终回答**。采集阶段（思考 + 工具调用）会在单独的通道中呈现，因此回答本身永远不会被工具叙述污染。
+
+```jsonc
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "mirobody-flash",
+  "choices": [{
+    "index": 0,
+    "finish_reason": "stop",
+    "message": {
+      "role": "assistant",
+      "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
+      "reasoning_content": "Searching health indicators for fasting glucose ...",  // optional
+      "tool_steps": [                                                              // optional, ordered
+        { "id": "call_abc", "type": "tool_call", "name": "search_health_indicators",
+          "arguments": { "keywords": ["fasting glucose"] },
+          "result": "{...}", "status": "ok" }
+      ]
+    }
+  }],
+  "usage": { "prompt_tokens": 0, "completion_tokens": 0, "reasoning_tokens": 0, "total_tokens": 0 },
+  "health_records": [ /* traceable records the answer used */ ],
+  "citations": ["record:1", "record:2"]
+}
+```
+
+| 通道 | 内容 |
+| --- | --- |
+| `message.content` | 仅最终回答（"答复"通道）。 |
+| `message.reasoning_content` | 采集阶段的思考文本（DeepSeek/Qwen 约定）。 |
+| `message.tool_steps[]` | 每次工具调用：`{id, type, name, arguments, result, status}`，按 `id` 合并。 |
+| `health_records` / `citations` | 回答所依据的可追溯记录引用。 |
+| `usage` | Token 计量。 |
+
+<Note>
+**目标契约。** `reasoning_content` / `tool_steps` 通道以及两阶段智能体是有文档记载的目标形状（`cdm/V1_OUTPUT_DESIGN.md`）。在测试集群上，某个构建可能仍返回旧形状 —— 在依赖某个字段前，请对照 `test-mcp.thetahealth.cn` 进行验证。
+</Note>
+
+## 流式传输
+
+当 `stream: true` 时，帧按顺序到达 —— 先是工具 / 思考增量，再是单条不中断的回答流：
+
+```text
+{"delta":{"role":"assistant"}}
+{"delta":{"reasoning_content":"<fragment>"}}
+{"delta":{"tool_steps":[{"id":"call_abc","name":"search_health_indicators","status":"running"}]}}
+{"delta":{"tool_steps":[{"id":"call_abc","arguments":{...}}]}}
+{"delta":{"tool_steps":[{"id":"call_abc","status":"ok","result":"..."}]}}
+{"delta":{"content":"<answer fragment>"}}
+{"delta":{},"finish_reason":"stop","usage":{...}}
+data: [DONE]
+```
+
+按 `id` 合并 `tool_steps`。只读取 `delta.content` 的客户端仍可正常工作 —— 回答是一条干净的流。
+
+## 内联 health_context
+
+只为本轮附带数据，而不必先写入存储：
+
+```python
+resp = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "Is this reading high?"}],
+    user="demo_cardio",
+    extra_body={
+        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
+        "retention": "none",   # used this turn, then deleted
+    },
+)
+```
+
+当 `retention="none"` 时，数据在请求完成时被清除 —— 不会持久化任何内容。
+
+## 系统提示词
+
+`system` 消息设定语气 / 人设 / 格式 / 语言。平台会把它折叠进最后一轮用户消息，作为**调用方的输出指令**（对应答方而言优先级最高）。编排器（决定采集哪些数据）由平台所有，无法被覆盖 —— 因此 `system` 提示词只塑造回答*如何*呈现，永远不会影响是否使用真实数据。
+
+## 内置工具
+
+这些工具你不必自己调用 —— 智能体会针对数据主体(Subject)的数据调用它们：
+
+- `search_health_indicators`、`fetch_health_data` —— 查找并读取数据主体(Subject)的记录
+- `read_file`、`ls` —— 读取通过 [`/v1/files`](/zh/api-reference/files) 上传并解析的文件
+- `eval` —— 在已获取的数据上计算统计量（均值 / 最小 / 最大 / 趋势）
+
+要添加你自己的工具，请通过 [`mcp_servers`](/zh/api-reference/mcp-servers) 接入远程 MCP 服务器。
+
+## 图表（vis-chart）
+
+当回答涉及趋势 / 对比 / 分布时，可能会嵌入一个用围栏包裹的 ` ```vis-chart ` 块，内含纯数据 JSON（`{type, title, axisXTitle, axisYTitle, data}`）。**渲染是客户端的工作** —— API 只返回数据规格。请检测这个围栏块并渲染它（折线图 / 面积图 / 柱状图 / 饼图）。

@@ -1,130 +1,123 @@
 ---
 title: "Quickstart"
-description: "Get a token and make your first chat call in 5 minutes"
+description: "Create a key and make your first /v1 call in 5 minutes."
 ---
 
-This page walks you through your first Mirobody Platform API call in 5 minutes. You need either a partner email provisioned via [Mirobody Support](mailto:developer@thetahealth.ai), or one of the public [demo accounts](#demo-accounts) below.
+Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https://mcp.thetahealth.cn/v1`, pass an `mb_live_*` key, and the agent answers from each end-user's real health data.
 
 <Steps>
-  <Step title="Get a token">
-    Two-step email-code login:
+  <Step title="Create an API key">
+    Sign in to the developer console at [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/) (use your own email, or a [demo account](#demo-accounts) below), then go to **API Keys → Create**. Copy the `mb_live_*` secret — it's shown **once**.
 
-    <CodeGroup>
-    ```bash Request code
-    curl -X POST https://mcp.thetahealth.cn/email/login \
-      -H "Content-Type: application/json" \
-      -d '{"email":"demo1@mirobody.ai"}'
+    ```bash
+    export MIROBODY_API_KEY="mb_live_..."
     ```
-
-    ```bash Verify & exchange
-    curl -X POST https://mcp.thetahealth.cn/email/verify \
-      -H "Content-Type: application/json" \
-      -d '{"email":"demo1@mirobody.ai","code":"777777"}'
-    ```
-    </CodeGroup>
-
-    The response's `data.access_token` is a 30-day JWT.
   </Step>
 
   <Step title="Make your first call">
     <CodeGroup>
     ```bash curl
-    TOKEN="<the access_token from step 1>"
-
-    curl -N -X POST https://mcp.thetahealth.cn/api/chat \
-      -H "Authorization: Bearer $TOKEN" \
+    curl https://mcp.thetahealth.cn/v1/chat/completions \
+      -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
-      -d '{"question":"Hello","agent":"App","provider":"DeepSeekFlash"}'
+      -d '{
+            "model": "mirobody-flash",
+            "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
+            "user": "demo_diabetes"
+          }'
     ```
 
-    ```python Python
-    import requests, json
+    ```python Python (OpenAI SDK)
+    from openai import OpenAI
 
-    resp = requests.post(
-        "https://mcp.thetahealth.cn/api/chat",
-        headers={
-            "Authorization":  f"Bearer {TOKEN}",
-            "Content-Type":   "application/json",
-        },
-        json={"question": "Hello", "agent": "App", "provider": "DeepSeekFlash"},
-        stream=True,
+    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+    resp = client.chat.completions.create(
+        model="mirobody-flash",
+        messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
+        user="demo_diabetes",
     )
-    for line in resp.iter_lines(decode_unicode=True):
-        if line.startswith("data: "):
-            evt = json.loads(line[6:])
-            if evt["type"] == "reply":
-                print(evt["content"], end="", flush=True)
-            elif evt["type"] == "end":
-                break
+    print(resp.choices[0].message.content)
     ```
 
-    ```javascript Node.js
-    const resp = await fetch("https://mcp.thetahealth.cn/api/chat", {
-      method: "POST",
-      headers: {
-        "Authorization":  `Bearer ${TOKEN}`,
-        "Content-Type":   "application/json",
-      },
-      body: JSON.stringify({ question: "Hello", agent: "App", provider: "DeepSeekFlash" }),
+    ```javascript Node.js (OpenAI SDK)
+    import OpenAI from "openai";
+
+    const client = new OpenAI({
+      apiKey: process.env.MIROBODY_API_KEY,
+      baseURL: "https://mcp.thetahealth.cn/v1",
     });
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx;
-      while ((idx = buf.indexOf("\n\n")) !== -1) {
-        const chunk = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        if (!chunk.startsWith("data: ")) continue;
-        const evt = JSON.parse(chunk.slice(6));
-        if (evt.type === "reply") process.stdout.write(evt.content);
-        if (evt.type === "end") return;
-      }
-    }
+    const resp = await client.chat.completions.create({
+      model: "mirobody-flash",
+      messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
+      user: "demo_diabetes",
+    });
+    console.log(resp.choices[0].message.content);
     ```
     </CodeGroup>
 
-    You'll get an SSE stream of `data: {...}` lines — `id` / `reply` / `costStatistics` / `end`. See [Chat API](/en/api-reference/chat/chat) for the full event reference.
+    The `user` field isolates each end-user as a [Subject](/en/api-reference/overview#multi-tenancy-the-user-field). See the full [Chat reference](/en/api-reference/chat).
+  </Step>
+
+  <Step title="Give the Subject some data">
+    A fresh Subject has no data, so the agent will say so. Write a record (or upload a report with [`POST /v1/files`](/en/api-reference/files)) and ask again:
+
+    ```bash
+    curl https://mcp.thetahealth.cn/v1/data \
+      -H "Authorization: Bearer $MIROBODY_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+            "user": "demo_diabetes",
+            "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
+          }'
+    ```
+
+    See [Data](/en/api-reference/data) and [Files](/en/api-reference/files).
   </Step>
 </Steps>
 
 ## Demo accounts
 
-Mirobody publishes 3 evaluation accounts on **production**, code always `777777`:
+Sign in to the **console** with any of these to create a key without provisioning your own account. Code is always `000000`. Each is pre-seeded with a different clinical profile:
 
-| Email | Code |
+| Console login | Profile |
 | --- | --- |
-| `demo1@mirobody.ai` | `777777` |
-| `demo2@mirobody.ai` | `777777` |
-| `demo3@mirobody.ai` | `777777` |
+| `demo_pcp@mirobody.example` | General / primary care |
+| `demo_cardio@mirobody.example` | Cardiovascular |
+| `demo_anxiety@mirobody.example` | Anxiety / mental health |
+| `demo_knee@mirobody.example` | Orthopedic (knee) |
+| `demo_cardio_history@mirobody.example` | Cardiovascular, longitudinal history |
+| `demo_diabetes@mirobody.example` | Diabetes / glucose trends |
 
 <Warning>
-These 3 accounts are **publicly shared** — anyone can sign in with code `777777`. They start empty and are intended **strictly for API testing / debugging**. **Do not** upload real personal health data, files, or sensitive information. Mirobody is **not responsible** for the security of data placed in these demo accounts — other evaluators may read, overwrite, or clear the contents at any time.
-
-For a private long-term partner account, email [Mirobody Support](mailto:developer@thetahealth.ai).
+These accounts are **publicly shared** for evaluation. **Do not** upload real personal health data — other evaluators may read, overwrite, or clear the contents at any time. For a private partner account, email [Mirobody Support](mailto:developer@thetahealth.ai).
 </Warning>
+
+Testing against staging? Swap the base URL to `https://test-mcp.thetahealth.cn/v1` and the console to [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/).
 
 ## See it live
 
 <CardGroup cols={2}>
   <Card title="mirobody.thetahealth.cn" icon="globe" href="https://mirobody.thetahealth.cn/">
-    **Primary frontend** — the default Mirobody web. Sign in with any demo account above.
+    **Mirobody app** — the flagship consumer product, the same engine behind this API.
   </Card>
-  <Card title="cdm.thetahealth.cn" icon="database" href="https://cdm.thetahealth.cn/">
-    **Branch: CDM** — extends Mirobody with **structured data-recording**; useful when you need a more record-heavy workflow.
+  <Card title="cdm.thetahealth.cn" icon="terminal" href="https://cdm.thetahealth.cn/">
+    **Developer console** — create `mb_live_*` keys, view usage, and try the Playground.
   </Card>
 </CardGroup>
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Full API Reference" icon="code" href="/en/api-reference/overview">
-    Request/response specs for every REST + WebSocket endpoint
+  <Card title="API Reference" icon="code" href="/en/api-reference/overview">
+    Auth, multi-tenancy, retention, and every `/v1` endpoint.
+  </Card>
+  <Card title="SDK Examples" icon="boxes-stacked" href="/en/cloud/sdk-examples">
+    curl / Python / Node, streaming and file upload.
+  </Card>
+  <Card title="China Region" icon="location-dot" href="/en/cloud/regions/china">
+    Base URLs, storage residency, models, and limits.
   </Card>
   <Card title="Compliance" icon="shield" href="/en/cloud/compliance">
-    Independent CN/US deployments; request DPA / questionnaire
+    PIPL / data residency; request a DPA.
   </Card>
 </CardGroup>

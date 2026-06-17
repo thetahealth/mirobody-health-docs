@@ -1,0 +1,51 @@
+---
+title: "模型"
+description: "GET /v1/models —— 列出可用的能力档。"
+---
+
+## 端点
+
+```http
+GET /v1/models
+Authorization: Bearer mb_live_*
+```
+
+列出你可以作为 `model` 传给 [`/v1/chat/completions`](/zh/api-reference/chat) 的能力档。形状兼容 OpenAI。
+
+## 能力档
+
+| `model` | 档位 | 适用场景 |
+| --- | --- | --- |
+| `mirobody-flash` | 默认 —— 快速、低成本 | 日常健康问答、高并发 |
+| `mirobody-expert` | 更深入的推理 | 复杂报告解读、多步分析 |
+
+每个能力档在运行时映射到内部的提供方；高级用法下也可以直接透传裸的提供方名称。计费按**实际 token 用量**结算，以人民币（CNY）结算 —— 单价来自运行时配置，控制台用量页是权威来源。自托管（SDK / 开源）是免费软件；你只需为自己的基础设施和 LLM 密钥付费。
+
+## 示例
+
+<CodeGroup>
+```bash curl
+curl https://mcp.thetahealth.cn/v1/models \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+for m in client.models.list().data:
+    print(m.id)
+```
+</CodeGroup>
+
+## 响应
+
+```json
+{
+  "object": "list",
+  "data": [
+    { "id": "mirobody-flash",  "object": "model", "owned_by": "mirobody" },
+    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody" }
+  ]
+}
+```

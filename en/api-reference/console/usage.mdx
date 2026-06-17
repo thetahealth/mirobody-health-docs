@@ -1,0 +1,22 @@
+---
+title: "Usage"
+description: "GET /api/console/usage — requests, tokens, and cost."
+---
+
+Read your account's usage. Authenticates with your **console login session (JWT)**.
+
+```http
+GET /api/console/usage?days=30
+Authorization: Bearer <console_jwt>
+```
+
+| Query | Description |
+| --- | --- |
+| `days` | Window to aggregate over (e.g. `30`). |
+
+Returns request count, token totals, and cost (CNY) over the window. Billing is per **actual token usage**; the console is the source of truth for final cost. The console renders this as charts under **Usage**.
+
+```bash
+curl "https://cdm.thetahealth.cn/api/console/usage?days=30" \
+  -H "Authorization: Bearer $CONSOLE_JWT"
+```

@@ -1,55 +1,46 @@
 ---
 title: "China Cluster"
-description: "mcp.thetahealth.cn — Live"
+description: "mcp.thetahealth.cn — the primary live cluster."
 ---
 
-The China cluster is Mirobody Platform's primary live deployment. All data stays within mainland China.
+China is Mirobody's primary live cluster. All data stays within mainland China.
 
-## Base URL
+## Hosts
 
-```text
-https://mcp.thetahealth.cn
-```
+| Role | Production | Test |
+| --- | --- | --- |
+| **API** (`base_url`) | `https://mcp.thetahealth.cn/v1` | `https://test-mcp.thetahealth.cn/v1` |
+| **Developer console** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) | [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/) |
+| **Mirobody app** (consumer) | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) | — |
 
-## Capabilities
+The console is where you create `mb_live_*` keys, view usage, and try the Playground. The Mirobody app is the flagship consumer product — the same engine behind this API.
 
-- Full set of [API Reference](/en/api-reference/overview) REST endpoints and WebSockets.
-- LLM providers managed by Mirobody: `DeepSeekFlash` / `DeepSeekPro` / `kimi` / `minimax` / `豆包`.
-
-## Frontends
-
-- **Primary**: [**mirobody.thetahealth.cn**](https://mirobody.thetahealth.cn/) — the default Mirobody web frontend, covering the platform's core capabilities.
-- **Branch: CDM**: [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/) — an extended build that adds **structured data-recording** on top of Mirobody. Partners can use either as a reference implementation / demo, or fork to build their own frontend.
-
-The capabilities below describe what CDM (the extended branch) covers — mirobody.thetahealth.cn is its subset:
+## Capabilities (`/v1`)
 
 <CardGroup cols={2}>
-  <Card title="Chat" icon="comments">
-    Calls `/api/chat`, lets users switch between App·DeepSeek Flash and other providers
+  <Card title="Chat" icon="comments" href="/en/api-reference/chat">
+    `POST /v1/chat/completions` — OpenAI-compatible, streaming, citations
   </Card>
-  <Card title="Data" icon="database">
-    Unified multi-tab view for files / genetics / devices / hospital records, backed by `/api/v1/data/uploaded-files` etc.
+  <Card title="Data" icon="database" href="/en/api-reference/data">
+    `POST/GET /v1/data` — structured records per Subject
   </Card>
-  <Card title="Journal" icon="book">
-    `/api/v1/holywell/journal/*`, filters by category (food / illness / medication / visit / other) + time range
+  <Card title="Files" icon="file" href="/en/api-reference/files">
+    `POST/GET /v1/files` — OCR / Excel parsing
   </Card>
-  <Card title="Quick log" icon="bolt">
-    One-tap `journal/create` with automatic AI classification & summary
-  </Card>
-  <Card title="Family sharing" icon="users">
-    `/api/beneficiary-users` + perspective switcher
-  </Card>
-  <Card title="Sign in" icon="user">
-    WeChat login + email-code login, EN / 中 toggle
+  <Card title="Sessions" icon="timer" href="/en/api-reference/sessions">
+    `DELETE /v1/sessions/{id}` — purge session data
   </Card>
 </CardGroup>
 
+## Models
+
+Managed by Mirobody — no LLM key of your own needed: `mirobody-flash` (default) / `mirobody-expert`. See [Models](/en/api-reference/models).
+
+## Storage & residency
+
+- Files stored in **Aliyun OSS (Hangzhou region)**.
+- 100% of data stored inside mainland China; no cross-border replication.
+
 ## Compliance
 
-- 100% of data stored inside mainland China.
-- Aligned with PIPL / Data Security Law / Cybersecurity Law — see [Compliance](/en/cloud/compliance).
-
-## Known limitations
-
-- The following tools are disabled and **will not** be called by the Agent: `tool-*`, `user-get_events`, `user-get_food_records`, `user-list_medications`, `user-get_medication_details`.
-- `/api/history` does not paginate yet — clients should truncate locally.
+Aligned with PIPL / Data Security Law / Cybersecurity Law — see [Compliance](/en/cloud/compliance). For rate limits, see [Rate Limits](/en/cloud/rate-limits).

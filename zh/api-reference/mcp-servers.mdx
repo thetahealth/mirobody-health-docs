@@ -1,0 +1,51 @@
+---
+title: "自带工具（MCP）"
+description: "通过 mcp_servers 将你自己的远程 MCP 工具接入聊天智能体。"
+---
+
+聊天智能体内置了针对数据主体(Subject)健康数据的工具（`search_health_indicators`、`fetch_health_data`、`read_file`、`eval`）。你可以通过在[聊天请求](/zh/api-reference/chat)中传入 `mcp_servers`，用**你自己的远程 MCP 工具**对其进行扩展。
+
+<Note>
+这**不是**“将 Mirobody 作为 MCP 服务器”。恰恰相反：你是把外部 MCP 工具*带入*智能体的采集阶段，让它们与内置工具一起运行。平台会代理这些调用。
+</Note>
+
+## `mcp_servers`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | string | 服务器的标签。 |
+| `url` | string | 远程 MCP 端点。 |
+| `access_token` | string | 可选的 bearer 令牌，会转发给你的服务器。 |
+
+## 示例
+
+<CodeGroup>
+```bash curl
+curl https://mcp.thetahealth.cn/v1/chat/completions \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-expert",
+        "messages": [{"role": "user", "content": "Cross-check my labs against our formulary."}],
+        "user": "demo_pcp",
+        "mcp_servers": [
+          {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
+        ]
+      }'
+```
+
+```python Python (OpenAI SDK)
+client.chat.completions.create(
+    model="mirobody-expert",
+    messages=[{"role": "user", "content": "Cross-check my labs against our formulary."}],
+    user="demo_pcp",
+    extra_body={
+        "mcp_servers": [
+            {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
+        ]
+    },
+)
+```
+</CodeGroup>
+
+编排器会在采集阶段决定何时调用你的工具；它们的结果与内置工具一样汇入相同的 `tool_steps` 通道。响应结构参见 [聊天](/zh/api-reference/chat)。

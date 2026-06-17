@@ -1,100 +1,99 @@
 ---
 title: "SDK Examples"
-description: "End-to-end examples in curl / Python / Node.js"
+description: "End-to-end /v1 examples in curl / Python / Node.js."
 ---
 
-Minimum-viable end-to-end examples. Works as-is on the China cluster.
+Minimum-viable, end-to-end examples against the China cluster. Swap the base URL to `https://test-mcp.thetahealth.cn/v1` for staging.
 
 ## curl
 
 ```bash
-CN=https://mcp.thetahealth.cn
-TOKEN="<your access_token>"
+BASE=https://mcp.thetahealth.cn/v1
+KEY="mb_live_..."
 
-# Basic chat
-curl -N -X POST $CN/api/chat \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Hello","agent":"App","provider":"DeepSeekFlash"}'
+# 1) Basic chat
+curl $BASE/chat/completions \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"model":"mirobody-flash","messages":[{"role":"user","content":"How is my fasting glucose trending?"}],"user":"demo_diabetes"}'
 
-# Upload file + ask about it
-UP=$(curl -sS -X POST $CN/files/upload \
-     -H "Authorization: Bearer $TOKEN" \
-     -F "files=@report.pdf")
-FL=$(echo "$UP" | jq -c .data)
+# 2) Write a record, then ask again
+curl $BASE/data \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"user":"demo_diabetes","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
 
-REQ=$(jq -n --arg q "Analyze this report" --argjson fl "$FL" \
-     '{question:$q, agent:"App", provider:"DeepSeekFlash", file_list:$fl}')
-curl -N -X POST $CN/api/chat \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  --data-binary "$REQ"
+# 3) Upload a report (OCR/parse), then ask about it
+curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=demo_diabetes" -F "file=@report.pdf"
 ```
 
-## Python (requests + SSE parser)
+## Python (OpenAI SDK)
 
 ```python
-import requests
-import json
+from openai import OpenAI
 
-CN = "https://mcp.thetahealth.cn"
-TOKEN = "<your access_token>"
+client = OpenAI(api_key="mb_live_...", base_url="https://mcp.thetahealth.cn/v1")
 
-headers = {
-    "Authorization": f"Bearer {TOKEN}",
-    "Content-Type":  "application/json",
-}
+# Non-streaming
+resp = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
+    user="demo_diabetes",
+)
+print(resp.choices[0].message.content)
 
-resp = requests.post(
-    f"{CN}/api/chat",
-    headers=headers,
-    json={"question": "Hello", "agent": "App", "provider": "DeepSeekFlash"},
+# Streaming
+stream = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "Summarize my last checkup."}],
+    user="demo_diabetes",
     stream=True,
 )
-
-for line in resp.iter_lines(decode_unicode=True):
-    if not line or not line.startswith("data: "):
-        continue
-    evt = json.loads(line[6:])
-    if evt["type"] == "reply":
-        print(evt["content"], end="", flush=True)
-    elif evt["type"] == "end":
-        break
+for chunk in stream:
+    delta = chunk.choices[0].delta
+    if getattr(delta, "content", None):
+        print(delta.content, end="", flush=True)
 ```
 
-## Node.js (fetch + ReadableStream)
+```python
+# File upload uses multipart, so call the REST endpoint directly
+import requests
+
+up = requests.post(
+    "https://mcp.thetahealth.cn/v1/files",
+    headers={"Authorization": "Bearer mb_live_..."},
+    data={"user": "demo_diabetes"},
+    files={"file": open("report.pdf", "rb")},
+)
+print(up.json())   # {file_key, filename, indicators, abstract, subject}
+```
+
+## Node.js (OpenAI SDK)
 
 ```javascript
-const CN = "https://mcp.thetahealth.cn";
-const TOKEN = "<your access_token>";
+import OpenAI from "openai";
 
-const resp = await fetch(`${CN}/api/chat`, {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${TOKEN}`,
-    "Content-Type":  "application/json",
-  },
-  body: JSON.stringify({ question: "Hello", agent: "App", provider: "DeepSeekFlash" }),
+const client = new OpenAI({
+  apiKey: process.env.MIROBODY_API_KEY,
+  baseURL: "https://mcp.thetahealth.cn/v1",
 });
 
-const reader = resp.body.getReader();
-const decoder = new TextDecoder();
-let buf = "";
+// Non-streaming
+const resp = await client.chat.completions.create({
+  model: "mirobody-flash",
+  messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
+  user: "demo_diabetes",
+});
+console.log(resp.choices[0].message.content);
 
-while (true) {
-  const { value, done } = await reader.read();
-  if (done) break;
-  buf += decoder.decode(value, { stream: true });
-  let idx;
-  while ((idx = buf.indexOf("\n\n")) !== -1) {
-    const chunk = buf.slice(0, idx);
-    buf = buf.slice(idx + 2);
-    if (!chunk.startsWith("data: ")) continue;
-    const evt = JSON.parse(chunk.slice(6));
-    if (evt.type === "reply") process.stdout.write(evt.content);
-    if (evt.type === "end") return;
-  }
+// Streaming
+const stream = await client.chat.completions.create({
+  model: "mirobody-flash",
+  messages: [{ role: "user", content: "Summarize my last checkup." }],
+  user: "demo_diabetes",
+  stream: true,
+});
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
 }
 ```
 
-More examples: [Food analyze](/en/api-reference/food/analyze), [Journal create](/en/api-reference/journal/create), [WebSocket upload](/en/api-reference/websocket/health-report).
+More: [Chat reference](/en/api-reference/chat) · [Data](/en/api-reference/data) · [Files](/en/api-reference/files).

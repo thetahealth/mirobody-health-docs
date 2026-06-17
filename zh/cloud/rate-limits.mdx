@@ -1,33 +1,30 @@
 ---
 title: "限流"
-description: "API 配额机制 + 客户端节奏建议"
+description: "配额机制 + 客户端节流。"
 ---
 
-Mirobody 按 **每用户 × 每路径 × 每分钟** 计数；触发后返回 HTTP 429，带 `Retry-After`（单位：秒）。
+Mirobody 按**账户 × 路径 × 分钟**计数请求。超额时会返回 HTTP `429`，并附带 `Retry-After` 响应头（单位：秒）。
 
 ```text
 HTTP/1.1 429 Too Many Requests
 Retry-After: 47
-
-Too Many Requests
 ```
 
-## 推荐节奏
+## 推荐节流
 
-| 路径 | 推荐 RPM | 备注 |
+| 路径 | 建议 RPM | 说明 |
 | --- | --- | --- |
-| `/email/login` | ≤ 1 | 60s 内同一邮箱重发会被拒 |
-| `/api/chat` | ≤ 60 | 并发对话也算入 |
-| `/files/upload` | ≤ 30 | 多文件请合并到一次请求 |
-| `/api/v1/food/analyze` | ≤ 20 | 重计算路径 |
-| `/api/v1/holywell/journal/*` | ≤ 60 | 增删改查共享配额 |
-| 其他读接口 | ≤ 120 | history / file-list / 指标查询 |
+| `POST /v1/chat/completions` | ≤ 60 | 流式调用同样计数；请等一次调用结束后再发起下一次 |
+| `POST /v1/files` | ≤ 30 | 尽量批量处理；OCR 计算开销较大 |
+| `POST /v1/data` | ≤ 120 | 将记录批量合并到一次请求中（每批最多 1000 条） |
+| `GET` 读取（`/v1/data`、`/v1/files`、`/v1/models`） | ≤ 120 | — |
 
-> **正式接入前请向运营确认贵方部署的精确数值**——具体阈值由部署侧通过 `REQUEST_RATE_LIMITER` 环境变量注入。
+<Note>
+精确阈值会按部署逐一注入。**上线前请邮件联系 [Mirobody Support](mailto:developer@thetahealth.ai)，确认你账户的限额。**
+</Note>
 
-## 客户端退避建议
+## 客户端退避
 
-- 收到 429 后**严格遵守 `Retry-After`**，不要立即重试。
-- 连续两次 429 后将 backoff 翻倍，上限 5 分钟。
-- chat 调用不要并发；上一轮 `end` 事件到达后再发下一轮。
-- 状态查询走 [推荐轮询节奏](/zh/api-reference/overview)。
+- 收到 `429` 时，**遵守 `Retry-After`**——切勿立即重试。
+- 连续两次 `429` 后将退避时长翻倍，上限为 5 分钟。
+- 不要并行发起 chat 调用；先让每个流式调用完成。

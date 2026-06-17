@@ -1,0 +1,44 @@
+---
+title: "会话"
+description: "DELETE /v1/sessions/{session_id} —— 结束会话并清除其会话留存数据。"
+---
+
+## 端点
+
+```http
+DELETE /v1/sessions/{session_id}
+Authorization: Bearer mb_live_*
+```
+
+结束一个会话，并**立即删除**在该会话下以 `retention=session` 写入的所有数据。当终端用户结束一段对话、而你不希望其内联数据继续残留时使用它。
+
+```bash
+curl -X DELETE https://mcp.thetahealth.cn/v1/sessions/sess_abc123 \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+## 会话如何工作
+
+在 [`/v1/chat/completions`](/zh/api-reference/chat) 中，`session_id` 有两个作用：
+
+1. **串联多轮上下文**——在共享同一 `session_id` 的多次调用之间贯穿上下文。
+2. **限定 `retention=session` 数据的范围**——以 `retention=session` 写入的记录 / 文件 / 内联 `health_context`，其存续时间仅与会话相同。
+
+无论如何，会话数据的上限为 **24 小时**；`DELETE /v1/sessions/{id}` 可按需更早将其清除。
+
+```python Python
+client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "Here are today's readings — anything off?"}],
+    user="demo_cardio",
+    extra_body={
+        "session_id": "sess_abc123",
+        "retention": "session",
+        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
+    },
+)
+# ... later, when the conversation ends:
+# DELETE /v1/sessions/sess_abc123  → that session's data is gone
+```
+
+完整模型参见 [留存](/zh/api-reference/overview#data-retention)。

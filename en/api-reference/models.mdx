@@ -1,0 +1,51 @@
+---
+title: "Models"
+description: "GET /v1/models — list the available capability tiers."
+---
+
+## Endpoint
+
+```http
+GET /v1/models
+Authorization: Bearer mb_live_*
+```
+
+Lists the capability tiers you can pass as `model` to [`/v1/chat/completions`](/en/api-reference/chat). OpenAI-compatible shape.
+
+## Tiers
+
+| `model` | Tier | Use case |
+| --- | --- | --- |
+| `mirobody-flash` | Default — fast, low cost | Everyday health Q&A, high concurrency |
+| `mirobody-expert` | Deeper reasoning | Complex report interpretation, multi-step analysis |
+
+Each tier maps to an internal provider at runtime; bare provider names may also pass through for advanced use. Billing is per **actual token usage**, settled in CNY — unit prices come from runtime config, and the console usage page is the source of truth. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
+
+## Example
+
+<CodeGroup>
+```bash curl
+curl https://mcp.thetahealth.cn/v1/models \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+for m in client.models.list().data:
+    print(m.id)
+```
+</CodeGroup>
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    { "id": "mirobody-flash",  "object": "model", "owned_by": "mirobody" },
+    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody" }
+  ]
+}
+```

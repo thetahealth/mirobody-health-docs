@@ -1,0 +1,70 @@
+---
+title: "数据"
+description: "POST /v1/data、GET /v1/data —— 写入并读取结构化健康记录。"
+---
+
+把结构化记录直接写入某个数据主体(Subject)的存储，并读取回来。对话智能体用其内置工具读取的正是这同一份数据。
+
+## 写入记录
+
+```http
+POST /v1/data
+Authorization: Bearer mb_live_*
+Content-Type:  application/json
+```
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `records` | array | 每条记录 `{indicator, value, unit, time}`。分批插入（每批 1000 条）。 |
+| `user` | string | 记录所属的数据主体(Subject)（多租户隔离键）。 |
+| `retention` | string | `permanent`（默认）/ `session` / `1d`。**这里 `none` 会被升级为 `permanent`** —— 写入存储却要求不存储是自相矛盾的。 |
+| `session_id` | string | 当 `retention=session` 时必填。 |
+
+```bash
+curl https://mcp.thetahealth.cn/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "demo_diabetes",
+        "records": [
+          {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
+          {"indicator": "fasting_glucose", "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+        ]
+      }'
+```
+
+响应：
+
+```json
+{ "ingested": 2, "subject": "demo_diabetes", "retention": "permanent" }
+```
+
+## 读取记录
+
+```http
+GET /v1/data?indicator=fasting_glucose&limit=100
+Authorization: Bearer mb_live_*
+```
+
+| 查询参数 | 说明 |
+| --- | --- |
+| `user` | 要读取的数据主体(Subject)。 |
+| `indicator` | 可选，按指标名称过滤。 |
+| `limit` | `1`–`1000`。 |
+
+读取前会先清除已过期的记录，因此你拿到的总是数据主体(Subject)当前有效的数据。
+
+```python Python
+import requests
+
+r = requests.get(
+    "https://mcp.thetahealth.cn/v1/data",
+    headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
+    params={"user": "demo_diabetes", "indicator": "fasting_glucose", "limit": 100},
+)
+print(r.json())
+```
+
+<Note>
+对于不应持久化的一次性数据，请将其作为 `health_context` 内联附加到对话请求中、并设 `retention="none"`，而不要写到这里 —— 详见[对话 → 内联数据](/zh/api-reference/chat#inline-health-context)。
+</Note>

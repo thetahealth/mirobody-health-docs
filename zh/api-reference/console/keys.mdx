@@ -1,0 +1,46 @@
+---
+title: "API 密钥"
+description: "通过控制台管理 mb_live_* 密钥 —— GET / POST / DELETE /api/console/keys。"
+---
+
+控制台端点用于管理你的 `mb_live_*` API 密钥。它们使用你的**控制台登录会话（JWT）**进行鉴权——而非 `mb_live_*` 密钥。
+
+<Note>
+大多数团队只需使用控制台界面：[cdm.thetahealth.cn](https://cdm.thetahealth.cn/) → **API Keys**。下面的 REST 端点用于自动化场景。
+</Note>
+
+## 列出密钥
+
+```http
+GET /api/console/keys
+Authorization: Bearer <console_jwt>
+```
+
+返回你的密钥及其元数据（id、前缀、创建/最近使用时间）——绝不会返回完整的密文。
+
+## 创建密钥
+
+```http
+POST /api/console/keys
+Authorization: Bearer <console_jwt>
+```
+
+```bash
+curl -X POST https://cdm.thetahealth.cn/api/console/keys \
+  -H "Authorization: Bearer $CONSOLE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "production"}'
+```
+
+响应**仅一次**包含完整的 `mb_live_*` 密文——请立即保存；之后无法再次获取。
+
+## 吊销密钥
+
+```http
+DELETE /api/console/keys/{id}
+Authorization: Bearer <console_jwt>
+```
+
+<Warning>
+请像对待密码一样对待 `mb_live_*` 密文：将其保存在服务器端，绝不要随客户端代码一起发布，一旦泄露应立即吊销。
+</Warning>

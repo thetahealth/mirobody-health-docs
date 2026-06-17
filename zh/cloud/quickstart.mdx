@@ -1,130 +1,123 @@
 ---
-title: "5 分钟跑通 Mirobody"
-description: "登录拿 token，发起第一次对话"
+title: "快速开始"
+description: "5 分钟内创建密钥并发起首次 /v1 调用。"
 ---
 
-本页带你 5 分钟内完成首次调用。开始前需要一个由 [Mirobody 支持](mailto:developer@thetahealth.ai) 开通的邮箱账号，或使用下方公开 [演示账号](#演示账号)。
+Mirobody 的托管 API **兼容 OpenAI**：将任意 OpenAI SDK 指向 `https://mcp.thetahealth.cn/v1`，传入 `mb_live_*` 密钥，智能体即可基于每位终端用户的真实健康数据作答。
 
 <Steps>
-  <Step title="拿 token">
-    两步邮箱码登录：
+  <Step title="创建 API 密钥">
+    登录开发者控制台 [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/)（使用你自己的邮箱，或下方的[演示账户](#demo-accounts)），然后前往 **API Keys → Create**。复制 `mb_live_*` 密钥——它**只显示一次**。
 
-    <CodeGroup>
-    ```bash 发送验证码
-    curl -X POST https://mcp.thetahealth.cn/email/login \
-      -H "Content-Type: application/json" \
-      -d '{"email":"demo1@mirobody.ai"}'
+    ```bash
+    export MIROBODY_API_KEY="mb_live_..."
     ```
-
-    ```bash 校验拿 token
-    curl -X POST https://mcp.thetahealth.cn/email/verify \
-      -H "Content-Type: application/json" \
-      -d '{"email":"demo1@mirobody.ai","code":"777777"}'
-    ```
-    </CodeGroup>
-
-    响应中的 `data.access_token` 即为 30 天有效的 JWT。
   </Step>
 
-  <Step title="发起第一次对话">
+  <Step title="发起首次调用">
     <CodeGroup>
     ```bash curl
-    TOKEN="<上一步拿到的 access_token>"
-
-    curl -N -X POST https://mcp.thetahealth.cn/api/chat \
-      -H "Authorization: Bearer $TOKEN" \
+    curl https://mcp.thetahealth.cn/v1/chat/completions \
+      -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
-      -d '{"question":"你好","agent":"App","provider":"DeepSeekFlash"}'
+      -d '{
+            "model": "mirobody-flash",
+            "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
+            "user": "demo_diabetes"
+          }'
     ```
 
-    ```python Python
-    import requests, json
+    ```python Python (OpenAI SDK)
+    from openai import OpenAI
 
-    resp = requests.post(
-        "https://mcp.thetahealth.cn/api/chat",
-        headers={
-            "Authorization":  f"Bearer {TOKEN}",
-            "Content-Type":   "application/json",
-        },
-        json={"question": "你好", "agent": "App", "provider": "DeepSeekFlash"},
-        stream=True,
+    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+    resp = client.chat.completions.create(
+        model="mirobody-flash",
+        messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
+        user="demo_diabetes",
     )
-    for line in resp.iter_lines(decode_unicode=True):
-        if line.startswith("data: "):
-            evt = json.loads(line[6:])
-            if evt["type"] == "reply":
-                print(evt["content"], end="", flush=True)
-            elif evt["type"] == "end":
-                break
+    print(resp.choices[0].message.content)
     ```
 
-    ```javascript Node.js
-    const resp = await fetch("https://mcp.thetahealth.cn/api/chat", {
-      method: "POST",
-      headers: {
-        "Authorization":  `Bearer ${TOKEN}`,
-        "Content-Type":   "application/json",
-      },
-      body: JSON.stringify({ question: "你好", agent: "App", provider: "DeepSeekFlash" }),
+    ```javascript Node.js (OpenAI SDK)
+    import OpenAI from "openai";
+
+    const client = new OpenAI({
+      apiKey: process.env.MIROBODY_API_KEY,
+      baseURL: "https://mcp.thetahealth.cn/v1",
     });
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx;
-      while ((idx = buf.indexOf("\n\n")) !== -1) {
-        const chunk = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        if (!chunk.startsWith("data: ")) continue;
-        const evt = JSON.parse(chunk.slice(6));
-        if (evt.type === "reply") process.stdout.write(evt.content);
-        if (evt.type === "end") return;
-      }
-    }
+    const resp = await client.chat.completions.create({
+      model: "mirobody-flash",
+      messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
+      user: "demo_diabetes",
+    });
+    console.log(resp.choices[0].message.content);
     ```
     </CodeGroup>
 
-    返回 SSE 流，逐行 `data: {...}` —— 含 `id` / `reply` / `costStatistics` / `end` 等事件，详见 [对话 API](/zh/api-reference/chat/chat)。
+    `user` 字段将每位终端用户隔离为一个[数据主体](/zh/api-reference/overview#multi-tenancy-the-user-field)。详见完整的 [Chat 参考](/zh/api-reference/chat)。
+  </Step>
+
+  <Step title="为数据主体写入一些数据">
+    全新的数据主体没有任何数据，因此智能体会如实告知。写入一条记录（或通过 [`POST /v1/files`](/zh/api-reference/files) 上传一份报告），然后再次提问：
+
+    ```bash
+    curl https://mcp.thetahealth.cn/v1/data \
+      -H "Authorization: Bearer $MIROBODY_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+            "user": "demo_diabetes",
+            "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
+          }'
+    ```
+
+    详见 [Data](/zh/api-reference/data) 和 [Files](/zh/api-reference/files)。
   </Step>
 </Steps>
 
-## 演示账号
+## 演示账户
 
-Mirobody 在**生产环境**预置了 3 个公开评估账号，验证码恒为 `777777`：
+使用以下任意账户登录**控制台**，即可在无需开通自有账户的情况下创建密钥。验证码始终为 `000000`。每个账户预置了不同的临床画像：
 
-| 邮箱 | 验证码 |
+| 控制台登录账号 | 画像 |
 | --- | --- |
-| `demo1@mirobody.ai` | `777777` |
-| `demo2@mirobody.ai` | `777777` |
-| `demo3@mirobody.ai` | `777777` |
+| `demo_pcp@mirobody.example` | 全科 / 初级保健 |
+| `demo_cardio@mirobody.example` | 心血管 |
+| `demo_anxiety@mirobody.example` | 焦虑 / 心理健康 |
+| `demo_knee@mirobody.example` | 骨科（膝关节） |
+| `demo_cardio_history@mirobody.example` | 心血管，纵向历史数据 |
+| `demo_diabetes@mirobody.example` | 糖尿病 / 血糖趋势 |
 
 <Warning>
-这 3 个账号 **公开共享**，**任何人** 都能用 `777777` 登录。账号初始无任何数据，仅供 **接口测试 / 调试** 使用；**请勿** 上传真实的个人健康数据、文件或敏感信息。Mirobody **不对** 这些 demo 账号中产生的数据安全负责，账号内容可能被其他评估方读取、覆盖或清空。
-
-需要私有的长期合作账号，请发送邮件至 [Mirobody 支持](mailto:developer@thetahealth.ai)。
+这些账户为评估用途而**公开共享**。**请勿**上传真实的个人健康数据——其他评估者可能随时读取、覆盖或清空其中内容。如需私有合作伙伴账户，请邮件联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
 </Warning>
 
-## 看一个跑起来的成品
+需要针对预发布环境测试？将 base URL 换成 `https://test-mcp.thetahealth.cn/v1`，控制台换成 [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/)。
+
+## 在线体验
 
 <CardGroup cols={2}>
   <Card title="mirobody.thetahealth.cn" icon="globe" href="https://mirobody.thetahealth.cn/">
-    **主前端** —— Mirobody 默认 Web，用上方任一演示账号即可登录。
+    **Mirobody 应用**——旗舰级 C 端产品，与本 API 背后是同一套引擎。
   </Card>
-  <Card title="cdm.thetahealth.cn" icon="database" href="https://cdm.thetahealth.cn/">
-    **分站 CDM** —— 在 Mirobody 基础上扩展了**数据记录**能力，更适合需要结构化记录的场景。
+  <Card title="cdm.thetahealth.cn" icon="terminal" href="https://cdm.thetahealth.cn/">
+    **开发者控制台**——创建 `mb_live_*` 密钥、查看用量，并试用 Playground。
   </Card>
 </CardGroup>
 
-## 下一步
+## 后续步骤
 
 <CardGroup cols={2}>
-  <Card title="完整 API Reference" icon="code" href="/zh/api-reference/overview">
-    所有 REST + WebSocket 接口的请求 / 响应规范
+  <Card title="API 参考" icon="code" href="/zh/api-reference/overview">
+    鉴权、多租户、数据留存，以及每个 `/v1` 端点。
   </Card>
-  <Card title="Compliance" icon="shield" href="/zh/cloud/compliance">
-    中美独立部署、各自合规、可索取 DPA
+  <Card title="SDK 示例" icon="boxes-stacked" href="/zh/cloud/sdk-examples">
+    curl / Python / Node，流式传输与文件上传。
+  </Card>
+  <Card title="中国区" icon="location-dot" href="/zh/cloud/regions/china">
+    base URL、存储驻留、模型与限额。
+  </Card>
+  <Card title="合规" icon="shield" href="/zh/cloud/compliance">
+    PIPL / 数据驻留；申请 DPA。
   </Card>
 </CardGroup>

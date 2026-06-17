@@ -1,0 +1,51 @@
+---
+title: "Bring Your Own Tools (MCP)"
+description: "Attach your own remote MCP tools to the chat agent via mcp_servers."
+---
+
+The chat agent ships with built-in tools over the Subject's health data (`search_health_indicators`, `fetch_health_data`, `read_file`, `eval`). You can extend it with **your own remote MCP tools** by passing `mcp_servers` on a [chat request](/en/api-reference/chat).
+
+<Note>
+This is **not** "Mirobody as an MCP server." It's the reverse: you bring external MCP tools *into* the agent's gather phase, where they run alongside the built-in tools. The platform proxies the calls.
+</Note>
+
+## `mcp_servers`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | string | Label for the server. |
+| `url` | string | Remote MCP endpoint. |
+| `access_token` | string | Optional bearer token forwarded to your server. |
+
+## Example
+
+<CodeGroup>
+```bash curl
+curl https://mcp.thetahealth.cn/v1/chat/completions \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-expert",
+        "messages": [{"role": "user", "content": "Cross-check my labs against our formulary."}],
+        "user": "demo_pcp",
+        "mcp_servers": [
+          {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
+        ]
+      }'
+```
+
+```python Python (OpenAI SDK)
+client.chat.completions.create(
+    model="mirobody-expert",
+    messages=[{"role": "user", "content": "Cross-check my labs against our formulary."}],
+    user="demo_pcp",
+    extra_body={
+        "mcp_servers": [
+            {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
+        ]
+    },
+)
+```
+</CodeGroup>
+
+The orchestrator decides when to call your tools during the gather phase; their results feed the same `tool_steps` channel as the built-ins. See [Chat](/en/api-reference/chat) for the response shape.

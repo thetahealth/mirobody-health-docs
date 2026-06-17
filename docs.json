@@ -114,84 +114,32 @@
             "tab": "API Reference",
             "groups": [
               {
-                "group": "Overview",
+                "group": "Getting Started",
                 "pages": [
-                  "en/api-reference/overview"
+                  "en/api-reference/overview",
+                  "en/api-reference/models"
                 ]
               },
               {
-                "group": "Authentication",
+                "group": "Core Endpoints",
                 "pages": [
-                  "en/api-reference/authentication/email",
-                  "en/api-reference/authentication/oauth",
-                  "en/api-reference/authentication/refresh",
-                  "en/api-reference/authentication/beneficiary"
+                  "en/api-reference/chat",
+                  "en/api-reference/data",
+                  "en/api-reference/files",
+                  "en/api-reference/sessions"
                 ]
               },
               {
-                "group": "Chat",
+                "group": "Bring Your Own Tools",
                 "pages": [
-                  "en/api-reference/chat/chat",
-                  "en/api-reference/chat/session",
-                  "en/api-reference/chat/history",
-                  "en/api-reference/chat/custom-prompt"
+                  "en/api-reference/mcp-servers"
                 ]
               },
               {
-                "group": "Files",
+                "group": "Console (JWT)",
                 "pages": [
-                  "en/api-reference/files/upload",
-                  "en/api-reference/files/list",
-                  "en/api-reference/files/delete"
-                ]
-              },
-              {
-                "group": "Journal",
-                "pages": [
-                  "en/api-reference/journal/list",
-                  "en/api-reference/journal/create",
-                  "en/api-reference/journal/update-delete"
-                ]
-              },
-              {
-                "group": "Health Indicators",
-                "pages": [
-                  "en/api-reference/health-indicators/categories",
-                  "en/api-reference/health-indicators/latest",
-                  "en/api-reference/health-indicators/query",
-                  "en/api-reference/health-indicators/distribution"
-                ]
-              },
-              {
-                "group": "Food",
-                "pages": [
-                  "en/api-reference/food/analyze",
-                  "en/api-reference/food/save-history"
-                ]
-              },
-              {
-                "group": "WebSocket",
-                "pages": [
-                  "en/api-reference/websocket/health-report",
-                  "en/api-reference/websocket/llm-analysis",
-                  "en/api-reference/websocket/file-progress"
-                ]
-              },
-              {
-                "group": "Pulse API",
-                "pages": [
-                  "en/api-reference/pulse/link",
-                  "en/api-reference/pulse/callback",
-                  "en/api-reference/pulse/unlink",
-                  "en/api-reference/pulse/providers"
-                ]
-              },
-              {
-                "group": "MCP Protocol",
-                "pages": [
-                  "en/api-reference/mcp/overview",
-                  "en/api-reference/mcp/tools",
-                  "en/api-reference/mcp/resources"
+                  "en/api-reference/console/keys",
+                  "en/api-reference/console/usage"
                 ]
               }
             ]
@@ -302,84 +250,32 @@
             "tab": "API 引用",
             "groups": [
               {
-                "group": "概览",
+                "group": "开始",
                 "pages": [
-                  "zh/api-reference/overview"
+                  "zh/api-reference/overview",
+                  "zh/api-reference/models"
                 ]
               },
               {
-                "group": "鉴权",
+                "group": "核心端点",
                 "pages": [
-                  "zh/api-reference/authentication/email",
-                  "zh/api-reference/authentication/oauth",
-                  "zh/api-reference/authentication/refresh",
-                  "zh/api-reference/authentication/beneficiary"
+                  "zh/api-reference/chat",
+                  "zh/api-reference/data",
+                  "zh/api-reference/files",
+                  "zh/api-reference/sessions"
                 ]
               },
               {
-                "group": "对话",
+                "group": "自带工具 (MCP)",
                 "pages": [
-                  "zh/api-reference/chat/chat",
-                  "zh/api-reference/chat/session",
-                  "zh/api-reference/chat/history",
-                  "zh/api-reference/chat/custom-prompt"
+                  "zh/api-reference/mcp-servers"
                 ]
               },
               {
-                "group": "文件",
+                "group": "控制台 (JWT)",
                 "pages": [
-                  "zh/api-reference/files/upload",
-                  "zh/api-reference/files/list",
-                  "zh/api-reference/files/delete"
-                ]
-              },
-              {
-                "group": "日记",
-                "pages": [
-                  "zh/api-reference/journal/list",
-                  "zh/api-reference/journal/create",
-                  "zh/api-reference/journal/update-delete"
-                ]
-              },
-              {
-                "group": "健康指标",
-                "pages": [
-                  "zh/api-reference/health-indicators/categories",
-                  "zh/api-reference/health-indicators/latest",
-                  "zh/api-reference/health-indicators/query",
-                  "zh/api-reference/health-indicators/distribution"
-                ]
-              },
-              {
-                "group": "食物",
-                "pages": [
-                  "zh/api-reference/food/analyze",
-                  "zh/api-reference/food/save-history"
-                ]
-              },
-              {
-                "group": "WebSocket",
-                "pages": [
-                  "zh/api-reference/websocket/health-report",
-                  "zh/api-reference/websocket/llm-analysis",
-                  "zh/api-reference/websocket/file-progress"
-                ]
-              },
-              {
-                "group": "Pulse API",
-                "pages": [
-                  "zh/api-reference/pulse/link",
-                  "zh/api-reference/pulse/callback",
-                  "zh/api-reference/pulse/unlink",
-                  "zh/api-reference/pulse/providers"
-                ]
-              },
-              {
-                "group": "MCP 协议",
-                "pages": [
-                  "zh/api-reference/mcp/overview",
-                  "zh/api-reference/mcp/tools",
-                  "zh/api-reference/mcp/resources"
+                  "zh/api-reference/console/keys",
+                  "zh/api-reference/console/usage"
                 ]
               }
             ]

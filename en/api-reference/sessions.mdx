@@ -1,0 +1,44 @@
+---
+title: "Sessions"
+description: "DELETE /v1/sessions/{session_id} — end a session and purge its session-retention data."
+---
+
+## Endpoint
+
+```http
+DELETE /v1/sessions/{session_id}
+Authorization: Bearer mb_live_*
+```
+
+Ends a session and **immediately deletes** all data written under it with `retention=session`. Use it when an end-user finishes a conversation and you don't want their inline data lingering.
+
+```bash
+curl -X DELETE https://mcp.thetahealth.cn/v1/sessions/sess_abc123 \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+## How sessions work
+
+A `session_id` does two things in [`/v1/chat/completions`](/en/api-reference/chat):
+
+1. **Threads multi-turn context** across calls that share the same `session_id`.
+2. **Scopes `retention=session` data** — records / files / inline `health_context` written with `retention=session` live only as long as the session.
+
+Session data is capped at **24h** regardless; `DELETE /v1/sessions/{id}` clears it sooner, on demand.
+
+```python Python
+client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "Here are today's readings — anything off?"}],
+    user="demo_cardio",
+    extra_body={
+        "session_id": "sess_abc123",
+        "retention": "session",
+        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
+    },
+)
+# ... later, when the conversation ends:
+# DELETE /v1/sessions/sess_abc123  → that session's data is gone
+```
+
+See [retention](/en/api-reference/overview#data-retention) for the full model.

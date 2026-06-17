@@ -1,22 +1,30 @@
 ---
-title: "海外集群"
-description: "国际市场专属集群 — 上线中"
+title: "全球集群"
+description: "国际集群——即将推出。"
 ---
 
 <Info>
-**主前端 [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) 已上线**；面向 2B 合作伙伴的 API 集群（`mcp.thetahealth.ai`）尚未对外开放，预计后续陆续开通。
+**主前端 [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) 已上线。** 面向 2B 的 API 集群（`mcp.thetahealth.ai`）**尚未向外部合作伙伴开放**——正在逐步开放中。
 </Info>
 
 ## 集群信息
 
-- **主前端**：[mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) — 已上线
-- **API base URL**（`mcp.thetahealth.ai`）：**暂未对外提供服务**，上线时同步公布
-- **LLM 后端**：OpenAI / Gemini / Anthropic
+- **主前端**：[mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/)——已上线
+- **API base URL**（`mcp.thetahealth.ai`）：**尚未对外开放**；将在发布时公布
+- **LLM 提供方**：OpenAI / Gemini / Anthropic
 
-## 与国内集群的差异
+## 与中国集群的差异
 
-- 数据存储于美国境内，不跨境。
-- 合规框架：HIPAA + GDPR（计划，详见 [海外合规](/zh/cloud/compliance)）。
-- 默认走 OpenAI / Gemini，由 Mirobody 统一管理。
+- 数据存储于美国，无跨境复制。
+- 合规框架：HIPAA + GDPR（规划中——详见[全球合规](/zh/cloud/compliance)）。
+- 默认启用 OpenAI / Gemini 工具。
 
-具体上线时间请关注 Mirobody 官方公告或发送邮件至 [Mirobody 支持](mailto:developer@thetahealth.ai) 确认。
+## 欧盟（EU）——即将推出
+
+我们还规划了**欧盟 / 欧洲专属部署**，面向需要数据留在欧盟境内的合作伙伴。与 Mirobody 的每个集群一样，它为**在地、合规的部署**而设计：
+
+- **欧盟数据驻留**——无跨境传输；符合 **GDPR**。
+- **本地化部署**——Mirobody 可在地运行（由 Mirobody 托管或合作伙伴自托管），健康数据不出辖区。
+- 与其它集群相同的 OpenAI 兼容 `/v1` 契约。
+
+关于上线时间，或希望登记欧盟 / 本地化部署的意向，请关注 Mirobody 公告，或邮件联系 [Mirobody Support](mailto:developer@thetahealth.ai)。

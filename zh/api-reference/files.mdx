@@ -1,0 +1,65 @@
+---
+title: "文件"
+description: "POST /v1/files、GET /v1/files —— 上传并解析报告、列出、获取解析后的文本。"
+---
+
+上传一份健康文档，Mirobody 会将其解析进数据主体(Subject)的存储。PDF 和图片会经过 **OCR**（原始文本会保留供 `read_file` 使用）；Excel / CSV 会按结构解析（自动识别长表 / 宽表）为健康记录。对话智能体随后用其 `read_file` / `ls` 工具读取文件。
+
+## 上传并解析
+
+```http
+POST /v1/files
+Authorization: Bearer mb_live_*
+Content-Type:  multipart/form-data
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `file` | 文档（PDF / 图片 / Excel / CSV）。 |
+| `user` | 文件所属的数据主体(Subject)。 |
+| `retention` | `permanent`（默认）/ `session` / `1d`。 |
+
+```bash
+curl https://mcp.thetahealth.cn/v1/files \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=demo_diabetes" \
+  -F "file=@checkup_2026.pdf"
+```
+
+响应：
+
+```json
+{
+  "file_key": "uploads/20260616_xxx.pdf",
+  "filename": "checkup_2026.pdf",
+  "indicators": ["fasting_glucose", "hba1c", "ldl"],
+  "abstract": "Annual checkup — glucose slightly elevated ...",
+  "subject": "demo_diabetes"
+}
+```
+
+## 列出文件
+
+```http
+GET /v1/files?user=demo_diabetes
+Authorization: Bearer mb_live_*
+```
+
+```json
+[
+  { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
+]
+```
+
+## 获取解析后的文本
+
+```http
+GET /v1/files/{file_key}
+Authorization: Bearer mb_live_*
+```
+
+返回单个文件解析后的文本与摘要 —— 与智能体 `read_file` 工具所看到的内容一致。
+
+<Note>
+**没有公开的删除文件端点。** 文件按其 `retention` 清理：`1d` / `session` 数据会自动过期，而用 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 结束会话会立即清除该会话的数据。`permanent` 文件会一直保留，直到由运维人员移除。
+</Note>

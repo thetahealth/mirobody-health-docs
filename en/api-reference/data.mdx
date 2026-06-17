@@ -1,0 +1,70 @@
+---
+title: "Data"
+description: "POST /v1/data, GET /v1/data — write and read structured health records."
+---
+
+Write structured records straight into a Subject's store, and read them back. The chat agent reads this same data with its built-in tools.
+
+## Write records
+
+```http
+POST /v1/data
+Authorization: Bearer mb_live_*
+Content-Type:  application/json
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `records` | array | Each record `{indicator, value, unit, time}`. Inserted in batches (1000 per batch). |
+| `user` | string | Subject the records belong to (tenant-isolation key). |
+| `retention` | string | `permanent` (default) / `session` / `1d`. **`none` is upgraded to `permanent` here** — writing to the store but asking not to store is contradictory. |
+| `session_id` | string | Required when `retention=session`. |
+
+```bash
+curl https://mcp.thetahealth.cn/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "demo_diabetes",
+        "records": [
+          {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
+          {"indicator": "fasting_glucose", "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+        ]
+      }'
+```
+
+Response:
+
+```json
+{ "ingested": 2, "subject": "demo_diabetes", "retention": "permanent" }
+```
+
+## Read records
+
+```http
+GET /v1/data?indicator=fasting_glucose&limit=100
+Authorization: Bearer mb_live_*
+```
+
+| Query | Description |
+| --- | --- |
+| `user` | Subject to read from. |
+| `indicator` | Optional filter by indicator name. |
+| `limit` | `1`–`1000`. |
+
+Expired records are purged before the read, so you always get the Subject's currently-valid data.
+
+```python Python
+import requests
+
+r = requests.get(
+    "https://mcp.thetahealth.cn/v1/data",
+    headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
+    params={"user": "demo_diabetes", "indicator": "fasting_glucose", "limit": 100},
+)
+print(r.json())
+```
+
+<Note>
+For one-off data that should not persist, attach it inline to a chat request as `health_context` with `retention="none"` instead of writing it here — see [Chat → Inline data](/en/api-reference/chat#inline-health-context).
+</Note>

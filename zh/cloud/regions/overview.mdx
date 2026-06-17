@@ -1,13 +1,14 @@
 ---
-title: "数据区域总览"
-description: "按用户地域选对集群"
+title: "区域概览"
+description: "选择与你的用户相匹配的集群"
 ---
 
-Mirobody 提供两个集群，**数据不跨境**：
+Mirobody 提供以下集群，彼此之间**无跨境数据流动**：
 
-| 集群 | Base URL | 主前端 | 状态 |
-| --- | --- | --- | --- |
-| [🇨🇳 中国](/zh/cloud/regions/china) | `https://mcp.thetahealth.cn` | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) | ✅ 已上线 |
-| [🌐 海外](/zh/cloud/regions/global) | 暂未对外开放 | [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) ✅ | 🚧 API 筹备中 |
+| 集群 | API base URL | 控制台 | C 端应用 | 状态 |
+| --- | --- | --- | --- | --- |
+| [🇨🇳 中国](/zh/cloud/regions/china)  | `https://mcp.thetahealth.cn/v1` | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) | ✅ 已上线 |
+| [🌐 全球（美国）](/zh/cloud/regions/global) | 尚未对外开放 | — | [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) ✅ | 🚧 API 筹备中 |
+| [🇪🇺 欧盟](/zh/cloud/regions/global) | 尚未对外开放 | — | — | 🚧 即将推出 |
 
-集群在签约时即确定，**无法**在运行时切换。详细合规说明见 [Compliance](/zh/cloud/compliance)。
+集群在签约时确定；**不支持运行时切换**。详见[合规](/zh/cloud/compliance)。

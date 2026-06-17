@@ -1,6 +1,98 @@
 ---
 title: "API Overview"
-description: "Common conventions: auth, response shell, SSE, rate limits, error codes"
+description: "OpenAI-compatible health-data API — base URL, auth, multi-tenancy, retention, errors."
 ---
 
-> Content coming next. This page will be filled from the existing CN delivery doc.
+Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at our base URL, pass an `mb_live_*` key, and call `/v1/chat/completions` — the agent answers from each end-user's **real, structured health data**, with traceable citations. The same engine you can also run yourself via `pip install mirobody` or the open-source stack; the hosted API is just that engine plus managed storage, keys, and billing.
+
+<Note>
+**Three hosts, three roles — don't mix them up:**
+
+- **`mirobody.thetahealth.cn` / `mirobody.thetahealth.ai`** — the Mirobody consumer app (the flagship product). Its role is unchanged.
+- **`cdm.thetahealth.cn`** — the **developer console**: sign in, create `mb_live_*` keys, view usage, try the Playground.
+- **`mcp.thetahealth.cn`** — the **API host**. This is your `base_url`.
+</Note>
+
+## Base URL
+
+```text
+https://mcp.thetahealth.cn/v1        # production — China cluster (live)
+https://test-mcp.thetahealth.cn/v1   # test / staging
+```
+
+The global cluster (`*.thetahealth.ai`) for developers is **coming soon** — see [Regions](/en/cloud/regions/overview).
+
+## Authentication
+
+| Surface | Scheme | How to get it |
+| --- | --- | --- |
+| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://cdm.thetahealth.cn/) → **API Keys**. The secret is shown **once**. |
+| `/api/console/*` (console) | Session **JWT** (login) | Email-code or WeChat login in the console. |
+
+`/v1` keys are **not** JWTs — they're long-lived API keys scoped to your account. Never ship them in client-side code.
+
+## OpenAI compatibility
+
+Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body` (Python SDK) or as plain top-level JSON (curl/fetch).
+
+| | Fields |
+| --- | --- |
+| **Standard** | `model`, `messages`, `stream`, `user` |
+| **Mirobody extensions** | `retention`, `session_id`, `health_context`, `mcp_servers`, `include_tool_steps` |
+| **Response** | `choices[0].message.content` (+ `reasoning_content`, `tool_steps`), `usage`, plus top-level `health_records` / `citations` |
+
+## Multi-tenancy: the `user` field
+
+Every request carries a `user` string — the **tenant-isolation key**. The backend maps `(your account, user)` to an internal **Subject**; each `user` you pass is fully isolated from the others. Pass each end-user's stable id as `user` and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are not consumer accounts — they're invisible to the Mirobody app and to other developers.
+
+## Data retention
+
+Anything you supply (structured records, uploaded files, inline `health_context`) carries a `retention` that decides how long it's kept:
+
+| `retention` | Meaning | Lifetime |
+| --- | --- | --- |
+| `permanent` (default) | Kept until explicitly deleted | Permanent |
+| `session` | Bound to `session_id`, dropped when the session ends | ≤ 24h, or `DELETE /v1/sessions/{id}` |
+| `1d` | Auto-deleted within a day | ≤ 24h |
+| `none` | Used for this request only, never persisted | Deleted in `finally` |
+
+`none` is meant for inline `health_context` (use-and-forget). On `POST /v1/data`, `none` is upgraded to `permanent` (writing to the store but asking not to store is contradictory). The agent **only ever reads the Subject's currently-unexpired data**.
+
+## Citations
+
+Answers carry traceable references to the health records they used (`health_records` / `citations`), so results are **explainable and checkable** — not "sounds plausible," but "this conclusion came from that record of yours."
+
+## Error format
+
+Errors use the OpenAI-style envelope:
+
+```json
+{
+  "error": {
+    "message": "X-... is required for this endpoint.",
+    "type": "invalid_request_error",
+    "code": "invalid_request"
+  }
+}
+```
+
+| HTTP | When |
+| --- | --- |
+| `400` | Malformed request / missing required field |
+| `401` | Missing or invalid `mb_live_*` key |
+| `404` | Unknown resource (e.g. file_key / session_id) |
+| `429` | Rate limit — see [Rate Limits](/en/cloud/rate-limits) |
+
+In **streaming**, an upstream failure arrives as an SSE error frame before the stream ends.
+
+## Endpoints at a glance
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | [`/v1/models`](/en/api-reference/models) | List capability tiers (`mirobody-flash` / `mirobody-expert`) |
+| `POST` | [`/v1/chat/completions`](/en/api-reference/chat) | OpenAI-compatible health chat (stream, `health_context`, `mcp_servers`) |
+| `POST` · `GET` | [`/v1/data`](/en/api-reference/data) | Write / read structured records |
+| `POST` · `GET` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch parsed text |
+| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session, purge its `session` data |
+| `GET`·`POST`·`DELETE` | [`/api/console/keys`](/en/api-reference/console/keys) | Manage API keys (JWT) |
+| `GET` | [`/api/console/usage`](/en/api-reference/console/usage) | Usage: requests / tokens / cost (JWT) |
