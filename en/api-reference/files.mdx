@@ -22,7 +22,7 @@ Content-Type:  multipart/form-data
 ```bash
 curl https://mcp.thetahealth.cn/v1/files \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
-  -F "user=demo_diabetes" \
+  -F "user=alice" \
   -F "file=@checkup_2026.pdf"
 ```
 
@@ -34,14 +34,14 @@ Response:
   "filename": "checkup_2026.pdf",
   "indicators": ["fasting_glucose", "hba1c", "ldl"],
   "abstract": "Annual checkup — glucose slightly elevated ...",
-  "subject": "demo_diabetes"
+  "subject": "alice"
 }
 ```
 
 ## List files
 
 ```http
-GET /v1/files?user=demo_diabetes
+GET /v1/files?user=alice
 Authorization: Bearer mb_live_*
 ```
 

@@ -27,7 +27,7 @@ curl https://mcp.thetahealth.cn/v1/chat/completions \
   -d '{
         "model": "mirobody-expert",
         "messages": [{"role": "user", "content": "Cross-check my labs against our formulary."}],
-        "user": "demo_pcp",
+        "user": "alice",
         "mcp_servers": [
           {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
         ]
@@ -38,7 +38,7 @@ curl https://mcp.thetahealth.cn/v1/chat/completions \
 client.chat.completions.create(
     model="mirobody-expert",
     messages=[{"role": "user", "content": "Cross-check my labs against our formulary."}],
-    user="demo_pcp",
+    user="alice",
     extra_body={
         "mcp_servers": [
             {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}

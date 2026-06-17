@@ -14,15 +14,15 @@ KEY="mb_live_..."
 # 1) Basic chat
 curl $BASE/chat/completions \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"model":"mirobody-flash","messages":[{"role":"user","content":"How is my fasting glucose trending?"}],"user":"demo_diabetes"}'
+  -d '{"model":"mirobody-flash","messages":[{"role":"user","content":"How is my fasting glucose trending?"}],"user":"alice"}'
 
 # 2) Write a record, then ask again
 curl $BASE/data \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"user":"demo_diabetes","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
+  -d '{"user":"alice","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
 
 # 3) Upload a report (OCR/parse), then ask about it
-curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=demo_diabetes" -F "file=@report.pdf"
+curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=alice" -F "file=@report.pdf"
 ```
 
 ## Python (OpenAI SDK)
@@ -36,7 +36,7 @@ client = OpenAI(api_key="mb_live_...", base_url="https://mcp.thetahealth.cn/v1")
 resp = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
-    user="demo_diabetes",
+    user="alice",
 )
 print(resp.choices[0].message.content)
 
@@ -44,7 +44,7 @@ print(resp.choices[0].message.content)
 stream = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "Summarize my last checkup."}],
-    user="demo_diabetes",
+    user="alice",
     stream=True,
 )
 for chunk in stream:
@@ -60,7 +60,7 @@ import requests
 up = requests.post(
     "https://mcp.thetahealth.cn/v1/files",
     headers={"Authorization": "Bearer mb_live_..."},
-    data={"user": "demo_diabetes"},
+    data={"user": "alice"},
     files={"file": open("report.pdf", "rb")},
 )
 print(up.json())   # {file_key, filename, indicators, abstract, subject}
@@ -80,7 +80,7 @@ const client = new OpenAI({
 const resp = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
-  user: "demo_diabetes",
+  user: "alice",
 });
 console.log(resp.choices[0].message.content);
 
@@ -88,7 +88,7 @@ console.log(resp.choices[0].message.content);
 const stream = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "Summarize my last checkup." }],
-  user: "demo_diabetes",
+  user: "alice",
   stream: true,
 });
 for await (const chunk of stream) {

@@ -23,7 +23,7 @@ curl https://mcp.thetahealth.cn/v1/chat/completions \
   -d '{
         "model": "mirobody-flash",
         "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
-        "user": "demo_diabetes"
+        "user": "alice"
       }'
 ```
 
@@ -35,7 +35,7 @@ client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.c
 resp = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
-    user="demo_diabetes",                       # tenant-isolation key (a Subject)
+    user="alice",                       # tenant-isolation key (a Subject)
     extra_body={"include_tool_steps": True},    # Mirobody extensions go in extra_body
 )
 print(resp.choices[0].message.content)
@@ -54,7 +54,7 @@ const client = new OpenAI({
 const resp = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
-  user: "demo_diabetes",
+  user: "alice",
   include_tool_steps: true,
 });
 console.log(resp.choices[0].message.content);
@@ -141,7 +141,7 @@ data: [DONE]
 resp = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "Is this reading high?"}],
-    user="demo_cardio",
+    user="alice",
     extra_body={
         "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
         "retention": "none",   # used this turn, then deleted

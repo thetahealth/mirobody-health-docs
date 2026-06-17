@@ -1,13 +1,21 @@
 ---
 title: "Quickstart"
-description: "Create a key and make your first /v1 call in 5 minutes."
+description: "Create a key in the console and make your first /v1 call."
 ---
 
 Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https://mcp.thetahealth.cn/v1`, pass an `mb_live_*` key, and the agent answers from each end-user's real health data.
 
+<Note>
+Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/). These docs are a reference and guide; the console is where you sign in and manage everything.
+</Note>
+
 <Steps>
-  <Step title="Create an API key">
-    Sign in to the developer console at [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/) (use your own email, or a [demo account](#demo-accounts) below), then go to **API Keys → Create**. Copy the `mb_live_*` secret — it's shown **once**.
+  <Step title="Get an API key">
+    Create a key in the console — the secret is shown **once**.
+
+    <Card title="Open the console → API Keys" icon="key" href="https://cdm.thetahealth.cn/developer/keys" horizontal>
+      Sign in, create an `mb_live_*` key, and copy it.
+    </Card>
 
     ```bash
     export MIROBODY_API_KEY="mb_live_..."
@@ -23,7 +31,7 @@ Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https:/
       -d '{
             "model": "mirobody-flash",
             "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
-            "user": "demo_diabetes"
+            "user": "alice"
           }'
     ```
 
@@ -34,7 +42,7 @@ Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https:/
     resp = client.chat.completions.create(
         model="mirobody-flash",
         messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
-        user="demo_diabetes",
+        user="alice",
     )
     print(resp.choices[0].message.content)
     ```
@@ -49,13 +57,13 @@ Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https:/
     const resp = await client.chat.completions.create({
       model: "mirobody-flash",
       messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
-      user: "demo_diabetes",
+      user: "alice",
     });
     console.log(resp.choices[0].message.content);
     ```
     </CodeGroup>
 
-    The `user` field isolates each end-user as a [Subject](/en/api-reference/overview#multi-tenancy-the-user-field). See the full [Chat reference](/en/api-reference/chat).
+    The `user` field isolates each end-user as a [Subject](/en/api-reference/overview#multi-tenancy-the-user-field) — pass each of your users' stable ids. See the full [Chat reference](/en/api-reference/chat).
   </Step>
 
   <Step title="Give the Subject some data">
@@ -66,7 +74,7 @@ Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https:/
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-            "user": "demo_diabetes",
+            "user": "alice",
             "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
           }'
     ```
@@ -75,22 +83,18 @@ Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https:/
   </Step>
 </Steps>
 
-## Demo accounts
+## Prefer clicking over curl?
 
-Sign in to the **console** with any of these to create a key without provisioning your own account. Code is always `000000`. Each is pre-seeded with a different clinical profile:
+The console has a **Playground** — run chats, upload files, and inspect tool steps with no code.
 
-| Console login | Profile |
-| --- | --- |
-| `demo_pcp@mirobody.example` | General / primary care |
-| `demo_cardio@mirobody.example` | Cardiovascular |
-| `demo_anxiety@mirobody.example` | Anxiety / mental health |
-| `demo_knee@mirobody.example` | Orthopedic (knee) |
-| `demo_cardio_history@mirobody.example` | Cardiovascular, longitudinal history |
-| `demo_diabetes@mirobody.example` | Diabetes / glucose trends |
-
-<Warning>
-These accounts are **publicly shared** for evaluation. **Do not** upload real personal health data — other evaluators may read, overwrite, or clear the contents at any time. For a private partner account, email [Mirobody Support](mailto:developer@thetahealth.ai).
-</Warning>
+<CardGroup cols={2}>
+  <Card title="Playground" icon="flask" href="https://cdm.thetahealth.cn/developer">
+    Try the agent in the browser against your account.
+  </Card>
+  <Card title="Usage" icon="chart-line" href="https://cdm.thetahealth.cn/developer/usage">
+    Requests, tokens, and cost.
+  </Card>
+</CardGroup>
 
 Testing against staging? Swap the base URL to `https://test-mcp.thetahealth.cn/v1` and the console to [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/).
 
@@ -100,8 +104,8 @@ Testing against staging? Swap the base URL to `https://test-mcp.thetahealth.cn/v
   <Card title="mirobody.thetahealth.cn" icon="globe" href="https://mirobody.thetahealth.cn/">
     **Mirobody app** — the flagship consumer product, the same engine behind this API.
   </Card>
-  <Card title="cdm.thetahealth.cn" icon="terminal" href="https://cdm.thetahealth.cn/">
-    **Developer console** — create `mb_live_*` keys, view usage, and try the Playground.
+  <Card title="Developer console" icon="terminal" href="https://cdm.thetahealth.cn/developer">
+    Create `mb_live_*` keys, view usage, and try the Playground.
   </Card>
 </CardGroup>
 

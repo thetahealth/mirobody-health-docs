@@ -25,7 +25,7 @@ curl https://mcp.thetahealth.cn/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-        "user": "demo_diabetes",
+        "user": "alice",
         "records": [
           {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
           {"indicator": "fasting_glucose", "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
@@ -36,7 +36,7 @@ curl https://mcp.thetahealth.cn/v1/data \
 Response:
 
 ```json
-{ "ingested": 2, "subject": "demo_diabetes", "retention": "permanent" }
+{ "ingested": 2, "subject": "alice", "retention": "permanent" }
 ```
 
 ## Read records
@@ -60,7 +60,7 @@ import requests
 r = requests.get(
     "https://mcp.thetahealth.cn/v1/data",
     headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
-    params={"user": "demo_diabetes", "indicator": "fasting_glucose", "limit": 100},
+    params={"user": "alice", "indicator": "fasting_glucose", "limit": 100},
 )
 print(r.json())
 ```

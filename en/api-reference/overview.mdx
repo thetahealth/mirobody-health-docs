@@ -26,7 +26,7 @@ The global cluster (`*.thetahealth.ai`) for developers is **coming soon** — se
 
 | Surface | Scheme | How to get it |
 | --- | --- | --- |
-| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://cdm.thetahealth.cn/) → **API Keys**. The secret is shown **once**. |
+| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://cdm.thetahealth.cn/developer/keys) → **API Keys**. The secret is shown **once**. |
 | `/api/console/*` (console) | Session **JWT** (login) | Email-code or WeChat login in the console. |
 
 `/v1` keys are **not** JWTs — they're long-lived API keys scoped to your account. Never ship them in client-side code.

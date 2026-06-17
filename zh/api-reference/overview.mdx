@@ -26,7 +26,7 @@ https://test-mcp.thetahealth.cn/v1   # test / staging
 
 | 接口面 | 方案 | 如何获取 |
 | --- | --- | --- |
-| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://cdm.thetahealth.cn/) → **API Keys** 中创建密钥。密钥仅显示**一次**。 |
+| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://cdm.thetahealth.cn/developer/keys) → **API Keys** 中创建密钥。密钥仅显示**一次**。 |
 | `/api/console/*`（控制台） | 会话 **JWT**（登录） | 在控制台中通过邮箱验证码或微信登录。 |
 
 `/v1` 密钥**不是** JWT —— 它们是与你的账户绑定的长期 API 密钥。切勿在客户端代码中携带它们。

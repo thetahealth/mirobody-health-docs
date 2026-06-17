@@ -30,7 +30,7 @@ curl -X DELETE https://mcp.thetahealth.cn/v1/sessions/sess_abc123 \
 client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "Here are today's readings — anything off?"}],
-    user="demo_cardio",
+    user="alice",
     extra_body={
         "session_id": "sess_abc123",
         "retention": "session",
