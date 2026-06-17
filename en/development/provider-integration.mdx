@@ -8,7 +8,7 @@ description: "Complete guide to integrating new health device APIs into Mirobody
 This guide explains how to build custom provider integrations for new health devices or platforms. The provider system is designed to make adding new integrations straightforward while maintaining security and data quality.
 
 <Info>
-If you're looking to **use** existing providers like Garmin or Whoop, see [Using Providers](/providers/using-providers) instead.
+If you're looking to **use** existing providers like Garmin or Whoop, see [Using Providers](/en/providers/using-providers) instead.
 </Info>
 
 ## Prerequisites
@@ -194,7 +194,7 @@ For complete implementation details, see the <a href="https://github.com/thetahe
     - Token exchange
     - Token refresh handling
 
-    See [OAuth Implementation](/development/oauth-implementation) for detailed examples.
+    See [OAuth Implementation](/en/development/oauth-implementation) for detailed examples.
   </Accordion>
 
   <Accordion title="Data Mapping" icon="arrows-rotate">
@@ -208,7 +208,7 @@ For complete implementation details, see the <a href="https://github.com/thetahe
     }
     ```
 
-    See [Data Mapping](/development/data-mapping) for transformation patterns.
+    See [Data Mapping](/en/development/data-mapping) for transformation patterns.
   </Accordion>
 
   <Accordion title="Testing" icon="flask">
@@ -219,7 +219,7 @@ For complete implementation details, see the <a href="https://github.com/thetahe
     - Data transformation tests
     - Error handling tests
 
-    See [Provider Testing](/development/provider-testing) for guidelines.
+    See [Provider Testing](/en/development/provider-testing) for guidelines.
   </Accordion>
 </AccordionGroup>
 
@@ -325,7 +325,7 @@ class ThetaSimpleProvider(BaseThetaProvider):
 ```
 
 <Tip>
-See [Garmin Provider Example](/examples/garmin-provider) and [Whoop Provider Example](/examples/whoop-provider) for complete implementations.
+See [Garmin Provider Example](/en/examples/garmin-provider) and [Whoop Provider Example](/en/examples/whoop-provider) for complete implementations.
 </Tip>
 
 ## Detailed Documentation
@@ -362,7 +362,7 @@ Map your provider's data to these standard indicators:
 | `DAILY_CALORIES_ACTIVE` | Active calories burned | kcal |
 | `SLEEP_EFFICIENCY` | Sleep efficiency | percentage |
 
-See [Standard Indicators](/providers/overview#standard-health-indicators) for the complete list.
+See [Standard Indicators](/en/providers/overview#standard-health-indicators) for the complete list.
 
 ## Contributing Your Provider
 
@@ -378,7 +378,7 @@ Once you've built a provider, consider contributing it back:
   </Step>
 
   <Step title="Submit pull request">
-    Follow the [Contributing Guide](/development/contributing)
+    Follow the [Contributing Guide](/en/development/contributing)
   </Step>
 </Steps>
 
