@@ -112,9 +112,7 @@ console.log(resp.choices[0].message.content);
 | `health_records` / `citations` | Traceable record references the answer relied on. |
 | `usage` | Token accounting. |
 
-<Note>
-**Target contract.** The `reasoning_content` / `tool_steps` channels and the two-phase agent are the documented target shape (`cdm/V1_OUTPUT_DESIGN.md`). On the test cluster a given build may still return the legacy shape — verify against `test-mcp.thetahealth.cn` before depending on a field.
-</Note>
+`reasoning_content` and `tool_steps` are optional, additive channels — clients that only read `message.content` keep working.
 
 ## Streaming
 
@@ -153,7 +151,7 @@ With `retention="none"` the data is purged when the request finishes — nothing
 
 ## System prompts
 
-A `system` message sets tone / persona / format / language. The platform folds it into the last user turn as the **caller's output instruction** (highest priority for the responder). The orchestrator (which decides what data to gather) is platform-owned and can't be overridden — so a `system` prompt shapes *how* the answer reads, never whether real data is used.
+A `system` message sets the tone, persona, format, and language of the answer. Data gathering is platform-controlled — the agent always reads the Subject's real data — so a `system` prompt shapes *how* the answer reads, never *whether* real data is used.
 
 ## Built-in tools
 

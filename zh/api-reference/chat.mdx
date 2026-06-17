@@ -112,9 +112,7 @@ console.log(resp.choices[0].message.content);
 | `health_records` / `citations` | 回答所依据的可追溯记录引用。 |
 | `usage` | Token 计量。 |
 
-<Note>
-**目标契约。** `reasoning_content` / `tool_steps` 通道以及两阶段智能体是有文档记载的目标形状（`cdm/V1_OUTPUT_DESIGN.md`）。在测试集群上，某个构建可能仍返回旧形状 —— 在依赖某个字段前，请对照 `test-mcp.thetahealth.cn` 进行验证。
-</Note>
+`reasoning_content` 与 `tool_steps` 是可选的附加通道 —— 只读取 `message.content` 的客户端仍可正常工作。
 
 ## 流式传输
 
@@ -153,7 +151,7 @@ resp = client.chat.completions.create(
 
 ## 系统提示词
 
-`system` 消息设定语气 / 人设 / 格式 / 语言。平台会把它折叠进最后一轮用户消息，作为**调用方的输出指令**（对应答方而言优先级最高）。编排器（决定采集哪些数据）由平台所有，无法被覆盖 —— 因此 `system` 提示词只塑造回答*如何*呈现，永远不会影响是否使用真实数据。
+`system` 消息设定回答的语气、人设、格式与语言。数据采集由平台控制 —— 智能体始终读取该 Subject 的真实数据 —— 因此 `system` 提示词只塑造回答*如何*呈现，永远不会影响*是否*使用真实数据。
 
 ## 内置工具
 

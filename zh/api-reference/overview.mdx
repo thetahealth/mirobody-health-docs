@@ -3,24 +3,17 @@ title: "API 概览"
 description: "兼容 OpenAI 的健康数据 API —— base URL、鉴权、多租户、留存与错误。"
 ---
 
-Mirobody 的托管 API **兼容 OpenAI**。把任意 OpenAI SDK 指向我们的 base URL，传入一个 `mb_live_*` 密钥，调用 `/v1/chat/completions` —— 智能体会基于每个终端用户**真实、结构化的健康数据**作答，并附带可追溯的引用。同一套引擎你也可以通过 `pip install mirobody` 或开源技术栈自行运行；托管 API 只是这套引擎加上托管存储、密钥与计费。
+Mirobody 的托管 API **兼容 OpenAI**。把任意 OpenAI SDK 指向下方的 base URL，传入一个 `mb_live_*` 密钥，调用 `/v1/chat/completions` —— 智能体会基于每个终端用户**真实、结构化的健康数据**作答，并附带可追溯的引用。同一套引擎也可通过 `pip install mirobody` 或开源技术栈自行部署；托管 API 在其之上提供了托管存储、密钥与计费。
 
-<Note>
-**三个主机，三种角色 —— 不要混淆：**
-
-- **`mirobody.thetahealth.cn` / `mirobody.thetahealth.ai`** —— Mirobody 消费者应用（旗舰产品）。其角色保持不变。
-- **`cdm.thetahealth.cn`** —— **开发者控制台**：登录、创建 `mb_live_*` 密钥、查看用量、试用 Playground。
-- **`mcp.thetahealth.cn`** —— **API 主机**。这就是你的 `base_url`。
-</Note>
+你在[开发者控制台](https://cdm.thetahealth.cn/)中创建密钥、查看用量、试用在线 Playground。本文档是 API 参考。
 
 ## Base URL
 
 ```text
-https://mcp.thetahealth.cn/v1        # production — China cluster (live)
-https://test-mcp.thetahealth.cn/v1   # test / staging
+https://mcp.thetahealth.cn/v1
 ```
 
-面向开发者的全球集群（`*.thetahealth.ai`）**即将上线** —— 详见[区域](/zh/cloud/regions/overview)。
+每次调用都用 `mb_live_*` 密钥鉴权 —— 见[鉴权](#authentication)。全球区域**即将上线**；详见[区域](/zh/cloud/regions/overview)。
 
 ## 鉴权
 

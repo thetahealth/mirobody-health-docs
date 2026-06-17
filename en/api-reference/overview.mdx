@@ -3,24 +3,17 @@ title: "API Overview"
 description: "OpenAI-compatible health-data API — base URL, auth, multi-tenancy, retention, errors."
 ---
 
-Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at our base URL, pass an `mb_live_*` key, and call `/v1/chat/completions` — the agent answers from each end-user's **real, structured health data**, with traceable citations. The same engine you can also run yourself via `pip install mirobody` or the open-source stack; the hosted API is just that engine plus managed storage, keys, and billing.
+Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call `/v1/chat/completions` — the agent answers from each end-user's **real, structured health data**, with traceable citations. The same engine also runs self-hosted via `pip install mirobody` or the open-source stack; the hosted API adds managed storage, keys, and billing on top.
 
-<Note>
-**Three hosts, three roles — don't mix them up:**
-
-- **`mirobody.thetahealth.cn` / `mirobody.thetahealth.ai`** — the Mirobody consumer app (the flagship product). Its role is unchanged.
-- **`cdm.thetahealth.cn`** — the **developer console**: sign in, create `mb_live_*` keys, view usage, try the Playground.
-- **`mcp.thetahealth.cn`** — the **API host**. This is your `base_url`.
-</Note>
+You create keys, watch usage, and try an interactive Playground in the [developer console](https://cdm.thetahealth.cn/). These docs are the API reference.
 
 ## Base URL
 
 ```text
-https://mcp.thetahealth.cn/v1        # production — China cluster (live)
-https://test-mcp.thetahealth.cn/v1   # test / staging
+https://mcp.thetahealth.cn/v1
 ```
 
-The global cluster (`*.thetahealth.ai`) for developers is **coming soon** — see [Regions](/en/cloud/regions/overview).
+Authenticate every call with an `mb_live_*` key — see [Authentication](#authentication). A global region is **coming soon**; see [Regions](/en/cloud/regions/overview).
 
 ## Authentication
 

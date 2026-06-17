@@ -6,7 +6,7 @@ description: "Attach your own remote MCP tools to the chat agent via mcp_servers
 The chat agent ships with built-in tools over the Subject's health data (`search_health_indicators`, `fetch_health_data`, `read_file`, `eval`). You can extend it with **your own remote MCP tools** by passing `mcp_servers` on a [chat request](/en/api-reference/chat).
 
 <Note>
-This is **not** "Mirobody as an MCP server." It's the reverse: you bring external MCP tools *into* the agent's gather phase, where they run alongside the built-in tools. The platform proxies the calls.
+This is **not** "Mirobody as an MCP server." It's the reverse: you bring external MCP tools *into* the agent's data-gathering, where they run alongside the built-in tools. The platform proxies the calls.
 </Note>
 
 ## `mcp_servers`
@@ -48,4 +48,4 @@ client.chat.completions.create(
 ```
 </CodeGroup>
 
-The orchestrator decides when to call your tools during the gather phase; their results feed the same `tool_steps` channel as the built-ins. See [Chat](/en/api-reference/chat) for the response shape.
+The agent decides when to call your tools while gathering data; their results feed the same `tool_steps` channel as the built-ins. See [Chat](/en/api-reference/chat) for the response shape.
