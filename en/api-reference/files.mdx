@@ -17,7 +17,7 @@ Content-Type:  multipart/form-data
 | --- | --- |
 | `file` | The document (PDF / image / Excel / CSV). |
 | `user` | Subject the file belongs to. |
-| `retention` | `permanent` (default) / `session` / `1d`. |
+| `retention` | `permanent` (default) / `1h` / `2h` / `6h` / `1d` / `session`. The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). |
 
 ```bash
 curl https://mcp.thetahealth.cn/v1/files \
@@ -32,11 +32,17 @@ Response:
 {
   "file_key": "uploads/20260616_xxx.pdf",
   "filename": "checkup_2026.pdf",
-  "indicators": ["fasting_glucose", "hba1c", "ldl"],
+  "indicators": 3,
   "abstract": "Annual checkup — glucose slightly elevated ...",
   "subject": "alice"
 }
 ```
+
+`indicators` is an **integer count** of structured indicators extracted, not a list of names.
+
+<Note>
+Images and PDFs are OCR'd to text that the agent can `read_file`; structured-indicator extraction is asynchronous / best-effort, so the upload response's `indicators` is often `0` for images. For guaranteed structured data, use [`POST /v1/data`](/en/api-reference/data) or upload a CSV / Excel file.
+</Note>
 
 ## List files
 
@@ -46,10 +52,16 @@ Authorization: Bearer mb_live_*
 ```
 
 ```json
-[
-  { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
-]
+{
+  "object": "list",
+  "data": [
+    { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
+  ],
+  "subject": "alice"
+}
 ```
+
+The file list is wrapped in an object: `data` holds the array of files, and `subject` echoes the Subject the list belongs to.
 
 ## Fetch parsed text
 
@@ -60,6 +72,34 @@ Authorization: Bearer mb_live_*
 
 Returns the parsed text and abstract for one file — the same content the agent's `read_file` tool sees.
 
+## Delete a file
+
+```http
+DELETE /v1/files/{file_key}
+Authorization: Bearer mb_live_*
+```
+
+Deletes one uploaded file (and its parsed text) immediately.
+
+```bash
+curl -X DELETE "https://mcp.thetahealth.cn/v1/files/uploads/20260616_xxx.pdf" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+## Erase a Subject
+
+```http
+DELETE /v1/subjects/{user}
+Authorization: Bearer mb_live_*
+```
+
+The right-to-be-forgotten sweep: erases **all** of a user's data — every structured record *and* every uploaded file. Use it to honor an end-user deletion request.
+
+```bash
+curl -X DELETE "https://mcp.thetahealth.cn/v1/subjects/alice" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
 <Note>
-**No public delete-file endpoint.** Files are cleaned up by their `retention`: `1d` / `session` data expires automatically, and ending a session with [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) purges that session's data immediately. `permanent` files persist until removed by an operator.
+These deletes require a key with the `data:delete` (or `data:write`) scope. To delete structured records only (without touching files), see [`DELETE /v1/data`](/en/api-reference/data#delete-records-right-to-be-forgotten).
 </Note>

@@ -17,7 +17,7 @@ Content-Type:  multipart/form-data
 | --- | --- |
 | `file` | 文档（PDF / 图片 / Excel / CSV）。 |
 | `user` | 文件所属的数据主体(Subject)。 |
-| `retention` | `permanent`（默认）/ `session` / `1d`。 |
+| `retention` | `permanent`（默认）/ `1h` / `2h` / `6h` / `1d` / `session` / `none`。`1h` / `2h` / `6h` 表示写入后约这么多小时自动删除（上限仍为 24 小时）。 |
 
 ```bash
 curl https://mcp.thetahealth.cn/v1/files \
@@ -32,11 +32,15 @@ curl https://mcp.thetahealth.cn/v1/files \
 {
   "file_key": "uploads/20260616_xxx.pdf",
   "filename": "checkup_2026.pdf",
-  "indicators": ["fasting_glucose", "hba1c", "ldl"],
+  "indicators": 3,
   "abstract": "Annual checkup — glucose slightly elevated ...",
   "subject": "alice"
 }
 ```
+
+<Note>
+`indicators` 是一个**整数计数**（本次上传抽取出的结构化指标条数），而非指标名称数组。图片 / PDF 经 OCR 转为可被 `read_file` 读取的文本，结构化指标抽取是**异步、尽力而为**的，上传响应里的 `indicators` 往往为 `0`。如需确定的结构化指标，请改用 [`POST /v1/data`](/zh/api-reference/data) 或上传 CSV / Excel。
+</Note>
 
 ## 列出文件
 
@@ -45,10 +49,16 @@ GET /v1/files?user=alice
 Authorization: Bearer mb_live_*
 ```
 
+返回一个包裹对象 —— 文件列表在 `data` 数组中：
+
 ```json
-[
-  { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
-]
+{
+  "object": "list",
+  "data": [
+    { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
+  ],
+  "subject": "alice"
+}
 ```
 
 ## 获取解析后的文本
@@ -60,6 +70,31 @@ Authorization: Bearer mb_live_*
 
 返回单个文件解析后的文本与摘要 —— 与智能体 `read_file` 工具所看到的内容一致。
 
+## 删除文件（被遗忘权）
+
+```http
+DELETE /v1/files/{file_key}
+Authorization: Bearer mb_live_*
+```
+
+立即删除单个文件及其解析后的文本。
+
+```bash
+curl -X DELETE "https://mcp.thetahealth.cn/v1/files/uploads/20260616_xxx.pdf" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+要清空某个用户的**全部数据与文件**（结构化记录 + 上传文件），请使用：
+
+```http
+DELETE /v1/subjects/{user}
+Authorization: Bearer mb_live_*
+```
+
 <Note>
-**没有公开的删除文件端点。** 文件按其 `retention` 清理：`1d` / `session` 数据会自动过期，而用 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 结束会话会立即清除该会话的数据。`permanent` 文件会一直保留，直到由运维人员移除。
+删除类端点需要带有 `data:delete`（或 `data:write`）scope 的密钥。
+</Note>
+
+<Note>
+除显式删除外，文件还会按其 `retention` 自动清理：`1h` / `2h` / `6h` / `1d` / `session` 数据会自动过期，而用 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 结束会话会立即清除该会话的数据。`permanent` 文件会一直保留，直到被显式删除。
 </Note>

@@ -9,9 +9,12 @@ description: "mcp.thetahealth.cn——首个上线的主集群。"
 
 | 角色 | 地址 |
 | --- | --- |
-| **API** (`base_url`) | `https://mcp.thetahealth.cn/v1` |
+| **API**（生产 `base_url`） | `https://mcp.thetahealth.cn/v1` |
+| **API**（测试集群） | `https://test-mcp.thetahealth.cn/v1` |
 | **开发者控制台** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) |
 | **Mirobody 应用**（C 端） | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) |
+
+测试集群用于集成测试，其数据为非生产、可能被随时重置；生产请始终使用 `https://mcp.thetahealth.cn/v1`。
 
 控制台是你创建 `mb_live_*` 密钥、查看用量并试用 Playground 的地方。Mirobody 应用是旗舰级 C 端产品——与本 API 背后是同一套引擎。
 

@@ -13,9 +13,25 @@ Authorization: Bearer mb_live_*
 Ends a session and **immediately deletes** all data written under it with `retention=session`. Use it when an end-user finishes a conversation and you don't want their inline data lingering.
 
 ```bash
-curl -X DELETE https://mcp.thetahealth.cn/v1/sessions/sess_abc123 \
+curl -X DELETE "https://mcp.thetahealth.cn/v1/sessions/sess_abc123?user=alice" \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
+
+<Note>
+Pass the same `user` you used when writing the session's data; omitting it targets your account's default Subject.
+</Note>
+
+Response:
+
+```json
+{ "session_id": "sess_abc123", "deleted": 4, "subject": "alice" }
+```
+
+| Field | Description |
+| --- | --- |
+| `session_id` | The session that was ended. |
+| `deleted` | Number of `retention=session` records removed. |
+| `subject` | The Subject the session belonged to. |
 
 ## How sessions work
 

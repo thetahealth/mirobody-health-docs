@@ -10,8 +10,11 @@ China is Mirobody's primary live cluster. All data stays within mainland China.
 | Role | URL |
 | --- | --- |
 | **API** (`base_url`) | `https://mcp.thetahealth.cn/v1` |
+| **API — test cluster** | `https://test-mcp.thetahealth.cn/v1` |
 | **Developer console** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) |
 | **Mirobody app** (consumer) | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) |
+
+The **test cluster** is for integration testing only — its data is non-production and may be reset at any time. Point at the prod `base_url` for real workloads.
 
 The console is where you create `mb_live_*` keys, view usage, and try the Playground. The Mirobody app is the flagship consumer product — the same engine behind this API.
 

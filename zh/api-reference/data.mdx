@@ -17,7 +17,7 @@ Content-Type:  application/json
 | --- | --- | --- |
 | `records` | array | 每条记录 `{indicator, value, unit, time}`。分批插入（每批 1000 条）。 |
 | `user` | string | 记录所属的数据主体(Subject)（多租户隔离键）。 |
-| `retention` | string | `permanent`（默认）/ `session` / `1d`。**这里 `none` 会被升级为 `permanent`** —— 写入存储却要求不存储是自相矛盾的。 |
+| `retention` | string | `permanent`（默认）/ `1h` / `2h` / `6h` / `1d` / `session`。`1h` / `2h` / `6h` 表示写入后约这么多小时自动删除（上限仍为 24 小时）。**`none` 在 `/v1/data` 上会被拒绝并返回 `HTTP 400`** —— 写入存储却要求不存储是自相矛盾的。用完即弃的数据请改为在 `POST /v1/chat/completions` 上以 `health_context` + `retention=none` 内联附带。 |
 | `session_id` | string | 当 `retention=session` 时必填。 |
 
 ```bash
@@ -51,8 +51,30 @@ Authorization: Bearer mb_live_*
 | `user` | 要读取的数据主体(Subject)。 |
 | `indicator` | 可选，按指标名称过滤。 |
 | `limit` | `1`–`1000`。 |
+| `offset` | 分页偏移量，默认 `0`。 |
 
 读取前会先清除已过期的记录，因此你拿到的总是数据主体(Subject)当前有效的数据。
+
+响应是一个带分页元信息的对象：
+
+```json
+{
+  "records": [
+    {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}
+  ],
+  "total": 42,
+  "limit": 100,
+  "offset": 0,
+  "has_more": false
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `records` | 本页记录。 |
+| `total` | 匹配过滤条件的记录总数。 |
+| `limit` / `offset` | 本次请求生效的分页参数。 |
+| `has_more` | 是否还有更多记录（`offset + limit < total`）。 |
 
 ```python Python
 import requests
@@ -64,6 +86,31 @@ r = requests.get(
 )
 print(r.json())
 ```
+
+## 删除记录（被遗忘权）
+
+```http
+DELETE /v1/data?user=alice&indicator=fasting_glucose
+Authorization: Bearer mb_live_*
+```
+
+删除某个数据主体(Subject)的结构化记录。`indicator` 可选 —— 省略时会清除该用户的**全部**结构化记录。
+
+| 查询参数 | 说明 |
+| --- | --- |
+| `user` | 要删除其数据的数据主体(Subject)。省略则指向账号的默认 Subject。 |
+| `indicator` | 可选，只删除该指标的记录；省略则删除全部。 |
+
+```bash
+curl -X DELETE "https://mcp.thetahealth.cn/v1/data?user=alice&indicator=fasting_glucose" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+要清空某个用户的**全部数据与文件**（结构化记录 + 上传文件），请使用 `DELETE /v1/subjects/{user}`（详见[文件 → 删除文件](/zh/api-reference/files)）。
+
+<Note>
+删除类端点需要带有 `data:delete`（或 `data:write`）scope 的密钥。
+</Note>
 
 <Note>
 对于不应持久化的一次性数据，请将其作为 `health_context` 内联附加到对话请求中、并设 `retention="none"`，而不要写到这里 —— 详见[对话 → 内联数据](/zh/api-reference/chat#inline-health-context)。

@@ -13,6 +13,12 @@ You create keys, watch usage, and try an interactive Playground in the [develope
 https://mcp.thetahealth.cn/v1
 ```
 
+There's also a **test cluster** for integration testing — its data is non-production and may be reset at any time, so never put real end-user data there:
+
+```text
+https://test-mcp.thetahealth.cn/v1
+```
+
 Authenticate every call with an `mb_live_*` key — see [Authentication](#authentication). A global region is **coming soon**; see [Regions](/en/cloud/regions/overview).
 
 ## Authentication
@@ -34,6 +40,10 @@ Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body
 | **Mirobody extensions** | `retention`, `session_id`, `health_context`, `mcp_servers`, `include_tool_steps` |
 | **Response** | `choices[0].message.content` (+ `reasoning_content`, `tool_steps`), `usage`, plus top-level `health_records` / `citations` |
 
+<Note>
+**Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced** — the agent controls output length. `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. `n` must be `1`; any other value returns `400`.
+</Note>
+
 ## Multi-tenancy: the `user` field
 
 Every request carries a `user` string — the **tenant-isolation key**. The backend maps `(your account, user)` to an internal **Subject**; each `user` you pass is fully isolated from the others. Pass each end-user's stable id as `user` and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are not consumer accounts — they're invisible to the Mirobody app and to other developers.
@@ -47,9 +57,14 @@ Anything you supply (structured records, uploaded files, inline `health_context`
 | `permanent` (default) | Kept until explicitly deleted | Permanent |
 | `session` | Bound to `session_id`, dropped when the session ends | ≤ 24h, or `DELETE /v1/sessions/{id}` |
 | `1d` | Auto-deleted within a day | ≤ 24h |
+| `6h` | Auto-deleted 6 hours after write | ≤ 6h |
+| `2h` | Auto-deleted 2 hours after write | ≤ 2h |
+| `1h` | Auto-deleted 1 hour after write | ≤ 1h |
 | `none` | Used for this request only, never persisted | Deleted in `finally` |
 
-`none` is meant for inline `health_context` (use-and-forget). On `POST /v1/data`, `none` is upgraded to `permanent` (writing to the store but asking not to store is contradictory). The agent **only ever reads the Subject's currently-unexpired data**.
+Accepted values are `permanent` | `1h` | `2h` | `6h` | `1d` | `session` | `none`. Any time-bounded grain is hard-capped at **≤ 24h**.
+
+`none` is meant for inline `health_context` (use-and-forget). On `POST /v1/data` it is **rejected with HTTP `400`** (writing to the store but asking not to store is contradictory) — to use-and-forget structured data, attach it as `health_context` with `retention=none` on `POST /v1/chat/completions` instead. The agent **only ever reads the Subject's currently-unexpired data**.
 
 ## Citations
 
@@ -75,6 +90,8 @@ Errors use the OpenAI-style envelope:
 | `401` | Missing or invalid `mb_live_*` key |
 | `404` | Unknown resource (e.g. file_key / session_id) |
 | `429` | Rate limit — see [Rate Limits](/en/cloud/rate-limits) |
+| `500` | `internal_error` — an unexpected server-side failure |
+| `502` | Upstream agent error — transient; retry with backoff |
 
 In **streaming**, an upstream failure arrives as an SSE error frame before the stream ends.
 

@@ -9,8 +9,16 @@ Mirobody 的托管 API **兼容 OpenAI**。把任意 OpenAI SDK 指向下方的 
 
 ## Base URL
 
+生产环境：
+
 ```text
 https://mcp.thetahealth.cn/v1
+```
+
+测试集群（用于集成测试，数据为非生产、可能被重置）：
+
+```text
+https://test-mcp.thetahealth.cn/v1
 ```
 
 每次调用都用 `mb_live_*` 密钥鉴权 —— 见[鉴权](#authentication)。全球区域**即将上线**；详见[区域](/zh/cloud/regions/overview)。
@@ -34,6 +42,10 @@ https://mcp.thetahealth.cn/v1
 | **Mirobody 扩展** | `retention`、`session_id`、`health_context`、`mcp_servers`、`include_tool_steps` |
 | **响应** | `choices[0].message.content`（外加 `reasoning_content`、`tool_steps`）、`usage`，以及顶层 `health_records` / `citations` |
 
+<Note>
+**采样参数的处理方式。** `max_tokens` 为兼容 OpenAI 而被接受，但**不强制生效** —— 输出长度由智能体自行决定。`n` 必须为 `1`，传入其它值会返回 `400`。`temperature`、`top_p`、`stop`、`seed` 等参数会被接受但**忽略**。
+</Note>
+
 ## 多租户：`user` 字段
 
 每个请求都携带一个 `user` 字符串 —— 即**多租户隔离键**。后端将 `(你的账户, user)` 映射到一个内部**数据主体(Subject)**；你传入的每个 `user` 都与其他 `user` 完全隔离。把每个终端用户的稳定 id 作为 `user` 传入，他们的数据就永远不会互相串通。省略它，调用会回退到你账户的默认数据主体(Subject)。数据主体(Subject)不是消费者账户 —— 它们对 Mirobody 应用以及其他开发者都不可见。
@@ -45,11 +57,14 @@ https://mcp.thetahealth.cn/v1
 | `retention` | 含义 | 生命周期 |
 | --- | --- | --- |
 | `permanent`（默认） | 保留至显式删除 | 永久 |
-| `session` | 绑定到 `session_id`，会话结束时丢弃 | ≤ 24h，或 `DELETE /v1/sessions/{id}` |
+| `1h` / `2h` / `6h` | 写入后约这么多小时自动删除 | ≤ 24h |
 | `1d` | 一天内自动删除 | ≤ 24h |
+| `session` | 绑定到 `session_id`，会话结束时丢弃 | ≤ 24h，或 `DELETE /v1/sessions/{id}` |
 | `none` | 仅用于本次请求，永不持久化 | 在 `finally` 中删除 |
 
-`none` 适用于内联 `health_context`（用完即弃）。在 `POST /v1/data` 上，`none` 会被升级为 `permanent`（写入存储却要求不存储是自相矛盾的）。智能体**只会读取数据主体(Subject)当前未过期的数据**。
+可取值为：`permanent` | `1h` | `2h` | `6h` | `1d` | `session` | `none`。除 `permanent` 外，留存数据的硬上限始终为 **24 小时**。
+
+`none` 适用于内联 `health_context`（用完即弃）。在 `POST /v1/data` 上，`none` 会被**拒绝并返回 `HTTP 400`**（写入存储却要求不存储是自相矛盾的）—— 用完即弃的数据请改为在 `POST /v1/chat/completions` 上以 `health_context` + `retention=none` 内联附带。智能体**只会读取数据主体(Subject)当前未过期的数据**。
 
 ## 引用
 
@@ -75,6 +90,8 @@ https://mcp.thetahealth.cn/v1
 | `401` | 缺少或无效的 `mb_live_*` 密钥 |
 | `404` | 未知资源（如 file_key / session_id） |
 | `429` | 速率限制 —— 详见[速率限制](/zh/cloud/rate-limits) |
+| `500` | `internal_error` —— 服务端内部错误 |
+| `502` | 上游智能体错误 —— 通常是瞬时的，请退避后重试 |
 
 在**流式**传输中，上游故障会在流结束前以 SSE 错误帧的形式到达。
 

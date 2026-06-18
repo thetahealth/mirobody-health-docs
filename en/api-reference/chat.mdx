@@ -69,11 +69,15 @@ console.log(resp.choices[0].message.content);
 | `messages` | array | OpenAI `{role, content}`. A `system` message is folded into the last user turn as a caller instruction (see [System prompts](#system-prompts)). |
 | `stream` | bool | `true` → SSE stream of `chat.completion.chunk` frames. |
 | `user` | string | Tenant-isolation key → a Subject. Pass each end-user's stable id. See [multi-tenancy](/en/api-reference/overview#multi-tenancy-the-user-field). |
-| `retention` | string | `permanent` (default) / `session` / `1d` / `none` — applies to any `health_context` you attach. |
+| `retention` | string | `permanent` (default) / `1h` / `2h` / `6h` / `1d` / `session` / `none` — applies to any `health_context` you attach. The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). |
 | `session_id` | string | Required when `retention=session`; also threads multi-turn context. |
 | `health_context` | array | Inline health records for this request, handled per `retention`. See [Inline data](#inline-health-context). |
 | `mcp_servers` | array | Bring-your-own remote MCP tools `{name, url, access_token?}`. See [Bring Your Own Tools](/en/api-reference/mcp-servers). |
 | `include_tool_steps` | bool | Return detailed `tool_steps` (default `false`). When `false`, `tool_steps[].result` is truncated to 2000 chars. |
+
+<Note>
+**Sampling parameters.** For OpenAI compatibility the request accepts `max_tokens`, `n`, `temperature`, `top_p`, `stop`, and `seed`, but the agent governs its own generation: `max_tokens` is **not enforced** (the agent controls output length), `temperature` / `top_p` / `stop` / `seed` are accepted but **ignored**, and `n` must be `1` — any other value returns `400`.
+</Note>
 
 ## Response
 
@@ -93,7 +97,7 @@ console.log(resp.choices[0].message.content);
       "reasoning_content": "Searching health indicators for fasting glucose ...",  // optional
       "tool_steps": [                                                              // optional, ordered
         { "id": "call_abc", "type": "tool_call", "name": "search_health_indicators",
-          "arguments": { "keywords": ["fasting glucose"] },
+          "arguments": null,
           "result": "{...}", "status": "ok" }
       ]
     }
@@ -108,11 +112,16 @@ console.log(resp.choices[0].message.content);
 | --- | --- |
 | `message.content` | Final answer only (the "reply" channel). |
 | `message.reasoning_content` | Gather-phase thinking text (DeepSeek/Qwen convention). |
+| `message.reasoning_steps[]` | Legacy structured trace of the gather phase: `{type, thought/tool}` entries, kept for back-compat. Prefer `reasoning_content` (free text) and `tool_steps` (tool calls) for new code. |
 | `message.tool_steps[]` | Each tool call: `{id, type, name, arguments, result, status}`, merged by `id`. |
 | `health_records` / `citations` | Traceable record references the answer relied on. |
 | `usage` | Token accounting. |
 
-`reasoning_content` and `tool_steps` are optional, additive channels — clients that only read `message.content` keep working.
+`reasoning_content`, `reasoning_steps`, and `tool_steps` are optional, additive channels — clients that only read `message.content` keep working.
+
+<Note>
+`tool_steps[].arguments` is currently always `null` — the built-in agent does not surface tool arguments; rely on `name` + `result`.
+</Note>
 
 ## Streaming
 
@@ -122,7 +131,6 @@ With `stream: true`, frames arrive in order — tool/thinking deltas first, then
 {"delta":{"role":"assistant"}}
 {"delta":{"reasoning_content":"<fragment>"}}
 {"delta":{"tool_steps":[{"id":"call_abc","name":"search_health_indicators","status":"running"}]}}
-{"delta":{"tool_steps":[{"id":"call_abc","arguments":{...}}]}}
 {"delta":{"tool_steps":[{"id":"call_abc","status":"ok","result":"..."}]}}
 {"delta":{"content":"<answer fragment>"}}
 {"delta":{},"finish_reason":"stop","usage":{...}}

@@ -13,9 +13,25 @@ Authorization: Bearer mb_live_*
 结束一个会话，并**立即删除**在该会话下以 `retention=session` 写入的所有数据。当终端用户结束一段对话、而你不希望其内联数据继续残留时使用它。
 
 ```bash
-curl -X DELETE https://mcp.thetahealth.cn/v1/sessions/sess_abc123 \
+curl -X DELETE "https://mcp.thetahealth.cn/v1/sessions/sess_abc123?user=alice" \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
+
+<Note>
+删除会话时请带上写入该会话数据时所用的**同一个** `user`；省略则指向账号的默认 Subject。
+</Note>
+
+响应：
+
+```json
+{ "session_id": "sess_abc123", "deleted": 4, "subject": "alice" }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `session_id` | 被结束的会话 id。 |
+| `deleted` | 被清除的记录 / 文件条数。 |
+| `subject` | 实际操作的数据主体(Subject)（解析自 `user`）。 |
 
 ## 会话如何工作
 
