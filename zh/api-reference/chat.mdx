@@ -39,8 +39,9 @@ resp = client.chat.completions.create(
     extra_body={"include_tool_steps": True},    # Mirobody extensions go in extra_body
 )
 print(resp.choices[0].message.content)
-# resp.choices[0].message.reasoning_content     # gather-phase thinking
-# resp.choices[0].message.tool_steps            # search / fetch / eval trace
+# resp.choices[0].message.reasoning_content     # deep-thinking (CoT) detail
+# resp.choices[0].message.reasoning_steps        # tool-call trace
+# resp.choices[0].message.tool_steps            # search / fetch / eval detail
 ```
 
 ```javascript Node.js (OpenAI SDK)
@@ -94,7 +95,7 @@ console.log(resp.choices[0].message.content);
     "message": {
       "role": "assistant",
       "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
-      "reasoning_content": "Searching health indicators for fasting glucose ...",  // optional
+      "reasoning_content": "Let me pull the last 30 days of fasting glucose and compute the trend ...",  // deep-thinking (CoT), optional
       "tool_steps": [                                                              // optional, ordered
         { "id": "call_abc", "type": "tool_call", "name": "search_health_indicators",
           "arguments": null,
@@ -111,13 +112,13 @@ console.log(resp.choices[0].message.content);
 | 通道 | 内容 |
 | --- | --- |
 | `message.content` | 仅最终回答（"答复"通道）。 |
-| `message.reasoning_content` | 采集阶段的思考文本（DeepSeek/Qwen 约定）。 |
-| `message.reasoning_steps[]` | 旧版结构化推理轨迹：`{type, thought/tool}`。为向后兼容而保留，新接入请优先使用 `reasoning_content` 与 `tool_steps`。 |
+| `message.reasoning_content` | 模型的**深度思考**（thinking / CoT）过程细节。 |
+| `message.reasoning_steps[]` | **工具调用**轨迹 —— 采集阶段调用了哪些工具（`{type:"tool_call", tool}` 条目）。 |
 | `message.tool_steps[]` | 每次工具调用：`{id, type, name, arguments, result, status}`，按 `id` 合并。 |
 | `health_records` / `citations` | 回答所依据的可追溯记录引用。 |
 | `usage` | Token 计量。 |
 
-`reasoning_content` 与 `tool_steps` 是可选的附加通道 —— 只读取 `message.content` 的客户端仍可正常工作。
+`reasoning_content`、`reasoning_steps` 与 `tool_steps` 都是可选的附加通道 —— 只读取 `message.content` 的客户端仍可正常工作。
 
 <Note>
 `tool_steps[].arguments` 目前恒为 `null`（内置智能体不暴露工具入参）；请使用 `name` 与 `result` 来理解每一步在做什么。
