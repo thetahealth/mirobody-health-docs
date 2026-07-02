@@ -15,7 +15,7 @@ Mirobody is **global-first**. The live integration environment today is the glob
 https://test-mirobody-api.thetahealth.ai/v1
 ```
 
-Its data is non-production and may be reset at any time, so never put real end-user data there. Production (`https://mirobody-api.thetahealth.ai/v1`) and the **China** cluster (`https://mirobody-api.thetahealth.cn/v1`) are provisioning — see [Regions](/en/cloud/regions/overview) for the full host matrix and live status.
+Its data is non-production and may be reset at any time, so never put real end-user data there. Production (`https://mirobody-api.thetahealth.ai/v1`) and the **China** cluster (`https://mirobody-api.thetahealth.cn/v1`) are provisioning — see [Regions](/en/api-reference/regions/overview) for the full host matrix and live status.
 
 Authenticate every call with an `mb_live_*` key — see [Authentication](#authentication).
 
@@ -93,7 +93,7 @@ Errors use the OpenAI-style envelope:
 | `401` | `null` | Missing or malformed `Authorization` header |
 | `401` | `invalid_api_key` | Bad or revoked `mb_live_*` key |
 | `404` | — | Unknown resource (e.g. `file_key` / `session_id`) |
-| `429` | — | Rate limit — see [Rate Limits](/en/cloud/rate-limits) |
+| `429` | — | Rate limit — see [Rate Limits](/en/api-reference/rate-limits) |
 | `500` | `internal_error` | Unexpected server-side failure |
 | `502` | — | Upstream agent error — transient; retry with backoff |
 

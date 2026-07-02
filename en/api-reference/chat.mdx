@@ -162,7 +162,9 @@ A `system` message sets the tone, persona, format, and language of the answer. D
 
 ## Built-in tools
 
-You don't call these — the agent invokes them as needed, against the Subject's data. The current hosted catalog is:
+The hosted agent is built on **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)**, so beyond plain tool-calling it can **plan** multi-step work (`write_todos`), **delegate** to sub-agents (`task`), keep a **virtual filesystem** (reading your uploaded files from `/uploads`, past uploads from `/library`, and its own **cross-session memory** under `/memories`), and **pause for input** (human-in-the-loop). You don't invoke any of this — the agent does, against the Subject's data.
+
+The **public tool catalog** — what `GET /api/health` reports as `tool_names`:
 
 - `search_health_indicators`, `fetch_health_data` — find and read the Subject's records
 - `record_health_indicator` — write a new structured reading
@@ -170,9 +172,9 @@ You don't call these — the agent invokes them as needed, against the Subject's
 - `list_fhir_resources`, `write_fhir_observation` — read / write FHIR resources
 - `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence
 - `fetch_url` — read a web page
-- `ask_user` — pause and ask a clarifying question (surfaces as an interrupt in the stream)
+- `ask_user` — pause and ask a clarifying question (surfaces as an interrupt in the stream — see [Streaming](#streaming))
 
-The exact set varies by cluster and deployment — call the public `GET /api/health` on your cluster to see its live `tool_names` and `agent_names`. Files you upload via [`/v1/files`](/en/api-reference/files) are read by the agent automatically. To add your own tools, attach remote MCP servers via [`mcp_servers`](/en/api-reference/mcp-servers).
+The deep-agents **harness tools** — `write_todos`, `task`, and the filesystem tools (`ls` / `read_file` / `write_file` / `edit_file` / `glob` / `grep`) — are used internally and are **not** listed in `tool_names`. The public set can vary by cluster; call `GET /api/health` for the live `tool_names` and `agent_names`. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically. To add your own tools, attach remote MCP servers via [`mcp_servers`](/en/api-reference/mcp-servers).
 
 ## Charts (vis-chart)
 

@@ -126,7 +126,7 @@ Because the core runs on-device or self-hosted, personal health data never has t
 - **HIPAA** — run the model **fully on-device** (Gemma 4; the native apps' "On-device" provider), or route hosted models through a BAA-eligible surface: **Google Gemini via Vertex AI** (`GOOGLE_GENAI_USE_VERTEXAI=1` + `GCP_PROJECT` / `VERTEX_LOCATION`) or **OpenAI via Azure OpenAI** (`AZURE_OPENAI_ENDPOINT` + deployment + key). The public AI Studio / OpenAI-direct endpoints are not BAA-covered.
 - **GDPR** — self-host in your region and pin every outbound dependency to it: `VERTEX_LOCATION` / `VERTEX_BASE_URL` for Gemini, the Azure resource region for GPT, the object-storage region per backend, and `AZURE_BLOB_ENDPOINT_SUFFIX` for sovereign clouds.
 
-Care-circle sharing is opt-in and off by default, and the AI assistant is **read-only** over another member's data. See [Compliance](/en/cloud/compliance) for the managed-cloud posture.
+Care-circle sharing is opt-in and off by default, and the AI assistant is **read-only** over another member's data. See [Compliance](/en/api-reference/compliance) for the managed-cloud posture.
 
 ## Scaling
 
@@ -163,7 +163,7 @@ Also back up your `config.yml` (encrypted) and the object-storage bucket. Test r
   <Card title="Configuration" icon="gear" href="/en/configuration">
     Every production key in one place
   </Card>
-  <Card title="Compliance" icon="user-shield" href="/en/cloud/compliance">
+  <Card title="Compliance" icon="user-shield" href="/en/api-reference/compliance">
     HIPAA / GDPR posture
   </Card>
   <Card title="API Reference" icon="code" href="/en/api-reference/overview">

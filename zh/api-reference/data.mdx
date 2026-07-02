@@ -101,7 +101,7 @@ print(r.json())
 ## 删除数据
 
 <Note>
-`/v1` 中**尚不提供**显式删除端点 —— `DELETE /v1/data`、`DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上均未实现。如今，记录通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除：有时限的粒度（`1h`–`1d`）会自动删除，`session` 数据上限为 24 小时。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/cloud/compliance)。
+`/v1` 中**尚不提供**显式删除端点 —— `DELETE /v1/data`、`DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上均未实现。如今，记录通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除：有时限的粒度（`1h`–`1d`）会自动删除，`session` 数据上限为 24 小时。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/api-reference/compliance)。
 </Note>
 
 <Note>

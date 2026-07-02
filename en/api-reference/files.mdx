@@ -98,5 +98,5 @@ Returns the parsed text for one file — the same content the agent reads:
 ## Deleting files
 
 <Note>
-There is currently **no per-file or per-Subject delete endpoint** in `/v1` — `DELETE /v1/files/{file_key}` and `DELETE /v1/subjects/{user}` are **not yet available** on the current cluster. Today, time-bounded uploads are removed by **[retention](/en/api-reference/overview#data-retention) expiry** (hour grains auto-delete; `session` data is capped at 24h). For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/cloud/compliance).
+There is currently **no per-file or per-Subject delete endpoint** in `/v1` — `DELETE /v1/files/{file_key}` and `DELETE /v1/subjects/{user}` are **not yet available** on the current cluster. Today, time-bounded uploads are removed by **[retention](/en/api-reference/overview#data-retention) expiry** (hour grains auto-delete; `session` data is capped at 24h). For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/api-reference/compliance).
 </Note>

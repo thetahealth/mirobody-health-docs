@@ -162,7 +162,9 @@ resp = client.chat.completions.create(
 
 ## 内置工具
 
-这些工具你不必自己调用 —— 智能体会按需针对数据主体(Subject)的数据调用它们。当前托管环境的工具目录为：
+托管智能体基于 **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)** 构建，因此除了普通的工具调用之外，它还能**规划**多步任务（`write_todos`）、**委派**给子智能体（`task`）、维护一个**虚拟文件系统**（从 `/uploads` 读取你上传的文件、从 `/library` 读取历史上传、并在 `/memories` 下保存跨会话记忆），以及**暂停等待输入**（human-in-the-loop）。这些你都不必自己调用 —— 智能体会按需针对数据主体(Subject)的数据使用它们。
+
+**公开工具目录** —— 即 `GET /api/health` 返回的 `tool_names`：
 
 - `search_health_indicators`、`fetch_health_data` —— 查找并读取数据主体(Subject)的记录
 - `record_health_indicator` —— 写入一条新的结构化读数
@@ -170,9 +172,9 @@ resp = client.chat.completions.create(
 - `list_fhir_resources`、`write_fhir_observation` —— 读取 / 写入 FHIR 资源
 - `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 查询医学证据
 - `fetch_url` —— 读取一个网页
-- `ask_user` —— 暂停并提出澄清问题（在流中以中断（interrupt）的形式呈现）
+- `ask_user` —— 暂停并提出澄清问题（在流中以中断（interrupt）的形式呈现 —— 见[流式传输](#流式传输)）
 
-具体的工具集会因集群与部署而异 —— 在你的集群上调用公开的 `GET /api/health` 即可查看其实时 `tool_names` 与 `agent_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会被智能体自动读取。要添加你自己的工具，请通过 [`mcp_servers`](/zh/api-reference/mcp-servers) 接入远程 MCP 服务器。
+deep agents 的**框架内置工具** —— `write_todos`、`task`，以及文件系统工具（`ls` / `read_file` / `write_file` / `edit_file` / `glob` / `grep`）—— 供智能体内部使用，**不会**出现在 `tool_names` 中。公开工具集可能因集群而异；调用 `GET /api/health` 查看实时的 `tool_names` 与 `agent_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。要添加你自己的工具，请通过 [`mcp_servers`](/zh/api-reference/mcp-servers) 接入远程 MCP 服务器。
 
 ## 图表（vis-chart）
 

@@ -98,5 +98,5 @@ Authorization: Bearer mb_live_*
 ## 删除文件
 
 <Note>
-`/v1` 中目前**没有按文件或按数据主体(Subject)删除的端点** —— `DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上**尚不可用**。如今，有时限的上传通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除（小时粒度会自动删除；`session` 数据上限为 24 小时）。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/cloud/compliance)。
+`/v1` 中目前**没有按文件或按数据主体(Subject)删除的端点** —— `DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上**尚不可用**。如今，有时限的上传通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除（小时粒度会自动删除；`session` 数据上限为 24 小时）。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/api-reference/compliance)。
 </Note>

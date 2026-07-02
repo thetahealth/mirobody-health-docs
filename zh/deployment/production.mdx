@@ -126,7 +126,7 @@ curl https://api.yourdomain.com/api/health   # -> ok
 - **HIPAA** —— **完全在设备本地**运行模型（Gemma 4；原生应用的"设备本地"提供商），或把托管模型经 BAA 合格的通道路由：**Google Gemini 经 Vertex AI**（`GOOGLE_GENAI_USE_VERTEXAI=1` + `GCP_PROJECT` / `VERTEX_LOCATION`）或 **OpenAI 经 Azure OpenAI**（`AZURE_OPENAI_ENDPOINT` + 部署 + 密钥）。公开的 AI Studio / OpenAI 直连端点不在 BAA 覆盖范围内。
 - **GDPR** —— 在你所在区域自托管，并把每一个出站依赖固定到该区域：Gemini 用 `VERTEX_LOCATION` / `VERTEX_BASE_URL`，GPT 用 Azure 资源区域，对象存储按后端设定区域，主权云用 `AZURE_BLOB_ENDPOINT_SUFFIX`。
 
-健康圈分享是可选启用、默认关闭的，且 AI 助手对另一位成员的数据是**只读**的。托管云的合规姿态参见 [合规](/zh/cloud/compliance)。
+健康圈分享是可选启用、默认关闭的，且 AI 助手对另一位成员的数据是**只读**的。托管云的合规姿态参见 [合规](/zh/api-reference/compliance)。
 
 ## 扩容
 
@@ -163,7 +163,7 @@ curl https://api.yourdomain.com/api/health   # -> ok
   <Card title="配置" icon="gear" href="/zh/configuration">
     所有生产环境键集中一处
   </Card>
-  <Card title="合规" icon="user-shield" href="/zh/cloud/compliance">
+  <Card title="合规" icon="user-shield" href="/zh/api-reference/compliance">
     HIPAA / GDPR 姿态
   </Card>
   <Card title="API 参考" icon="code" href="/zh/api-reference/overview">

@@ -98,8 +98,8 @@
               {
                 "group": "Getting Started",
                 "pages": [
-                  "en/cloud/index",
-                  "en/cloud/quickstart"
+                  "en/api-reference/index",
+                  "en/api-reference/quickstart"
                 ]
               },
               {
@@ -124,12 +124,12 @@
               {
                 "group": "Regions & Integration",
                 "pages": [
-                  "en/cloud/regions/overview",
-                  "en/cloud/regions/china",
-                  "en/cloud/regions/global",
-                  "en/cloud/sdk-examples",
-                  "en/cloud/rate-limits",
-                  "en/cloud/compliance"
+                  "en/api-reference/regions/overview",
+                  "en/api-reference/regions/china",
+                  "en/api-reference/regions/global",
+                  "en/api-reference/sdk-examples",
+                  "en/api-reference/rate-limits",
+                  "en/api-reference/compliance"
                 ]
               }
             ]
@@ -215,8 +215,8 @@
               {
                 "group": "开始使用",
                 "pages": [
-                  "zh/cloud/index",
-                  "zh/cloud/quickstart"
+                  "zh/api-reference/index",
+                  "zh/api-reference/quickstart"
                 ]
               },
               {
@@ -241,12 +241,12 @@
               {
                 "group": "区域与接入",
                 "pages": [
-                  "zh/cloud/regions/overview",
-                  "zh/cloud/regions/china",
-                  "zh/cloud/regions/global",
-                  "zh/cloud/sdk-examples",
-                  "zh/cloud/rate-limits",
-                  "zh/cloud/compliance"
+                  "zh/api-reference/regions/overview",
+                  "zh/api-reference/regions/china",
+                  "zh/api-reference/regions/global",
+                  "zh/api-reference/sdk-examples",
+                  "zh/api-reference/rate-limits",
+                  "zh/api-reference/compliance"
                 ]
               }
             ]
@@ -293,7 +293,7 @@
     "primary": {
       "type": "button",
       "label": "Get Started",
-      "href": "/en/cloud"
+      "href": "/en/api-reference"
     }
   },
   "contextual": {

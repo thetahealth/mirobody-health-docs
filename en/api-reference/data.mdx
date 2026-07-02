@@ -101,7 +101,7 @@ The response does **not** currently return `total`, `limit`, or `offset` fields 
 ## Deleting data
 
 <Note>
-Explicit delete endpoints are **not yet available** in `/v1` — `DELETE /v1/data`, `DELETE /v1/files/{file_key}`, and `DELETE /v1/subjects/{user}` are not implemented on the current cluster. Today, records are removed by **[retention](/en/api-reference/overview#data-retention) expiry**: the time-bounded grains (`1h`–`1d`) auto-delete, and `session` data is capped at 24h. For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/cloud/compliance).
+Explicit delete endpoints are **not yet available** in `/v1` — `DELETE /v1/data`, `DELETE /v1/files/{file_key}`, and `DELETE /v1/subjects/{user}` are not implemented on the current cluster. Today, records are removed by **[retention](/en/api-reference/overview#data-retention) expiry**: the time-bounded grains (`1h`–`1d`) auto-delete, and `session` data is capped at 24h. For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/api-reference/compliance).
 </Note>
 
 <Note>
