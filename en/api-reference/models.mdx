@@ -19,7 +19,7 @@ Lists the capability tiers you can pass as `model` to [`/v1/chat/completions`](/
 | `mirobody-flash` | Default — fast, low cost | Everyday health Q&A, high concurrency |
 | `mirobody-expert` | Deeper reasoning | Complex report interpretation, multi-step analysis |
 
-Each tier maps to an internal provider at runtime; bare provider names may also pass through for advanced use. Billing is per **actual token usage**, settled in CNY — unit prices come from runtime config, and the console usage page is the source of truth. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
+Billing is per **actual token usage**, settled in CNY — unit prices come from runtime config, and the console usage page is the source of truth. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
 
 ## Example
 
@@ -40,17 +40,4 @@ for m in client.models.list().data:
 
 ## Response
 
-`GET /v1/models` currently returns the **underlying provider model id(s)** the tiers map to — not the friendly tier names. On the live test cluster it's a single entry:
-
-```json
-{
-  "object": "list",
-  "data": [
-    { "id": "dashscope/deepseek-v4-flash", "object": "model", "owned_by": "dashscope" }
-  ]
-}
-```
-
-<Note>
-Don't derive your `model` value from this list. Always pass one of the stable **request** tiers — `mirobody-flash` (default) or `mirobody-expert` — to [`/v1/chat/completions`](/en/api-reference/chat), regardless of what `/v1/models` reports. The listing reflects the current backend mapping and may change.
-</Note>
+An OpenAI-style `{ "object": "list", "data": [ … ] }`. For your `model` value, always pass a stable tier — `mirobody-flash` (default) or `mirobody-expert`.
