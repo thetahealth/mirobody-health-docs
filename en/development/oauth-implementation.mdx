@@ -1,211 +1,118 @@
 ---
-title: "OAuth Implementation"
-description: "Implementing OAuth 1.0 and OAuth 2.0 flows for provider integrations"
+title: "OAuth in Vendor Clients"
+description: "How the C++ vendor clients handle OAuth 2.0 authorization, PKCE, webhooks, and revocation."
 ---
 
 ## Overview
 
-Health device providers use OAuth for secure user authorization. Mirobody supports both OAuth 1.0 and OAuth 2.0 protocols.
+Most health-data sources authorize with **OAuth 2.0**. In Mirobody this is handled inside each C++ `vendor::Vendor` via three contract operations — `authorize_url`, `handle_webhook`, `revoke` — plus, for browser-driven SMART-on-FHIR EHRs, a separate stateful connect service. There is no `OAuth1Session` / `aiohttp` provider code any more.
 
-<CardGroup cols={2}>
-  <Card title="OAuth 1.0" icon="key">
-    Used by: Garmin, Fitbit (legacy)
-  </Card>
-  <Card title="OAuth 2.0" icon="lock">
-    Used by: Whoop, Apple Health, most modern APIs
-  </Card>
-</CardGroup>
+<Info>
+Two OAuth roles exist in the codebase, don't confuse them:
+- **`src/oauth/`** — Mirobody as an OAuth 2.0 **authorization server** (it issues tokens to API clients; OIDC discovery + PKCE).
+- **Vendor clients** — Mirobody as an OAuth **client** *of* a health source (Fitbit, an EHR, …). This page is about the client side.
+</Info>
 
-## OAuth 2.0 Implementation
+## OAuth 2.0 — the `authorize_url` step
 
-Most modern health APIs use OAuth 2.0. Here's how to implement it:
+`authorize_url` builds the consent URL you redirect the user to. It's **pure string construction** — no network call. Fitbit (`device/fitbit.cpp`) is the reference: a confidential server client authenticates with its secret at the token step, so **PKCE is not used** here.
 
-### 1. Initiate Authorization
-
-```python
-async def link(self, user_id: str, return_url: str = None) -> Dict:
-    """Initiate OAuth 2.0 authorization"""
-    # Generate state parameter for CSRF protection
-    state = self._generate_state()
-    await self._store_state(user_id, state, return_url)
-    
-    # Build authorization URL
-    auth_params = {
-        "client_id": self.client_id,
-        "response_type": "code",
-        "redirect_uri": self.redirect_url,
-        "scope": self.scopes,
-        "state": state
+```cpp
+std::string authorize_url(const std::string& redirect_uri, const std::string& state,
+                          const std::string& /*user_id*/, const std::string& /*provider*/) override {
+    if (config().client_id.empty()) {
+        throw VendorError(info_.id + ": authorize_url requires an OAuth client_id — set "
+                          "MIROBODY_VENDOR_FITBIT_CLIENT_ID");
     }
-    
-    auth_url = f"{self.auth_url}?{urlencode(auth_params)}"
-    
-    return {
-        "link_web_url": auth_url,
-        "state": state
-    }
+    std::string url = "https://www.fitbit.com/oauth2/authorize"
+                      "?response_type=code&client_id=" + url_encode(config().client_id) +
+                      "&scope=" + url_encode("activity heartrate sleep weight profile");
+    if (!redirect_uri.empty()) url += "&redirect_uri=" + url_encode(redirect_uri);
+    if (!state.empty())        url += "&state=" + url_encode(state);
+    return url;
+}
 ```
 
-### 2. Handle Callback
+- `state` is your correlation / CSRF value, echoed back on the callback.
+- The **token exchange** (`code` → access token at the vendor's `/oauth2/token`) happens out of band; the resulting access token is what you store as `MIROBODY_VENDOR_<ID>_API_KEY` and pass on `fetch`.
 
-```python
-async def callback(self, user_id: str, code: str, state: str, **kwargs) -> Dict:
-    """Handle OAuth callback and exchange code for tokens"""
-    # Verify state parameter
-    stored_state = await self._get_stored_state(user_id)
-    if state != stored_state:
-        raise ValueError("Invalid state parameter")
-    
-    # Exchange authorization code for access token
-    token_data = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": self.redirect_url,
-        "client_id": self.client_id,
-        "client_secret": self.client_secret
-    }
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.post(self.token_url, data=token_data) as resp:
-            tokens = await resp.json()
-    
-    # Store tokens securely
-    await self._store_tokens(user_id, tokens)
-    
-    return {"success": True, "message": "Provider linked successfully"}
+## Revocation
+
+`revoke` drops the grant. Fitbit POSTs the token to `/oauth2/revoke` authenticated as the confidential client (HTTP Basic `client_id:client_secret`):
+
+```cpp
+req.url     = base_url() + "/oauth2/revoke";
+req.body    = "token=" + url_encode(config().api_key);
+req.headers = { "Authorization: Basic " +
+                storage::base64_encode(config().client_id + ":" + config().client_secret) };
 ```
 
-### 3. Token Refresh
+Garmin's `revoke` instead calls its documented account-disconnect hook (`DELETE /wellness-api/rest/user/registration`, Bearer). Withings has no public token-revoke endpoint, so its `revoke` is an honest stub.
 
-```python
-async def _refresh_token(self, user_id: str) -> Dict:
-    """Refresh expired access token"""
-    tokens = await self._get_tokens(user_id)
-    refresh_token = tokens.get("refresh_token")
-    
-    if not refresh_token:
-        raise ValueError("No refresh token available")
-    
-    token_data = {
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-        "client_id": self.client_id,
-        "client_secret": self.client_secret
-    }
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.post(self.token_url, data=token_data) as resp:
-            new_tokens = await resp.json()
-    
-    # Update stored tokens
-    await self._store_tokens(user_id, new_tokens)
-    
-    return new_tokens
+## Verifying webhooks
+
+When a source signs its webhook, verify it before trusting the body. Fitbit signs with `X-Fitbit-Signature = base64(HMAC-SHA1(raw_body))` keyed by `client_secret + "&"`; the client recomputes and compares in constant time:
+
+```cpp
+const std::string key = config().client_secret + "&";
+std::array<unsigned char, 20> mac = storage::hmac_sha1(key, body);
+if (!ct_equal(storage::base64_encode(mac.data(), mac.size()), sig)) {
+    throw VendorError(info_.id + ": webhook signature verification failed (X-Fitbit-Signature)");
+}
 ```
 
-## OAuth 1.0 Implementation
+If the signature scheme **isn't public** (as with Garmin's unsigned push), `handle_webhook` stays a stub — Mirobody won't fabricate a verification scheme.
 
-Some providers (like Garmin) use OAuth 1.0:
+## PKCE and stateful flows (SMART on FHIR, Garmin)
 
-### 1. Request Token
+Some flows need **PKCE**, where a `code_verifier` minted at authorize-time must be persisted and replayed at the token exchange. A bare `authorize_url` has nowhere to stash the verifier, so PKCE consent lives in a **stateful connect layer**, not in the vendor's `authorize_url`. That's why Garmin's `authorize_url` is a stub.
 
-```python
-async def link(self, user_id: str, return_url: str = None) -> Dict:
-    """Initiate OAuth 1.0 flow"""
-    from requests_oauthlib import OAuth1Session
-    
-    # Store return URL
-    if return_url:
-        await self._store_return_url(user_id, return_url)
-    
-    # Create OAuth1 session
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        callback_uri=self.redirect_url
-    )
-    
-    # Fetch request token
-    request_token = oauth.fetch_request_token(self.request_token_url)
-    
-    # Store request token temporarily
-    await self._store_request_token(user_id, request_token)
-    
-    # Build authorization URL
-    auth_url = oauth.authorization_url(self.auth_url)
-    
-    return {"link_web_url": auth_url}
-```
+The shipped example is the **SMART-on-FHIR EHR connect service** (`src/health/ehr_connect.*`), where Mirobody is an OAuth client of a hospital EHR:
 
-### 2. Access Token Exchange
+<Steps>
+  <Step title="Authorize">
+    `POST /health/ehr/authorize {fhir_base_url}` runs **SMART discovery** (`{base}/.well-known/smart-configuration`), generates the PKCE verifier + `state`, **caches** them, and returns the tenant's `authorize_url` for the browser.
+  </Step>
+  <Step title="Callback">
+    `GET /health/ehr/callback?code=&state=` — no bearer; the user is recovered from the single-use `state`. The cached verifier is replayed to exchange the `code` at the tenant's token endpoint, and the access token is cached per user.
+  </Step>
+  <Step title="Sync">
+    `POST /health/ehr/sync` uses the cached token to fetch `Observation`s via the `ehr` client and persists them.
+  </Step>
+</Steps>
 
-```python
-async def callback(self, user_id: str, oauth_token: str, oauth_verifier: str, **kwargs) -> Dict:
-    """Exchange verifier for access token"""
-    from requests_oauthlib import OAuth1Session
-    
-    # Retrieve request token
-    request_token = await self._get_request_token(user_id)
-    
-    # Create OAuth1 session with request token
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        resource_owner_key=request_token["oauth_token"],
-        resource_owner_secret=request_token["oauth_token_secret"],
-        verifier=oauth_verifier
-    )
-    
-    # Fetch access token
-    access_token = oauth.fetch_access_token(self.access_token_url)
-    
-    # Store access token
-    await self._store_tokens(user_id, access_token)
-    
-    return {"success": True}
-```
+Configured by the `SMART_FHIR_*` keys (client id / redirect uri / scope). PKCE generation itself is unit-tested (`tests/oauth/pkce_test.cpp`).
 
-## Security Best Practices
+## Security notes
 
 <AccordionGroup>
-  <Accordion title="Token Storage" icon="shield">
-    - **Encrypt tokens** before database storage
-    - Use secure key management (e.g., environment variables)
-    - Never log tokens or credentials
-    - Implement token rotation where supported
+  <Accordion title="Token storage" icon="shield">
+    Access tokens live in `VendorConfig.api_key`, sourced from `MIROBODY_VENDOR_<ID>_*`. Config values whose names contain `_KEY` / `_SECRET` / `_TOKEN` are auto-encrypted on load (Fernet). Never log tokens.
   </Accordion>
-
-  <Accordion title="State Parameters" icon="fingerprint">
-    For OAuth 2.0:
-    - Generate cryptographically random state
-    - Store state temporarily (10-15 minutes TTL)
-    - Verify state in callback
-    - Prevent CSRF attacks
+  <Accordion title="State / CSRF" icon="fingerprint">
+    Pass a random `state` to `authorize_url` and verify it on callback. The EHR connect service uses a single-use cached `state` that also carries the user binding.
   </Accordion>
-
-  <Accordion title="Error Handling" icon="triangle-exclamation">
-    - Handle expired tokens gracefully
-    - Retry failed requests with exponential backoff
-    - Log errors without exposing sensitive data
-    - Provide clear error messages to users
+  <Accordion title="Constant-time comparison" icon="clock">
+    Compare webhook signatures with a constant-time compare (`ct_equal`), never `==`.
+  </Accordion>
+  <Accordion title="Don't guess contracts" icon="triangle-exclamation">
+    No public signature scheme → stubbed webhook. No documented revoke → stubbed revoke. Honesty over fabrication.
   </Accordion>
 </AccordionGroup>
 
-## Complete Reference
-
-For detailed implementation with all required methods and patterns, see:
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Full Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
-    Complete provider integration guide in repository
+  <Card title="OAuth 2.0 Example (Fitbit)" icon="key" href="/en/examples/whoop-provider">
+    A full OAuth 2.0 device client
   </Card>
-  <Card title="Garmin Example" icon="code" href="/en/examples/garmin-provider">
-    OAuth 1.0 implementation example
+  <Card title="Garmin Example" icon="watch" href="/en/examples/garmin-provider">
+    Why PKCE / push stay stubs
   </Card>
-  <Card title="Whoop Example" icon="code" href="/en/examples/whoop-provider">
-    OAuth 2.0 implementation example
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Build a new `vendor::Vendor`
   </Card>
-  <Card title="Provider Testing" icon="flask" href="/en/development/provider-testing">
-    Testing strategies
+  <Card title="Using Providers" icon="link" href="/en/providers/using-providers">
+    The EHR connect flow end-to-end
   </Card>
 </CardGroup>

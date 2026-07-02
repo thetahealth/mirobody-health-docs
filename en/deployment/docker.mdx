@@ -1,135 +1,164 @@
 ---
 title: "Docker Deployment"
-description: "Deploy Mirobody using Docker and Docker Compose"
+description: "Build and run the Mirobody C++ engine with the shipped multi-stage Dockerfile."
 ---
 
 ## Overview
 
-Docker provides the easiest way to deploy Mirobody with all its dependencies in isolated containers.
+The repository ships a multi-stage `Dockerfile` that compiles the standalone `mirobody` binary and produces a slim runtime image:
 
-## Quick Deployment
+1. **builder** — Ubuntu 24.04 with the full build toolchain and dev headers; compiles the `mirobody` executable from the system package set (vcpkg is Windows-only; Linux uses CMake `find_package`).
+2. **runtime** — Ubuntu 24.04 with only the shared libraries the binary actually links (extracted via `ldd`), plus CA certificates for outbound TLS.
+
+The image bakes `config.example.yml` as the lowest-precedence defaults layer. Real settings come from environment variables or a `config.yml` you mount at `/app/config.yml`.
+
+<Info>
+There is no `docker compose` bundle for Postgres/Redis and no `deploy.sh` — those belonged to the old Python engine. You build one image and run it against your own database (and, optionally, Redis).
+</Info>
+
+## Build and run
 
 <Steps>
-  <Step title="Clone repository">
+  <Step title="Clone">
     ```bash
     git clone https://github.com/thetahealth/mirobody.git
     cd mirobody
     ```
   </Step>
 
-  <Step title="Configure">
+  <Step title="Build the image">
     ```bash
-    cp .env_example .env
-    cp config.example.yaml config.yaml
-    # Edit config.yaml with your settings
+    docker build -t mirobody:latest .
+    ```
+
+    The image links the **PostgreSQL** backend by default. Choose a different SQL backend with a build arg:
+
+    ```bash
+    docker build --build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY -t mirobody:legacy .
     ```
   </Step>
 
-  <Step title="Deploy">
+  <Step title="Prepare config.yml">
     ```bash
-    ./deploy.sh
+    cp config.example.yml config.yml
     ```
 
-    Or manually:
-    ```bash
-    docker-compose up -d
+    Edit `config.yml` and set at least one LLM key plus your database connection (see [Database backend](#database-backend)):
+
+    ```yaml config.yml
+    GOOGLE_API_KEY: 'AIza...'      # or OPENAI_API_KEY
+
+    PG_HOST: 'host.docker.internal'   # a Postgres reachable from the container
+    PG_PORT: 5432
+    PG_USER: 'postgres'
+    PG_DBNAME: 'mirobody'
+    PG_PASSWORD: '...'
+    PG_ENCRYPTION_KEY: '...'
     ```
+  </Step>
+
+  <Step title="Run">
+    The image sets `HTTP_PORT=80` internally and runs as an unprivileged user. Mount your config over the baked template:
+
+    ```bash
+    docker run -p 80:80 \
+      -v $PWD/config.yml:/app/config.yml \
+      mirobody:latest
+    ```
+
+    The container listens on port 80; the example maps host port 80 to it. Open <a href="http://localhost">http://localhost</a>.
   </Step>
 
   <Step title="Verify">
     ```bash
-    curl http://localhost:18080/health
+    curl http://localhost/api/health   # -> ok
     ```
   </Step>
 </Steps>
 
-## Docker Compose Services
+<Note>
+Precedence inside the container is: environment variables → mounted `config.yml` → remote config → baked `config.example.yml`. You can therefore configure entirely via `-e` env vars instead of a file, e.g. `-e GOOGLE_API_KEY=... -e PG_HOST=...`.
+</Note>
 
-The deployment includes three services:
+## Database backend
 
-| Service | Port | Description |
-|---------|------|-------------|
-| backend | 18080 | FastAPI application server |
-| postgres | 5432 | PostgreSQL database |
-| redis | 6379 | Redis cache and session store |
+The SQL backend is compiled **into** the binary, so it is fixed at image-build time.
 
-## Configuration
+| Backend | When to use | How |
+| ------- | ----------- | --- |
+| **PostgreSQL** | Server / multi-user (the desktop default) | Default image; point `PG_*` at your database |
+| **SQLite** | Self-contained, single-file, no external DB | Build with `--build-arg MIROBODY_DATABASE_BACKEND=SQLITE` |
+| PostgreSQL (legacy schema) | Existing `res/sql/pg_legacy` deployments | `--build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY` |
 
-### Environment Variables
+<Tip>
+The shipped `Dockerfile` installs `libpq-dev` for the PostgreSQL backends. To build MySQL / DuckDB images, add the matching `-dev` package to the `apt-get install` line in the Dockerfile first.
+</Tip>
 
-```bash .env
-# Database
-POSTGRES_USER=holistic_user
-POSTGRES_PASSWORD=your_secure_password
-POSTGRES_DB=holistic_db
+## Cache (optional)
 
-# Redis
-REDIS_PASSWORD=your_redis_password
-```
+The server uses an in-process in-memory cache by default — no Redis needed for a single instance. To share cache state across replicas, run a Redis and set `REDIS_HOST` (and `REDIS_PORT` / `REDIS_PASSWORD`) in your config or via env vars.
 
-### Docker Compose Override
+## Configuration via environment variables
 
-Create `docker-compose.override.yml` for local customizations:
-
-```yaml docker-compose.override.yml
-version: '3.8'
-
-services:
-  backend:
-    environment:
-      - LOG_LEVEL=DEBUG
-    ports:
-      - "18081:18080"  # Custom port
-```
-
-## Management Commands
+Any config key can be overridden by an env var of the same name (highest precedence). Handy for secrets:
 
 ```bash
-# View logs
-docker-compose logs -f backend
-
-# Restart service
-docker-compose restart backend
-
-# Stop all services
-docker-compose down
-
-# Rebuild containers
-docker-compose build --no-cache
-
-# Execute command in container
-docker-compose exec backend python -c "print('Hello')"
+docker run -p 80:80 \
+  -e GOOGLE_API_KEY="AIza..." \
+  -e PG_HOST="db.internal" \
+  -e PG_PASSWORD="..." \
+  -e PG_ENCRYPTION_KEY="..." \
+  -e CONFIG_ENCRYPTION_KEY="..." \
+  mirobody:latest
 ```
 
-## Data Persistence
-
-Data is persisted in Docker volumes:
-
-- `pgdata`: PostgreSQL data
-- `redis-data`: Redis persistence
+## Management
 
 ```bash
-# Backup database
-docker-compose exec postgres pg_dump -U holistic_user holistic_db > backup.sql
+# Logs (the binary logs to stdout)
+docker logs -f <container>
 
-# Restore database
-docker-compose exec -T postgres psql -U holistic_user holistic_db < backup.sql
+# Stop (SIGTERM triggers a graceful shutdown)
+docker stop <container>
+
+# Shell into a running container
+docker exec -it <container> /bin/sh
 ```
+
+## Notes on the runtime image
+
+<AccordionGroup>
+  <Accordion title="Static assets and SQL live under /app" icon="folder-open">
+    The binary resolves `res/htdoc` (`HTTP_ROOT`) and `res/sql` relative to its working directory, so `res/` and `config.yml` sit next to the binary under `/app`. The web client is served at the container's port.
+  </Accordion>
+
+  <Accordion title="Node is present for Tanka login" icon="node">
+    The runtime image installs `nodejs` so the server can auto-discover the Tanka QR-login signer at boot. If you don't use Tanka, it's dead weight — set `TANKA_LOGIN_ENABLED=false` (or `TANKA_WASM_AUTODISCOVER=false`).
+  </Accordion>
+
+  <Accordion title="No Docker HEALTHCHECK" icon="heart-pulse">
+    The runtime image is libraries-only (no `curl`/`wget`), so there's no built-in `HEALTHCHECK`. Under Kubernetes, use an `httpGet` liveness/readiness probe against `/api/health`.
+  </Accordion>
+
+  <Accordion title="Optional document formats are off" icon="file">
+    The server image keeps PDF/OCR/`.xls` off to stay lean (`.xlsx` via xlnt is built in). To enable PDF/OCR, add the deps and CMake flags to the Dockerfile — see the comments in it and [File Processing](/en/concepts/file-processing).
+  </Accordion>
+</AccordionGroup>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Port conflicts" icon="network-wired">
-    Change port in `config.yaml` or `docker-compose.override.yml`
+  <Accordion title="Port conflict" icon="network-wired">
+    Remap the host side: `docker run -p 8080:80 …`, or change the internal port with `-e HTTP_PORT=8080` and map to that.
   </Accordion>
 
-  <Accordion title="Container won't start" icon="circle-exclamation">
-    Check logs: `docker-compose logs backend`
+  <Accordion title="Container exits immediately" icon="circle-exclamation">
+    Check `docker logs <container>` — the most common cause is a database it can't reach (`PG_HOST`) or a missing/invalid `PG_ENCRYPTION_KEY`. Bad connection settings fail startup by design.
   </Accordion>
 
-  <Accordion title="Database connection fails" icon="database">
-    Verify PostgreSQL is running: `docker-compose ps postgres`
+  <Accordion title="Can't reach a database on the host" icon="database">
+    From the container, the host is `host.docker.internal` (Docker Desktop) — set `PG_HOST` to that rather than `localhost`.
   </Accordion>
 </AccordionGroup>
 
-For production deployment, see [Production Deployment](/en/deployment/production).
+For production hardening, see [Production Deployment](/en/deployment/production).

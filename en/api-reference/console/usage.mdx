@@ -17,6 +17,6 @@ Authorization: Bearer <console_jwt>
 Returns request count, token totals, and cost (CNY) over the window. Billing is per **actual token usage**; the console is the source of truth for final cost. The console renders this as charts under **Usage**.
 
 ```bash
-curl "https://cdm.thetahealth.cn/api/console/usage?days=30" \
+curl "https://test-platform.mirobody.ai/api/console/usage?days=30" \
   -H "Authorization: Bearer $CONSOLE_JWT"
 ```

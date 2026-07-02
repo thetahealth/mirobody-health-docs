@@ -1,77 +1,94 @@
 ---
 title: "数据流"
-description: "了解健康数据如何在 Mirobody 系统中流转"
+description: "健康数据如何进入 Mirobody、以 FHIR R4 存储，并在聊天中到达 Agent。"
 ---
 
-## 数据流概览
+## 概览
 
-健康数据通过多个处理阶段，以确保所有提供商之间的一致性、质量和标准化。
+健康数据经三扇门进入 Mirobody，汇入一个**内嵌的 FHIR R4 存储**，并在聊天回合中由 agent 通过 **MCP 工具**读回。一切都运行在单一的 C++ 内核之内 —— 既可在服务器上独立运行，也可在移动 App 内于设备本地运行。
 
-## 完整流程
+```
+ ┌─ Vendors (server-to-server) ─┐
+ │  wearable / aggregator / EHR │──┐
+ └──────────────────────────────┘  │
+ ┌─ On-device stores ───────────┐   │        ┌───────────────┐        ┌──────────────┐
+ │  Apple Health / Health       │──►├──────► │  FHIR R4 store │ ◄────► │  Agent (chat)│
+ │  Connect → FHIR Observations │   │        │  (src/fhir)   │  MCP   │  src/chat    │
+ └──────────────────────────────┘  │        └───────────────┘  tools └──────────────┘
+ ┌─ File uploads ───────────────┐   │
+ │  PDF / Excel / CSV / images  │──┘
+ └──────────────────────────────┘
+```
+
+<Info>
+这不是旧版 Python 的 `StandardPulseData` → `th_series_data` 流水线。不再有 `pull_from_vendor_api` / `format_data` 这套 provider 方法链；当前模型是：各数据源把 FHIR 资源写入内嵌存储，agent 再通过工具读取它们。
+</Info>
+
+## 第一扇门 —— Vendor（服务端到服务端）
+
+对于拥有服务端 API 的数据源（可穿戴品牌、B2B 聚合器、EHR），一个 [`vendor::Vendor`](/zh/concepts/providers) 客户端会代表用户拉取数据。这条路径是所有权门控的：
 
 <Steps>
-  <Step title="数据采集">
-    提供商（Provider）使用经过 OAuth 身份验证的请求从厂商 API 拉取原始数据。
-    
-    ```python
-    raw_data = await provider.pull_from_vendor_api(
-        access_token, refresh_token, days=2
-    )
-    ```
+  <Step title="Bind">
+    用户记录其外部账号 id：`POST /vendors/{id}/bind` → 在 `user_vendor_accounts` 中生成一条 PENDING 关联。
   </Step>
-
-  <Step title="原始数据存储">
-    原始数据存储在数据库中，用于审计追踪和重新处理。
-    
-    ```python
-    await provider.save_raw_data_to_db(raw_data)
-    ```
+  <Step title="Verify">
+    通过该 vendor 的同意流程证明所有权：`POST /vendors/{id}/bind/verify` → 该关联被标记为 VERIFIED。一个 `UNIQUE(vendor_id, external_user_id)` 约束会阻止两名用户认领同一个账号。
   </Step>
-
-  <Step title="转换">
-    将厂商特定的数据转换为标准化格式。
-    
-    ```python
-    formatted_data = await provider.format_data(raw_data)
-    ```
-  </Step>
-
-  <Step title="平台上传">
-    标准化数据被上传到 Mirobody 平台。
-    
-    ```python
-    await push_service.push_data(platform="theta", data=formatted_data)
-    ```
-  </Step>
-
-  <Step title="可用性">
-    数据现在可用于查询、分析和 AI 处理。
+  <Step title="Fetch">
+    `GET /vendors/{id}/data?domain=&start=&end=` 解析已验证的关联，从配置构建 vendor 客户端，并调用 `Vendor::fetch(user_id, domain, start_iso, end_iso)`，返回该源的 JSON。
   </Step>
 </Steps>
 
-## 数据转换
+FHIR 原生的 vendor（通用 `ehr` SMART-on-FHIR 客户端，以及 Vitalera / HealthConnect / Redox / Particle Health / Metriport-Medical）已直接返回 FHIR R4 资源；其余则返回各 vendor 自己的 JSON。SMART-on-FHIR EHR 连接流程（`/health/ehr/authorize` → `/health/ehr/callback` → `/health/ehr/sync`）会获取 `Observation` 并逐条经 FHIR 存储持久化。
 
-转换阶段将厂商特定的格式转换为标准化的 `StandardPulseData` 格式：
+## 第二扇门 —— 设备本地存储（POST FHIR Observation）
 
-```python
-StandardPulseData(
-    metaInfo=StandardPulseMetaInfo(
-        userId="user_123",
-        requestId="req_abc",
-        source="theta",
-        timezone="America/Los_Angeles"
-    ),
-    healthData=[
-        StandardPulseRecord(
-            source="garmin",
-            type="HEART_RATE",
-            timestamp=1705276800000,
-            unit="count/min",
-            value=72.0,
-            timezone="America/Los_Angeles"
-        )
-    ]
-)
-```
+Apple Health、Samsung Health、Google Health Connect 以及小米**不暴露任何服务端 API**，因此它们没有 vendor 客户端。取而代之，**宿主 App 在设备本地通过平台 SDK 读取样本**（iOS 上的 Apple HealthKit；Android 上的 Health Connect + HMS Health Kit），将其映射为 FHIR `Observation`，并**写入内嵌的 FHIR R4 端点** —— 这是仅凭一个网页无法打开的那扇门，也正是原生 App 存在的理由。FHIR 写入模型刻意对齐了 Android Health Connect 的医疗记录规则。
 
-更多关于数据映射的细节，请参见 [数据映射指南](/zh/development/data-mapping)。
+## 第三扇门 —— 文件上传
+
+上传的文档（检验报告、电子表格、扫描件）由文档转码器分解为 LLM 可消费的片段，随后 LLM 在聊天中读取它们。上传的文件按用户存储；agent 用 `list_files` / `read_file` 这两个 MCP 工具列出并读取它们。参见[文件处理](/zh/concepts/file-processing)。
+
+<Note>
+文档 → 结构化指标 → FHIR 流水线（把一份报告解析为带编码的检验值并写回为 FHIR）尚在**进行中** —— 到 UCUM 的单位归一化与 RESTful FHIR 存储已上线；完整的术语映射与自动写回尚在计划中。*(verify against `src/fhir/README.md` phases.)*
+</Note>
+
+## 存储 —— 内嵌的 FHIR R4
+
+三扇门都汇聚到 `src/fhir/` 中内嵌的 FHIR R4 端点：
+
+- 资源以通用的、经校验的 JSON 形式，存储在一张可移植的 `fhir_resources(user_id, resource_type, resource_id, version_id, updated_at, deleted_at, content)` 表中，跨越编译进程序的任意 SQL 后端（移动端为 SQLite，桌面端为 PostgreSQL 等）。
+- 每个用户拥有**独立的资源空间**（单患者模型）；每条 FHIR 路由都需要一个 bearer JWT。
+- 单位由 `src/fhir/units/` 中的术语引擎归一化到 **UCUM**（`mg/dL`、`mmol/L`、`mm[Hg]` 等）。
+- 删除是软删除（之后再读会返回 `410 Gone`）。
+
+路由：`GET /fhir/metadata`、`POST /fhir`（batch Bundle），以及 `GET/POST/PUT/DELETE /fhir/{type}[/{id}]`。请求体为 `application/fhir+json`；错误以 `OperationOutcome` 返回。
+
+## 读回 —— Agent + MCP 工具
+
+当用户聊天时，那个单一的 agent（`src/chat/` + `res/agents/base.cpp`）会按 provider 挑选一个 LLM 客户端，构建系统提示词，并把这一回合流式返回 —— 按需调用 **MCP 工具**。与健康相关的工具：
+
+- **`family_health`** —— 只读地读取护理圈成员的 FHIR 数据，受其授予的共享级别门控。
+- **`list_files`** / **`read_file`** —— 枚举并读取用户上传的文档。
+- **`whoami`** —— 当前用户 / 主体。
+- **`render_chart`** —— 把数据转成图表。
+
+agent 从三扇门写入的、同一个按用户划分的 FHIR 存储中读取，因此无论来源如何，设备数据、EHR 记录与上传的文档都会作为一段统一的历史呈现。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Vendor 系统" icon="plug" href="/zh/concepts/providers">
+    `vendor::Vendor` 契约与四大类别
+  </Card>
+  <Card title="文件处理" icon="file" href="/zh/concepts/file-processing">
+    上传如何变成 LLM 可消费的片段
+  </Card>
+  <Card title="使用 Provider" icon="link" href="/zh/providers/using-providers">
+    关联一个可穿戴设备、聚合器或 EHR
+  </Card>
+  <Card title="API 参考" icon="book" href="/zh/api-reference/overview">
+    兼容 OpenAI 的 `/v1` 接口
+  </Card>
+</CardGroup>

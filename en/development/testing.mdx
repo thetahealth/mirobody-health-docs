@@ -1,116 +1,98 @@
 ---
 title: "Testing Guide"
-description: "Testing practices and guidelines for Mirobody"
+description: "How Mirobody's C++ test suite is structured and how to run it."
 ---
 
-## Testing Philosophy
+## Overview
 
-We believe in comprehensive testing to ensure reliability and maintainability. Our test suite includes:
+Mirobody's tests are **C++ unit tests written with [Catch2 v3](https://github.com/catchorg/Catch2)**, living under [`tests/`](https://github.com/thetahealth/mirobody/tree/main/tests) and compiled into a single `mirobody_tests` binary. They are built by default and discovered by CTest.
 
-- **Unit Tests**: Test individual components in isolation
-- **Integration Tests**: Test component interactions
-- **End-to-End Tests**: Test complete workflows
+<Info>
+This is a C++ suite, not `pytest`. (Some Python `.pyc` files linger in `tests/` from the old engine, but the live tests are the `*_test.cpp` files.)
+</Info>
 
-## Running Tests
+## Running tests
+
+Tests build as part of the normal build (the `MIROBODY_BUILD_TESTS` CMake option defaults to **ON**, except on Android / iOS):
 
 ```bash
-# Run all tests
-pytest
-
-# Run with verbose output
-pytest -v
-
-# Run specific test file
-pytest tests/test_provider_garmin.py
-
-# Run tests matching pattern
-pytest -k "test_oauth"
-
-# Run with coverage report
-pytest --cov=connect --cov-report=html
+./build.sh                      # builds the engine + tests
+ctest --test-dir build          # run the whole suite via CTest
 ```
 
-## Test Structure
+Or run the test binary directly and use Catch2's filtering:
 
-```
-tests/
-├── __init__.py
-├── conftest.py                    # Shared fixtures
-├── test_provider_garmin.py
-├── test_provider_whoop.py
-├── test_data_formatting.py
-└── fixtures/
-    ├── sample_responses.json
-    └── mock_data.py
+```bash
+./build/tests/mirobody_tests                 # all tests
+./build/tests/mirobody_tests "[fhir]"        # only the [fhir]-tagged tests
+./build/tests/mirobody_tests "[transcode]"   # only transcoder tests
 ```
 
-## Writing Tests
+<Note>
+On Windows the binary is `build\tests\mirobody_tests.exe`. The build dir name follows your backend selector (e.g. `build_sqlite/tests/mirobody_tests`).
+</Note>
 
-### Unit Test Example
+## Test layout
 
-```python
-import pytest
-from connect.theta.mirobody_garmin.provider_garmin import ThetaGarminProvider
+Tests mirror the `src/` module tree. Current coverage includes:
 
-@pytest.fixture
-def provider():
-    return ThetaGarminProvider()
+| Area | Tests |
+|------|-------|
+| **FHIR** | `tests/fhir/units_test.cpp` (UCUM normalization), `tests/fhir/resource_test.cpp` (resource validation) |
+| **Transcode** | `tests/transcode/document_test.cpp`, `tests/transcode/image_test.cpp`, `tests/transcode/file_test.cpp` |
+| **LLM clients** | `tests/llm/*` — SSE parser, OpenAI / Gemini / MiroThinker chat, realtime / live |
+| **MCP** | `tests/mcp/tool_test.cpp`, `tests/mcp/resource_test.cpp` (tool / resource registration) |
+| **Chat** | `tests/chat/agent_test.cpp`, `event_test.cpp`, `history_test.cpp`, `persist_test.cpp` |
+| **Infra** | `tests/cache/`, `tests/jwt/`, `tests/oauth/pkce_test.cpp`, `tests/storage/`, `tests/memory/`, `tests/circle/`, `tests/utils/` |
 
-@pytest.mark.asyncio
-async def test_provider_info(provider):
-    """Test provider metadata"""
-    info = provider.info
-    assert info.slug == "theta_garmin"
-    assert info.supported is True
+The test target links the self-registering objects (`mcp_tools`, `mcp_resources`, `agent_impls`) directly, the same way the app targets do — that's what lets the registration tests observe compiled-in tools and agents.
+
+## Writing a test
+
+Add a `*_test.cpp` under the matching `tests/<module>/` directory, then list it in [`tests/CMakeLists.txt`](https://github.com/thetahealth/mirobody/blob/main/tests/CMakeLists.txt) in the `add_executable(mirobody_tests ...)` sources.
+
+```cpp
+#include <catch2/catch_test_macros.hpp>
+#include "fhir/units/normalize.hpp"
+
+using namespace mirobody::fhir::units;
+
+TEST_CASE("UCUM normalization folds common spellings", "[fhir][units]") {
+    REQUIRE(normalize_unit("MG/DL") == "mg/dL");
+    REQUIRE(normalize_unit("mmHg")  == "mm[Hg]");
+
+    ParsedQuantity q = parse_value_unit("<5.6 mg/dL");
+    REQUIRE(q.comparator == "<");
+    REQUIRE(q.value == Catch::Approx(5.6));
+    REQUIRE(q.unit == "mg/dL");
+}
 ```
 
-### Integration Test Example
+Tag tests with `[module]` so they can be selected (`mirobody_tests "[units]"`).
 
-```python
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_complete_oauth_flow():
-    """Test complete OAuth flow"""
-    provider = ThetaGarminProvider()
-    
-    # Test link
-    request = MockRequest(user_id="test_user")
-    result = await provider.link(request)
-    assert "link_web_url" in result
-```
+## What the unit suite covers — and what it doesn't
 
-## Best Practices
+- **Pure / DB-free logic** (the units engine, the FHIR resource validator, SSE parsing, PKCE, JWT, HMAC signing) is covered by fast unit tests with no external dependencies.
+- **DB-backed paths** (the FHIR REST handlers, chat persistence) are exercised end-to-end against a **running server with a database**, not in the unit binary.
+- **Vendor clients** have **no unit tests** in the suite — they call live third-party APIs, so they're verified manually against a running server (see [Provider Testing](/en/development/provider-testing)). Their metadata (`VendorInfo`) is credential-free and could be asserted, but transport is validated by hand.
 
-<AccordionGroup>
-  <Accordion title="Test Naming" icon="signature">
-    - Use descriptive names: `test_oauth_link_generates_valid_url`
-    - Start with `test_`
-    - Group related tests in classes
-  </Accordion>
+## Continuous integration
 
-  <Accordion title="Fixtures" icon="flask">
-    - Use fixtures for common setup
-    - Keep fixtures simple
-    - Use `autouse=True` sparingly
-  </Accordion>
+CI runs the build and tests on push. The pipeline is defined in the repository's CI config (`.gitlab-ci.yml`). *(verify the exact jobs in the repo.)*
 
-  <Accordion title="Mocking" icon="mask">
-    - Mock external services
-    - Don't mock what you're testing
-    - Use `aioresponses` for HTTP calls
-  </Accordion>
+## Next steps
 
-  <Accordion title="Assertions" icon="check">
-    - Use specific assertions
-    - Test one thing per test
-    - Add helpful failure messages
-  </Accordion>
-</AccordionGroup>
-
-## Continuous Integration
-
-Tests run automatically on every push via GitHub Actions. See `.github/workflows/test.yml` for configuration.
-
-<Tip>
-Write tests for new features before implementing them (TDD approach).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Contributing" icon="code-pull-request" href="/en/development/contributing">
+    Build and change workflow
+  </Card>
+  <Card title="Provider Testing" icon="flask" href="/en/development/provider-testing">
+    Verify a vendor client by hand
+  </Card>
+  <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
+    Add a new `vendor::Vendor`
+  </Card>
+  <Card title="File Processing" icon="file" href="/en/development/file-processing">
+    The transcoder and its tests
+  </Card>
+</CardGroup>

@@ -78,7 +78,7 @@ Organize scattered data from wearables, healthcare portals, PDFs, and paper repo
 
     > **Question:** "My father (data linked) just changed his PCP, help prepare a medical history and conditions document that he could bring for his first visit with the new PCP, and potential questions he should discuss with the PCP."
 
-    This one demonstrates **multi-user data sharing**: the asking user has read access to a relative's full record via a `th_share_relationship` row (see [API Reference](/en/api-reference)). The agent reads the linked record, produces a print-ready summary doc, and adds a "questions to raise" list tailored to the gaps it notices in the relative's history.
+    This one demonstrates **multi-user data sharing**: the asking user has read access to a relative's full record via a `th_share_relationship` row (see [API Reference](/en/api-reference/overview)). The agent reads the linked record, produces a print-ready summary doc, and adds a "questions to raise" list tailored to the gaps it notices in the relative's history.
 
     <Card title="Open the conversation" icon="link" href="https://test-mirobody.thetahealth.ai/share/9c4aea9e-3a73-4bfa-901c-33392897bd52">
       Visit-prep doc + question list for a linked relative.
@@ -132,7 +132,7 @@ Connect your personal data to public knowledge (search, MCP tools, the open web)
 </AccordionGroup>
 
 <Tip>
-Behind every showcase above is the **[DeepAgent](/en/tools/overview#deepagent-recommended-for-complex-tasks)** runtime — single-model, tool-orchestrating, file-aware. The reason that one agent type carries all eight is that personal-health questions almost always require: read profile → search indicator dictionary → fetch the relevant time series → optionally pull files / events / medications → write a synthesis. That's DeepAgent's home territory. For cost-sensitive deployments the same workflows run under [MixAgent](/en/tools/overview#mixagent-two-phase-cost-quality-fusion) with a cheaper responder phase.
+Behind every showcase above is the same **[agent](/en/tools/overview#the-agent)** — one simple agent that picks a model `provider`, builds the prompt, and streams the answer, calling the built-in tools (read files, family health, charts, memory) as needed. The reason one agent carries all eight is that personal-health questions almost always resolve to: read the user's records → optionally read an uploaded file → optionally recall memory → write a synthesis, sometimes with a chart. For cost or privacy, just point the `provider` at a cheaper or on-device [model](/en/tools/overview#the-agent).
 </Tip>
 
 ## Developer Applications
@@ -144,7 +144,7 @@ For developers, Mirobody is the data + AI backend you don't have to write. Focus
     Integrate your device once and instantly offer AI chat over device data.
   </Card>
   <Card title="Research Applications" icon="microscope">
-    Drop custom tools into [`tools/`](/en/tools/adding-tools) and SKILL.md playbooks into [`skills/`](/en/tools/skills-guide) to deploy subject-facing research apps without rebuilding the backend.
+    Add custom [MCP tools](/en/tools/adding-tools) (`res/mcp_tools/`) to deploy subject-facing research apps without rebuilding the backend.
   </Card>
   <Card title="Consumer Health Apps" icon="mobile">
     Build consumer apps on a complete data + AI engine.
@@ -163,11 +163,11 @@ The same Mirobody architecture works for any "personal data × AI" vertical:
     Connect bank accounts, brokerage data, and tax records via custom providers; ask the agent about your portfolio.
   </Card>
   <Card title="Legal Assistant" icon="scale-balanced">
-    Drop case files into `files/`, write a SKILL.md for your jurisdiction, and let the agent draft and cite.
+    Upload case files, tailor the system prompt for your jurisdiction, and let the agent draft and cite.
   </Card>
   <Card title="DevOps Copilot" icon="terminal">
-    Pipe in metrics, logs, and configs; use sandbox code execution for postmortems and remediation plans.
+    Pipe in metrics, logs, and configs through custom tools; let the agent analyze and propose remediation.
   </Card>
 </CardGroup>
 
-Swap the files in [`tools/`](/en/tools/adding-tools) and [`skills/`](/en/tools/skills-guide) — same engine, new vertical.
+Add your own [MCP tools](/en/tools/adding-tools) and vendor connectors — same engine, new vertical.

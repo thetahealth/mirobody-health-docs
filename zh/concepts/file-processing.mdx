@@ -1,277 +1,101 @@
 ---
 title: "文件处理"
-description: "上传并处理健康文档、检验报告与医疗记录"
+description: "Mirobody 如何把上传的文档转成 LLM 可消费的片段：PDF、Excel/CSV、OCR，以及视觉模型内联。"
 ---
 
 ## 概览
 
-Mirobody 可以处理多种健康相关文件，自动提取健康指标并用于 AI 分析。你可以上传检验报告、医疗记录等健康文档，从而构建完整的健康历史。
+Mirobody 能摄取健康文档 —— 检验报告、电子表格、扫描记录 —— 并把它们转成一次聊天回合可以携带的内容。这项工作由 `src/transcode/` 中的**文档转码器**（[`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`）完成，它是图像转码器在文档侧的对应物。其策略是**文本优先，图像（及 OCR）兜底**。
 
-## 支持的文件类型
+<Info>
+这是 C++ 转码器，而非旧版 Python 的 `FileProcessor` / `PDFHandler` 链路。本模块中没有 `ENABLE_INDICATOR_EXTRACTION` 开关，也没有单独的音频 / 基因处理器 —— 转码器把文档分解为文本与图像片段；随后由具备视觉能力的 LLM 在聊天回合中读取它们。
+</Info>
 
-<CardGroup cols={2}>
-  <Card title="PDF Documents" icon="file-pdf">
-    检验报告、医疗记录、处方等
-  </Card>
-  <Card title="Images" icon="image">
-    JPEG、PNG、GIF、WebP、HEIC——扫描件与照片
-  </Card>
-  <Card title="Audio Files" icon="microphone">
-    WAV、MP3、AIFF、AAC、OGG、FLAC——语音记录
-  </Card>
-  <Card title="Genetic Data" icon="dna">
-    基因检测报告与分析文件
-  </Card>
-</CardGroup>
+## 支持的格式
 
-## 工作原理
+容器格式由起始的 magic bytes 嗅探得出，再路由到对应的处理器：
+
+| 格式 | 库 | 构建开关 | 输出 |
+|--------|---------|-----------|--------|
+| **PDF** | PDFium | `MIROBODY_ENABLE_PDF`（默认**关闭**） | 逐页文本；扫描页 → 图像（+ OCR） |
+| **.xlsx** | xlnt | 找到 xlnt 时开启（Windows 上经 vcpkg 始终开启） | 每个工作表一张 Markdown 表格 |
+| **.xls**（旧版 BIFF） | 内置的 libxls | `MIROBODY_ENABLE_XLS`（默认**关闭**） | 每个工作表一张 Markdown 表格 |
+| **.csv** | 内建（RFC 4180） | 始终可用 | 单张 Markdown 表格 |
+
+当某开关关闭时，输入仍会被嗅探，但 `process()` 会抛出 `DocumentError("... not built")` —— 不会有任何内容被悄悄错误处理。
+
+<Note>
+单独上传的图像由姊妹**图像转码器**（`src/transcode/image.hpp`）处理，它会把图像适配到目标视觉模型的输入上限。旧文档中的音频与基因文件处理**不属于**这个 C++ 转码器。*(verify)*
+</Note>
+
+## 流水线
 
 <Steps>
-  <Step title="上传文件">
-    通过 Web 界面或 API 上传健康文档。文件会被安全存储并加密。
+  <Step title="嗅探格式">
+    `detect_format()` 读取 magic bytes：`%PDF-` → PDF，`PK\x03\x04` → xlsx（任意 OOXML zip），OLE2 签名 → 旧版 .xls，其余非空内容 → CSV。
   </Step>
 
-  <Step title="自动处理">
-    系统会自动：
-    - 识别文件类型与内容
-    - 从文档中提取文本与数据
-    - 识别健康指标（检验结果、生命体征等）
+  <Step title="PDF —— 文本层优先">
+    对每一页，先把内嵌的**文本层提取**为一个文本片段。若某页可提取的文本低于一个很小的阈值（即扫描页），则改按图像处理。
   </Step>
 
-  <Step title="健康指标提取">
-    LLM 会分析文档并提取：
-    - 检验结果（血液检查、代谢面板等）
-    - 生命体征（血压、心率、体重等）
-    - 医疗测量值与医生观察记录
-    - 检测日期与参考范围
+  <Step title="扫描页 —— 栅格化 → 符合视觉模型要求的图像">
+    扫描页会被栅格化（默认 150 dpi），重新打包为 PNG，并经 `image::Transcoder` 处理，使其满足目标视觉模型的上限（默认 Qwen-VL；也提供 Gemini / GPT 的上限）。它会作为一个**图像片段**发出，由聊天回合内联给视觉模型。
   </Step>
 
-  <Step title="查询与分析">
-    处理完成后，你可以：
-    - 针对健康数据提问
-    - 追踪指标随时间的变化
-    - 生成健康摘要与报告
+  <Step title="OCR（可选）">
+    在 `MIROBODY_ENABLE_OCR` 构建中（还额外要求 `MIROBODY_ENABLE_PDF`），同一张栅格图还会经过 **Tesseract**，并把识别出的文本追加为一个文本片段 —— 于是一张扫描页会同时产出图像及其 OCR 文本。OCR 语言默认为 `eng`（混排文档可用 `eng+chi_sim`）。
+  </Step>
+
+  <Step title="电子表格 —— 始终为文本">
+    每个工作表（xlsx / xls）或整个 CSV 都会渲染为一张 **GitHub 风格的 Markdown 表格**；电子表格处理绝不产生图像片段。
   </Step>
 </Steps>
 
-## 可提取的健康指标
+结果是一个 `Document`：一个有序的 `Part` 列表，每个片段要么是 **Text**（UTF-8 / Markdown），要么是 **Image**（一张已符合视觉模型要求的图像），并标注其从 1 起算的来源页 / 工作表。`max_pages` 上限可为超大文档设界；触发时会追加一条尾注，从而不会有内容被悄悄丢弃。`Transcoder::to_markdown()` 会把整份文档渲染为单个 Markdown 块，供想要单一字符串的调用方（以及 CLI）使用。
 
-系统可自动提取多类健康数据：
+## 单位归一化到 UCUM
 
-<AccordionGroup>
-  <Accordion title="Laboratory Tests" icon="flask">
-    - **Complete Blood Count**：WBC、RBC、Hemoglobin、Platelets
-    - **Metabolic Panel**：Glucose、Liver enzymes、Kidney function
-    - **Lipid Panel**：Cholesterol、Triglycerides、HDL、LDL
-    - **Thyroid Function**：TSH、T3、T4
-    - **Tumor Markers**：多种肿瘤筛查指标
-  </Accordion>
-
-  <Accordion title="Physical Measurements" icon="ruler">
-    - 血压（收缩压/舒张压）
-    - 心率与脉搏
-    - 体重与 BMI
-    - 身高
-    - 体温
-    - 血氧饱和度（SpO2）
-  </Accordion>
-
-  <Accordion title="Device Data" icon="watch">
-    当与已连接设备数据结合时：
-    - 活动与运动数据
-    - 睡眠模式
-    - 心率变异性
-    - 每日步数
-  </Accordion>
-</AccordionGroup>
-
-## 文件上传
-
-### Via Web Interface
-
-1. 登录你的 Mirobody 实例
-2. 进入对话（chat）界面
-3. 点击文件上传按钮
-4. 选择健康文档
-5. 可选：添加文件备注
-6. 上传并等待处理完成
-
-### 通过 REST API
-
-用于简单文件上传，无实时进度：
-
-```bash
-curl -X POST http://localhost:18080/files/upload \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "files=@lab_report.pdf" \
-  -F "files=@blood_work.jpg"
-```
-
-### 通过 WebSocket API
-
-用于带实时进度反馈的上传（大文件推荐）：
+从文档与图表中提取的数值，由 `src/fhir/units/` 中的术语引擎归一化：一段自由文本的"数值 + 单位"字符串会变成一个规范的 **UCUM** 单位，外加用于消歧的 LOINC PROPERTY 族。这是纯本地计算 —— 无数据库、无 embedding API。
 
 ```
-ws://localhost:18080/ws/upload-health-report?token=YOUR_TOKEN
+"MG/DL"              → "mg/dL"
+"毫摩尔每升"          → "mmol/L"
+"mmHg"               → "mm[Hg]"
+"<5.6 mg/dL"         → value 5.6, unit "mg/dL", comparator "<"
 ```
 
-WebSocket 提供：
-- 实时上传进度
-- 处理状态更新
-- 详细错误信息
-- 支持大文件分块
+支持多语言输入（en、zh、ja、ko、ru、de、fr、es）。
 
-<Info>
-详细 API 文档、WebSocket 协议与实现示例，参见[文件处理实现指南](/zh/development/file-processing)。
-</Info>
+## 数据的去向
 
-## 配置
-
-在你的配置文件（例如 `config.localdb.yaml`）中启用健康指标提取：
-
-```yaml config.localdb.yaml
-# File Processing Configuration
-ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction (1 = enabled, 0 = disabled)
-```
+转码后的片段在聊天回合中由 agent 读取：上传的文件按用户存储，agent 通过 `list_files` 与 `read_file` 这两个 MCP 工具列出 / 读取它们，并把文本片段和符合视觉模型要求的图像片段喂给 LLM。
 
 <Warning>
-处理多模态文件（PDF、图片、音频）需要**至少一个 LLM key**。缺少时：
-- 文件上传仍可用
-- 文件会被存储
-- 但自动指标提取与内容分析无法工作
+**要理解文档，至少需要一个 LLM key（或设备本地的 Gemma）** —— 上传并存储文件无需 key 即可完成，但从 PDF / 图像中提取含义需要一个模型。纯文本格式（CSV / xlsx）渲染为 Markdown 无需模型。
 </Warning>
 
-### 处理流程
+<Note>
+把提取出的检验值作为带编码的 `Observation` 写回 FHIR 存储（文档 → 指标 → FHIR 流水线）尚在**进行中**：UCUM 单位归一化与 RESTful FHIR 存储已上线；术语解析（SNOMED CT / LOINC / RxNorm）与自动写回尚在计划中。*(verify against `src/fhir/README.md`.)*
+</Note>
 
-系统使用复杂的流程：
+## 测试
 
-1. **文件上传** (0-30%)：接收并验证文件，上传到对象存储
-2. **类型识别** (30-35%)：自动检测文件类型并选择适当的处理器
-3. **内容处理** (35-90%)：提取文本、图片、数据；多页 PDF 并行处理
-4. **摘要生成** (90-95%)：使用 LLM 生成文件摘要和智能名称
-5. **结果保存** (95-100%)：存储到数据库，同步健康指标，更新用户 profile
-
-## 隐私与安全
-
-<AccordionGroup>
-  <Accordion title="Data Encryption" icon="lock">
-    - 文件传输全程加密（HTTPS）
-    - 文件存储在对象存储中并加密
-    - 需要安全的 token-based 认证
-  </Accordion>
-
-  <Accordion title="Data Control" icon="shield">
-    - 数据完全归你所有
-    - 文件可随时删除
-    - 级联删除会移除全部关联数据
-    - 自托管部署让数据留在你的服务器上
-  </Accordion>
-
-  <Accordion title="Processing" icon="brain">
-    - 文件处理使用配置的 LLM providers（Google Gemini）
-    - 提取的数据仅存储在你的数据库中
-    - 不与第三方共享数据
-  </Accordion>
-</AccordionGroup>
-
-## 文件管理
-
-### Viewing Files
-
-所有上传的文件可以通过以下方式访问：
-- 带附件的对话历史
-- 消息详情中的文件列表
-- 直接文件 URL（需认证）
-
-### Deleting Files
-
-<Warning>
-删除文件会同时移除与该文件相关的所有已提取健康指标。
-</Warning>
-
-删除文件步骤：
-1. 进入包含该文件的消息
-2. 选择要删除的文件
-3. 确认删除
-
-文件及其关联数据会从以下位置永久删除：
-- 对象存储
-- 数据库记录
-- 健康指标数据
-
-## 最佳实践
-
-<Tip>
-**大文件建议**：优先上传 PDF 与图片。多页 PDF 会并行处理以提升速度。
-</Tip>
-
-<Tip>
-**检验报告建议**：上传完整 PDF 报告而非截图，可获得更高提取准确率。
-</Tip>
-
-<Tip>
-**添加上下文**：上传时附带备注（例如“2024 年体检”），便于后续检索。
-</Tip>
-
-<Tip>
-**按日期组织**：建议用日期（YYYY-MM-DD）给文件命名，便于按时间追踪。
-</Tip>
-
-## 故障排查
-
-<AccordionGroup>
-  <Accordion title="File upload fails" icon="circle-exclamation">
-    **Solutions**:
-    - 检查文件大小（建议单文件 < 50MB）
-    - 确认认证 token 有效
-    - 确认文件类型受支持
-    - 查看 server logs 获取具体错误原因
-  </Accordion>
-
-  <Accordion title="No indicators extracted" icon="magnifying-glass">
-    **Solutions**:
-    - 确认配置中 `ENABLE_INDICATOR_EXTRACTION: 1`
-    - 确认 `GOOGLE_API_KEY` 已配置且有效
-    - 检查文件是否包含可识别的健康数据
-    - 尝试上传更清晰/更高分辨率的图片
-  </Accordion>
-
-  <Accordion title="Processing takes too long" icon="clock">
-    **Expectations**:
-    - 小文件（< 5MB）：10–30 秒
-    - 大 PDF（> 20MB）：1–3 分钟
-    - 多页文档：耗时更长，但会并行处理
-    
-    若明显超过上述时间，请检查 server 资源与日志。
-  </Accordion>
-</AccordionGroup>
-
-## 技术细节
-
-面向需要更深入细节的开发者与高级用户：
-- WebSocket upload protocol
-- REST API endpoints and parameters
-- Processing pipeline architecture
-- Data models and schemas
-- Error handling and best practices
-
-<Card title="File Processing Implementation Guide" icon="code" href="/zh/development/file-processing">
-  文件上传与处理的完整技术文档
-</Card>
+转码器由 Catch2 测试覆盖：`tests/transcode/document_test.cpp` 与 `tests/transcode/image_test.cpp`；单位引擎由 `tests/fhir/units_test.cpp` 覆盖。参见[测试](/zh/development/testing)。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/zh/quickstart">
-    开始使用 Mirobody
+  <Card title="数据流" icon="diagram-project" href="/zh/concepts/data-flow">
+    上传如何与 vendor 及设备本地数据并存
   </Card>
-  <Card title="Configuration" icon="gear" href="/zh/configuration">
-    配置 API keys 与系统设置
+  <Card title="文件处理实现" icon="code" href="/zh/development/file-processing">
+    深入了解转码器 API 与构建开关
   </Card>
-  <Card title="Data Flow" icon="diagram-project" href="/zh/concepts/data-flow">
-    了解数据如何在系统中流转
+  <Card title="Vendor 系统" icon="plug" href="/zh/concepts/providers">
+    服务端到服务端的健康数据源
   </Card>
-  <Card title="API Reference" icon="book" href="/zh/api-reference/overview">
-    浏览 API endpoints
+  <Card title="API 参考" icon="book" href="/zh/api-reference/overview">
+    兼容 OpenAI 的 `/v1` 接口
   </Card>
 </CardGroup>

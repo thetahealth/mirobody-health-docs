@@ -1,20 +1,22 @@
 ---
 title: "中国集群"
-description: "mcp.thetahealth.cn——首个上线的主集群。"
+description: "mirobody-api.thetahealth.cn —— 中国区集群（筹备中）。"
 ---
 
-中国集群是 Mirobody 首个上线的主集群。所有数据均留存于中国大陆境内。
+中国集群将 100% 的数据留存于中国大陆境内。它正处于迁移至新主机 `mirobody-api.thetahealth.cn` 的过程中，目前**筹备中** —— 如需今天就进行线上集成，请使用[全球测试集群](/zh/cloud/regions/global)。
 
 ## 主机地址
 
-| 角色 | 地址 |
-| --- | --- |
-| **API**（生产 `base_url`） | `https://mcp.thetahealth.cn/v1` |
-| **API**（测试集群） | `https://test-mcp.thetahealth.cn/v1` |
-| **开发者控制台** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) |
-| **Mirobody 应用**（C 端） | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) |
+| 角色 | 地址 | 状态 |
+| --- | --- | --- |
+| **API**（`base_url`） | `https://mirobody-api.thetahealth.cn/v1` | 🚧 筹备中 |
+| **API —— 测试** | `https://test-mirobody-api.thetahealth.cn/v1` | 🚧 筹备中 |
+| **开发者控制台** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) · 测试 [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/) | ✅ 已上线 |
+| **Mirobody 应用**（C 端） | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) | ✅ 已上线 |
 
-测试集群用于集成测试，其数据为非生产、可能被随时重置；生产请始终使用 `https://mcp.thetahealth.cn/v1`。
+<Note>
+旧版 API 主机 `mcp.thetahealth.cn` 正在被 `mirobody-api.thetahealth.cn` 取代并逐步退役。新集成请指向 `mirobody-api.*`。
+</Note>
 
 控制台是你创建 `mb_live_*` 密钥、查看用量并试用 Playground 的地方。Mirobody 应用是旗舰级 C 端产品——与本 API 背后是同一套引擎。
 

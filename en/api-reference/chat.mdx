@@ -17,7 +17,7 @@ OpenAI-compatible. The agent gathers the Subject's real health data with built-i
 
 <CodeGroup>
 ```bash curl
-curl https://mcp.thetahealth.cn/v1/chat/completions \
+curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -30,7 +30,7 @@ curl https://mcp.thetahealth.cn/v1/chat/completions \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 
 resp = client.chat.completions.create(
     model="mirobody-flash",
@@ -39,9 +39,8 @@ resp = client.chat.completions.create(
     extra_body={"include_tool_steps": True},    # Mirobody extensions go in extra_body
 )
 print(resp.choices[0].message.content)
-# resp.choices[0].message.reasoning_content     # deep-thinking (CoT) detail
-# resp.choices[0].message.reasoning_steps        # tool-call trace
-# resp.choices[0].message.tool_steps            # search / fetch / eval detail
+# resp.choices[0].message.reasoning_content     # deep-thinking (CoT) detail (may be empty)
+# resp.choices[0].message.tool_steps            # tool-call trace: {id, name, arguments, result}
 ```
 
 ```javascript Node.js (OpenAI SDK)
@@ -49,7 +48,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://mcp.thetahealth.cn/v1",
+  baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
 });
 
 const resp = await client.chat.completions.create({
@@ -72,12 +71,12 @@ console.log(resp.choices[0].message.content);
 | `user` | string | Tenant-isolation key → a Subject. Pass each end-user's stable id. See [multi-tenancy](/en/api-reference/overview#multi-tenancy-the-user-field). |
 | `retention` | string | `permanent` (default) / `1h` / `2h` / `6h` / `1d` / `session` / `none` — applies to any `health_context` you attach. The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). |
 | `session_id` | string | Required when `retention=session`; also threads multi-turn context. |
-| `health_context` | array | Inline health records for this request, handled per `retention`. See [Inline data](#inline-health-context). |
+| `health_context` | array | Inline health records for this request, handled per `retention`. See [Inline data](#inline-health_context). |
 | `mcp_servers` | array | Bring-your-own remote MCP tools `{name, url, access_token?}`. See [Bring Your Own Tools](/en/api-reference/mcp-servers). |
 | `include_tool_steps` | bool | Return detailed `tool_steps` (default `false`). When `false`, `tool_steps[].result` is truncated to 2000 chars. |
 
 <Note>
-**Sampling parameters.** For OpenAI compatibility the request accepts `max_tokens`, `n`, `temperature`, `top_p`, `stop`, and `seed`, but the agent governs its own generation: `max_tokens` is **not enforced** (the agent controls output length), `temperature` / `top_p` / `stop` / `seed` are accepted but **ignored**, and `n` must be `1` — any other value returns `400`.
+**Sampling parameters.** For OpenAI compatibility the request accepts `max_tokens`, `n`, `temperature`, `top_p`, `stop`, and `seed`, but the agent governs its own generation, so they are effectively **not enforced**: `max_tokens` doesn't cap output, `temperature` / `top_p` / `stop` / `seed` are ignored, and `n` other than `1` does **not** error — the response still returns a single choice.
 </Note>
 
 ## Response
@@ -88,6 +87,7 @@ console.log(resp.choices[0].message.content);
 {
   "id": "chatcmpl-...",
   "object": "chat.completion",
+  "created": 0,
   "model": "mirobody-flash",
   "choices": [{
     "index": 0,
@@ -95,33 +95,33 @@ console.log(resp.choices[0].message.content);
     "message": {
       "role": "assistant",
       "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
-      "reasoning_content": "Let me pull the last 30 days of fasting glucose and compute the trend ...",  // deep-thinking (CoT), optional
+      "reasoning_content": "",                                                     // deep-thinking (CoT); may be empty
       "tool_steps": [                                                              // optional, ordered
-        { "id": "call_abc", "type": "tool_call", "name": "search_health_indicators",
-          "arguments": null,
-          "result": "{...}", "status": "ok" }
+        { "id": "call_abc", "name": "search_health_indicators",
+          "arguments": { "keywords": ["fasting glucose", "glucose"] },
+          "result": "{...}" }
       ]
     }
   }],
-  "usage": { "prompt_tokens": 0, "completion_tokens": 0, "reasoning_tokens": 0, "total_tokens": 0 },
-  "health_records": [ /* traceable records the answer used */ ],
-  "citations": ["record:1", "record:2"]
+  "usage": { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0 },
+  "health_records": [ { "tool": "fetch_health_data", "data": "..." } ],
+  "citations": []
 }
 ```
 
 | Channel | Content |
 | --- | --- |
 | `message.content` | Final answer only (the "reply" channel). |
-| `message.reasoning_content` | The model's **deep-thinking** (thinking / CoT) detail. |
-| `message.reasoning_steps[]` | The **tool-call** trace — which tools the gather phase invoked (`{type:"tool_call", tool}` entries). |
-| `message.tool_steps[]` | Each tool call: `{id, type, name, arguments, result, status}`, merged by `id`. |
-| `health_records` / `citations` | Traceable record references the answer relied on. |
-| `usage` | Token accounting. |
+| `message.reasoning_content` | The model's **deep-thinking** (thinking / CoT) detail. May be an empty string when the tier doesn't emit it. |
+| `message.tool_steps[]` | The tool-call trace — each `{id, name, arguments, result}`, merged by `id`. `arguments` carries the real call inputs; there is **no `status` field** on non-stream responses. |
+| `health_records` | Traceable tool outputs the answer used — an array of `{tool, data}` pairs. This is where the explainability lives today. |
+| `citations` | Reserved for `record:N`-style refs; **currently returned empty** — rely on `health_records`. |
+| `usage` | Token accounting. On the test cluster counts are `0`, and there is no `reasoning_tokens` field. |
 
-`reasoning_content`, `reasoning_steps`, and `tool_steps` are optional, additive channels — clients that only read `message.content` keep working.
+`reasoning_content` and `tool_steps` are optional, additive channels — clients that only read `message.content` keep working. (`message.reasoning_steps` is **not** present on non-stream responses.)
 
 <Note>
-`tool_steps[].arguments` is currently always `null` — the built-in agent does not surface tool arguments; rely on `name` + `result`.
+`tool_steps[].arguments` carries the real tool inputs (e.g. `{"keywords": ["fasting glucose"]}`). Pass `include_tool_steps: true` to get full `result` payloads — otherwise each `result` is truncated to ~2000 chars.
 </Note>
 
 ## Streaming
@@ -129,16 +129,14 @@ console.log(resp.choices[0].message.content);
 With `stream: true`, frames arrive in order — tool/thinking deltas first, then a single uninterrupted answer stream:
 
 ```text
-{"delta":{"role":"assistant"}}
-{"delta":{"reasoning_content":"<fragment>"}}
-{"delta":{"tool_steps":[{"id":"call_abc","name":"search_health_indicators","status":"running"}]}}
-{"delta":{"tool_steps":[{"id":"call_abc","status":"ok","result":"..."}]}}
-{"delta":{"content":"<answer fragment>"}}
-{"delta":{},"finish_reason":"stop","usage":{...}}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"reasoning_content":"<fragment>"}}]}   // when the tier emits thinking
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"tool_steps":[{"id":"call_abc","name":"search_health_indicators","arguments":{...}}]}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"content":"<answer fragment>"}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}],"health_records":[],"citations":[]}
 data: [DONE]
 ```
 
-Merge `tool_steps` by `id`. Clients that only read `delta.content` keep working — the answer is one clean stream.
+Frames are `chat.completion.chunk` objects. Merge `tool_steps` by `id`. The **final** frame (before `[DONE]`) carries the top-level `health_records` / `citations`; token `usage` is **not** included in the stream. Clients that only read `delta.content` keep working — the answer is one clean stream.
 
 ## Inline health_context
 
@@ -164,13 +162,17 @@ A `system` message sets the tone, persona, format, and language of the answer. D
 
 ## Built-in tools
 
-You don't call these — the agent does, against the Subject's data:
+You don't call these — the agent invokes them as needed, against the Subject's data. The current hosted catalog is:
 
 - `search_health_indicators`, `fetch_health_data` — find and read the Subject's records
-- `read_file`, `ls` — read parsed files uploaded via [`/v1/files`](/en/api-reference/files)
-- `eval` — compute stats (mean / min / max / trends) over fetched data
+- `record_health_indicator` — write a new structured reading
+- `list_family_members` — resolve care-circle members the Subject is allowed to query
+- `list_fhir_resources`, `write_fhir_observation` — read / write FHIR resources
+- `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence
+- `fetch_url` — read a web page
+- `ask_user` — pause and ask a clarifying question (surfaces as an interrupt in the stream)
 
-To add your own tools, attach remote MCP servers via [`mcp_servers`](/en/api-reference/mcp-servers).
+The exact set varies by cluster and deployment — call the public `GET /api/health` on your cluster to see its live `tool_names` and `agent_names`. Files you upload via [`/v1/files`](/en/api-reference/files) are read by the agent automatically. To add your own tools, attach remote MCP servers via [`mcp_servers`](/en/api-reference/mcp-servers).
 
 ## Charts (vis-chart)
 

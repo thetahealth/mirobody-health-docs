@@ -1,155 +1,120 @@
 ---
 title: "数据映射"
-description: "将厂商特定的健康数据转换为标准化指标"
+description: "vendor 数据如何按 DataDomain 分类、归一化到 UCUM 单位，并表示为 FHIR R4。"
 ---
 
 ## 概览
 
-数据映射（Data Mapping）将厂商特定的 JSON 响应转换为 Mirobody 的标准化格式。这确保了所有健康数据源的一致性。
+在 Mirobody 中，"数据映射"是三个各自独立的关注点，而非单一的 `format_data` 步骤：
 
-## 标准格式
+1. **域映射** —— vendor 把它的端点映射到归一化的 `DataDomain` 枚举，让调用方按类别请求数据。
+2. **单位归一化** —— 自由文本的单位被折叠为规范的 **UCUM**（已上线）。
+3. **FHIR 表示** —— 一切最终汇聚到的规范资源形态是 **FHIR R4**（测量值用 `Observation`）。
 
-所有健康数据都转换为 `StandardPulseData` 对象：
+<Info>
+不再有 `StandardPulseData` / `StandardIndicator` 模型。`fetch` 返回**该 vendor 自己的 JSON**（FHIR 原生源则返回 FHIR JSON）；规范存储是内嵌的 FHIR R4 端点。
+</Info>
 
-```python
-from mirobody.pulse.theta.platform.indicator import StandardPulseData, StandardIndicator
+## 1 —— 域映射
 
-data = StandardPulseData(
-    indicator=StandardIndicator.HEART_RATE,
-    value="72",
-    start_time="2024-01-15T10:00:00Z",
-    end_time="2024-01-15T10:00:00Z",
-    source="garmin"
-)
+每次 `fetch` 都接收一个 `DataDomain`，每个 vendor 把它映射到它实际中转的端点：
+
+```cpp
+enum class DataDomain {
+    Activity, Sleep, HeartRate, Glucose,
+    Nutrition, BodyMetrics, Labs, Clinical
+};
 ```
 
-## 映射模式
+一个 REST vendor 在域上 switch 以选择路径（Fitbit）：
 
-### 基础映射
-
-直接映射简单值：
-
-```python
-INDICATOR_MAPPING = {
-    "daily_steps": StandardIndicator.DAILY_STEPS,
-    "sleep_seconds": StandardIndicator.DAILY_SLEEP_DURATION,
-    "resting_heart_rate": StandardIndicator.DAILY_HEART_RATE_RESTING,
+```cpp
+switch (d) {
+    case DataDomain::Activity:    return "/1/user/" + u + "/activities/steps/date/" + s + "/" + e + ".json";
+    case DataDomain::HeartRate:   return "/1/user/" + u + "/activities/heart/date/" + s + "/" + e + ".json";
+    case DataDomain::Sleep:       return "/1.2/user/" + u + "/sleep/date/" + s + "/" + e + ".json";
+    case DataDomain::BodyMetrics: return "/1/user/" + u + "/body/log/weight/date/" + s + "/" + e + ".json";
+    default: throw VendorError("fitbit: unsupported domain (activity, heart_rate, sleep, body_metrics)");
 }
-
-def format_data(self, raw_data: Dict) -> List[StandardPulseData]:
-    """转换厂商数据"""
-    results = []
-    
-    for vendor_key, standard_indicator in INDICATOR_MAPPING.items():
-        if vendor_key in raw_data:
-            results.append(StandardPulseData(
-                indicator=standard_indicator,
-                value=str(raw_data[vendor_key]),
-                start_time=raw_data["date"],
-                end_time=raw_data["date"]
-            ))
-    
-    return results
 ```
 
-### 嵌套数据映射
+一个 FHIR vendor 则把域映射到 FHIR `Observation` 的 `category` token（`ehr` SMART-on-FHIR 客户端）：
 
-针对嵌套的 JSON 结构：
-
-```python
-def format_sleep_data(self, sleep_response: Dict) -> List[StandardPulseData]:
-    """映射嵌套的睡眠数据"""
-    results = []
-    sleep_data = sleep_response.get("sleep", {})
-    
-    # 总睡眠时长
-    if "total_seconds" in sleep_data:
-        results.append(StandardPulseData(
-            indicator=StandardIndicator.DAILY_SLEEP_DURATION,
-            value=str(sleep_data["total_seconds"] * 1000),  # 转换为毫秒
-            start_time=sleep_data["start_time"],
-            end_time=sleep_data["end_time"]
-        ))
-    
-    # 睡眠阶段
-    stages = sleep_data.get("stages", {})
-    if "deep_seconds" in stages:
-        results.append(StandardPulseData(
-            indicator=StandardIndicator.DAILY_DEEP_SLEEP,
-            value=str(stages["deep_seconds"] * 1000),
-            start_time=sleep_data["start_time"],
-            end_time=sleep_data["end_time"]
-        ))
-    
-    return results
+```cpp
+case DataDomain::HeartRate:   return "vital-signs";
+case DataDomain::BodyMetrics: return "vital-signs";
+case DataDomain::Glucose:     return "laboratory";
+case DataDomain::Labs:        return "laboratory";
+case DataDomain::Activity:    return "activity";
+case DataDomain::Clinical:    return nullptr;   // unfiltered: the full observation set
 ```
 
-### 单位转换
+vendor 会**对它不中转的域抛错**，而非返回空 —— 让调用方了解该源的范围。
 
-将厂商单位转换为标准单位：
+## 2 —— 单位归一化（UCUM）
 
-```python
-# 标准单位：克 (grams), 毫秒 (milliseconds), 米 (meters)
-UNIT_CONVERSIONS = {
-    "kg_to_grams": lambda x: x * 1000,
-    "seconds_to_ms": lambda x: x * 1000,
-    "minutes_to_ms": lambda x: x * 60 * 1000,
+[`src/fhir/units/`](https://github.com/thetahealth/mirobody/tree/main/src/fhir/units) 中的术语引擎把一段自由文本的"数值 + 单位"字符串变成一个规范的 **UCUM** 单位，外加用于消歧的 LOINC PROPERTY 族。纯本地计算 —— 无数据库、无 embedding API。
+
+```cpp
+#include "fhir/units/normalize.hpp"
+#include "fhir/units/families.hpp"
+using namespace mirobody::fhir::units;
+
+normalize_unit("MG/DL");        // "mg/dL"
+normalize_unit(u8"毫摩尔每升");  // "mmol/L"
+normalize_unit("mmHg");         // "mm[Hg]"
+
+ParsedQuantity q = parse_value_unit("<5.6 mg/dL");
+// q.comparator == "<", q.value == 5.6, q.unit == "mg/dL"
+
+unit_family("mmol/L");          // "SCnc"
+unit_family("mg/dL");           // "MCnc"
+```
+
+流水线：NFKC-lite（全角形态、上标）→ 符号折叠 → 别名查找 → 注释剥离 → 贪婪的语素分词-组合。大小写被保留（UCUM 区分大小写）。支持多语言输入：**en、zh、ja、ko、ru、de、fr、es**。由 `tests/fhir/units_test.cpp` 覆盖。
+
+## 3 —— FHIR R4 表示
+
+规范存储是 FHIR R4（`src/fhir/`）。FHIR 原生的 vendor —— 通用 `ehr` 客户端，以及 Vitalera / HealthConnect / Redox / Particle Health / Metriport-Medical —— 已直接返回 FHIR 资源；设备本地存储 POST `Observation`。一个测量值是一个 `Observation`，带一个归一化（UCUM）的 `valueQuantity`：
+
+```json
+{
+  "resourceType": "Observation",
+  "status": "final",
+  "category": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs" }] }],
+  "code": { "text": "Heart rate" },
+  "valueQuantity": { "value": 72, "unit": "/min", "system": "http://unitsofmeasure.org", "code": "/min" }
 }
-
-# 示例
-weight_kg = raw_data["weight"]
-weight_grams = UNIT_CONVERSIONS["kg_to_grams"](weight_kg)
 ```
 
-## 标准指标
+资源按用户以通用的、经校验的 JSON 存储，并通过 `/fhir` 提供（参见[数据流](/zh/concepts/data-flow)）。
 
-### 活动指标
+<Note>
+把一个指标映射到**带编码**的 `Observation.code`（SNOMED CT / LOINC / RxNorm）—— 即术语解析以及文档 → 带编码 FHIR 的写回 —— 尚在**进行中**。UCUM 归一化与 RESTful FHIR 存储已上线；完整的术语映射尚在计划中（参见 `src/fhir/README.md` 的第 3–4 阶段）。在此之前，`Observation.code` 可能携带一个 `text` 而非解析出的编码。*(verify)*
+</Note>
 
-| 标准指标 | 单位 | 描述 |
-|-------------------|------|-------------|
-| `DAILY_STEPS` | steps | 每日总步数 |
-| `DAILY_DISTANCE` | meters | 行走距离 |
-| `DAILY_CALORIES_ACTIVE` | kcal | 活动消耗热量 |
-| `DAILY_FLOORS_CLIMBED` | floors | 爬楼层数 |
-| `ACTIVE_TIME` | milliseconds | 活动时长 |
+## 映射一个新数据源
 
-### 睡眠指标
+当你添加一个 `vendor::Vendor`（[Provider 集成](/zh/development/provider-integration)）时：
 
-| 标准指标 | 单位 | 描述 |
-|-------------------|------|-------------|
-| `DAILY_SLEEP_DURATION` | milliseconds | 总睡眠时长 |
-| `DAILY_DEEP_SLEEP` | milliseconds | 深睡时长 |
-| `DAILY_LIGHT_SLEEP` | milliseconds | 浅睡时长 |
-| `DAILY_REM_SLEEP` | milliseconds | REM 睡眠时长 |
-| `SLEEP_EFFICIENCY` | percentage | 睡眠效率 |
-
-### 心率指标
-
-| 标准指标 | 单位 | 描述 |
-|-------------------|------|-------------|
-| `HEART_RATE` | bpm | 瞬时心率 |
-| `DAILY_HEART_RATE_RESTING` | bpm | 静息心率 |
-| `DAILY_AVG_HEART_RATE` | bpm | 每日平均心率 |
-| `HRV` | ms | 心率变异性 |
-
-## 完整参考
-
-如需标准指标的完整列表及详细的映射示例：
-
-<Card title="完整提供商集成指南" icon="book" href="https://github.com/thetahealth/mirobody/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
-  查看完整的数据映射模式、单位转换及指标参考
-</Card>
+1. 确定该源中转哪些 `DataDomain`；在 `VendorInfo.domains` 中列出它们。
+2. 在 `fetch` 中，把每个域映射到该源的端点（REST 路径）或 FHIR `category`（FHIR 源）；对不支持的域抛错。
+3. 返回该源的 JSON（或 FHIR JSON）。不要预先归一化 —— 归一化 / FHIR 转换是下游的、共享的关注点。
+4. 若你暴露单位，把它们经 `parse_value_unit` / `normalize_unit` 处理，使其落地为 UCUM。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="提供商集成" icon="puzzle-piece" href="/zh/development/provider-integration">
-    构建自定义提供商
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    实现 `fetch` 与域映射
   </Card>
-  <Card title="提供商测试" icon="flask" href="/zh/development/provider-testing">
-    测试数据转换
+  <Card title="数据流" icon="diagram-project" href="/zh/concepts/data-flow">
+    从 vendor JSON 到 FHIR 存储
   </Card>
-  <Card title="示例" icon="code" href="/zh/examples/garmin-provider">
-    查看真实映射代码
+  <Card title="文件处理" icon="file" href="/zh/concepts/file-processing">
+    文档数值的 UCUM 归一化
+  </Card>
+  <Card title="Provider 测试" icon="flask" href="/zh/development/provider-testing">
+    验证你的 fetch 输出
   </Card>
 </CardGroup>

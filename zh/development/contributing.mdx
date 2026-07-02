@@ -1,109 +1,146 @@
 ---
 title: "贡献指南"
-description: "为 Mirobody 做贡献的指南与规范"
+description: "如何构建、修改并为 Mirobody C++ 引擎做贡献。"
 ---
 
 ## 欢迎贡献者！
 
-感谢你有兴趣为 Mirobody 做贡献。本指南将帮助你快速开始。
+Mirobody 是一个用 **CMake** 构建的 **C++11 引擎**。本指南涵盖如何构建它、修改工作流以及 PR 规范。
 
 ## 贡献方式
 
 <CardGroup cols={2}>
-  <Card title="新增 Providers" icon="plug">
-    集成新的健康设备 Providers
+  <Card title="新增一个 vendor" icon="plug">
+    在 `src/health/vendor/` 中新增一个 `vendor::Vendor` —— 参见 [Provider 集成](/zh/development/provider-integration)
   </Card>
-  <Card title="修复 Bugs" icon="bug">
+  <Card title="新增一个 MCP 工具" icon="wrench">
+    在 `res/mcp_tools/` 中新增一个 `.cpp`，使用 `MIROBODY_REGISTER_TOOL` 宏
+  </Card>
+  <Card title="修复 Bug" icon="bug">
     反馈并修复问题
   </Card>
   <Card title="完善文档" icon="book">
-    改进与补充文档
-  </Card>
-  <Card title="新增功能" icon="sparkles">
-    提出并实现新功能
+    改进本文档
   </Card>
 </CardGroup>
 
-## 开始贡献
+## 构建引擎
+
+Mirobody 在 Linux / WSL / macOS 上针对**系统安装的**库进行构建；Windows 上使用 **vcpkg**。
 
 <Steps>
-  <Step title="Fork 仓库">
-    Fork 一份你自己的 Mirobody 仓库
-  </Step>
-
-  <Step title="搭建开发环境">
-    按照[开发环境搭建](/zh/development/setup)进行配置
-  </Step>
-
-  <Step title="创建分支">
+  <Step title="安装依赖">
+    **Debian / Ubuntu / WSL：**
     ```bash
-    git checkout -b feature/your-feature-name
+    sudo apt install build-essential cmake ninja-build pkg-config \
+      libwebsockets-dev libcurl4-openssl-dev libssl-dev rapidjson-dev \
+      libyaml-cpp-dev libhiredis-dev libpq-dev libjpeg-dev libpng-dev \
+      libtiff-dev libwebp-dev
     ```
-  </Step>
 
-  <Step title="完成修改">
-    实现你的功能或修复
-  </Step>
-
-  <Step title="测试修改">
+    **macOS（Homebrew）：**
     ```bash
-    pytest
+    brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+      rapidjson yaml-cpp hiredis libpq jpeg-turbo libpng libtiff webp
     ```
+
+    另请为你构建的数据库后端安装对应的 `-dev` 包（默认是 Postgres）。完整清单见仓库 README 的 "Building" 一节。
   </Step>
 
-  <Step title="提交并推送">
+  <Step title="构建">
     ```bash
-    git add .
-    git commit -m "Add: description of your changes"
-    git push origin feature/your-feature-name
+    ./build.sh            # host arch, PostgreSQL backend, into ./build
+    ./mirobody            # run it (reads ./config.yml)
     ```
+
+    `build.sh` 可按任意顺序接收一个架构和/或后端选择器，另加 `clean`：
+    ```bash
+    ./build.sh sqlite         # SQLite backend -> ./build_sqlite
+    ./build.sh arm64 mysql    # cross combo, its own build dir
+    ./build.sh clean          # wipe the build dir and reconfigure
+    ```
+
+    在 **Windows** 上，使用 `build.cmd`（Visual Studio + vcpkg，会自动拉取依赖）→ `build\mirobody.exe`。
   </Step>
 
-  <Step title="创建 Pull Request">
-    创建一个 Pull Request，并清晰描述你的改动内容
+  <Step title="可选特性（默认关闭）">
+    某些能力是 CMake 选项，除非你启用，否则关闭：
+    ```bash
+    cmake -DMIROBODY_ENABLE_PDF=ON -DMIROBODY_ENABLE_OCR=ON ...   # PDF (PDFium) + OCR (Tesseract)
+    cmake -DMIROBODY_ENABLE_XLS=ON ...                            # legacy .xls (vendored libxls)
+    ```
+    （经 xlnt 的 `.xlsx` 与 CSV 在找到 xlnt 时始终构建。`OCR` 需要 `PDF`。）
   </Step>
 </Steps>
 
-## 代码风格
+其他构建产物：`build-shared.sh`（`libmirobody` C-ABI 共享库）、`build-python.sh`（Python wheel，经 pybind11 **从源码构建** —— 而非 `pip install mirobody`），以及 Android（Gradle + NDK）/ iOS（`mirobody.xcframework`）目标。还有一个多阶段 `Dockerfile`。
 
-- Follow PEP 8 guidelines
-- Use `black` for code formatting
-- Use `ruff` for linting
-- Write docstrings for all public methods
-- Add type hints
+## 修改工作流
+
+<Steps>
+  <Step title="Fork 并创建分支">
+    ```bash
+    git checkout -b feat/your-change
+    ```
+  </Step>
+  <Step title="完成你的修改">
+    遵循既有结构 —— 一个文件一个关注点，头部注释说明"为什么"。若你新增一个自注册单元（MCP 工具或 agent），把 `.cpp` 投放到匹配的 `res/` 目录；构建会拾取它。
+  </Step>
+  <Step title="构建并测试">
+    ```bash
+    ./build.sh
+    ctest --test-dir build            # or: ./build/tests/mirobody_tests
+    ```
+    参见[测试](/zh/development/testing)。
+  </Step>
+  <Step title="提交并推送">
+    ```bash
+    git add -A
+    git commit -m "feat: describe your change"
+    git push origin feat/your-change
+    ```
+  </Step>
+  <Step title="发起 Pull Request">
+    附上清晰的描述：它做了什么、为什么，以及如何测试。
+  </Step>
+</Steps>
+
+## 代码规范
+
+- **C++11。** 与周边风格保持一致；代码库倚重标准库、`rapidjson` 和轻薄的内部封装（`client::HttpClient`、`storage::*`），而非重型框架。
+- **头部注释解释意图** —— 尤其是*为何*某处是桩或权宜之计。新的 vendor 桩必须记录其原因（受限 / 契约不匹配 / 无此端点）。
+- **不要捏造契约。** 若某个线路格式无法公开确认，请留下一个诚实的桩（抛出带原因的 `VendorError`/`DocumentError`），而不是猜测。
+- **为你改动的行为新增或更新测试**（Catch2，位于 `tests/` 下）。
 
 ## Pull Request 规范
 
 <AccordionGroup>
   <Accordion title="标题格式" icon="heading">
-    使用 conventional commit 格式：
-    - `feat:` for new features
-    - `fix:` for bug fixes
-    - `docs:` for documentation
-    - `refactor:` for code refactoring
-    - `test:` for adding tests
+    Conventional commits：`feat:`、`fix:`、`docs:`、`refactor:`、`test:`、`chore:`。
   </Accordion>
-
   <Accordion title="描述内容" icon="file-lines">
-    - 说明 PR 做了什么
-    - 为什么需要这个改动
-    - 如何测试这些改动
+    - 该 PR 做了什么、为什么
+    - 如何构建 / 测试它
     - 链接相关 issues
   </Accordion>
-
   <Accordion title="Checklist" icon="list-check">
-    - [ ] 代码符合风格规范
-    - [ ] 新增/更新测试
-    - [ ] 更新文档
-    - [ ] 所有测试通过
-    - [ ] 无 linter warnings
+    - [ ] 能通过 `./build.sh` 构建
+    - [ ] `ctest` 通过
+    - [ ] 新增 / 更新了测试
+    - [ ] 行为变更时更新了文档
+    - [ ] 桩（如有）已记录其原因
   </Accordion>
 </AccordionGroup>
 
 ## 有问题？
 
-- 可以通过 issue 提问
-- 加入社区讨论
-- [Mirobody 支持](mailto:developer@thetahealth.ai)
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
+    Bug 反馈与功能请求
+  </Card>
+  <Card title="Mirobody 支持" icon="envelope" href="mailto:developer@thetahealth.ai">
+    直接的技术支持
+  </Card>
+</CardGroup>
 
 感谢你的贡献！

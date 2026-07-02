@@ -1,515 +1,345 @@
 ---
 title: "Installation"
-description: "Detailed installation instructions for Mirobody on various platforms"
+description: "Build the Mirobody C++ core from source on each platform, or run it with Docker."
 ---
 
-## Installation Methods
+Mirobody is a single **C++11** core built with **CMake** (plus vcpkg on Windows). The same source produces several artifacts: the standalone `mirobody` binary, a shared library (`libmirobody`), a Python wheel, an Android `.so`, and an iOS static library / xcframework. This page covers building each one.
 
-Choose the installation method that best suits your needs:
+<Info>
+There is no `pip install mirobody` and no Python virtualenv flow — that was the previous engine. You build the native binary with `./build.sh` (or `build.cmd` on Windows), or use Docker.
+</Info>
+
+## Standalone binary (desktop / server)
 
 <Tabs>
-  <Tab title="Docker (Recommended)">
-    Docker deployment is the recommended method for both development and production environments.
-
-    ### Step 1: Install Docker
-
-    <Tabs>
-      <Tab title="macOS">
-        Download and install <a href="https://www.docker.com/products/docker-desktop">Docker Desktop for Mac</a>:
-
-        ```bash
-        brew install --cask docker
-        ```
-
-        Start Docker Desktop from your Applications folder.
-      </Tab>
-
-      <Tab title="Linux">
-        Install Docker Engine and Docker Compose:
-
-        ```bash
-        # Ubuntu/Debian
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sudo sh get-docker.sh
-        
-        # Add your user to docker group
-        sudo usermod -aG docker $USER
-        
-        # Install Docker Compose
-        sudo apt-get install docker-compose-plugin
-        ```
-
-        Log out and back in for group changes to take effect.
-      </Tab>
-
-      <Tab title="Windows">
-        Install <a href="https://www.docker.com/products/docker-desktop">Docker Desktop for Windows</a>:
-
-        1. Download the installer
-        2. Run the installer
-        3. Enable WSL 2 integration
-        4. Restart your computer
-
-        <Warning>
-        Windows requires WSL 2 for optimal Docker performance.
-        </Warning>
-      </Tab>
-    </Tabs>
-
-    ### Step 2: Install Git LFS
-
-    Required to pull binary assets such as `fhir_concept_graph.bin`.
-
-    ```bash
-    # macOS
-    brew install git-lfs
-
-    # Linux
-    sudo apt install git-lfs
-
-    git lfs install
-    ```
-
-    ### Step 3: Clone Repository
+  <Tab title="Linux / WSL / macOS">
+    ### 1. Clone
 
     ```bash
     git clone https://github.com/thetahealth/mirobody.git
     cd mirobody
     ```
 
-    ### Step 4: Deploy
+    ### 2. Install the native dependencies
 
-    ```bash
-    ./deploy.sh
-    ```
-
-    `deploy.sh` will:
-
-    - Generate `.env` with `ENV=localdb` and a fresh `CONFIG_ENCRYPTION_KEY`
-    - Create a default `config.localdb.yaml`
-    - Build the Docker image
-    - Start Postgres, Redis, and the Mirobody backend
-
-    <Check>
-    Wait for the backend log line `Uvicorn running on http://0.0.0.0:18080`.
-    </Check>
-
-    ### Step 5: Add at Least One LLM API Key
-
-    Open `config.localdb.yaml` and set **at least one** of:
-
-    ```yaml
-    # Required for the default DeepAgent
-    OPENROUTER_API_KEY: 'sk-or-...'
-
-    # Optional alternatives
-    OPENAI_API_KEY: 'sk-...'
-    GOOGLE_API_KEY: '...'
-    ANTHROPIC_API_KEY: 'sk-ant-...'
-    ```
-
-    Sensitive keys are auto-encrypted on first load using the `CONFIG_ENCRYPTION_KEY` in `.env`.
-  </Tab>
-
-  <Tab title="From Source">
-    Build and run from source for development and customization.
-
-    ### Step 1: Clone and Setup
-
-    Mirobody requires **Python 3.10+** and **Node.js 18+** (the chart renderer is JS).
-
-    ```bash
-    git clone https://github.com/thetahealth/mirobody.git
-    cd mirobody
-
-    # Create virtual environment
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install --upgrade pip
-    ```
-
-    ### Step 2: Install System Dependencies
+    vcpkg is Windows-only here — Linux and macOS use the system package manager, and CMake's `find_package` picks the libraries up directly. These are the **core** dependencies (always needed). The desktop default backend is PostgreSQL, so install `libpq` too.
 
     <Tabs>
-      <Tab title="macOS">
+      <Tab title="Debian / Ubuntu / WSL">
         ```bash
-        xcode-select --install
-        brew install gcc gfortran fftw hdf5 openblas lapack
+        sudo apt install build-essential cmake ninja-build pkg-config \
+                         libwebsockets-dev libcurl4-openssl-dev libssl-dev \
+                         rapidjson-dev libyaml-cpp-dev libhiredis-dev \
+                         libjpeg-dev libpng-dev libtiff-dev libwebp-dev
+
+        # Database client (PostgreSQL is the desktop default)
+        sudo apt install libpq-dev
         ```
       </Tab>
 
-      <Tab title="Linux (Ubuntu/Debian)">
+      <Tab title="Fedora / RHEL">
         ```bash
-        sudo apt install -y g++ gfortran build-essential \
-          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
+                         libwebsockets-devel libcurl-devel openssl-devel \
+                         rapidjson-devel yaml-cpp-devel hiredis-devel \
+                         libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel
+
+        # Database client (PostgreSQL is the desktop default)
+        sudo dnf install libpq-devel
+        ```
+      </Tab>
+
+      <Tab title="macOS (Homebrew)">
+        ```bash
+        brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+                     rapidjson yaml-cpp hiredis \
+                     jpeg-turbo libpng libtiff webp
+
+        # Database client (PostgreSQL is the desktop default)
+        brew install libpq
         ```
       </Tab>
     </Tabs>
 
-    ### Step 3: Install Python Dependencies
+    <Tip>
+    Install just the **one** database client matching the backend you plan to build against — SQLite, MySQL/MariaDB, and DuckDB clients are only needed if you select those backends. See [the backend list](#database-backends).
+    </Tip>
+
+    ### 3. Build
 
     ```bash
-    pip install -e .
-
-    # Optional extras
-    # pip install -e ".[cn]"    # China region (Aliyun OSS, Volcengine, Dashscope)
-    # pip install -e ".[fin]"   # Financial data (yfinance)
-    # pip install -e ".[test]"  # Test suite
+    ./build.sh              # host arch + POSTGRESQL  -> build/mirobody
     ```
 
-    Mirobody is also published on PyPI as `mirobody` — `pip install mirobody` works for a non-editable install.
-
-    ### Step 4: Install Node.js Dependencies
+    The backend is a command-line token (no env var), passed in any order with `clean`:
 
     ```bash
-    npm install --omit=dev
+    ./build.sh sqlite       # SQLITE                 -> build_sqlite/
+    ./build.sh legacy       # POSTGRESQL_LEGACY      -> build_legacy/
+    ./build.sh legacy clean # reconfigure from scratch
+    ./build.sh -h           # full token list
     ```
 
-    ### Step 5: Setup Backing Services
+    Tokens: `pg` / `postgresql`, `legacy` / `pg_legacy`, `mysql`, `sqlite`, `duckdb`, `ck` / `clickhouse` (omit for the `POSTGRESQL` default). Each backend builds into its own `build[_<backend>]` directory, so several can coexist.
 
-    Start PostgreSQL and Redis from the bundled compose file:
+    Or invoke CMake directly:
 
     ```bash
-    docker compose up -d pg redis
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMIROBODY_DATABASE_BACKEND=POSTGRESQL
+    cmake --build build
     ```
-
-    ### Step 6: Configure
-
-    ```bash
-    echo "ENV=localdb" > .env
-    echo "CONFIG_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
-    ```
-
-    Add at least one API key (and any DB / Redis overrides) to `config.localdb.yaml`:
-
-    ```yaml
-    # Required for the default DeepAgent
-    OPENROUTER_API_KEY: 'sk-or-...'
-
-    # Optional alternatives
-    OPENAI_API_KEY: ''
-    GOOGLE_API_KEY: ''
-    ANTHROPIC_API_KEY: ''
-
-    # ============ Database (defaults work with the compose file above) ============
-    PG_HOST: 'localhost'
-    PG_PORT: 5432
-    PG_USER: 'mirobody'
-    PG_PASSWORD: ''
-    PG_DBNAME: 'mirobody'
-
-    # ============ Redis ============
-    REDIS_HOST: 'localhost'
-    REDIS_PORT: 6379
-    REDIS_DB: 0
-    REDIS_PASSWORD: ''
-    ```
-
-    ### Step 7: Run
-
-    ```bash
-    python -m main
-    ```
-
-    <Check>
-    Server should start on http://localhost:18080. If running under WSL, access from Windows via `http://localhost:18080`.
-    </Check>
   </Tab>
-</Tabs>
 
-## Verify Installation
+  <Tab title="Windows (MSVC + vcpkg)">
+    ### 1. Install Visual Studio
 
-After installation, verify everything is working:
+    Install **Visual Studio 2017 or newer** (Community is fine). In the installer, under *Workloads* tick **Desktop development with C++**, and under *Individual components* tick **C++ CMake tools for Windows** — that component ships `ninja.exe` and a bundled vcpkg, which is exactly what `build.cmd` looks for. No separate Ninja install is needed.
 
-<Steps>
-  <Step title="Check service health">
-    ```bash
-    curl http://localhost:18080/health
+    ### 2. Clone
+
+    ```cmd
+    git clone https://github.com/thetahealth/mirobody.git
+    cd mirobody
     ```
 
-    Expected response:
+    ### 3. Build
 
-    ```json
-    {
-      "status": "healthy",
-      "version": "1.0.1",
-      "services": {
-        "database": "connected",
-        "redis": "connected"
-      }
-    }
-    ```
-  </Step>
+    vcpkg pulls the native deps from [`vcpkg.json`](https://github.com/thetahealth/mirobody/blob/main/vcpkg.json) automatically — no manual installs.
 
-  <Step title="List available providers">
-    ```bash
-    curl http://localhost:18080/api/v1/pulse/providers
-    ```
-
-    Should return a list of available health providers.
-  </Step>
-
-  <Step title="Check logs">
-    View application logs to ensure no errors:
-
-    ```bash
-    # Docker deployment
-    docker-compose logs -f backend
-    
-    # Direct installation
-    # Logs will be in the terminal where you ran main.py
-    ```
-  </Step>
-</Steps>
-
-## Post-Installation Setup
-
-<AccordionGroup>
-  <Accordion title="Configure Data Providers" icon="key">
-    To enable health device integrations, you need OAuth credentials from each provider.
-
-    See the [Configuration guide](/en/configuration) for detailed instructions on obtaining and setting up OAuth credentials for:
-    - Garmin Connect
-    - Whoop
-    - Custom providers
-  </Accordion>
-
-  <Accordion title="Set up AI Chat & Agents" icon="robot">
-    To enable AI features, add at least one API key to `config.localdb.yaml`:
-
-    ```yaml
-    # ============ LLM API Keys (At least one required) ============
-    GOOGLE_API_KEY: ''      # For Gemini models
-    OPENAI_API_KEY: ''      # For GPT models
-    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, and other models
-    
-    # ============ Agent Configuration ============
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    AGENT_DIRS:
-      - mirobody/pub/agents
+    ```cmd
+    build.cmd              :: host arch + POSTGRESQL   -> build\mirobody.exe
+    build.cmd sqlite       :: SQLITE                   -> build_sqlite\
+    build.cmd legacy clean :: reconfigure that dir
+    build.cmd -h           :: full token list
     ```
 
     <Info>
-    Mirobody includes two agent types:
-    - **DeepAgent** (LangChain-based): Best for complex tasks, file operations, multi-step planning
-    - **BaseAgent** (Native Gemini): Best for simple conversations, lightweight MCP integration
-    
-    See [Tools Overview](/en/tools/overview) for configuration details.
+    The `VS_DIR`, `VCPKG_ROOT`, and `NINJA` environment variables are all optional — they only override the defaults. `vcvarsall.bat` points at the VS-bundled vcpkg by default. See the repo README for the full Windows walkthrough.
     </Info>
-  </Accordion>
+  </Tab>
+</Tabs>
 
-  <Accordion title="Configure Database Encryption" icon="lock">
-    For production, set secure encryption keys:
+### Run
 
-    ```yaml
-    DATABASE_DECRYPTION_KEY: 'your_32_char_encryption_key'
-    JWT_KEY: 'your_secure_jwt_secret'
+```bash
+./mirobody                  # reads ./config.yml by default
+./mirobody --config /path/to/config.yml
+./mirobody --help
+```
+
+Copy `config.example.yml` to `config.yml` first and set an LLM key — see [Quick Start](/en/quickstart) and [Configuration](/en/configuration). The server serves HTTP + WebSocket (and the web client from `res/htdoc`) on `HTTP_HOST:HTTP_PORT`, `0.0.0.0:8080` by default.
+
+## Docker
+
+The repository ships a multi-stage `Dockerfile`: stage 1 compiles the `mirobody` executable from the Ubuntu system package set; stage 2 is a slim runtime image with only the shared libraries the binary links.
+
+```bash
+git clone https://github.com/thetahealth/mirobody.git
+cd mirobody
+
+# Build (PostgreSQL backend by default)
+docker build -t mirobody:latest .
+
+# Or a different SQL backend
+docker build --build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY -t mirobody:legacy .
+
+# Run — the image sets HTTP_PORT=80; mount your own config.yml
+docker run -p 80:80 -v $PWD/config.yml:/app/config.yml mirobody:latest
+```
+
+The image bakes `config.example.yml` as the lowest-precedence defaults layer; real settings come from the mounted `config.yml` or environment variables. See [Docker Deployment](/en/deployment/docker) for details.
+
+## Other build outputs
+
+The same source tree builds several embeddable artifacts beyond the standalone binary.
+
+<AccordionGroup>
+  <Accordion title="Shared library (libmirobody) — Java / Go / C# / Node / Rust" icon="share-nodes">
+    Build the C-ABI shared library (`mirobody.dll` / `libmirobody.so` / `.dylib`) that any language with a C FFI can load:
+
+    ```bash
+    ./build-shared.sh          # -> build-shared/libmirobody.*  (build-shared.cmd on Windows)
     ```
 
-    <Warning>
-    Use strong, randomly generated keys in production. Never commit these to version control.
-    </Warning>
+    The C API is declared in `src/mirobody.h` (`mirobody_start` / `mirobody_stop` / `mirobody_chat` / …). Runnable bindings for Go, C#, Node, Rust, and Java live under `bindings/`.
   </Accordion>
 
-  <Accordion title="Set up Cloud Storage (Optional)" icon="cloud">
-    Configure S3-compatible storage for data backups:
+  <Accordion title="Python wheel — built from source (not PyPI)" icon="python">
+    `mirobody._mirobody` is a CPython extension (a pybind11 module wrapping `mirobody::Server`) packaged into a `.whl` by scikit-build-core — you **build it from source**, there is no `pip install mirobody` from PyPI:
 
-    ```yaml
-    S3_KEY: 'your_access_key'
-    S3_TOKEN: 'your_secret_key'
-    S3_REGION: 'us-east-1'
-    S3_BUCKET: 'your-bucket-name'
+    ```bash
+    ./build-python.sh          # Linux / macOS  (build-python.cmd on Windows)
     ```
+
+    Then drive the embedded server in-process:
+
+    ```python
+    import mirobody
+    with mirobody.Server(listen_port=8080, openai_api_key="sk-...") as srv:
+        print("listening on", srv.listen_port())
+    ```
+
+    See `python/README.md` in the repo for details.
+  </Accordion>
+
+  <Accordion title="Android — libmirobody.so via JNI" icon="android">
+    The Android project under `android/` pulls the same `CMakeLists.txt` via `externalNativeBuild` and builds the `mirobody` target as a shared library (`libmirobody.so`) loaded by the host app over JNI. Native deps come from prebuilt sysroots under `android/prebuilt/<ABI>/` (`arm64-v8a` today).
+
+    ```bash
+    cd android
+    ./gradlew assembleRelease
+    ```
+  </Accordion>
+
+  <Accordion title="iOS — libmirobody.a / mirobody.xcframework" icon="apple">
+    The iOS target builds `libmirobody.a` exposing the C API in `src/mirobody.h`; a Swift/Objective-C host links it and calls `mirobody_start` / `mirobody_stop`. Native deps come from prebuilt sysroots under `ios/prebuilt/<sdk>-<arch>/`.
+
+    ```bash
+    # device slice
+    cmake -S . -B build-ios-arm64 -G Xcode \
+        -DCMAKE_TOOLCHAIN_FILE=path/to/ios.toolchain.cmake \
+        -DPLATFORM=OS64 -DDEPLOYMENT_TARGET=15.0 \
+        -DCMAKE_PREFIX_PATH="$(pwd)/ios/prebuilt/iphoneos-arm64"
+    cmake --build build-ios-arm64 --config Release
+    ```
+
+    Bundle device + simulator slices into an xcframework with `xcodebuild -create-xcframework`. Only `arm64` slices are built.
+  </Accordion>
+
+  <Accordion title="Desktop (Electron) and Qt clients" icon="desktop">
+    `electron/` embeds `libmirobody` in-process via koffi FFI and uses the self-contained **SQLite** backend (no external database) — build the shared library and web client, then `cd electron && npm install && npm start`. `qt/` is a native Qt Quick (QML) client that is a pure HTTP/SSE API client (it does **not** embed the core) and talks to any running `mirobody` backend. Both are covered in the repo READMEs.
   </Accordion>
 </AccordionGroup>
 
-## Directory Structure
+## Optional document-format libraries
 
-After installation, your directory structure will look like this:
+The core builds fine without these; the matching format just reports "not built" at runtime. Enable them with CMake flags:
+
+| Feature | CMake flag | Notes |
+| ------- | ---------- | ----- |
+| `.xlsx` reader | *(auto-detected)* | Via **xlnt**. Not packaged on Linux/macOS — build from source; required on Windows via vcpkg. |
+| PDF text + rasterization | `-DMIROBODY_ENABLE_PDF=ON` | Via **PDFium** — download a prebuilt no-V8 release and point `-DCMAKE_PREFIX_PATH` at it. |
+| OCR for scanned PDFs | `-DMIROBODY_ENABLE_OCR=ON` | Via **Tesseract** (implies PDF); `apt install tesseract-ocr libtesseract-dev libleptonica-dev tesseract-ocr-eng`. |
+| Legacy `.xls` | `-DMIROBODY_ENABLE_XLS=ON` | Via **libxls** — no package, vendor it. |
+
+CSV is built-in (no library). See [File Processing](/en/concepts/file-processing).
+
+## Database backends
+
+Exactly **one** SQL backend is linked into the binary, chosen at build time via `-DMIROBODY_DATABASE_BACKEND=` (or the `build.sh` token). SQL schemas live under `res/sql/`.
+
+| Backend value | Default for | `build.sh` token |
+| ------------- | ----------- | ---------------- |
+| `POSTGRESQL` | Desktop / server | `pg` / `postgresql` *(default)* |
+| `SQLITE` | Mobile / self-contained | `sqlite` |
+| `POSTGRESQL_LEGACY` | — | `legacy` / `pg_legacy` |
+| `MYSQL` | — | `mysql` |
+| `DUCKDB` | — | `duckdb` |
+| `CLICKHOUSE` | — *(stub today)* | `ck` / `clickhouse` |
+
+## Repository layout
 
 ```
 mirobody/
-├── mirobody/                  # Core engine package
-│   ├── chat/                 # Sessions, history, streaming, memory
-│   ├── mcp/                  # MCP JSON-RPC 2.0 server (local + remote HTTP)
-│   ├── pulse/                # Data pipeline (Pulse)
-│   │   ├── theta/           # Wearables: Garmin, Whoop, Oura, Renpho, Vital, ...
-│   │   ├── apple/           # Apple Health + CDA medical records
-│   │   ├── core/            # FHIR mapping, indicator registry, units, aggregation
-│   │   └── file_parser/     # PDF, Excel, CSV, audio, image, genetic
-│   ├── pub/                  # Built-in agents and tools
-│   │   ├── agents/          # DeepAgent / MixAgent / BaseAgent
-│   │   ├── tools/           # Built-in MCP tools (file ops, chart, execute)
-│   │   └── resources/       # MCP resources
-│   ├── indicator/           # 400+ indicators, LOINC/SNOMED CT/RxNorm search
-│   ├── server/              # Starlette ASGI, JWT middleware, rate limiting
-│   ├── user/                # JWT, OAuth, WebAuthn/FIDO2, email verification
-│   └── utils/               # Config, LLM clients, embeddings, db, storage
-│
-├── tools/                    # ★ Drop-in Python tools → auto-exposed as MCP tools
-├── skills/                   # ★ Claude Agent Skills (SKILL.md + metadata.json)
-├── agents/                   # ★ Custom agent implementations
-├── providers/                # ★ Custom data providers
-├── prompts/                  # Jinja2 prompt templates
-├── resources/                # Static resources (HTML, JSON) exposed via MCP
-│
-├── database/                 # SQL schemas and migrations
-├── tests/                    # Integration tests (pytest)
-├── compose.yaml              # Docker Compose config
-├── config.yaml               # Base configuration (do not edit; copy to env file)
-├── config.localdb.yaml       # Your environment config (ENV=localdb)
-├── .env                      # ENV + CONFIG_ENCRYPTION_KEY
-├── main.py                   # Application entry point
-├── pyproject.toml            # Python package metadata
-├── package.json              # Node.js dependencies (chart renderer)
-├── deploy.sh                 # One-command Docker deploy
-└── README.md                 # Project overview
+├── src/                    # C++ core
+│   ├── mirobody.h          # public C ABI (extern "C") — the embedding surface
+│   ├── main.cpp            # standalone server entry point
+│   ├── server/             # HTTP + WebSocket routing (libwebsockets)
+│   ├── chat/               # agent: provider selection, system prompt, streamed turns
+│   ├── llm/                # streaming LLM clients (OpenAI, Gemini, MiroThinker; chat / realtime / embeddings)
+│   ├── mcp/                # MCP JSON-RPC endpoint + compile-time tool registry
+│   ├── memory/             # long-term memory (local embeddings or Mem0 / Zep / EverOS)
+│   ├── fhir/               # RESTful FHIR R4 endpoint + unit normalization + terminology
+│   ├── health/             # health-data layer; vendor/ = one client per source (platform/ phone/ device/ ehr/)
+│   ├── database/           # SQL backends (Postgres / SQLite / DuckDB / MySQL / ClickHouse)
+│   ├── cache/              # in-process KV or Redis
+│   ├── storage/            # S3 / OSS / Azure Blob / local-filesystem backends
+│   ├── user/               # email + social sign-in (incl. Tanka QR), token issuance
+│   ├── circle/             # care circles: sharing graph
+│   ├── jwt/  oauth/         # JWT issue/verify + OAuth 2.0 authorization server
+│   ├── config/             # config schema + loader (YAML + Fernet)
+│   ├── transcode/          # upload transcoders: image + document (PDF/Excel/CSV)
+│   └── platform/           # logging + JNI / C-ABI / pybind11 entry points
+├── res/                    # bundled resources compiled/served by the binary
+│   ├── agents/base.cpp     # the one agent, self-registered at compile time
+│   ├── mcp_tools/*.cpp     # MCP tools, self-registered at compile time
+│   ├── mcp_resources/      # MCP resources
+│   ├── sql/                # per-dialect SQL schemas (pg, sqlite, mysql, …)
+│   └── htdoc/              # built web client (HTTP_ROOT)
+├── htdoc/                  # web client source (webpack -> res/htdoc)
+├── cli/                    # standalone per-subsystem debug binaries
+├── bindings/               # Java / Go / C# / Node / Rust FFI bindings + examples
+├── android/  ios/  electron/  qt/  miniapp/   # host apps / clients
+├── python/                 # Python package wrapper + wheel README
+├── CMakeLists.txt          # build definition
+├── Dockerfile              # multi-stage server image
+├── build.sh  build.cmd      # binary build wrappers
+├── build-shared.sh  build-python.sh   # shared-lib / Python-wheel wrappers
+├── config.example.yml      # config template — copy to config.yml
+└── README.md
 ```
 
-The directories marked ★ are **the recommended extension points** — drop your files in and Mirobody auto-discovers them. See [Tools Overview](/en/tools/overview) for the full lifecycle.
+<Note>
+Agents and MCP tools **self-register at compile time**: drop a `.cpp` in `res/agents/` or `res/mcp_tools/` and rebuild. There is no runtime plugin directory and no `mirobody/pub/...` Python package.
+</Note>
 
-## Troubleshooting Installation
+## Verify the installation
+
+<Steps>
+  <Step title="Health check">
+    ```bash
+    curl http://localhost:8080/api/health
+    ```
+    Returns `ok`.
+  </Step>
+
+  <Step title="MCP discovery">
+    ```bash
+    curl -X POST http://localhost:8080/mcp \
+      -H "Content-Type: application/json" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+    ```
+    Lists the built-in tools.
+  </Step>
+
+  <Step title="Logs">
+    The binary logs to stdout by default; set `LOG_DIR` in `config.yml` to write files. Under Docker, `docker logs <container>`.
+  </Step>
+</Steps>
+
+## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Docker installation fails" icon="docker">
-    **Problem**: Docker commands fail with permission errors.
-
-    **Solution**:
-    ```bash
-    # Linux: Add user to docker group
-    sudo usermod -aG docker $USER
-    
-    # Log out and back in
-    newgrp docker
-    ```
+  <Accordion title="libwebsockets too old / websocket_client.cpp fails to compile" icon="circle-exclamation">
+    The code needs libwebsockets ≥ 4.1. Ubuntu 24.04 ships 4.3; older distros (and Debian bookworm) may be too old — install a newer build or use the Docker image, which is based on Ubuntu 24.04.
   </Accordion>
 
-  <Accordion title="Port conflicts" icon="network-wired">
-    **Problem**: Port 18080 is already in use.
+  <Accordion title="find_package can't locate a dependency" icon="magnifying-glass">
+    Re-check the platform dependency list above. If a library is installed in a non-standard prefix, point CMake at it with `-DCMAKE_PREFIX_PATH=<install-root>`.
+  </Accordion>
 
-    **Solution**: Change the port in `config.localdb.yaml`:
-    ```yaml
-    HTTP_PORT: 18081  # Use any available port
-    ```
+  <Accordion title="Port conflict" icon="network-wired">
+    Change `HTTP_PORT` in `config.yml` (default `8080`), then restart.
   </Accordion>
 
   <Accordion title="Database connection fails" icon="database">
-    **Problem**: Cannot connect to PostgreSQL.
-
-    **Solutions**:
-    1. Verify PostgreSQL is running:
-       ```bash
-       docker-compose ps postgres
-       ```
-
-    2. Check connection settings in `config.localdb.yaml`:
-       ```yaml
-       PG_HOST: db  # 'db' for Docker, 'localhost' for local install
-       PG_PORT: 5432
-       PG_USER: holistic_user
-       PG_DBNAME: holistic_db
-       ```
-
-    3. Check database logs:
-       ```bash
-       docker-compose logs postgres
-       ```
-  </Accordion>
-
-  <Accordion title="Python version mismatch" icon="python">
-    **Problem**: Python 3.12 not available.
-
-    **Solutions**:
-
-    <Tabs>
-      <Tab title="macOS">
-        ```bash
-        brew install python@3.12
-        ```
-      </Tab>
-
-      <Tab title="Linux">
-        ```bash
-        # Ubuntu/Debian
-        sudo add-apt-repository ppa:deadsnakes/ppa
-        sudo apt-get update
-        sudo apt-get install python3.12
-        ```
-      </Tab>
-
-      <Tab title="Windows">
-        Download from <a href="https://www.python.org/downloads/">python.org</a> or use `pyenv`:
-        ```bash
-        pyenv install 3.12
-        pyenv global 3.12
-        ```
-      </Tab>
-    </Tabs>
-  </Accordion>
-
-  <Accordion title="Module import errors" icon="code">
-    **Problem**: `ModuleNotFoundError` when running the application.
-
-    **Solution**:
-    ```bash
-    # Ensure all dependencies are installed
-    pip install -r requirements.txt
-    
-    # Install in development mode
-    pip install -e .
-    ```
+    The desktop build links PostgreSQL — set the `PG_*` keys in `config.yml`, or rebuild with `./build.sh sqlite` for a self-contained SQLite backend that needs no external database.
   </Accordion>
 </AccordionGroup>
-
-## Uninstallation
-
-<Tabs>
-  <Tab title="Docker">
-    Remove all containers, volumes, and images:
-
-    ```bash
-    # Stop and remove containers
-    docker-compose down
-    
-    # Remove volumes (WARNING: This deletes all data)
-    docker-compose down -v
-    
-    # Remove images
-    docker-compose down --rmi all
-    ```
-  </Tab>
-
-  <Tab title="Source Installation">
-    ```bash
-    # Deactivate virtual environment
-    deactivate
-    
-    # Remove project directory
-    cd ..
-    rm -rf mirobody
-    ```
-  </Tab>
-</Tabs>
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Configuration" icon="gear" href="/en/configuration">
-    Configure OAuth providers and customize settings
+    Configure providers, database, storage, and auth in `config.yml`
   </Card>
   <Card title="Quick Start" icon="rocket" href="/en/quickstart">
-    Follow the quick start guide to test your installation
+    The short path from clone to running binary
   </Card>
   <Card title="Architecture" icon="diagram-project" href="/en/concepts/architecture">
     Understand how Mirobody works
   </Card>
   <Card title="Development" icon="code" href="/en/development/setup">
-    Set up your development environment
+    Set up a development build with tests
   </Card>
 </CardGroup>

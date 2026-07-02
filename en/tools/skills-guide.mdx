@@ -1,153 +1,43 @@
 ---
-title: "Writing a Skill"
-description: "Drop a SKILL.md + metadata.json into skills/ and your agent picks it up automatically."
+title: "Agent Skills"
+description: "Agent Skills (SKILL.md) are not part of the Mirobody C++ engine. Extend the agent with MCP tools instead."
 ---
 
-Skills are the **playbook** an agent reads when a particular task is in front of it. Where a [Tool](/en/tools/adding-tools) is "code the agent calls", a Skill is "prose the agent loads into context" — long-form instructions, examples, formatting rules, edge cases. The agent decides when to consult one based on its `description`.
+<Note>
+**There is no skills registry in the Mirobody C++ engine.** The `SKILL.md` + `metadata.json` "Agent Skills" mechanism — a `skills/` directory auto-discovered at startup — was part of an earlier design and is **not implemented in the current C++ engine (Mirobody)**. The single agent in `res/agents/base.cpp` builds a fixed inline system prompt, picks an LLM client by provider, and streams the turn back, calling built-in **MCP tools**. It does not load `SKILL.md` files, and there is no skill loader.
+</Note>
 
-Mirobody supports the [Claude Agent Skills](https://docs.anthropic.com/en/docs/claude-skills) format directly: any folder under `skills/` that contains a `SKILL.md` is auto-discovered at startup and exposed to every agent that has the skill loader enabled.
+## What to use instead
 
-## File layout
+The way to extend what the agent can do is to add an **MCP tool** — a small C++ file in `res/mcp_tools/` that self-registers at compile time. Tools are "code the agent calls": the model invokes one like a function and reads the return value. There is no separate "prose the agent loads into context" layer.
 
-```
-skills/<your-skill>/
-├── SKILL.md           # required — YAML frontmatter + body
-├── metadata.json      # required — Mirobody discovery hints
-├── LICENSE.txt        # recommended for distribution
-└── ...                # any auxiliary files the playbook references
-    ├── reference.md
-    ├── forms.md
-    └── scripts/
-```
+<CardGroup cols={2}>
+  <Card title="Adding Custom Tools" icon="wrench" href="/en/tools/adding-tools">
+    Add a C++ tool in `res/mcp_tools/` with the `MIROBODY_REGISTER_TOOL` macro, then rebuild.
+  </Card>
+  <Card title="Built-in Tools" icon="list" href="/en/tools/built-in">
+    The 9 MCP tools that ship with the engine.
+  </Card>
+</CardGroup>
 
-The whole folder is the unit. The agent reads `SKILL.md` end-to-end when the skill activates; anything in sibling files is referenced by relative path from the playbook.
+## Guiding the agent's behavior
 
-## `SKILL.md`
+If you want to change *how* the agent behaves — its tone, the domains it knows about, or when it reaches for a tool — the levers in the C++ engine are:
 
-```markdown
----
-name: xlsx
-description: >
-  Comprehensive spreadsheet creation, editing, and analysis with support for
-  formulas, formatting, data analysis, and visualization. When Claude needs to
-  work with spreadsheets (.xlsx, .xlsm, .csv, .tsv, etc) for: (1) Creating new
-  spreadsheets with formulas and formatting, (2) Reading or analyzing data,
-  (3) Modify existing spreadsheets while preserving formulas, (4) Data analysis
-  and visualization in spreadsheets, or (5) Recalculating formulas.
-license: Proprietary. LICENSE.txt has complete terms
----
+- **The system prompt.** The agent's instructions are a fixed inline string built in [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp) (`build_system_prompt`). It already tells the model to fetch uploads via `list_files` / `read_file` and health records via `family_health`. Editing that string and rebuilding changes the agent's standing instructions.
+- **Tool descriptions.** Each tool's `description` and per-`Param` text (declared in its `res/mcp_tools/*.cpp`) is what the model sees when deciding whether and how to call it — so a clear description is the main way to steer usage. See [Built-in Tools](/en/tools/built-in) for examples.
 
-# Requirements for Outputs
-
-## All Excel files
-
-### Zero Formula Errors
-- Every Excel model MUST be delivered with ZERO formula errors (#REF!, #DIV/0!, …)
-
-### Preserve Existing Templates (when updating templates)
-- Study and EXACTLY match existing format, style, and conventions when modifying files
-- Never impose standardized formatting on files with established patterns
-
-…
-```
-
-Frontmatter fields:
-
-| Field | Required | Purpose |
-|---|---|---|
-| `name` | yes | Stable identifier, kebab-case. Used in logs and tool calls. |
-| `description` | yes | What this skill does **and when to use it**. The model sees this verbatim when deciding whether to load the skill. Be specific about triggers. |
-| `license` | recommended | Free-text license note. |
-
-The body is unconstrained Markdown. Write it for the model: explicit rules, worked examples, do/don't sections, edge cases. Length is fine — the body only gets loaded into context if the agent decides this skill applies.
-
-## `metadata.json`
-
-```json
-{
-  "name": "xlsx",
-  "summary": "Comprehensive spreadsheet creation, editing, and analysis …",
-  "when_to_use": [
-    "User uploaded an .xlsx / .csv file and asks for analysis",
-    "User asks to generate a financial model from scratch"
-  ],
-  "when_not_to_use": [
-    "User wants a one-off CSV row — use a tool directly"
-  ],
-  "tags": ["documents"]
-}
-```
-
-`metadata.json` is Mirobody-specific. It's lighter weight than the SKILL.md body and is what the skill loader scans first.
-
-| Field | Purpose |
-|---|---|
-| `name` | Must match the frontmatter `name`. |
-| `summary` | One- or two-sentence pitch. Shown in skill lists. |
-| `when_to_use` | Array of intent triggers. The orchestrator matches user requests against these. |
-| `when_not_to_use` | Negative triggers — keeps the skill from over-firing. |
-| `tags` | Free-form labels for filtering. |
-
-If `when_to_use` / `when_not_to_use` are left empty, the loader falls back to matching on `description` from `SKILL.md`.
-
-## A complete example: the `xlsx` skill
-
-The upstream repo ships four reference skills under [`skills/`](https://github.com/thetahealth/mirobody/tree/main/skills) — `xlsx`, `pdf`, `pptx`, `docx`. The `xlsx` skill is the most representative:
-
-```
-skills/xlsx/
-├── SKILL.md       # 200+ lines of formula / formatting / financial-model rules
-├── metadata.json
-├── recalc.py      # auxiliary script the playbook calls when needed
-└── LICENSE.txt
-```
-
-Walk through what happens when a user uploads a spreadsheet:
-
-1. Agent (e.g. DeepAgent) sees an `.xlsx` attachment in the user message.
-2. Skill loader scans `metadata.json` files; `xlsx`'s `summary` matches.
-3. The full `SKILL.md` body is injected into the system context for this turn.
-4. The agent now has all the formatting standards, color-coding conventions, and `recalc.py` documentation it needs — no extra tool calls required.
-
-## Adding your own skill
-
-<Steps>
-  <Step title="Pick a slot in `skills/`">
-    Use kebab-case for the folder name. Multi-word skills like `glucose-coach` or `legal-citation` are fine.
-  </Step>
-  <Step title="Write `SKILL.md`">
-    Start with frontmatter (`name`, `description`, `license`). Then write the playbook in plain Markdown. Aim for "I'm onboarding a new colleague" tone — explicit, with worked examples.
-  </Step>
-  <Step title="Write `metadata.json`">
-    At minimum: `name`, `summary`, and either populated `when_to_use` or a strong `description` in `SKILL.md`. Add `tags` if you want to filter skills in custom agents.
-  </Step>
-  <Step title="Restart the server">
-    Skills are auto-discovered at startup. After `./deploy.sh` (or restarting your local dev server) the skill is live across every agent that runs the skill loader.
-  </Step>
-  <Step title="Verify it fires">
-    Ask the model something that should trigger the skill. In the chat session log you'll see the skill name appear in the system context once it activates.
-  </Step>
-</Steps>
-
-## Skills vs Tools — quick mental model
-
-| | Tool | Skill |
-|---|---|---|
-| Form | Python function | Markdown playbook + metadata |
-| When agent uses it | Calls it like a function and reads the return value | Loads the whole body into context when relevant |
-| Best for | Side-effecting actions, structured data fetches | Domain rules, formats, examples, style guides |
-| Discovery | Auto-loaded from `tools/` | Auto-loaded from `skills/` |
-| Versioned with | Pinned imports | The folder itself + git |
-
-Tools answer "what can I do?"; Skills answer "how should I do it?". Most real domains need both — for example, a `health-coach` skill that tells the model the tone and structure for advice, paired with `fetch_health_data`, `search_health_indicators`, and `chart_*` tools that supply the underlying numbers.
+<Warning>
+Changing the prompt or adding a tool is a **compile-time** change: edit the `.cpp`, then rebuild with `./build.sh`. There is no runtime drop-in for either.
+</Warning>
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Adding Tools" icon="wrench" href="/en/tools/adding-tools">
-    The other half: write Python functions the agent can call.
+  <Card title="Tools & Agent Overview" icon="brain" href="/en/tools/overview">
+    How the single agent, MCP tools, and providers fit together.
   </Card>
-  <Card title="Tools & Agents Overview" icon="brain" href="/en/tools/overview">
-    See how Skills, Tools, and the three agent types fit together.
+  <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
+    Expose the tools to Claude, Cursor, and ChatGPT over `/mcp`.
   </Card>
 </CardGroup>

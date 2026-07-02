@@ -1,185 +1,172 @@
 ---
 title: "Production Deployment"
-description: "Best practices for deploying Mirobody to production"
+description: "Run the Mirobody C++ binary in production: secrets, backends, health checks, and compliance."
 ---
 
-## Production Checklist
+In production, Mirobody is the standalone `mirobody` binary (or the Docker image) driven by `config.yml` and environment variables, backed by your own database, cache, and object storage. This page covers the settings that matter beyond a local run; anything not verifiable in the engine is flagged.
+
+## Production checklist
 
 <AccordionGroup>
   <Accordion title="Security" icon="shield">
-    - [ ] Use strong, randomly generated keys
-    - [ ] Enable HTTPS/TLS
-    - [ ] Restrict CORS origins
-    - [ ] Use environment variables for secrets
-    - [ ] Enable database encryption
-    - [ ] Set up firewall rules
+    - [ ] Replace every `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder in `config.yml`
+    - [ ] Provide `CONFIG_ENCRYPTION_KEY` via the environment (encrypts `_KEY`/`_SECRET`/… values at rest)
+    - [ ] Set a strong `JWT_KEY` (HS256) or `JWT_PRIVATE_KEY` (RS256)
+    - [ ] Set `PG_ENCRYPTION_KEY` (encrypts sensitive data columns; keep it out of the file)
+    - [ ] Remove `EMAIL_PREDEFINE_CODES` (demo codes are test-only)
+    - [ ] Restrict CORS `Access-Control-Allow-Origin` to your domain
+    - [ ] Terminate TLS at a reverse proxy / load balancer in front of the binary
   </Accordion>
 
-  <Accordion title="Performance" icon="gauge">
-    - [ ] Configure connection pooling
-    - [ ] Enable Redis persistence
-    - [ ] Set up caching
-    - [ ] Optimize database queries
-    - [ ] Configure rate limiting
+  <Accordion title="Backends" icon="database">
+    - [ ] Point `PG_*` at a managed PostgreSQL (desktop/server default backend)
+    - [ ] Set `REDIS_HOST` if you run more than one instance (shared cache)
+    - [ ] Configure an object-storage backend (S3 / OSS / Azure Blob) instead of local disk
   </Accordion>
 
-  <Accordion title="Monitoring" icon="chart-line">
-    - [ ] Set up logging aggregation
-    - [ ] Configure health checks
-    - [ ] Enable metrics collection
-    - [ ] Set up alerts
-    - [ ] Monitor error rates
+  <Accordion title="Compliance (PHI)" icon="user-shield">
+    - [ ] Keep the LLM on-device, or route hosted calls through a BAA-covered surface (Vertex AI / Azure OpenAI)
+    - [ ] Self-host in your region and pin outbound dependencies to it (GDPR data residency)
+    - [ ] Leave care-circle sharing off unless users opt in (it is off by default)
   </Accordion>
 
-  <Accordion title="Backup & Recovery" icon="database">
-    - [ ] Automated database backups
-    - [ ] Test restore procedures
-    - [ ] Backup configuration files
-    - [ ] Document recovery process
+  <Accordion title="Operations" icon="chart-line">
+    - [ ] Wire liveness/readiness probes to `/api/health`
+    - [ ] Ship stdout logs to your aggregator (or set `LOG_DIR`)
+    - [ ] Automate PostgreSQL backups and test restores
   </Accordion>
 </AccordionGroup>
 
-## Security Configuration
+## Secrets and keys
 
-### Generate Secure Keys
-
-```bash
-# Database encryption key (32 characters)
-openssl rand -hex 32
-
-# JWT secret key
-openssl rand -base64 48
-
-# Redis password
-openssl rand -base64 32
-```
-
-### Production config.yaml
-
-```yaml
-# Security
-DATABASE_DECRYPTION_KEY: '[generated-key]'
-JWT_KEY: '[generated-key]'
-REDIS_PASSWORD: '[strong-password]'
-PG_PASSWORD: '[strong-password]'
-
-# HTTPS URLs
-MCP_FRONTEND_URL: 'https://yourdomain.com'
-MCP_PUBLIC_URL: 'https://api.yourdomain.com'
-WHOOP_REDIRECT_URL: 'https://api.yourdomain.com/api/v1/pulse/theta/theta_whoop/callback'
-
-# Strict CORS
-HTTP_HEADERS:
-  Access-Control-Allow-Origin: 'https://yourdomain.com'
-
-# SSL/TLS
-REDIS_SSL: true
-```
-
-## Deployment Architecture
-
-### AWS Example
-
-```
-┌─────────────────────────┐
-│  Route 53 (DNS)         │
-└────────┬────────────────┘
-         │
-┌────────▼────────────────┐
-│  CloudFront (CDN)       │
-└────────┬────────────────┘
-         │
-┌────────▼────────────────┐
-│  ALB (Load Balancer)    │
-└────┬────────────┬───────┘
-     │            │
-┌────▼────┐  ┌───▼─────┐
-│ ECS/EC2 │  │ ECS/EC2 │
-│ API 1   │  │ API 2   │
-└────┬────┘  └───┬─────┘
-     │           │
-     └─────┬─────┘
-           │
-    ┌──────▼──────────┐
-    │                 │
-┌───▼─────────┐  ┌───▼────────────┐
-│ RDS         │  │ ElastiCache    │
-│ PostgreSQL  │  │ Redis          │
-└─────────────┘  └────────────────┘
-```
-
-## Environment Variables
-
-Use environment variables for sensitive configuration:
+Generate strong values and provide the encryption key via the environment:
 
 ```bash
-export DATABASE_DECRYPTION_KEY="..."
-export JWT_KEY="..."
-export OPENAI_API_KEY="..."
-export POSTGRES_PASSWORD="..."
-export REDIS_PASSWORD="..."
+openssl rand -hex 32     # JWT_KEY (HS256), PG_ENCRYPTION_KEY, CONFIG_ENCRYPTION_KEY, LOCAL_STORAGE_SECRET
 ```
 
-## Monitoring & Logging
+```bash
+export CONFIG_ENCRYPTION_KEY="<generated>"
+```
 
-### Logging Configuration
+With `CONFIG_ENCRYPTION_KEY` set, any value whose key contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` is auto-encrypted (Fernet `gAAAA…`) at rest — so you can commit an encrypted `config.yml` if you keep the key in the environment. `PG_ENCRYPTION_KEY` is deliberately **not** auto-encrypted (it bootstraps the database), so keep it in the environment or a secrets manager.
 
-```yaml config.yaml
+For RS256 (so other services can verify your tokens against a published JWKS), set `JWT_PRIVATE_KEY` instead of `JWT_KEY`; `cli/jwt_keygen` mints a keypair.
+
+## Example production config
+
+```yaml config.yml
 LOG_LEVEL: 'INFO'
 LOG_DIR: '/var/log/mirobody'
+
+HTTP_HOST: '0.0.0.0'
+HTTP_PORT: 8080
+HTTP_HEADERS:
+  Access-Control-Allow-Origin: 'https://yourdomain.com'
+  Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+  Access-Control-Allow-Headers: 'Authorization, Content-Type, X-Timezone'
+
+# Database (managed PostgreSQL)
+PG_HOST: 'your-db-host.rds.amazonaws.com'
+PG_PORT: 5432
+PG_USER: 'postgres'
+PG_DBNAME: 'mirobody'
+# PG_PASSWORD / PG_ENCRYPTION_KEY: provide via environment
+
+# Cache (only needed for multi-instance)
+REDIS_HOST: 'your-redis.cache.amazonaws.com'
+REDIS_PORT: 6379
+
+# Public MCP endpoint (required for MiroThinker and remote MCP clients)
+MCP_PUBLIC_URL: 'https://api.yourdomain.com'
 ```
 
-### Health Check Endpoint
+Provide the secrets separately:
 
 ```bash
-# Monitor application health
-curl https://api.yourdomain.com/health
+export PG_PASSWORD="..."
+export PG_ENCRYPTION_KEY="..."
+export JWT_KEY="..."
+export GOOGLE_API_KEY="..."      # or OPENAI_API_KEY
+export CONFIG_ENCRYPTION_KEY="..."
 ```
 
-### Metrics to Monitor
+## TLS and the reverse proxy
 
-- Request latency (p50, p95, p99)
-- Error rate by endpoint
-- Provider sync success rate
-- Database connection pool usage
-- Redis cache hit rate
-- CPU and memory usage
+The binary serves plain HTTP + WebSocket on `HTTP_HOST:HTTP_PORT`. Terminate TLS in front of it (nginx, Caddy, a cloud load balancer) and forward to the binary's port. If you mount the app under a sub-path at the proxy, set `HTTP_URI_PREFIX` to match so generated URLs and routes line up. *(The engine does not terminate TLS itself — verify your proxy forwards WebSocket upgrade headers for the realtime `/api/chat` route.)*
 
-## Backup Strategy
-
-### Database Backups
+## Health checks
 
 ```bash
-# Daily automated backup
-0 2 * * * pg_dump -h localhost -U holistic_user holistic_db | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
+curl https://api.yourdomain.com/api/health   # -> ok
 ```
 
-### Configuration Backups
+`GET /api/health` is an unauthenticated liveness probe. Under Kubernetes, use it for both `httpGet` liveness and readiness probes (the Docker runtime image is libraries-only, so there is no in-container `curl` for a `HEALTHCHECK`).
 
-```bash
-# Backup configuration
-tar -czf config-backup-$(date +%Y%m%d).tar.gz config.yaml .env
-```
+## Running under Docker / Kubernetes
+
+The shipped `Dockerfile` is written for this: it runs as an unprivileged user (uid 10001) and expects secrets/settings from env vars or a mounted `config.yml`. A few operational notes baked into the image:
+
+- **Skip the in-process schema migration** in managed environments by setting `ENV=PROD` (or `TEST` / `GRAY`) — the server then assumes the schema is already applied.
+- **Sentry crash reporting** writes to a database dir; the image points `SENTRY_DATABASE_PATH` at `/tmp/mirobody/sentry` so it stays writable under a read-only root filesystem.
+- **Tanka login** pulls in `nodejs`; disable it (`TANKA_LOGIN_ENABLED=false`) if unused.
+
+<Warning>
+`ENV=PROD` selects the remote-config environment **and** skips migration. Only use it once your database schema is provisioned (from `res/sql/<backend>`). For a first-time self-hosted run against an empty database, let the default in-process migration create the schema.
+</Warning>
+
+## Object storage
+
+Use a durable backend rather than local disk. Fill the S3, Alibaba OSS, or Azure Blob block in `config.yml` — see [Configuration → File storage](/en/configuration#file-storage). Pin the storage region to your compliance region.
+
+## Compliance — HIPAA & GDPR
+
+Because the core runs on-device or self-hosted, personal health data never has to leave your infrastructure. The single place PHI can leave is the LLM call:
+
+- **HIPAA** — run the model **fully on-device** (Gemma 4; the native apps' "On-device" provider), or route hosted models through a BAA-eligible surface: **Google Gemini via Vertex AI** (`GOOGLE_GENAI_USE_VERTEXAI=1` + `GCP_PROJECT` / `VERTEX_LOCATION`) or **OpenAI via Azure OpenAI** (`AZURE_OPENAI_ENDPOINT` + deployment + key). The public AI Studio / OpenAI-direct endpoints are not BAA-covered.
+- **GDPR** — self-host in your region and pin every outbound dependency to it: `VERTEX_LOCATION` / `VERTEX_BASE_URL` for Gemini, the Azure resource region for GPT, the object-storage region per backend, and `AZURE_BLOB_ENDPOINT_SUFFIX` for sovereign clouds.
+
+Care-circle sharing is opt-in and off by default, and the AI assistant is **read-only** over another member's data. See [Compliance](/en/cloud/compliance) for the managed-cloud posture.
 
 ## Scaling
 
-### Horizontal Scaling
+- **Horizontal** — run multiple instances behind a load balancer; set `REDIS_HOST` so they share cache state, and use PostgreSQL read replicas for read-heavy workloads. *(Sticky sessions are not required for the SSE/WebSocket chat routes as long as each connection stays on one instance for its lifetime — verify against your load balancer's connection handling.)*
+- **Vertical** — the C++ binary is lightweight; size CPU/memory to your LLM concurrency and document-processing load.
 
-- Deploy multiple API instances behind load balancer
-- Use Redis cluster for distributed caching
-- Database read replicas for read-heavy workloads
+## Monitoring
 
-### Vertical Scaling
+The binary logs to stdout (or `LOG_DIR`). Metrics worth watching:
 
-Adjust resources based on load:
+- Chat turn latency and error rate
+- Provider sync success rate
+- Database connection health
+- Cache hit rate (Redis, if enabled)
+- CPU / memory per instance
 
-```yaml
-# docker-compose.yml
-services:
-  backend:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
+*(Mirobody does not ship a Prometheus/metrics endpoint that we can confirm here — instrument at the proxy / platform layer, or verify against the current build.)*
+
+## Backups
+
+```bash
+# Daily PostgreSQL dump (cron)
+0 2 * * * pg_dump -h <host> -U postgres mirobody | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
 ```
+
+Also back up your `config.yml` (encrypted) and the object-storage bucket. Test restores regularly.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Deployment" icon="docker" href="/en/deployment/docker">
+    Build and run the container image
+  </Card>
+  <Card title="Configuration" icon="gear" href="/en/configuration">
+    Every production key in one place
+  </Card>
+  <Card title="Compliance" icon="user-shield" href="/en/cloud/compliance">
+    HIPAA / GDPR posture
+  </Card>
+  <Card title="API Reference" icon="code" href="/en/api-reference/overview">
+    Endpoints your clients will call
+  </Card>
+</CardGroup>

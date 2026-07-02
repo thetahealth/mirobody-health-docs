@@ -1,431 +1,161 @@
 ---
-title: "Tools & Agents Overview"
-description: "Understanding agents, tools, and MCP integration in Mirobody"
+title: "Tools & Agent Overview"
+description: "Understanding the agent, MCP tools, and the /mcp endpoint in the Mirobody C++ engine"
 ---
 
-## Agent Architecture
+## The agent
 
-Mirobody provides three agent types, each optimized for a different cost/quality/latency point:
+Mirobody runs **one simple agent** — "Base", defined in [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp). It is deliberately minimal: there is no agent loop, no planner, no middleware. For each turn it:
 
-<CardGroup cols={3}>
-  <Card title="DeepAgent" icon="brain">
-    **Complex workflows**
+1. **Picks an LLM client by provider name** (the requested `provider`, else the default).
+2. **Builds a system prompt** — a fixed inline string with the current time, the response language, and guidance to fetch uploads (`list_files` / `read_file`) and health records (`family_health`).
+3. **Streams the provider's events straight back**, letting the model call the built-in [MCP tools](/en/tools/built-in) as needed.
 
-    Single-model tool orchestration. Multi-step planning, file ops, subagents, persistent memory. The default for tool-assisted conversations.
-  </Card>
-  <Card title="MixAgent" icon="layer-group">
-    **Cost/quality balance**
+<Note>
+**No "deep agents" features.** Earlier drafts described planning / todos, task sub-agents, a virtual filesystem, sandboxed execution, and an Agent Skills registry. **None of that exists in the C++ engine (Mirobody).** There is also no separate Deep / Mix / Base split anymore — they've converged into this single agent. You choose a **provider** (a model), not an agent *type*.
+</Note>
 
-    Two-phase model fusion: a capable model orchestrates tool calls, a cheaper model writes the final reply with the collected context.
-  </Card>
-  <Card title="BaseAgent" icon="bolt">
-    **Simple Q&A**
+### Providers
 
-    Direct LLM conversation without tools. Lowest latency. Good for trivial questions and benchmarking.
-  </Card>
-</CardGroup>
+The agent registers up to four provider clients (each keyed by the model name the `/api/providers` selector shows). The first three are always registered so they appear in the selector; one whose credentials aren't set simply errors at call time.
 
-## Agent Comparison
+| Provider key | Model | Client | Tool execution |
+|--------------|-------|--------|----------------|
+| `gemini-2.5-flash` | Google Gemini 2.5 Flash (**default**) | `GeminiClient` | Local, in-process |
+| `gpt-5-nano` | OpenAI GPT-5 nano | `OpenAIChatClient` | Local, in-process |
+| `mirothinker-1.7` | MiroThinker (MiroMind) | `MiroThinkerClient` | Provider-native MCP via `MCP_PUBLIC_URL` |
+| `gemma-4-e2b` | On-device Gemma 4 E2B | `OpenAIChatClient` (local endpoint) | Depends on serving stack |
 
-| Feature | DeepAgent | MixAgent | BaseAgent |
-|---------|-----------|----------|---------------|
-| **Architecture** | Single-model tool loop | Orchestrator + Responder (two-phase) | Direct LLM, no tools |
-| **Planning** | ✅ Built-in todos | ✅ (orchestrator phase) | ❌ |
-| **File System** | ✅ Full support | ✅ (orchestrator phase) | ❌ |
-| **Subagents** | ✅ Task isolation | ✅ (orchestrator phase) | ❌ |
-| **MCP Tools** | ✅ Full integration | ✅ (orchestrator phase) | ❌ |
-| **MCP Resources** | ❌ | ❌ | ✅ Native |
-| **MCP Prompt Templates** | ❌ | ❌ | ✅ Native |
-| **Memory** | ✅ PostgreSQL | ✅ PostgreSQL | ❌ |
-| **Streaming** | ✅ | ✅ (responder phase) | ✅ |
-| **Model Support** | Multi-provider | Two providers (one per phase) | Gemini 2.5/3.0, MiroThinker |
-| **Cost Profile** | One expensive model | Expensive orchestrator + cheap responder | One cheap model |
-| **Best For** | Complex workflows, file ops | Long contexts where reply phase doesn't need top-tier reasoning | Simple/lightweight tasks |
-| **Setup Complexity** | Medium | Medium | Low |
+The native apps also run **Gemma 4 E2B on-device** (LiteRT-LM on Android/iOS, llama.cpp on Electron) — offline, no key. `gemma-4-e2b` above is the same model served over a local OpenAI-compatible endpoint (Ollama / llama.cpp / vLLM), registered only when a base URL is configured.
 
-## DeepAgent (Recommended for Complex Tasks)
-
-### Features
-
-- ✅ **Multi-step Planning**: Built-in task decomposition with TODO system
-- ✅ **File Operations**: Read, write, edit files with glob and grep support
-- ✅ **Subagents**: Spawn subagents for context isolation
-- ✅ **Long-term Memory**: PostgreSQL-backed persistent memory
-- ✅ **Full MCP Tools**: Complete integration with MCP tool ecosystem
-
-### Supported Providers
-
-DeepAgent supports multiple LLM providers via LangChain:
-
-- **Gemini 3.0** (via Google GenAI SDK)
-- **GPT-5** (via OpenAI API or OpenRouter)
-- **Claude Sonnet** (via OpenRouter)
-- **DeepSeek v3.2** (via OpenRouter)
+<Info>
+**How tools run differs by provider.** OpenAI and Gemini receive the tools as function-call descriptors and the engine executes each call **locally in-process** as the authenticated user. MiroThinker runs tools **provider-side** — MiroMind reaches back to your `/mcp` endpoint over the public internet at `MCP_PUBLIC_URL`.
+</Info>
 
 ### Configuration
 
-```yaml config.localdb.yaml
-# API Keys
-GOOGLE_API_KEY: 'your_google_api_key'        # For Gemini models
-OPENAI_API_KEY: 'your_openai_api_key'        # For GPT models
-OPENROUTER_API_KEY: 'your_openrouter_key'    # For Claude, DeepSeek, etc.
+Providers are configured with flat keys in `config.yml` (see [Configuration](/en/configuration)). There is **no `PROVIDERS_DEEP`** block.
 
-# Provider Configurations
-PROVIDERS_DEEP:
-  # Gemini 3.0 models
-  gemini-3-pro:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-pro-preview
-    temperature: 1.0
-  
-  gemini-3-flash:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-flash-preview
-    temperature: 1.0
-  
-  # OpenAI GPT models
-  gpt-5.1:
-    llm_type: openai
-    api_key: OPENAI_API_KEY
-    base_url: https://api.openai.com/v1/
-    model: gpt-5.1
-    temperature: 0.1
-  
-  # Claude via OpenRouter
-  claude-sonnet:
-    llm_type: openai  # OpenAI-compatible API
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: anthropic/claude-sonnet-4.5
-    temperature: 0.1
-  
-  # DeepSeek via OpenRouter
-  deepseek-v3.2:
-    llm_type: openai
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: deepseek/deepseek-v3.2
-    temperature: 0.1
+```yaml config.yml
+# OpenAI (gpt-5-nano)
+OPENAI_API_KEY: 'your_openai_key'
+OPENAI_BASE_URL: 'https://api.openai.com'   # client appends /v1/chat/completions
 
-# Optional: Custom prompts
-PROMPTS_DEEP:
-  - mirobody/pub/agents/deep/prompts/theta_health.jinja
+# Google Gemini (gemini-2.5-flash, the default provider)
+GOOGLE_API_KEY: 'your_google_key'
 
-# Optional: Tool filtering
-ALLOWED_TOOLS_DEEP: []     # Leave empty to allow all tools
-DISALLOWED_TOOLS_DEEP: []  # Specify tools to disable
+# MiroThinker (mirothinker-1.7) — provider-native MCP
+MIROTHINKER_API_KEY: 'your_mirothinker_key'
+MIROTHINKER_BASE_URL: ''      # optional override
+MIROTHINKER_MODEL: ''         # optional override
+MCP_PUBLIC_URL: 'https://your-domain.com/mcp'   # where MiroMind reaches your MCP
+
+# On-device Gemma served over a local OpenAI-compatible endpoint (optional)
+GEMMA_CHAT_BASE_URL: 'http://localhost:11434/v1'   # or OLLAMA_BASE_URL
+GEMMA_CHAT_API_KEY: ''
+GEMMA_CHAT_MODEL: 'gemma-4-e2b'
 ```
 
-### Use Cases
+### What the agent covers
 
-- Complex health data analysis workflows
-- Multi-step research and reporting
-- File processing and management
-- Tasks requiring persistent context
-- Projects needing task decomposition
+Personal-health questions almost always resolve to: *read the user's records → optionally read uploaded files → optionally recall long-term memory → answer, sometimes rendering a chart*. The built-in tools map directly onto that, and the model orchestrates them itself within a single streamed turn.
 
-### Usage Example
+## Tools system
 
-```python
-from mirobody.pub.agents.deep_agent import DeepAgent
+### What tools are
 
-agent = DeepAgent(
-    user_id="user123",
-    user_name="John Doe",
-    token="jwt_token",
-    timezone="America/Los_Angeles"
-)
+Tools are **C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools)**. Each declares a `Tool` (name, description, an `auth` flag, a small `Param` table, and a handler) and self-registers at compile time. `CMakeLists.txt` globs every `.cpp` in that directory (with `CONFIGURE_DEPENDS`) into the build, so **dropping a new file and rebuilding is all it takes** — no manual registration, no hand-written JSON schema.
 
-async for event in agent.generate_response(
-    user_id="user123",
-    messages=[{"role": "user", "content": "Analyze my health data"}],
-    provider="gemini-3-flash",
-    session_id="session_001"
-):
-    print(event)
+<Info>
+This is a **compile-time** mechanism. There is no Python tool loader and no `mirobody/pub/tools/` directory in the C++ engine — those were part of the old Python server.
+</Info>
+
+### The nine built-in tools
+
+| Tool | Auth | Purpose |
+|------|:----:|---------|
+| `list_files` | ✅ | List the user's uploaded files |
+| `read_file` | ✅ | Read one uploaded file by `file_key` |
+| `family_health` | ✅ | Read recent FHIR `Observation`s for the user or a shared care-circle member |
+| `whoami` | ✅ | Confirm authentication, return the session id |
+| `recall_memory` | ✅ | Retrieve the user's most relevant long-term memories |
+| `remember` | ✅ | Store a durable fact in long-term memory |
+| `render_chart` | — | Draw a chart in the chat UI (Apache ECharts) |
+| `summarize_conversation` | ✅ | Set a short title for the current conversation |
+| `echo` | — | Echo text back (example / connectivity test) |
+
+See [Built-in Tools](/en/tools/built-in) for each tool's parameters and return shape.
+
+### Adding a tool
+
+Create `res/mcp_tools/<name>.cpp`, declare a `Tool`, and register it with the `MIROBODY_REGISTER_TOOL(...)` macro — then rebuild:
+
+```cpp res/mcp_tools/echo.cpp
+#include "mcp/tool.hpp"
+#include <rapidjson/document.h>
+
+namespace {
+using namespace mirobody::mcp;
+
+Result echo(const Args& args, const UserInfo&, const ToolContext&) {
+    const std::string text = args.str("text");
+    rapidjson::Document d;
+    d.SetObject();
+    rapidjson::Document::AllocatorType& a = d.GetAllocator();
+    d.AddMember("echo",
+                rapidjson::Value(text.c_str(),
+                                 static_cast<rapidjson::SizeType>(text.size()), a), a);
+    return Result::ok(to_json(d));
+}
+
+const Tool kEcho = {
+    "echo",
+    "Echo back the provided text.",
+    false,                                                    // auth
+    { Param("text", Type::String, Required, "Text to echo back") },
+    &echo,
+};
+}   // namespace
+
+MIROBODY_REGISTER_TOOL(kEcho);
 ```
 
-## MixAgent (Two-Phase Cost/Quality Fusion)
+Auth-scoped tools set `auth = true` and receive the caller's identity as `UserInfo`; anything else a handler needs (cache, object store, database, long-term memory) arrives through `ToolContext`. Full walkthrough: [Adding Custom Tools](/en/tools/adding-tools).
 
-MixAgent splits a single response into two model calls:
+## The MCP endpoint
 
-1. **Orchestrator phase** — a capable model (e.g. Claude Sonnet 4.5) handles the tool-calling loop. It plans, searches data, reads files, and stops when it has enough context.
-2. **Responder phase** — a cheaper model (e.g. Gemini 2.5 Flash) consumes the orchestrator's collected context and writes the final user-facing reply.
-
-The orchestrator never speaks to the user directly; the responder never calls tools. This lets you put expensive intelligence only where you need it.
-
-### When to choose MixAgent
-
-- Long, tool-heavy conversations where the final summary doesn't need top-tier reasoning (cost saver vs. DeepAgent).
-- You want consistent voice/tone from a single model for the final reply while letting a different model handle tool dispatch.
-- You're billing by token and the responder's context will be large.
-
-### When NOT to choose MixAgent
-
-- Short Q&A — the two-pass overhead isn't worth it; use DeepAgent or BaseAgent.
-- The final reply quality is the bottleneck — promote it to DeepAgent with one strong model.
-
-### Configuration
-
-The two phases are configured via the `orchestrator` / `responder` keys under `PROVIDERS_MIX`. See [Agent Providers in Configuration](/en/configuration#mixagent-configuration) for the full YAML.
-
-```yaml
-PROVIDERS_MIX:
-  orchestrator:
-    llm_type: openai
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: anthropic/claude-sonnet-4.5
-  responder:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-2.5-flash
-```
-
-Tool filtering uses `ALLOWED_TOOLS_MIX` / `DISALLOWED_TOOLS_MIX` (only the orchestrator phase touches tools).
-
-## BaseAgent (Best for Simple Tasks)
-
-### Features
-
-- ✅ **Native MCP**: Direct MCP server support
-- ✅ **Streaming**: Fast streaming responses
-- ✅ **Direct Tool Config**: Tools configured directly to LLM
-- ✅ **Lightweight**: Minimal overhead, fast execution
-- ❌ **No file operations**
-- ❌ **No subagents**
-
-### Supported Providers
-
-- **Gemini 2.5/3.0** (native Google GenAI)
-- **MiroThinker** (custom model)
-
-### Configuration
-
-```yaml config.localdb.yaml
-# Required API Keys
-GOOGLE_API_KEY: 'your_google_api_key'           # For Gemini models
-MIROTHINKER_API_KEY: 'your_mirothinker_key'     # For MiroThinker
-
-# Provider Configurations
-PROVIDERS_BASE:
-  gemini-3-pro:
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-pro-preview
-  
-  gemini-3-flash:
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-flash-preview
-  
-  gemini-2.5-flash:
-    api_key: GOOGLE_API_KEY
-    model: gemini-2.5-flash
-  
-  miro-thinker:
-    api_key: MIROTHINKER_API_KEY
-    model: miro-thinker
-```
-
-### Use Cases
-
-- Simple health data queries
-- Quick conversations
-- Direct MCP tool usage
-- Lightweight operations
-- Native Gemini/MiroThinker features
-
-### Usage Example
-
-```python
-from mirobody.pub.agents.base_agent import BaseAgent
-
-agent = BaseAgent(
-    user_id="user123",
-    user_name="John Doe"
-)
-
-async for event in agent.generate_response(
-    user_id="user123",
-    messages=[{"role": "user", "content": "What's my health status?"}],
-    provider="gemini-2.5-flash"
-):
-    print(event)
-```
-
-## Tools System
-
-### What are Tools?
-
-Tools are Python functions that enable AI agents to interact with health data, perform actions, and access external services. Mirobody makes it easy to add custom functionality without complex configuration.
-
-### Tool Structure
+The engine exposes its tools over an MCP endpoint served by `src/mcp/`. It speaks **JSON-RPC 2.0**.
 
 ```
-mirobody/pub/
-├── tools/              # General-purpose tools
-│   ├── chart_service.py    # 25+ chart types
-│   └── ...
-└── tools_health/       # Domain-specific health tools
-    ├── genetic_service.py
-    ├── health_indicator_service.py
-    └── user_service.py
+http://localhost:8080/mcp                 # authenticates via bearer JWT
+http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
 ```
 
-### Built-in Tools
+Supported methods include `tools/list` and `tools/call`. For local development, tunnel the port (e.g. `ngrok http 8080`) and set `MCP_PUBLIC_URL` so remote clients — and MiroThinker's provider-native MCP — can reach it. See [MCP Integration](/en/tools/mcp-integration) to connect Claude, Cursor, and ChatGPT.
 
-**General Tools** (`mirobody/pub/tools/`):
-- `chart_service.py` - 25+ chart types (line, bar, pie, sankey, etc.)
-
-**Health Tools** (`mirobody/pub/tools_health/`):
-- `genetic_service.py` - Genetic data analysis
-- `health_indicator_service.py` - Health metrics tracking
-- `user_service.py` - User profile management
-
-### Tool Configuration
-
-```yaml config.localdb.yaml
-# Tool Directories
-MCP_TOOL_DIRS:
-  - mirobody/pub/tools
-  - mirobody/pub/tools_health
-  - your/custom/tools  # Add your own
-
-# Resource Directories
-MCP_RESOURCE_DIRS:
-  - mirobody/pub/resources
-
-# Agent Directories
-AGENT_DIRS:
-  - mirobody/pub/agents
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-### Creating Custom Tools
+## Where health data lives
 
-<Steps>
-  <Step title="Create tool file">
-    Create a new Python file in a configured tool directory:
-
-    ```python mirobody/pub/tools/weather_service.py
-    from typing import Dict, Any, Optional
-
-    async def get_weather(
-        city: str,
-        user_info: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """
-        Get weather information for a city.
-        
-        Args:
-            city: City name
-            user_info: Optional user authentication info
-            
-        Returns:
-            Weather data dictionary
-        """
-        # Your implementation here
-        return {
-            "city": city,
-            "temperature": "22°C",
-            "condition": "Sunny"
-        }
-
-    # Export for MCP loader
-    __all__ = ["get_weather"]
-    ```
-  </Step>
-
-  <Step title="Auto-discovery">
-    Tools are automatically discovered when the server starts. No manual registration required!
-  </Step>
-
-  <Step title="Use in agents">
-    Both DeepAgent and MixAgent (orchestrator phase) can use your custom tools automatically. BaseAgent runs without tools by design.
-  </Step>
-</Steps>
-
-### Tool Best Practices
-
-1. **Authentication**: Use `user_info` parameter for user-specific operations
-2. **Error Handling**: Return structured error responses
-3. **Type Hints**: Use proper type annotations for validation
-4. **Documentation**: Include clear docstrings with Args and Returns
-5. **Async Operations**: Prefer async functions for I/O operations
-
-## MCP Protocol Integration
-
-Mirobody functions as an MCP (Model Context Protocol) server, enabling integration with:
-
-- **Claude Desktop** - Direct integration
-- **Cursor IDE** - AI-powered coding assistant
-- **ChatGPT** - Via custom GPT apps
-- **Custom MCP Clients** - Any MCP-compatible client
-
-### MCP Endpoints
-
-```
-http://localhost:18080/mcp
-```
-
-Standard JSON-RPC 2.0 interface supporting:
-- `tools/list` - List available tools
-- `tools/call` - Execute tool functions
-- `resources/list` - List available resources
-- `resources/read` - Read resource content
-
-## Database Schema for Health Data
-
-Tools query standardized health data from these tables:
-
-### th_series_data
-
-Time-series health indicators:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer | Primary key |
-| `user_id` | varchar | User identifier |
-| `indicator` | varchar | Indicator name |
-| `value` | text | Original value |
-| `value_standardized` | text | Standardized value |
-| `start_time` | timestamp | Start time |
-| `end_time` | timestamp | End time |
-| `source` | varchar | Data source |
-| `source_table` | varchar | Source table |
-
-
-### theta_ai.health_user_profile_by_system
-
-User profile storage:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer | Primary key |
-| `user_id` | varchar | User identifier |
-| `version` | integer | Version number |
-| `name` | varchar | Profile name |
-| `last_execute_doc_id` | integer | Last executed document ID |
-| `common_part` | varchar | Profile content (JSON) |
-| `create_time` | timestamp | Creation timestamp |
-| `last_update_time` | timestamp | Last update timestamp |
-| `is_deleted` | boolean | Deletion flag |
+Tools like `family_health` don't hit ad-hoc tables — they read through the **embedded FHIR R4 store** (`src/fhir/`), returning FHIR `Observation` resources. Data is normalized on the way in (units to UCUM), and the relational backend is chosen at **build time** via CMake (`-DMIROBODY_DATABASE_BACKEND=`): SQLite (mobile default), PostgreSQL (desktop default), MySQL, DuckDB, or ClickHouse. The SQL schemas live in [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql) (`pg`, `sqlite`, `mysql`, `duckdb`, `clickhouse`). See [Architecture](/en/concepts/architecture) for the full picture.
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Built-in Tools" icon="wrench" href="/en/tools/built-in">
-    Explore the default health tools
+    The nine tools that ship
   </Card>
   <Card title="Adding Custom Tools" icon="plus" href="/en/tools/adding-tools">
-    Learn how to create your own tools
+    Write your own C++ tool
   </Card>
   <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
-    Connect to Claude, Cursor, and ChatGPT
+    Connect Claude, Cursor, and ChatGPT
   </Card>
   <Card title="Adding MCPs" icon="plug" href="/en/tools/adding-mcps">
-    Add external MCP servers
-    
+    Connect external MCP servers
   </Card>
 </CardGroup>

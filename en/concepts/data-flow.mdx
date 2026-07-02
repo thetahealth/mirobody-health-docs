@@ -1,77 +1,94 @@
 ---
 title: "Data Flow"
-description: "Understanding how health data flows through the Mirobody system"
+description: "How health data gets into Mirobody, is stored as FHIR R4, and reaches the agent during chat."
 ---
 
-## Data Flow Overview
+## Overview
 
-Health data flows through multiple stages of processing to ensure consistency, quality, and standardization across all providers.
+Health data enters Mirobody through three doors, lands in one **embedded FHIR R4 store**, and is read back by the agent through **MCP tools** during a chat turn. Everything runs inside the single C++ core — standalone on a server, or on-device inside the mobile apps.
 
-## The Complete Journey
+```
+ ┌─ Vendors (server-to-server) ─┐
+ │  wearable / aggregator / EHR │──┐
+ └──────────────────────────────┘  │
+ ┌─ On-device stores ───────────┐   │        ┌───────────────┐        ┌──────────────┐
+ │  Apple Health / Health       │──►├──────► │  FHIR R4 store │ ◄────► │  Agent (chat)│
+ │  Connect → FHIR Observations │   │        │  (src/fhir)   │  MCP   │  src/chat    │
+ └──────────────────────────────┘  │        └───────────────┘  tools └──────────────┘
+ ┌─ File uploads ───────────────┐   │
+ │  PDF / Excel / CSV / images  │──┘
+ └──────────────────────────────┘
+```
+
+<Info>
+This is not the old Python `StandardPulseData` → `th_series_data` pipeline. There is no `pull_from_vendor_api` / `format_data` provider method chain; the current model is: sources write FHIR resources into the embedded store, and the agent reads them via tools.
+</Info>
+
+## Door 1 — Vendors (server-to-server)
+
+For sources with a server API (wearable brands, B2B aggregators, EHRs), a [`vendor::Vendor`](/en/concepts/providers) client pulls data on the user's behalf. The path is ownership-gated:
 
 <Steps>
-  <Step title="Data Collection">
-    Provider pulls raw data from vendor API using OAuth-authenticated requests.
-    
-    ```python
-    raw_data = await provider.pull_from_vendor_api(
-        access_token, refresh_token, days=2
-    )
-    ```
+  <Step title="Bind">
+    The user records their external account id: `POST /vendors/{id}/bind` → a PENDING link in `user_vendor_accounts`.
   </Step>
-
-  <Step title="Raw Storage">
-    Original data is stored in database for audit trails and reprocessing.
-    
-    ```python
-    await provider.save_raw_data_to_db(raw_data)
-    ```
+  <Step title="Verify">
+    Ownership is proven through the vendor's consent flow: `POST /vendors/{id}/bind/verify` → the link is marked VERIFIED. A `UNIQUE(vendor_id, external_user_id)` constraint stops two users claiming one account.
   </Step>
-
-  <Step title="Transformation">
-    Vendor-specific data is transformed into standardized format.
-    
-    ```python
-    formatted_data = await provider.format_data(raw_data)
-    ```
-  </Step>
-
-  <Step title="Platform Upload">
-    Standardized data is uploaded to the Mirobody platform.
-    
-    ```python
-    await push_service.push_data(platform="theta", data=formatted_data)
-    ```
-  </Step>
-
-  <Step title="Availability">
-    Data is now available for querying, analysis, and AI processing.
+  <Step title="Fetch">
+    `GET /vendors/{id}/data?domain=&start=&end=` resolves the verified link, builds the vendor client from config, and calls `Vendor::fetch(user_id, domain, start_iso, end_iso)`, returning the source's JSON.
   </Step>
 </Steps>
 
-## Data Transformation
+FHIR-native vendors (the generic `ehr` SMART-on-FHIR client, plus Vitalera / HealthConnect / Redox / Particle Health / Metriport-Medical) already return FHIR R4 resources; the rest return each vendor's own JSON. The SMART-on-FHIR EHR connect flow (`/health/ehr/authorize` → `/health/ehr/callback` → `/health/ehr/sync`) fetches `Observation`s and persists each one through the FHIR store.
 
-The transformation stage converts vendor-specific formats into a standardized `StandardPulseData` format:
+## Door 2 — On-device stores (POST FHIR Observations)
 
-```python
-StandardPulseData(
-    metaInfo=StandardPulseMetaInfo(
-        userId="user_123",
-        requestId="req_abc",
-        source="theta",
-        timezone="America/Los_Angeles"
-    ),
-    healthData=[
-        StandardPulseRecord(
-            source="garmin",
-            type="HEART_RATE",
-            timestamp=1705276800000,
-            unit="count/min",
-            value=72.0,
-            timezone="America/Los_Angeles"
-        )
-    ]
-)
-```
+Apple Health, Samsung Health, Google Health Connect, and Xiaomi expose **no server API**, so they have no vendor client. Instead the **host app reads samples on-device** through the platform SDK (Apple HealthKit on iOS; Health Connect + HMS Health Kit on Android), maps them to FHIR `Observation`s, and **writes them to the embedded FHIR R4 endpoint** — the one door a web page alone cannot open, which is why the native apps exist. The FHIR write model deliberately mirrors Android Health Connect's medical-records rules.
 
-For more details on data mapping, see the [Data Mapping Guide](/en/development/data-mapping).
+## Door 3 — File uploads
+
+Uploaded documents (lab reports, spreadsheets, scans) are decomposed by the document transcoder into LLM-consumable parts, then the LLM reads them during chat. Uploads are stored per-user; the agent lists and reads them with the `list_files` / `read_file` MCP tools. See [File Processing](/en/concepts/file-processing).
+
+<Note>
+The document → structured-indicator → FHIR pipeline (parsing a report into coded lab values written back as FHIR) is **in progress** — unit normalization to UCUM and the RESTful FHIR store are shipped; full terminology mapping and automatic write-back are planned. *(verify against `src/fhir/README.md` phases.)*
+</Note>
+
+## The store — embedded FHIR R4
+
+All three doors converge on the embedded FHIR R4 endpoint in `src/fhir/`:
+
+- Resources are stored as generic validated JSON in one portable `fhir_resources(user_id, resource_type, resource_id, version_id, updated_at, deleted_at, content)` table, across whichever SQL backend was compiled in (SQLite on mobile, PostgreSQL on desktop, …).
+- Each user has an **independent resource space** (single-patient model); every FHIR route requires a bearer JWT.
+- Units are normalized to **UCUM** (`mg/dL`, `mmol/L`, `mm[Hg]`, …) by the terminology engine in `src/fhir/units/`.
+- Deletes are soft (a later read returns `410 Gone`).
+
+Routes: `GET /fhir/metadata`, `POST /fhir` (batch Bundle), and `GET/POST/PUT/DELETE /fhir/{type}[/{id}]`. Bodies are `application/fhir+json`; errors come back as an `OperationOutcome`.
+
+## Reading it back — the agent + MCP tools
+
+When a user chats, the single agent (`src/chat/` + `res/agents/base.cpp`) picks an LLM client by provider, builds a system prompt, and streams the turn back — calling **MCP tools** as needed. The health-relevant tools:
+
+- **`family_health`** — read-only FHIR data for a care-circle member, gated by the sharing level they granted.
+- **`list_files`** / **`read_file`** — enumerate and read the user's uploaded documents.
+- **`whoami`** — the current user / subject.
+- **`render_chart`** — turn data into a chart.
+
+The agent reads from the same per-user FHIR store the three doors wrote to, so device data, EHR records, and uploaded documents all appear as one unified history regardless of source.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Vendor System" icon="plug" href="/en/concepts/providers">
+    The `vendor::Vendor` contract and the four buckets
+  </Card>
+  <Card title="File Processing" icon="file" href="/en/concepts/file-processing">
+    How uploads become LLM-consumable parts
+  </Card>
+  <Card title="Using Providers" icon="link" href="/en/providers/using-providers">
+    Link a wearable, aggregator, or EHR
+  </Card>
+  <Card title="API Reference" icon="book" href="/en/api-reference/overview">
+    The OpenAI-compatible `/v1` surface
+  </Card>
+</CardGroup>

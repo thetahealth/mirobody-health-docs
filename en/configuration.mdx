@@ -1,742 +1,355 @@
 ---
 title: "Configuration"
-description: "Complete configuration guide for Mirobody: OAuth, AI providers, agents, MCP exposure, storage, and security."
+description: "Configure Mirobody through config.yml: LLM providers, database, cache, storage, auth, care circles, and MCP exposure."
 ---
 
-## Configuration Overview
+Mirobody is configured through a single **`config.yml`** file — a flat set of keys parsed by the C++ core. Copy the committed template to `config.yml` and edit that; every key has a working default so you only set what you need.
 
-Mirobody uses layered YAML configuration. This guide walks through every option and how to wire it up. Anything whose key contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` is auto-encrypted on first load using your `CONFIG_ENCRYPTION_KEY`.
-
-<Info>
-Configuration changes require restarting the application to take effect.
-</Info>
-
-## Configuration File Structure
-
-Mirobody uses environment-specific configuration files:
-
-1. **`.env`** - Specifies which configuration to use
-2. **`config.[env].yaml`** - Your environment-specific configuration
-3. **`config.yaml`** - Base configuration (immutable, do not edit)
-
-### Setup Steps
-
-<Steps>
-  <Step title="Create .env file">
-    ```bash
-    echo "ENV=localdb" > .env
-    ```
-    
-    The `ENV` variable determines which config file to load:
-    - `ENV=localdb` → loads `config.localdb.yaml`
-    - `ENV=production` → loads `config.production.yaml`
-  </Step>
-
-  <Step title="Create your configuration file">
-    Create `config.localdb.yaml` (or match your ENV value):
-    
-    ```bash
-    touch config.localdb.yaml
-    ```
-  </Step>
-
-  <Step title="Configure essential settings">
-    Add at least one LLM API key and configure agents:
-    
-    ```yaml config.localdb.yaml
-    # ============ LLM API Keys (At least one required) ============
-    GOOGLE_API_KEY: ''      # For Gemini models
-    OPENAI_API_KEY: ''      # For GPT models
-    OPENROUTER_API_KEY: ''  # For Claude, DeepSeek, etc.
-    
-    # ============ Agent Configuration ============
-    MCP_TOOL_DIRS:
-      - mirobody/pub/tools
-      - mirobody/pub/tools_health
-    
-    MCP_RESOURCE_DIRS:
-      - mirobody/pub/resources
-    
-    AGENT_DIRS:
-      - mirobody/pub/agents
-    ```
-  </Step>
-</Steps>
-
-<Warning>
-**Do not edit `config.yaml`** - This is the base configuration file that should remain unchanged. All customizations go in your environment-specific file (e.g., `config.localdb.yaml`).
-</Warning>
-
-## Agent Configuration
-
-Mirobody ships with **three** agent types:
-
-- **DeepAgent** — single-model tool orchestration, the default; requires `OPENROUTER_API_KEY`
-- **MixAgent** — two-phase fusion (capable orchestrator + cheap responder) for cost/quality balance
-- **BaseAgent** — direct LLM chat without tools, low-latency Q&A
-
-### DeepAgent Configuration
-
-DeepAgent supports multiple LLM providers and is recommended for complex tasks. `OPENROUTER_API_KEY` is required for it to start.
-
-```yaml config.localdb.yaml
-# API Keys for DeepAgent
-GOOGLE_API_KEY: 'your_google_api_key'        # For Gemini models
-OPENAI_API_KEY: 'your_openai_api_key'        # For GPT models
-OPENROUTER_API_KEY: 'your_openrouter_key'    # For Claude, DeepSeek, etc.
-
-# Provider Configurations for DeepAgent
-PROVIDERS_DEEP:
-  gemini-3-flash:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-flash-preview
-    temperature: 1.0
-  
-  gpt-5.1:
-    llm_type: openai
-    api_key: OPENAI_API_KEY
-    base_url: https://api.openai.com/v1/
-    model: gpt-5.1
-    temperature: 0.1
-  
-  claude-sonnet:
-    llm_type: openai
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: anthropic/claude-sonnet-4.5
-    temperature: 0.1
-
-# Optional: Custom prompts
-PROMPTS_DEEP:
-  - mirobody/pub/agents/deep/prompts/theta_health.jinja
-
-# Optional: Tool filtering
-ALLOWED_TOOLS_DEEP: []     # Leave empty to allow all
-DISALLOWED_TOOLS_DEEP: []  # Specify tools to disable
-```
-
-### MixAgent Configuration
-
-MixAgent runs two passes — a capable model orchestrates tools, a cheaper model writes the user-facing reply with the collected context. Useful when the orchestration phase needs sharper reasoning than the response phase:
-
-```yaml config.localdb.yaml
-# Same key conventions as DeepAgent
-PROVIDERS_MIX:
-  orchestrator:
-    llm_type: openai
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: anthropic/claude-sonnet-4.5
-    temperature: 0.1
-
-  responder:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-2.5-flash
-    temperature: 0.4
-```
-
-### BaseAgent Configuration
-
-BaseAgent is optimized for lightweight operations:
-
-```yaml config.localdb.yaml
-# API Keys for BaseAgent
-GOOGLE_API_KEY: 'your_google_api_key'           # For Gemini models
-MIROTHINKER_API_KEY: 'your_mirothinker_key'     # For MiroThinker
-
-# Provider Configurations for BaseAgent
-PROVIDERS_BASE:
-  gemini-3-flash:
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-flash-preview
-  
-  gemini-2.5-flash:
-    api_key: GOOGLE_API_KEY
-    model: gemini-2.5-flash
-  
-  miro-thinker:
-    api_key: MIROTHINKER_API_KEY
-    model: miro-thinker
+```bash
+cp config.example.yml config.yml
 ```
 
 <Info>
-For detailed comparison of agent capabilities, see [Tools Overview](/en/tools/overview).
+Configuration changes take effect on restart. `config.yml` is git-ignored — commit only `config.example.yml`.
 </Info>
 
-## OAuth Provider Configuration
+## Resolution order
 
-To integrate health device providers, you need OAuth credentials from each provider's developer portal.
+Config is merged per key from layered sources, higher overriding lower:
 
-### Garmin Connect
+| Priority | Source | Notes |
+| -------- | ------ | ----- |
+| 1 (highest) | **Environment variables** | Any key can be overridden by an env var of the same name. |
+| 2 | **`config.yml`** | Your local file (git-ignored). |
+| 3 | **Remote config** | Pulled only when `CONFIG_SERVER`, `CONFIG_TOKEN`, and `ENV` are all set. |
+| 4 (lowest) | **`config.example.yml`** | The committed defaults template. |
 
-<Steps>
-  <Step title="Register as a Garmin Developer">
-    1. Visit <a href="https://developer.garmin.com/">Garmin Connect Developer Portal</a>
-    2. Sign in with your Garmin account
-    3. Navigate to "Applications" and create a new application
-    4. Fill in application details and submit for approval
+### Encrypted secrets
 
-    <Warning>
-    Garmin approval process can take several business days.
-    </Warning>
-  </Step>
+Any string value beginning with `gAAAA` is treated as a Fernet token and decrypted on load when `CONFIG_ENCRYPTION_KEY` is set (applies to both `config.yml` and the remote pull). Conversely, values whose **key name** contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` are auto-encrypted with that same `CONFIG_ENCRYPTION_KEY` — so plaintext secrets you drop in get rewritten to `gAAAA…` at rest.
 
-  <Step title="Get OAuth Credentials">
-    Once approved, you'll receive:
-    - **Consumer Key** (Client ID)
-    - **Consumer Secret** (Client Secret)
-  </Step>
+```bash
+# Generate a key
+openssl rand -hex 32
 
-  <Step title="Configure Callback URL">
-    Set your callback URL in the Garmin developer portal:
+# Provide it via the environment (not stored in config.yml)
+export CONFIG_ENCRYPTION_KEY="<your-key>"
+```
 
-    ```
-    http://your-domain.com/api/v1/pulse/theta/theta_garmin/callback
-    ```
+<Note>
+`PG_ENCRYPTION_KEY` is intentionally **not** auto-encrypted (no `_KEY` suffix handling) — it is the key that encrypts data columns, so it must stay readable to bootstrap the database. Keep it in the environment or a secrets manager in production.
+</Note>
 
-    For local development:
-    ```
-    http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback
-    ```
-  </Step>
+## HTTP server
 
-  <Step title="Add to your config file">
-    ```yaml config.localdb.yaml
-    # Garmin OAuth1 Configuration
-    GARMIN_CLIENT_ID: 'your_consumer_key'
-    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
-    GARMIN_REDIRECT_URI: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
-    
-    # API Endpoints (usually don't need to change)
-    GARMIN_AUTH_URL: 'https://connect.garmin.com/oauthConfirm/'
-    GARMIN_TOKEN_URL: 'https://connectapi.garmin.com/oauth-service/oauth/request_token'
-    GARMIN_ACCESS_TOKEN_URL: 'https://connectapi.garmin.com/oauth-service/oauth/access_token'
-    GARMIN_API_BASE_URL: 'https://apis.garmin.com/wellness-api/rest'
-    ```
-  </Step>
-</Steps>
+```yaml config.yml
+HTTP_HOST: '0.0.0.0'      # listen on all interfaces
+HTTP_PORT: 8080           # default port
+# HTTP_URI_PREFIX: ''     # mount the whole app under a sub-path, e.g. '/mirobody'
+HTTP_ROOT: 'res/htdoc'    # static web client served for non-API GETs
 
-### Whoop
-
-<Steps>
-  <Step title="Register as a Whoop Developer">
-    1. Visit <a href="https://developer.whoop.com/">Whoop Developer Portal</a>
-    2. Create a developer account
-    3. Create a new application
-    4. Set required scopes:
-       - `offline` (for refresh tokens)
-       - `read:recovery`
-       - `read:sleep`
-       - `read:cycles`
-       - `read:profile`
-       - `read:workout`
-       - `read:body_measurement`
-  </Step>
-
-  <Step title="Get OAuth2 Credentials">
-    You'll receive:
-    - **Client ID**
-    - **Client Secret**
-  </Step>
-
-  <Step title="Configure Redirect URI">
-    Set your redirect URI in the Whoop developer portal:
-
-    ```
-    http://your-domain.com/api/v1/pulse/theta/theta_whoop/callback
-    ```
-
-    For local development:
-    ```
-    http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback
-    ```
-  </Step>
-
-  <Step title="Add to your config file">
-    ```yaml config.localdb.yaml
-    # Whoop OAuth2 Configuration
-    WHOOP_CLIENT_ID: 'your_client_id'
-    WHOOP_CLIENT_SECRET: 'your_client_secret'
-    WHOOP_REDIRECT_URI: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
-    
-    # Scopes (space-separated)
-    WHOOP_SCOPES: 'offline read:recovery read:sleep read:cycles read:profile read:workout read:body_measurement'
-    
-    # API Endpoints (usually don't need to change)
-    WHOOP_AUTH_URL: 'https://api.prod.whoop.com/oauth/oauth2/auth'
-    WHOOP_TOKEN_URL: 'https://api.prod.whoop.com/oauth/oauth2/token'
-    WHOOP_API_BASE_URL: 'https://api.prod.whoop.com/developer/v2'
-    ```
-  </Step>
-</Steps>
+# CORS (uncomment to enable for browser clients)
+# HTTP_HEADERS:
+#   Access-Control-Allow-Origin: '*'
+#   Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+#   Access-Control-Allow-Headers: 'Authorization, Content-Type, X-Timezone'
+#   Access-Control-Max-Age: '86400'
+```
 
 <Tip>
-Leave the client ID and secret empty (`''`) to disable a provider. The system will automatically skip disabled providers.
+Auth is a bearer token in the `Authorization` header (not cookies), so `Access-Control-Allow-Origin: '*'` is fine for local use. Do not combine `'*'` with `Access-Control-Allow-Credentials: 'true'` — browsers reject that; for credentials, use a fixed origin. In production, restrict the origin to your domain.
 </Tip>
 
-## AI Provider Configuration
+## Logging
 
-Mirobody supports multiple AI providers for chat functionality.
+```yaml config.yml
+LOG_LEVEL: 'INFO'     # debug | info | warning | error | critical (case-insensitive)
+LOG_NAME: 'mirobody'
+LOG_DIR: ''           # empty => stdout; set a path to write log files
+```
+
+## LLM providers
+
+Set **at least one** provider key to enable chat. The agent picks a client by **provider** name at request time; the default provider fallback is `gemini-2.5-flash`. Tool execution differs per provider: OpenAI and Gemini run the built-in MCP tools **locally in-process**, while MiroThinker executes tools **provider-side** (so it needs a public `MCP_PUBLIC_URL`).
+
+### Google Gemini
+
+```yaml config.yml
+GOOGLE_API_KEY: 'AIza...'    # AI Studio key (also read as GEMINI_API_KEY)
+```
+
+For HIPAA/BAA coverage, route Gemini through **Vertex AI** instead of AI Studio:
+
+```yaml config.yml
+GOOGLE_GENAI_USE_VERTEXAI: '1'
+VERTEX_ACCESS_TOKEN: ''      # OAuth access token, e.g. `gcloud auth print-access-token` (rotate ~hourly)
+GCP_PROJECT: ''              # Google Cloud project id (also read as GOOGLE_CLOUD_PROJECT)
+VERTEX_LOCATION: 'us-central1'
+# VERTEX_BASE_URL: ''        # optional host override (sovereign clouds / regions)
+```
 
 ### OpenAI
 
-```yaml config.yaml
-# OpenAI Configuration
+```yaml config.yml
 OPENAI_API_KEY: 'sk-...'
-OPENAI_API_KEY_RTC: 'sk-...'  # For real-time API (optional)
+# OPENAI_BASE_URL: ''        # point at any OpenAI-compatible endpoint (OpenRouter, DeepSeek, Groq, …)
 ```
 
-<Steps>
-  <Step title="Get API Key">
-    1. Sign up at <a href="https://platform.openai.com/">OpenAI Platform</a>
-    2. Navigate to API Keys section
-    3. Create a new API key
-  </Step>
-</Steps>
+For HIPAA/BAA coverage, run GPT inside your own **Azure OpenAI** resource — the client auto-switches to Azure mode when `AZURE_OPENAI_ENDPOINT` is set:
 
-### Google AI (Gemini)
-
-```yaml config.yaml
-# Google AI Configuration
-GOOGLE_API_KEY: 'AIza...'
+```yaml config.yml
+AZURE_OPENAI_ENDPOINT: 'https://my-resource.openai.azure.com'
+AZURE_OPENAI_DEPLOYMENT: 'gpt-4o-mini'
+AZURE_OPENAI_API_VERSION: '2024-10-21'
+AZURE_OPENAI_API_KEY: ''     # or AZURE_OPENAI_KEY
 ```
 
-<Steps>
-  <Step title="Get API Key">
-    1. Visit <a href="https://aistudio.google.com/app/apikey">Google AI Studio</a>
-    2. Create a new API key
-  </Step>
-</Steps>
+### MiroThinker
 
-### OpenRouter
-
-```yaml config.yaml
-# OPENROUTER Configuration
-OPENROUTER_API_KEY: 'sk-or-...'  # For AI chat and agents
+```yaml config.yml
+MIROTHINKER_API_KEY: '...'   # required for the MiroThinker provider
+# MIROTHINKER_BASE_URL: '...'   # endpoint override *(verify)*
+# MIROTHINKER_MODEL: '...'      # model name *(verify)*
 ```
 
-<Steps>
-  <Step title="Get OpenRouter API Key">
-    1. Sign up at <a href="https://openrouter.ai/">OpenRouter</a>
-    2. Navigate to Keys section
-    3. Create a new API key
-  </Step>
+<Warning>
+MiroThinker runs tools provider-side: MiroMind's endpoint calls back into **this** server's `/mcp` over the public internet, so you must also set a publicly reachable [`MCP_PUBLIC_URL`](#mcp-public-url). A localhost or private address won't work.
+</Warning>
 
-</Steps>
+### On-device Gemma (optional)
 
+The native apps can run **Gemma 4 E2B** fully on-device (LiteRT-LM on Android/iOS, llama.cpp on Electron) — no key, no network. For a self-hosted Gemma runtime (e.g. Ollama), point the standalone server at it:
 
-### Anthropic (Claude)
-
-```yaml config.yaml
-# Anthropic Configuration
-ANTHROPIC_API_KEY: 'sk-ant-...'
+```yaml config.yml
+# GEMMA_CHAT_BASE_URL: 'http://localhost:11434/v1'   # falls back to OLLAMA_BASE_URL
+# GEMMA_CHAT_MODEL: 'gemma-4-e2b'                     # the tag your runtime serves
+# GEMMA_CHAT_API_KEY: ''                              # usually empty for a local server
 ```
 
-<Steps>
-  <Step title="Get API Key">
-    1. Sign up at <a href="https://console.anthropic.com/">Anthropic Console</a>
-    2. Navigate to API Keys
-    3. Create a new API key
-  </Step>
-</Steps>
+### Embeddings
 
-## Database Configuration
+```yaml config.yml
+EMBEDDING_PROVIDER: 'gemini'   # embeddings provider (uses the Gemini/Google key above)
+```
 
-### PostgreSQL
+## Database
 
-```yaml config.yaml
-# PostgreSQL Configuration
-PG_HOST: 'db'                    # 'localhost' for non-Docker setup
+Exactly one SQL backend is compiled into the binary (chosen at build time via `MIROBODY_DATABASE_BACKEND` — see [Installation](/en/installation#database-backends)). These keys configure the **PostgreSQL** backend, the desktop default:
+
+```yaml config.yml
+PG_HOST: '127.0.0.1'
 PG_PORT: 5432
-PG_USER: 'holistic_user'
-PG_DBNAME: 'holistic_db'
-PG_PASSWORD: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # Change in production!
-PG_SCHEMA: 'theta_ai'
-PG_MIN_CONNECTION: 5
-PG_MAX_CONNECTION: 20
-PG_ENCRYPTION_KEY: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # Change in production!
+PG_USER: 'postgres'
+PG_DBNAME: 'mirobody'
+PG_SCHEMA: 'public'
+PG_PASSWORD: 'REPLACE_THIS_VALUE_IN_PRODUCTION'
+PG_ENCRYPTION_KEY: 'REPLACE_THIS_VALUE_IN_PRODUCTION'   # encrypts sensitive data columns
 ```
 
-<Warning>
-For production, always use strong, unique passwords and encryption keys.
-</Warning>
+The SQLite backend (mobile / self-contained builds) needs no connection settings. MySQL, DuckDB, and ClickHouse have their own analogous key blocks.
 
-### Redis
+## Cache
 
-```yaml config.yaml
-# Redis Configuration
-REDIS_HOST: 'redis'              # 'localhost' for non-Docker setup
-REDIS_PORT: 6379
-REDIS_DB: 0
-REDIS_PASSWORD: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # Change in production!
-REDIS_SSL: false
-REDIS_SSL_CHECK_HOSTNAME: false
-REDIS_SSL_CERT_REQS: 'none'
+The cache layer is **optional**. Leave `REDIS_HOST` empty and the server uses an in-process in-memory KV store — fine for single-instance runs. Set `REDIS_HOST` to share cache state across multiple instances:
+
+```yaml config.yml
+# REDIS_HOST: ''
+# REDIS_PORT: 6379
+# REDIS_PASSWORD: ''
 ```
 
-## Server Configuration
+## File storage
 
-### HTTP Server Settings
-
-```yaml config.yaml
-# HTTP Server Configuration
-HTTP_SERVER_NAME: 'mirobody'
-HTTP_SERVER_VERSION: '1.0.1'
-HTTP_HOST: '0.0.0.0'             # Listen on all interfaces
-HTTP_PORT: 18080                 # Change if port is in use
-HTTP_URI_PREFIX: ''              # Optional URL prefix
-
-# CORS Configuration
-HTTP_HEADERS:
-  Access-Control-Allow-Origin: '*'
-  Access-Control-Allow-Credentials: 'true'
-  Access-Control-Allow-Methods: '*'
-  Access-Control-Allow-Headers: '*'
-  Access-Control-Max-Age: '86400'
-```
-
-<Tip>
-For production, restrict `Access-Control-Allow-Origin` to specific domains instead of `'*'`.
-</Tip>
-
-### Public URLs
-
-```yaml config.yaml
-# Public URLs (adjust for your domain)
-MCP_FRONTEND_URL: 'http://localhost:18080'
-MCP_PUBLIC_URL: 'http://localhost:18080'
-DATA_PUBLIC_URL: 'http://localhost:18080'
-QR_LOGIN_URL: ''                 # Optional QR code login URL
-```
-
-<Info>
-**`MCP_PUBLIC_URL` is the switch for HTTP Remote MCP.** Set it to a public HTTPS URL (e.g. `https://yourdomain.com` or a tunneled `https://abc123.ngrok.io`) and your MCP server becomes reachable at `<MCP_PUBLIC_URL>/mcp` for ChatGPT Apps, Claude Desktop over remote, and any other MCP client. See [ChatGPT Apps](/en/tools/chatgpt-apps).
-</Info>
-
-## Security Configuration
-
-### JWT and Encryption
-
-```yaml config.yaml
-# Security Keys
-DATABASE_DECRYPTION_KEY: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # 32 characters minimum
-JWT_KEY: 'myjwtkey'                                 # Strong secret key
-JWT_PRIVATE_KEY: ''                                 # Optional RSA private key
-```
-
-<Warning>
-**Important Security Practices:**
-
-1. Use strong, randomly generated keys
-2. Never commit production keys to version control
-3. Rotate keys periodically
-4. Use environment variables for sensitive values
-</Warning>
-
-### Generating Secure Keys
-
-```bash
-# Generate a random 32-character key
-openssl rand -hex 32
-
-# Generate RSA key pair
-openssl genrsa -out private_key.pem 2048
-openssl rsa -in private_key.pem -pubout -out public_key.pem
-```
-
-### Authentication Providers
+Uploads and generated assets (e.g. charts) go to a storage backend, selected at runtime. The default is the **local filesystem**; the others (S3 / S3-compatible, Alibaba OSS, Azure Blob) are picked by filling their block.
 
 <Tabs>
-  <Tab title="Google OAuth">
-    ```yaml config.yaml
-    GOOGLE_CLIENT_ID: 'your_client_id.apps.googleusercontent.com'
-    FIREBASE_PROJECT_ID: 'your_project_id'
+  <Tab title="Local (default)">
+    ```yaml config.yml
+    LOCAL_STORAGE_DIR: '_local/storage'          # where objects are written
+    LOCAL_STORAGE_URL_PREFIX: '/files'           # URL path this server serves objects at
+    LOCAL_STORAGE_SECRET: 'REPLACE_THIS_VALUE_IN_PRODUCTION'  # HMAC key for presigned URLs (>=16 chars when URL prefix set)
+    # LOCAL_STORAGE_PREFIX: ''                   # object-key prefix (empty => 'mirobody')
+    # LOCAL_STORAGE_BASE_URL: ''                 # public prefix / CDN base
     ```
-
-    Get credentials from <a href="https://console.cloud.google.com/">Google Cloud Console</a>.
   </Tab>
 
-  <Tab title="Apple Sign In">
-    ```yaml config.yaml
-    APPLE_TEAM_ID: 'your_team_id'
-    APPLE_KEY_ID: 'your_key_id'
-    APPLE_PRIVATE_KEY: 'your_private_key'
-    APPLE_CLIENT_ID: 'com.yourapp.service'
-    APPLE_AUTH_CLIENT_ID: 'com.yourapp.client'
+  <Tab title="S3 / S3-compatible">
+    ```yaml config.yml
+    S3_KEY: ''         # AWS access key id
+    S3_TOKEN: ''       # AWS secret access key
+    S3_REGION: ''      # e.g. us-east-1
+    S3_BUCKET: ''
+    # S3_ENDPOINT: ''  # host override for S3-compatible stores (MinIO, R2, GCS interop); empty => AWS
+    # S3_PREFIX: ''    # key prefix (empty => 'mirobody')
     ```
-
-    Get credentials from <a href="https://developer.apple.com/">Apple Developer Portal</a>.
-  </Tab>
-</Tabs>
-
-## Logging Configuration
-
-```yaml config.yaml
-# Logging Configuration
-LOG_NAME: ''                     # Leave empty for default
-LOG_DIR: ''                      # Leave empty for stdout
-LOG_LEVEL: 'INFO'                # DEBUG, INFO, WARNING, ERROR, CRITICAL
-```
-
-<Tabs>
-  <Tab title="Log Levels">
-    | Level | Description | Use Case |
-    |-------|-------------|----------|
-    | DEBUG | Detailed information | Development, debugging |
-    | INFO | General information | Production monitoring |
-    | WARNING | Warning messages | Production alerts |
-    | ERROR | Error messages | Production errors |
-    | CRITICAL | Critical failures | System failures |
   </Tab>
 
-  <Tab title="Example Configuration">
-    For development:
-    ```yaml
-    LOG_LEVEL: 'DEBUG'
-    LOG_DIR: './logs'
+  <Tab title="Alibaba OSS">
+    ```yaml config.yml
+    ALI_OSS_ACCESS_KEY: ''
+    ALI_OSS_SECRET_KEY: ''
+    ALI_OSS_ENDPOINT: 'oss-cn-hangzhou.aliyuncs.com'
+    ALI_OSS_BUCKET_NAME: ''
+    # ALI_OSS_PREFIX: ''
     ```
+  </Tab>
 
-    For production:
-    ```yaml
-    LOG_LEVEL: 'INFO'
-    LOG_DIR: '/var/log/mirobody'
+  <Tab title="Azure Blob">
+    ```yaml config.yml
+    AZURE_BLOB_ACCOUNT: ''
+    AZURE_BLOB_KEY: ''                          # account key (base64)
+    AZURE_BLOB_CONTAINER: ''
+    # AZURE_BLOB_ENDPOINT_SUFFIX: 'core.windows.net'   # override for sovereign clouds
     ```
   </Tab>
 </Tabs>
 
-## Cloud Storage (Optional)
-
-Configure S3-compatible storage for backups and assets:
-
-```yaml config.yaml
-# S3 Configuration
-S3_KEY: 'your_access_key'
-S3_TOKEN: 'your_secret_key'
-S3_REGION: 'us-east-1'
-S3_BUCKET: 'your-bucket-name'
-S3_PREFIX: 'mirobody/'
-S3_CDN: 'https://cdn.yourdomain.com'
-```
-
 <Info>
-S3 configuration is optional. The system works without cloud storage.
+Optional at-rest encryption for uploads: set `FILE_ENCRYPTION_KEY` (a rotatable list — the last key encrypts, all keys decrypt) plus a stable `FILE_KEY_SEED`. See the comments in `config.example.yml`.
 </Info>
 
-## MCP Protocol Configuration
+## Long-term memory
 
-```yaml config.yaml
-# MCP Tool and Resource Directories
-MCP_TOOL_DIRS:
-  - 'mirobody/pub/tools'
-  - 'tools'                      # Optional custom tools directory
+The `remember` / `recall_memory` tools store durable facts. Every backend compiles in; pick one at runtime:
 
-MCP_RESOURCE_DIRS:
-  - 'mirobody/pub/resources'
-
-# Agent Directories
-AGENT_DIRS:
-  - 'mirobody/pub/agents'
-
-# Provider Directories
-THETA_PROVIDER_DIRS:
-  - 'connect/theta'              # Your custom providers
+```yaml config.yml
+MEMORY_PROVIDER: 'local'   # local (default) | mem0 | zep | everos
 ```
 
-## Email Configuration (Optional)
+`local` keeps facts plus 1024-dim embeddings in the app database, ranked by in-process cosine similarity — no extra services. The others talk to a remote memory service over HTTP.
 
-For sending email notifications and codes:
+## Authentication
 
-```yaml config.yaml
-# Email Configuration
-EMAIL_FROM: 'noreply@yourdomain.com'
-EMAIL_FROM_NAME: 'Mirobody'
-EMAIL_TEMPLATE: ''               # Path to email templates
-EMAIL_SMTP_PASS: 'your_smtp_password'
+### Email one-time-code
 
-# Predefined verification codes (development only)
+The web client's default sign-in. For local testing, preset codes:
+
+```yaml config.yml
 EMAIL_PREDEFINE_CODES:
   demo1@mirobody.ai: '777777'
+  demo2@mirobody.ai: '777777'
+  demo3@mirobody.ai: '777777'
 ```
 
 <Warning>
-Never use predefined codes in production!
+Never ship predefined codes in production.
 </Warning>
 
-## Additional API Services
+### JWT
 
-### Serper (Web Search)
-
-```yaml config.yaml
-SERPER_API_KEY: ''               # From serper.dev
+```yaml config.yml
+JWT_KEY: 'REPLACE_THIS_VALUE_IN_PRODUCTION'    # HS256 secret (256 bits): `openssl rand -hex 32`
+JWT_SALT: 'REPLACE_THIS_VALUE_IN_PRODUCTION'
+# JWT_PRIVATE_KEY: |                            # set for RS256 — takes precedence over JWT_KEY, publishes a JWKS
+#   -----BEGIN PRIVATE KEY-----
+#   ...
 ```
 
-### E2B (Code Execution)
+Set exactly one signing mode: `JWT_KEY` for HS256, or `JWT_PRIVATE_KEY` for RS256 (which enables third-party token verification via the published JWKS). The `cli/jwt_keygen` tool generates an RSA keypair.
 
-```yaml config.yaml
-E2B_API_KEY: ''                  # From e2b.dev
+### Social sign-in (optional)
+
+Google, Apple, and X sign-in go through **Firebase**; WeChat and GitHub are direct; **Tanka QR-code login** is on by default.
+
+```yaml config.yml
+FIREBASE_PROJECT_ID: ''          # verifies Google/Apple/X ID tokens
+# FIREBASE_WEB_API_KEY: ''       # web app browser apiKey
+# FIREBASE_MESSAGING_SENDER_ID: ''
+# APPLE_CLIENT_ID: ''
+# WECHAT_APPID: ''
+# WECHAT_SECRET: ''
+# GITHUB_CLIENT_ID: ''
+# GITHUB_CLIENT_SECRET: ''
+# TANKA_LOGIN_ENABLED: true      # QR login; set false to hide the button
 ```
 
-The built-in `execute` tool uses [E2B](https://e2b.dev) sandboxes to run shell and Python in isolation. Without an `E2B_API_KEY`, `execute` falls back to a no-op safe stub so the rest of the system keeps working; supply a key to unlock real code execution. PostgreSQL-backed file ops (`write_file`, `read_file`, etc.) stay in sync with sandbox runs — a file written by an agent is visible to the next `execute` call.
+## OAuth 2.0 authorization server
 
-### FAL (AI Generation)
+Mirobody embeds an OAuth 2.0 authorization server (authorization-code + PKCE) so MCP clients can obtain tokens through the browser instead of pasting a bearer token. It works with the JWT keys above; all `OAUTH_*` keys have working defaults.
 
-```yaml config.yaml
-FAL_KEY: ''                      # From fal.ai
+```yaml config.yml
+# JWT_ISS: ''          # iss/aud/client_id/scope claims minted into self-signed tokens
+# JWT_AUD: ''
+# OAUTH_RESOURCE_PATH: '/mcp'   # the resource these tokens protect
 ```
 
-## OAuth Behavior Configuration
+Discovery documents are served at `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration`, and `/.well-known/jwks.json`.
 
-```yaml config.yaml
-# OAuth temporary state TTL (seconds)
-OAUTH_TEMP_TTL_SECONDS: 900      # 15 minutes
+## MCP public URL
 
-# Provider-specific settings
-WHOOP_MAX_DETAIL_RECORDS: 50     # Max records to fetch in detail
-WHOOP_CONCURRENT_REQUESTS: 5     # Concurrent API requests
-WHOOP_REQUEST_TIMEOUT: 30        # Request timeout in seconds
+```yaml config.yml
+# MCP_PUBLIC_URL: 'https://yourdomain.com'
 ```
 
-## Tool Management
-
-```yaml config.yaml
-# Allowed/Disallowed MCP Tools
-ALLOWED_TOOLS_SYNERGY:
-  - tool_name_1
-  - tool_name_2
-
-DISALLOWED_TOOLS_SYNERGY:
-  - dangerous_tool
-```
-
-<Info>
-Leave these arrays empty to allow all tools by default.
-</Info>
-
-## Environment-Specific Configuration
-
-<Tabs>
-  <Tab title="Development">
-    ```yaml config.yaml
-    # Development Settings
-    LOG_LEVEL: 'DEBUG'
-    HTTP_HOST: '0.0.0.0'
-    HTTP_PORT: 18080
-    
-    # Use local services
-    PG_HOST: 'localhost'
-    REDIS_HOST: 'localhost'
-    
-    # Relaxed CORS
-    HTTP_HEADERS:
-      Access-Control-Allow-Origin: '*'
-    ```
-  </Tab>
-
-  <Tab title="Production">
-    ```yaml config.yaml
-    # Production Settings
-    LOG_LEVEL: 'INFO'
-    HTTP_HOST: '0.0.0.0'
-    HTTP_PORT: 443
-    
-    # Use production services
-    PG_HOST: 'your-db-host.rds.amazonaws.com'
-    REDIS_HOST: 'your-redis.cache.amazonaws.com'
-    
-    # Strict CORS
-    HTTP_HEADERS:
-      Access-Control-Allow-Origin: 'https://yourdomain.com'
-    
-    # Strong security
-    DATABASE_DECRYPTION_KEY: '[generated-secure-key]'
-    JWT_KEY: '[generated-secure-key]'
-    REDIS_PASSWORD: '[strong-password]'
-    PG_PASSWORD: '[strong-password]'
-    
-    # SSL/TLS
-    REDIS_SSL: true
-    ```
-  </Tab>
-</Tabs>
-
-## Configuration Validation
-
-After updating `config.yaml`, validate your configuration:
+`MCP_PUBLIC_URL` is the externally reachable base for your MCP endpoint (`<MCP_PUBLIC_URL>/mcp`). It is **required** for the MiroThinker provider (tools run provider-side) and for exposing the MCP server to ChatGPT Apps, remote Claude Desktop, and other MCP clients. For local development without a public domain, tunnel it:
 
 <Steps>
-  <Step title="Check syntax">
+  <Step title="Install and run ngrok">
     ```bash
-    python -c "import yaml; yaml.safe_load(open('config.yaml'))"
-    ```
-
-    No output means the YAML syntax is valid.
-  </Step>
-
-  <Step title="Test database connection">
-    ```bash
-    docker-compose exec backend python -c "
-    from mirobody.utils.config import global_config
-    import asyncio
-    
-    async def test():
-        cfg = global_config()
-        db = await cfg.get_db()
-        print('Database connection: OK')
-    
-    asyncio.run(test())
-    "
+    ngrok http 8080
     ```
   </Step>
-
-  <Step title="Test Redis connection">
-    ```bash
-    docker-compose exec redis redis-cli ping
+  <Step title="Set the tunnel URL">
+    ```yaml config.yml
+    MCP_PUBLIC_URL: 'https://abc123.ngrok-free.app'
     ```
-
-    Should return `PONG`.
   </Step>
 </Steps>
 
-## Configuration Best Practices
+See [ChatGPT Apps](/en/tools/chatgpt-apps).
+
+## Care circles
+
+Opt-in sharing on top of the single-user core. Growth is bounded by caps (`0` disables either):
+
+```yaml config.yml
+CIRCLE_MAX_PER_USER: 5    # max circles a user may own
+CIRCLE_MAX_MEMBERS: 5     # max members per circle (pending invites count)
+```
+
+Sharing is off by default; the AI assistant is **read-only** over another member's data. See the [architecture overview](/en/concepts/architecture).
+
+## Chat rate limiting
+
+Per-user cap on agent / realtime turns:
+
+```yaml config.yml
+CHAT_RATE_MAX: 5           # max turns per user per window (0 = unlimited)
+CHAT_RATE_WINDOW_SEC: 60   # window length in seconds
+```
+
+## Remote config (optional)
+
+Pull config from a service instead of a local file — active only when all three are set:
+
+```yaml config.yml
+# via environment:
+# CONFIG_SERVER=https://config.example.com
+# CONFIG_TOKEN=<bearer sent as X-Config-Token>
+# ENV=prod                  # selects the remote environment
+```
+
+## Configuration best practices
 
 <AccordionGroup>
-  <Accordion title="Use Environment Variables" icon="code">
-    For sensitive values, use environment variables:
-
-    ```yaml config.yaml
-    OPENAI_API_KEY: ${OPENAI_API_KEY}
-    PG_PASSWORD: ${POSTGRES_PASSWORD}
-    ```
-
-    Then set in `.env`:
-    ```bash .env
-    OPENAI_API_KEY=sk-...
-    POSTGRES_PASSWORD=secure_password
-    ```
-  </Accordion>
-
-  <Accordion title="Version Control" icon="git">
-    - ✅ Commit `config.example.yaml`
-    - ❌ Never commit `config.yaml` with real credentials
-    - ✅ Add `config.yaml` to `.gitignore`
-    - ✅ Document all required configuration keys
+  <Accordion title="Version control" icon="git">
+    - ✅ Commit `config.example.yml`
+    - ❌ Never commit `config.yml` with real credentials (it is git-ignored by default)
+    - ✅ Provide `CONFIG_ENCRYPTION_KEY` via the environment, not the file
   </Accordion>
 
   <Accordion title="Security" icon="shield">
-    - Use strong, randomly generated keys
-    - Rotate credentials periodically
-    - Limit CORS origins in production
-    - Enable SSL/TLS for external connections
-    - Use secrets management (AWS Secrets Manager, HashiCorp Vault, etc.)
+    - Replace every `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder with a strong, random value
+    - Use RS256 (`JWT_PRIVATE_KEY`) when other services must verify your tokens
+    - Restrict CORS origins in production
+    - Keep PHI on-device or route hosted LLM calls through a BAA-covered surface (Vertex AI / Azure OpenAI)
   </Accordion>
 
-  <Accordion title="Performance" icon="gauge">
-    - Adjust database connection pool sizes based on load
-    - Configure appropriate timeouts
-    - Tune Redis cache settings
-    - Monitor and adjust concurrent request limits
+  <Accordion title="Validate YAML" icon="circle-check">
+    ```bash
+    python3 -c "import yaml; yaml.safe_load(open('config.yml'))"
+    ```
+    No output means the syntax is valid. The server also reports config errors on startup rather than silently degrading.
   </Accordion>
 </AccordionGroup>
 
@@ -744,15 +357,15 @@ After updating `config.yaml`, validate your configuration:
 
 <CardGroup cols={2}>
   <Card title="Quick Start" icon="rocket" href="/en/quickstart">
-    Test your configuration with the quick start guide
+    Build the core and run it with this config
   </Card>
   <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
-    Learn how to integrate additional health providers
+    Add a new health data source
   </Card>
   <Card title="API Reference" icon="code" href="/en/api-reference/overview">
-    Explore the API endpoints
+    The HTTP, WebSocket, MCP, and FHIR endpoints
   </Card>
   <Card title="Production Deployment" icon="server" href="/en/deployment/production">
-    Deploy to production with security best practices
+    Backends, secrets, and hardening
   </Card>
 </CardGroup>

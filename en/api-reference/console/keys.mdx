@@ -6,7 +6,7 @@ description: "Manage mb_live_* keys via the console — GET / POST / DELETE /api
 Console endpoints manage your `mb_live_*` API keys. They authenticate with your **console login session (JWT)** — not an `mb_live_*` key.
 
 <Note>
-Most teams just use the console UI: [cdm.thetahealth.cn](https://cdm.thetahealth.cn/developer/keys) → **API Keys**. The REST endpoints below are for automation.
+Most teams just use the console UI: [test-platform.mirobody.ai](https://test-platform.mirobody.ai/developer/keys) → **API Keys**. The REST endpoints below are for automation.
 </Note>
 
 ## List keys
@@ -26,7 +26,7 @@ Authorization: Bearer <console_jwt>
 ```
 
 ```bash
-curl -X POST https://cdm.thetahealth.cn/api/console/keys \
+curl -X POST https://test-platform.mirobody.ai/api/console/keys \
   -H "Authorization: Bearer $CONSOLE_JWT" \
   -H "Content-Type: application/json" \
   -d '{"name": "production"}'

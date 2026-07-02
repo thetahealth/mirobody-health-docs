@@ -1,409 +1,161 @@
 ---
 title: "工具与 Agent 概览"
-description: "了解 Mirobody 中的 Agent、工具和 MCP 集成"
+description: "了解 Mirobody C++ 引擎中的 Agent、MCP 工具与 /mcp 端点"
 ---
 
-## Agent 架构
+## Agent
 
-Mirobody 提供三种 Agent，分别面向不同的成本 / 质量 / 延迟取舍：
+Mirobody 运行**一个简单的 Agent** —— "Base"，定义在 [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp)。它刻意保持极简：没有 Agent 循环，没有 planner，没有中间件。每一轮它会：
 
-<CardGroup cols={3}>
-  <Card title="DeepAgent" icon="brain">
-    **复杂工作流**
+1. **按 provider 名称选择一个 LLM 客户端**（使用请求指定的 `provider`，否则用默认值）。
+2. **构建 system prompt** —— 一段固定的内联字符串，包含当前时间、回复语言，以及引导去获取上传文件（`list_files` / `read_file`）和健康记录（`family_health`）的说明。
+3. **把 provider 的事件直接流式返回**，让模型按需调用内置的 [MCP 工具](/zh/tools/built-in)。
 
-    单模型的工具编排循环，支持多步规划、文件操作、子 Agent 和持久化记忆。带工具对话的默认选择。
-  </Card>
-  <Card title="MixAgent" icon="layer-group">
-    **成本 / 质量平衡**
-
-    两阶段模型融合：能力强的模型负责工具调度，便宜的模型基于收集到的上下文生成最终回答。
-  </Card>
-  <Card title="BaseAgent" icon="bolt">
-    **简单问答**
-
-    无工具的直接 LLM 对话，延迟最低。适合琐碎问题和基线对比。
-  </Card>
-</CardGroup>
-
-## Agent 对比
-
-| 特性 | DeepAgent | MixAgent | BaseAgent |
-|------|-----------|----------|---------------|
-| **架构** | 单模型工具循环 | Orchestrator + Responder 两阶段 | 直连 LLM、不调工具 |
-| **规划能力** | ✅ 内置 TODO 系统 | ✅（orchestrator 阶段） | ❌ |
-| **文件系统** | ✅ 完整支持 | ✅（orchestrator 阶段） | ❌ |
-| **子 Agent** | ✅ 任务隔离 | ✅（orchestrator 阶段） | ❌ |
-| **MCP 工具** | ✅ 完整集成 | ✅（orchestrator 阶段） | ❌ |
-| **MCP 资源** | ❌ | ❌ | ✅ 原生支持 |
-| **MCP Prompt 模板** | ❌ | ❌ | ✅ 原生支持 |
-| **记忆能力** | ✅ PostgreSQL 持久化 | ✅ PostgreSQL 持久化 | ❌ |
-| **流式传输** | ✅ | ✅（responder 阶段） | ✅ |
-| **模型支持** | 多提供商 | 两个提供商（每阶段一个） | Gemini 2.5/3.0、MiroThinker |
-| **成本结构** | 一个昂贵模型 | 昂贵 orchestrator + 便宜 responder | 一个便宜模型 |
-| **最适合** | 复杂工作流、文件操作 | 上下文较长、回答阶段不需要顶级推理 | 简单 / 轻量任务 |
-| **设置复杂度** | 中等 | 中等 | 低 |
-
-## DeepAgent (推荐用于复杂任务)
-
-### 功能特性
-
-- ✅ **多步骤规划**: 内置基于 TODO 系统的任务分解能力
-- ✅ **文件操作**: 支持读取、写入、编辑文件，支持 Glob 和 Grep
-- ✅ **子 Agent**: 生成子 Agent 以实现上下文隔离
-- ✅ **长期记忆**: 基于 PostgreSQL 的持久化记忆
-- ✅ **完整 MCP 工具**: 与 MCP 工具生态系统的完整集成
+<Note>
+**没有 "deep agents" 特性。** 早期草稿曾描述过任务规划 / todos、任务子 Agent、虚拟文件系统、沙箱执行以及 Agent Skills 注册表。**这些在 C++ 引擎（Mirobody）中都不存在。** 也不再有单独的 Deep / Mix / Base 之分 —— 它们已合并为这一个 Agent。你选择的是一个 **provider**（一个模型），而不是 Agent *类型*。
+</Note>
 
 ### 支持的提供商
 
-DeepAgent 通过 LangChain 支持多个 LLM 提供商：
+该 Agent 注册最多四个 provider 客户端（各自以 `/api/providers` 选择器展示的模型名为键）。前三个始终会注册，因此它们会出现在选择器中；其中未配置凭据的那个，只会在调用时报错。
 
-- **Gemini 3.0** (通过 Google GenAI SDK)
-- **GPT-5** (通过 OpenAI API 或 OpenRouter)
-- **Claude Sonnet** (通过 OpenRouter)
-- **DeepSeek v3.2** (通过 OpenRouter)
+| Provider key | 模型 | 客户端 | 工具执行 |
+|--------------|-------|--------|----------------|
+| `gemini-2.5-flash` | Google Gemini 2.5 Flash（**默认**） | `GeminiClient` | 本地，进程内 |
+| `gpt-5-nano` | OpenAI GPT-5 nano | `OpenAIChatClient` | 本地，进程内 |
+| `mirothinker-1.7` | MiroThinker（MiroMind） | `MiroThinkerClient` | 通过 `MCP_PUBLIC_URL` 使用 provider 原生 MCP |
+| `gemma-4-e2b` | 端侧 Gemma 4 E2B | `OpenAIChatClient`（本地端点） | 取决于服务栈 |
 
-### 配置示例
+原生应用还会在**端侧**运行 **Gemma 4 E2B**（Android/iOS 上用 LiteRT-LM，Electron 上用 llama.cpp）—— 离线、无需密钥。上表中的 `gemma-4-e2b` 是同一个模型，通过本地 OpenAI 兼容端点（Ollama / llama.cpp / vLLM）提供服务，仅在配置了 base URL 时才注册。
 
-```yaml config.localdb.yaml
-# API 密钥
-GOOGLE_API_KEY: '您的_google_api_key'        # 用于 Gemini 模型
-OPENAI_API_KEY: '您的_openai_api_key'        # 用于 GPT 模型
-OPENROUTER_API_KEY: '您的_openrouter_key'    # 用于 Claude, DeepSeek 等
-
-# Provider 配置
-PROVIDERS_DEEP:
-  # Gemini 3.0 模型
-  gemini-3-pro:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-pro-preview
-    temperature: 1.0
-  
-  gemini-3-flash:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-flash-preview
-    temperature: 1.0
-  
-  # OpenAI GPT 模型
-  gpt-5.1:
-    llm_type: openai
-    api_key: OPENAI_API_KEY
-    base_url: https://api.openai.com/v1/
-    model: gpt-5.1
-    temperature: 0.1
-  
-  # 通过 OpenRouter 访问 Claude
-  claude-sonnet:
-    llm_type: openai  # OpenAI 兼容 API
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1/
-    model: anthropic/claude-sonnet-4.5
-    temperature: 0.1
-```
-
-### 使用场景
-
-- 复杂的健康数据分析工作流
-- 多步骤的研究和报告生成
-- 文件处理与管理
-- 需要持久化上下文的任务
-- 需要任务分解的项目
-
-### 使用示例
-
-```python
-from mirobody.pub.agents.deep_agent import DeepAgent
-
-agent = DeepAgent(
-    user_id="user123",
-    user_name="张三",
-    token="jwt_token",
-    timezone="Asia/Shanghai"
-)
-
-async for event in agent.generate_response(
-    user_id="user123",
-    messages=[{"role": "user", "content": "请分析我的健康数据"}],
-    provider="gemini-3-flash",
-    session_id="session_001"
-):
-    print(event)
-```
-
-## MixAgent（两阶段成本 / 质量融合）
-
-MixAgent 把一次回复拆成两次模型调用：
-
-1. **Orchestrator 阶段** —— 能力强的模型（例如 Claude Sonnet 4.5）负责工具调度循环：规划、查数据、读文件，攒够上下文就停。
-2. **Responder 阶段** —— 便宜的模型（例如 Gemini 2.5 Flash）拿着 orchestrator 收集到的上下文，生成最终面向用户的回答。
-
-Orchestrator 永远不直接对用户说话，Responder 永远不调工具。这样可以**只在真正需要的地方花贵模型的钱**。
-
-### 什么时候选 MixAgent
-
-- 工具调用密集、回答较长的对话 —— 比 DeepAgent 省钱
-- 想让"对外口吻"由特定模型固定，工具调度让另一个模型负责
-- 按 token 计费，且 responder 的上下文会很大
-
-### 什么时候**不**选
-
-- 简短问答 —— 两阶段开销不值，直接 DeepAgent 或 BaseAgent
-- 瓶颈在于最终回答的质量 —— 升回 DeepAgent，全程用一个强模型
+<Info>
+**工具的运行方式因 provider 而异。** OpenAI 和 Gemini 把工具作为 function-call 描述符接收，引擎以已认证用户的身份在**本地进程内**执行每次调用。MiroThinker 则在 **provider 侧**运行工具 —— MiroMind 通过公网在 `MCP_PUBLIC_URL` 反向访问你的 `/mcp` 端点。
+</Info>
 
 ### 配置
 
-两个阶段分别通过 `PROVIDERS_MIX` 下的 `orchestrator` / `responder` 配置，完整 YAML 见 [配置文档中的 MixAgent 配置](/zh/configuration#mixagent-configuration)。
+Provider 使用 `config.yml` 中的扁平键配置（参见 [配置](/zh/configuration)）。**没有 `PROVIDERS_DEEP`** 块。
 
-```yaml
-PROVIDERS_MIX:
-  orchestrator:
-    llm_type: openai
-    api_key: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: anthropic/claude-sonnet-4.5
-  responder:
-    llm_type: google-genai
-    api_key: GOOGLE_API_KEY
-    model: gemini-2.5-flash
+```yaml config.yml
+# OpenAI (gpt-5-nano)
+OPENAI_API_KEY: 'your_openai_key'
+OPENAI_BASE_URL: 'https://api.openai.com'   # client appends /v1/chat/completions
+
+# Google Gemini (gemini-2.5-flash, the default provider)
+GOOGLE_API_KEY: 'your_google_key'
+
+# MiroThinker (mirothinker-1.7) — provider-native MCP
+MIROTHINKER_API_KEY: 'your_mirothinker_key'
+MIROTHINKER_BASE_URL: ''      # optional override
+MIROTHINKER_MODEL: ''         # optional override
+MCP_PUBLIC_URL: 'https://your-domain.com/mcp'   # where MiroMind reaches your MCP
+
+# On-device Gemma served over a local OpenAI-compatible endpoint (optional)
+GEMMA_CHAT_BASE_URL: 'http://localhost:11434/v1'   # or OLLAMA_BASE_URL
+GEMMA_CHAT_API_KEY: ''
+GEMMA_CHAT_MODEL: 'gemma-4-e2b'
 ```
 
-工具过滤用 `ALLOWED_TOOLS_MIX` / `DISALLOWED_TOOLS_MIX`（只有 orchestrator 阶段会接触工具）。
+### Agent 覆盖的范围
 
-## BaseAgent (最适合简单任务)
-
-### 功能特性
-
-- ✅ **原生 MCP**: 直接支持 MCP 服务器
-- ✅ **流式传输**: 快速的流式响应
-- ✅ **直接工具配置**: 工具直接配置给 LLM
-- ✅ **轻量级**: 开销极小，执行速度快
-- ❌ **不支持文件操作**
-- ❌ **不支持子 Agent**
-
-### 支持的提供商
-
-- **Gemini 2.5/3.0** (原生 Google GenAI)
-- **MiroThinker** (自定义模型)
-
-### 配置示例
-
-```yaml config.localdb.yaml
-# 必需的 API 密钥
-GOOGLE_API_KEY: '您的_google_api_key'           # 用于 Gemini 模型
-MIROTHINKER_API_KEY: '您的_mirothinker_key'     # 用于 MiroThinker
-
-# Provider 配置
-PROVIDERS_BASE:
-  gemini-3-pro:
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-pro-preview
-  
-  gemini-3-flash:
-    api_key: GOOGLE_API_KEY
-    model: gemini-3-flash-preview
-  
-  miro-thinker:
-    api_key: MIROTHINKER_API_KEY
-    model: miro-thinker
-```
-
-### 使用场景
-
-- 简单的健康数据查询
-- 快速对话交流
-- 直接使用 MCP 工具
-- 轻量级操作
-- 原生 Gemini/MiroThinker 特性
-
-### 使用示例
-
-```python
-from mirobody.pub.agents.base_agent import BaseAgent
-
-agent = BaseAgent(
-    user_id="user123",
-    user_name="张三"
-)
-
-async for event in agent.generate_response(
-    user_id="user123",
-    messages=[{"role": "user", "content": "我的健康状况如何？"}],
-    provider="gemini-2.5-flash"
-):
-    print(event)
-```
+个人健康类问题几乎总是归结为：*读取用户的记录 → 按需读取上传文件 → 按需检索长期记忆 → 作答，有时渲染一张图表*。内置工具正好一一对应这些步骤，而模型会在单次流式回合内自行编排它们。
 
 ## 工具系统
 
 ### 什么是工具？
 
-工具是 Python 函数，使 AI Agent 能够与健康数据交互、执行操作并访问外部服务。Mirobody 使得在没有复杂配置的情况下添加自定义功能变得非常容易。
+工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中的 C++ 文件**。每个文件声明一个 `Tool`（名称、描述、一个 `auth` 标志、一张小小的 `Param` 表以及一个 handler），并在编译时自注册。`CMakeLists.txt` 会把该目录下的每个 `.cpp` 都 glob 进构建（带 `CONFIGURE_DEPENDS`），因此**只需丢入一个新文件并重新构建即可** —— 无需手动注册，无需手写 JSON schema。
 
-### 工具结构
+<Info>
+这是一个**编译期**机制。C++ 引擎中没有 Python 工具加载器，也没有 `mirobody/pub/tools/` 目录 —— 那些是旧版 Python 服务器的一部分。
+</Info>
 
-```
-mirobody/pub/
-├── tools/              # 通用工具
-│   ├── chart_service.py    # 支持 25 种以上的图表类型
-│   └── ...
-└── tools_health/       # 领域特定的健康工具
-    ├── genetic_service.py
-    ├── health_indicator_service.py
-    └── user_service.py
-```
+### 九个内置工具
 
-### 内置工具
+| 工具 | Auth | 用途 |
+|------|:----:|---------|
+| `list_files` | ✅ | 列出用户上传的文件 |
+| `read_file` | ✅ | 按 `file_key` 读取一个上传文件 |
+| `family_health` | ✅ | 读取用户或已共享护理圈成员的近期 FHIR `Observation` |
+| `whoami` | ✅ | 确认认证状态，返回 session id |
+| `recall_memory` | ✅ | 检索用户最相关的长期记忆 |
+| `remember` | ✅ | 在长期记忆中存储一条事实 |
+| `render_chart` | — | 在聊天界面绘制图表（Apache ECharts） |
+| `summarize_conversation` | ✅ | 为当前对话设置一个简短标题 |
+| `echo` | — | 回显文本（示例 / 连通性测试） |
 
-**通用工具** (`mirobody/pub/tools/`):
-- `chart_service.py` - 25 种以上的图表类型（折线图、柱状图、饼图、桑基图等）
+各工具的参数与返回结构见 [内置工具](/zh/tools/built-in)。
 
-**健康工具** (`mirobody/pub/tools_health/`):
-- `genetic_service.py` - 基因数据分析
-- `health_indicator_service.py` - 健康指标追踪
-- `user_service.py` - 用户档案管理
+### 添加一个工具
 
-### 工具配置
+创建 `res/mcp_tools/<name>.cpp`，声明一个 `Tool`，并用 `MIROBODY_REGISTER_TOOL(...)` 宏注册 —— 然后重新构建：
 
-```yaml config.localdb.yaml
-# 工具目录
-MCP_TOOL_DIRS:
-  - mirobody/pub/tools
-  - mirobody/pub/tools_health
-  - your/custom/tools  # 添加您自己的工具目录
+```cpp res/mcp_tools/echo.cpp
+#include "mcp/tool.hpp"
+#include <rapidjson/document.h>
 
-# 资源目录
-MCP_RESOURCE_DIRS:
-  - mirobody/pub/resources
+namespace {
+using namespace mirobody::mcp;
 
-# Agent 目录
-AGENT_DIRS:
-  - mirobody/pub/agents
-```
+Result echo(const Args& args, const UserInfo&, const ToolContext&) {
+    const std::string text = args.str("text");
+    rapidjson::Document d;
+    d.SetObject();
+    rapidjson::Document::AllocatorType& a = d.GetAllocator();
+    d.AddMember("echo",
+                rapidjson::Value(text.c_str(),
+                                 static_cast<rapidjson::SizeType>(text.size()), a), a);
+    return Result::ok(to_json(d));
+}
 
-### 创建自定义工具
+const Tool kEcho = {
+    "echo",
+    "Echo back the provided text.",
+    false,                                                    // auth
+    { Param("text", Type::String, Required, "Text to echo back") },
+    &echo,
+};
+}   // namespace
 
-<Steps>
-  <Step title="创建工具文件">
-    在配置的工具目录中创建一个新的 Python 文件：
-
-    ```python mirobody/pub/tools/weather_service.py
-    from typing import Dict, Any, Optional
-
-    async def get_weather(
-        city: str,
-        user_info: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """
-        获取城市的天气信息。
-        
-        Args:
-            city: 城市名称
-            user_info: 可选的用户身份验证信息
-            
-        Returns:
-            包含天气数据的字典
-        """
-        # 在此处编写您的实现逻辑
-        return {
-            "city": city,
-            "temperature": "22°C",
-            "condition": "晴朗"
-        }
-
-    # 为 MCP 加载器导出
-    __all__ = ["get_weather"]
-    ```
-  </Step>
-
-  <Step title="自动发现">
-    服务器启动时会自动发现工具。无需手动注册！
-  </Step>
-
-  <Step title="在 Agent 中使用">
-    DeepAgent 和 MixAgent（orchestrator 阶段）都可以自动使用您的自定义工具。BaseAgent 按设计不接工具。
-  </Step>
-</Steps>
-
-### 工具开发最佳实践
-
-1. **身份验证**: 对于特定于用户的操作，请使用 `user_info` 参数
-2. **错误处理**: 返回结构化的错误响应
-3. **类型提示**: 使用适当的类型注解以便进行验证
-4. **文档说明**: 包含清晰的 Docstring，并附带 Args 和 Returns
-5. **异步操作**: 对于 I/O 操作，优先使用异步 (async) 函数
-
-## MCP 协议集成
-
-Mirobody 可作为 MCP (Model Context Protocol) 服务器运行，支持与以下平台集成：
-
-- **Claude Desktop** - 直接集成
-- **Cursor IDE** - AI 驱动的代码助手
-- **ChatGPT** - 通过自定义 GPT 应用
-- **自定义 MCP 客户端** - 任何兼容 MCP 的客户端
-
-### MCP 端点
-
-```
-http://localhost:18080/mcp
+MIROBODY_REGISTER_TOOL(kEcho);
 ```
 
-支持的标准 JSON-RPC 2.0 接口包括：
-- `tools/list` - 列出可用工具
-- `tools/call` - 执行工具函数
-- `resources/list` - 列出可用资源
-- `resources/read` - 读取资源内容
+Auth 范围内的工具将 `auth = true`，并以 `UserInfo` 接收调用者身份；handler 需要的其它一切（缓存、对象存储、数据库、长期记忆）都通过 `ToolContext` 送达。完整流程：[添加自定义工具](/zh/tools/adding-tools)。
 
-## 健康数据的数据库模式
+## MCP 端点
 
-工具从以下表中查询标准化的健康数据：
+引擎通过 `src/mcp/` 提供的 MCP 端点对外暴露其工具。它使用 **JSON-RPC 2.0**。
 
-### th_series_data
+```
+http://localhost:8080/mcp                 # authenticates via bearer JWT
+http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
+```
 
-时序健康指标表：
+支持的方法包括 `tools/list` 和 `tools/call`。本地开发时，把端口打通隧道（例如 `ngrok http 8080`）并设置 `MCP_PUBLIC_URL`，以便远端客户端 —— 以及 MiroThinker 的 provider 原生 MCP —— 能够访问它。参见 [MCP 集成](/zh/tools/mcp-integration) 连接 Claude、Cursor 和 ChatGPT。
 
-| 列名 | 类型 | 描述 |
-|--------|------|-------------|
-| `id` | integer | 主键 |
-| `user_id` | varchar | 用户标识符 |
-| `indicator` | varchar | 指标名称 |
-| `value` | text | 原始值 |
-| `value_standardized` | text | 标准化值 |
-| `start_time` | timestamp | 开始时间 |
-| `end_time` | timestamp | 结束时间 |
-| `source` | varchar | 数据源 |
-| `source_table` | varchar | 来源表 |
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
 
-### theta_ai.health_user_profile_by_system
+## 健康数据存放在哪里
 
-用户档案存储表：
-
-| 列名 | 类型 | 描述 |
-|--------|------|-------------|
-| `id` | integer | 主键 |
-| `user_id` | varchar | 用户标识符 |
-| `version` | integer | 版本号 |
-| `name` | varchar | 档案名称 |
-| `last_execute_doc_id` | integer | 最后执行的文档 ID |
-| `common_part` | varchar | 档案内容 (JSON) |
-| `create_time` | timestamp | 创建时间戳 |
-| `last_update_time` | timestamp | 最后更新时间戳 |
-| `is_deleted` | boolean | 删除标志 |
+像 `family_health` 这样的工具不会命中临时表 —— 它们通过**内嵌的 FHIR R4 存储**（`src/fhir/`）读取，返回 FHIR `Observation` 资源。数据在进入时会被归一化（单位转为 UCUM），而关系型后端是在**构建期**通过 CMake（`-DMIROBODY_DATABASE_BACKEND=`）选定的：SQLite（移动端默认）、PostgreSQL（桌面端默认）、MySQL、DuckDB 或 ClickHouse。SQL schema 位于 [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql)（`pg`、`sqlite`、`mysql`、`duckdb`、`clickhouse`）。完整图景见 [架构](/zh/concepts/architecture)。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="内置工具" icon="wrench" href="/zh/tools/built-in">
-    探索默认提供的健康工具
+    默认提供的九个工具
   </Card>
   <Card title="添加自定义工具" icon="plus" href="/zh/tools/adding-tools">
-    学习如何创建您自己的工具
+    编写你自己的 C++ 工具
   </Card>
   <Card title="MCP 集成" icon="bolt" href="/zh/tools/mcp-integration">
-    连接到 Claude、Cursor 和 ChatGPT
+    连接 Claude、Cursor 和 ChatGPT
   </Card>
   <Card title="添加 MCP" icon="plug" href="/zh/tools/adding-mcps">
-    添加外部 MCP 服务器
+    连接外部 MCP 服务器
   </Card>
 </CardGroup>

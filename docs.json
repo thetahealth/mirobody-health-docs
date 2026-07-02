@@ -3,9 +3,18 @@
   "theme": "mint",
   "name": "Mirobody",
   "colors": {
-    "primary": "#2563EB",
-    "light": "#3B82F6",
-    "dark": "#1E40AF"
+    "primary": "#0E3880",
+    "light": "#4A7AD6",
+    "dark": "#0D1E3A"
+  },
+  "fonts": {
+    "family": "Source Sans 3"
+  },
+  "background": {
+    "color": {
+      "light": "#F4F1EC",
+      "dark": "#0E1118"
+    }
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -84,54 +93,24 @@
             ]
           },
           {
-            "tab": "Cloud",
+            "tab": "API Platform",
             "groups": [
               {
                 "group": "Getting Started",
                 "pages": [
+                  "en/cloud/index",
                   "en/cloud/quickstart"
                 ]
               },
               {
-                "group": "Regions",
-                "pages": [
-                  "en/cloud/regions/overview",
-                  "en/cloud/regions/china",
-                  "en/cloud/regions/global"
-                ]
-              },
-              {
-                "group": "Integration",
-                "pages": [
-                  "en/cloud/sdk-examples",
-                  "en/cloud/rate-limits",
-                  "en/cloud/compliance"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "API Reference",
-            "groups": [
-              {
-                "group": "Getting Started",
+                "group": "API Reference",
                 "pages": [
                   "en/api-reference/overview",
-                  "en/api-reference/models"
-                ]
-              },
-              {
-                "group": "Core Endpoints",
-                "pages": [
+                  "en/api-reference/models",
                   "en/api-reference/chat",
                   "en/api-reference/data",
                   "en/api-reference/files",
-                  "en/api-reference/sessions"
-                ]
-              },
-              {
-                "group": "Bring Your Own Tools",
-                "pages": [
+                  "en/api-reference/sessions",
                   "en/api-reference/mcp-servers"
                 ]
               },
@@ -140,6 +119,17 @@
                 "pages": [
                   "en/api-reference/console/keys",
                   "en/api-reference/console/usage"
+                ]
+              },
+              {
+                "group": "Regions & Integration",
+                "pages": [
+                  "en/cloud/regions/overview",
+                  "en/cloud/regions/china",
+                  "en/cloud/regions/global",
+                  "en/cloud/sdk-examples",
+                  "en/cloud/rate-limits",
+                  "en/cloud/compliance"
                 ]
               }
             ]
@@ -220,54 +210,24 @@
             ]
           },
           {
-            "tab": "Cloud",
+            "tab": "API 平台",
             "groups": [
               {
-                "group": "快速开始",
+                "group": "开始使用",
                 "pages": [
+                  "zh/cloud/index",
                   "zh/cloud/quickstart"
                 ]
               },
               {
-                "group": "数据区域",
-                "pages": [
-                  "zh/cloud/regions/overview",
-                  "zh/cloud/regions/china",
-                  "zh/cloud/regions/global"
-                ]
-              },
-              {
-                "group": "接入",
-                "pages": [
-                  "zh/cloud/sdk-examples",
-                  "zh/cloud/rate-limits",
-                  "zh/cloud/compliance"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "API 引用",
-            "groups": [
-              {
-                "group": "开始",
+                "group": "API 引用",
                 "pages": [
                   "zh/api-reference/overview",
-                  "zh/api-reference/models"
-                ]
-              },
-              {
-                "group": "核心端点",
-                "pages": [
+                  "zh/api-reference/models",
                   "zh/api-reference/chat",
                   "zh/api-reference/data",
                   "zh/api-reference/files",
-                  "zh/api-reference/sessions"
-                ]
-              },
-              {
-                "group": "自带工具 (MCP)",
-                "pages": [
+                  "zh/api-reference/sessions",
                   "zh/api-reference/mcp-servers"
                 ]
               },
@@ -276,6 +236,17 @@
                 "pages": [
                   "zh/api-reference/console/keys",
                   "zh/api-reference/console/usage"
+                ]
+              },
+              {
+                "group": "区域与接入",
+                "pages": [
+                  "zh/cloud/regions/overview",
+                  "zh/cloud/regions/china",
+                  "zh/cloud/regions/global",
+                  "zh/cloud/sdk-examples",
+                  "zh/cloud/rate-limits",
+                  "zh/cloud/compliance"
                 ]
               }
             ]
@@ -322,7 +293,7 @@
     "primary": {
       "type": "button",
       "label": "Get Started",
-      "href": "/en/cloud/quickstart"
+      "href": "/en/cloud"
     }
   },
   "contextual": {

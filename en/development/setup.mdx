@@ -1,34 +1,34 @@
 ---
 title: "Development Setup"
-description: "Set up your local development environment for Mirobody"
+description: "Set up a local C++ development build of Mirobody: CMake + Ninja, build.sh, and the test suite."
 ---
+
+Mirobody is a **C++11** codebase built with **CMake** and **Ninja** (vcpkg on Windows). Developing on it means installing the native toolchain, building the `mirobody` target, and running the Catch2 test suite — there is no Python virtualenv or `pip install` step.
 
 ## Prerequisites
 
-Before setting up your development environment, ensure you have:
-
 <CardGroup cols={2}>
-  <Card title="Python 3.10+" icon="python">
-    Required for running the application
+  <Card title="C++11 toolchain" icon="hammer">
+    GCC ≥ 4.8.1 / Clang ≥ 3.3 / Apple Clang / MSVC 2017+
   </Card>
-  <Card title="Node.js 18+" icon="node">
-    Required for chart rendering and SSR
+  <Card title="CMake + Ninja" icon="gear">
+    CMake and the Ninja generator
   </Card>
-  <Card title="Docker & Docker Compose" icon="docker">
-    For running PostgreSQL and Redis
+  <Card title="Native libraries" icon="boxes-stacked">
+    libwebsockets, libcurl, OpenSSL, rapidjson, yaml-cpp, hiredis, image codecs
   </Card>
-  <Card title="System Build Tools" icon="hammer">
-    gcc, gfortran, and scientific libraries
+  <Card title="A database client" icon="database">
+    libpq for the default PostgreSQL backend (or the SQLite client)
   </Card>
   <Card title="Git" icon="git">
     For version control
   </Card>
-  <Card title="Code Editor" icon="code">
-    VS Code, PyCharm, or your preferred IDE
+  <Card title="Catch2 v3" icon="flask">
+    For the unit test suite (`find_package(Catch2 3)`)
   </Card>
 </CardGroup>
 
-## Quick Setup
+## Setup
 
 <Steps>
   <Step title="Clone the repository">
@@ -38,226 +38,177 @@ Before setting up your development environment, ensure you have:
     ```
   </Step>
 
-  <Step title="Install system dependencies">
+  <Step title="Install the native dependencies">
+    vcpkg is Windows-only; Linux and macOS use the system package manager.
+
     <Tabs>
-      <Tab title="macOS">
+      <Tab title="Debian / Ubuntu / WSL">
         ```bash
-        xcode-select --install
-        brew install gcc gfortran fftw hdf5 openblas lapack
+        sudo apt install build-essential cmake ninja-build pkg-config \
+                         libwebsockets-dev libcurl4-openssl-dev libssl-dev \
+                         rapidjson-dev libyaml-cpp-dev libhiredis-dev libpq-dev \
+                         libjpeg-dev libpng-dev libtiff-dev libwebp-dev
+
+        # Catch2 v3 for the test suite
+        sudo apt install catch2
         ```
       </Tab>
 
-      <Tab title="Linux (Ubuntu/Debian)">
+      <Tab title="macOS (Homebrew)">
         ```bash
-        sudo apt install -y g++ gfortran build-essential \
-          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+                     rapidjson yaml-cpp hiredis libpq \
+                     jpeg-turbo libpng libtiff webp catch2
+        ```
+      </Tab>
+
+      <Tab title="Fedora / RHEL">
+        ```bash
+        sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
+                         libwebsockets-devel libcurl-devel openssl-devel \
+                         rapidjson-devel yaml-cpp-devel hiredis-devel libpq-devel \
+                         libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel \
+                         catch2-devel
         ```
       </Tab>
     </Tabs>
+
+    <Info>
+    On Windows, install Visual Studio (Desktop development with C++ + C++ CMake tools). vcpkg pulls every dependency — including Catch2 — from `vcpkg.json` automatically. See [Installation](/en/installation).
+    </Info>
   </Step>
 
-  <Step title="Create virtual environment">
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-    pip install --upgrade pip
-    ```
-  </Step>
+  <Step title="Build">
+    The `build.sh` wrapper configures (Release, PostgreSQL backend, tests ON by default) and builds:
 
-  <Step title="Install Python dependencies">
     ```bash
-    pip install -e .
-
-    # Optional extras
-    # pip install -e ".[cn]"    # China region (Aliyun OSS, Volcengine, Dashscope)
-    # pip install -e ".[fin]"   # Financial data (yfinance)
-    # pip install -e ".[test]"  # Test suite
+    ./build.sh              # -> build/mirobody  and  build/tests/mirobody_tests
     ```
 
-    Mirobody is also published on PyPI as `mirobody` — `pip install mirobody` works for a non-editable install.
-  </Step>
+    Pick a different SQL backend with a token (`sqlite`, `legacy`, `mysql`, `duckdb`, `ck`); each backend gets its own `build[_<backend>]` dir so several can coexist:
 
-  <Step title="Install Node.js dependencies">
     ```bash
-    npm install --omit=dev
+    ./build.sh sqlite       # -> build_sqlite/
+    ./build.sh clean        # wipe and reconfigure
     ```
 
-    Required for the server-side chart renderer.
-  </Step>
+    Or drive CMake directly for finer control (a Debug build, extra flags):
 
-  <Step title="Start backing services">
     ```bash
-    docker compose up -d pg redis
-    ```
-
-    Or point Mirobody at your own PostgreSQL and Redis.
-  </Step>
-
-  <Step title="Configure environment">
-    ```bash
-    echo "ENV=localdb" > .env
-    echo "CONFIG_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
-    ```
-
-    Then edit `config.localdb.yaml`:
-
-    ```yaml
-    # Required for the default DeepAgent
-    OPENROUTER_API_KEY: 'sk-or-...'
-
-    # Optional alternatives
-    OPENAI_API_KEY: ''
-    GOOGLE_API_KEY: ''
-    ANTHROPIC_API_KEY: ''
-
-    # Database (defaults match the compose file)
-    PG_HOST: 'localhost'
-    PG_PORT: 5432
-    PG_USER: 'mirobody'
-    PG_PASSWORD: ''
-    PG_DBNAME: 'mirobody'
-
-    # Redis
-    REDIS_HOST: 'localhost'
-    REDIS_PORT: 6379
-    REDIS_DB: 0
-    REDIS_PASSWORD: ''
+    cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DMIROBODY_DATABASE_BACKEND=POSTGRESQL
+    cmake --build build
     ```
   </Step>
 
-  <Step title="Run the application">
+  <Step title="Configure and run">
     ```bash
-    python -m main
+    cp config.example.yml config.yml
     ```
 
-    Server starts on `http://localhost:18080`.
+    Set an LLM key (and, for the default backend, your `PG_*` connection) in `config.yml`, then run:
+
+    ```bash
+    ./mirobody --config config.yml
+    ```
+
+    The server starts on `http://localhost:8080`. See [Configuration](/en/configuration) for the full key list.
 
     <Tip>
-    Under WSL, the same URL is reachable from Windows.
+    For a zero-dependency dev loop with no external database, build the SQLite backend (`./build.sh sqlite`) and run `./build_sqlite/mirobody`.
     </Tip>
   </Step>
 </Steps>
 
-## Development Tools
+## Useful CMake options
 
-### Recommended VS Code Extensions
+| Option | Default | Purpose |
+| ------ | ------- | ------- |
+| `MIROBODY_DATABASE_BACKEND` | `POSTGRESQL` | Which SQL backend to link (`SQLITE`, `MYSQL`, `DUCKDB`, `CLICKHOUSE`, `POSTGRESQL_LEGACY`) |
+| `MIROBODY_BUILD_TESTS` | `ON` | Build the Catch2 test suite |
+| `MIROBODY_BUILD_TOOLS` | `ON` | Build the `cli/` debug binaries |
+| `MIROBODY_ENABLE_PDF` | `OFF` | PDF text extraction via PDFium |
+| `MIROBODY_ENABLE_OCR` | `OFF` | OCR via Tesseract (implies PDF) |
+| `MIROBODY_ENABLE_XLS` | `OFF` | Legacy `.xls` via libxls |
+| `MIROBODY_BUILD_SHARED` / `_PYTHON` / `_JNI` | varies | Build the shared library / Python wheel / JNI shim instead of (or alongside) the binary |
 
-```json .vscode/extensions.json
-{
-  "recommendations": [
-    "ms-python.python",
-    "ms-python.vscode-pylance",
-    "ms-python.black-formatter",
-    "charliermarsh.ruff",
-    "tamasfe.even-better-toml",
-    "redhat.vscode-yaml"
-  ]
-}
-```
+## Running tests
 
-### Code Formatting
+Tests are a Catch2 executable (`mirobody_tests`) registered with CTest via `catch_discover_tests`.
 
 ```bash
-# Install development dependencies
-pip install black ruff pytest pytest-asyncio
+# Build (tests are on by default)
+./build.sh
 
-# Format code
-black .
+# Run via CTest
+ctest --test-dir build --output-on-failure
 
-# Lint code
-ruff check .
+# Or run the binary directly (Catch2 filters / tags)
+./build/tests/mirobody_tests
+./build/tests/mirobody_tests "[fhir]"      # only the fhir tests
+./build/tests/mirobody_tests --list-tests
 ```
 
-### Running Tests
+Test sources live under `tests/` (subdirectories like `chat/`, `fhir/`, `circle/`, `jwt/`, `cache/`, plus an `e2e/` suite).
+
+## Debug CLIs
+
+The desktop build produces standalone per-subsystem CLIs under `cli/` (toggle with `-DMIROBODY_BUILD_TOOLS=OFF`) that bypass the HTTP/WS server — handy for poking at one piece in isolation:
+
+- **LLM clients** — `openai_chat`, `openai_responses`, `openai_realtime`, `gemini`, `gemini_live`, `mirothinker`
+- **Storage** — `aws_s3`, `aliyun_oss`, `azure_blob`
+- **Transcoders** — `image`, `document`, `file_parser`
+- **FHIR** — `fhir normalize "<5.6 mg/dL"`, and `fhir token <user_id> --config <yaml>` to mint a bearer JWT for the FHIR routes
+- **Auth** — `jwt_keygen` (RSA keypair for RS256 / JWKS), `google_jwt`, `firebase_jwt`
+- **Other** — `mcp`, `agent`, `vendor`
+
+See `cli/README.md` in the repo for the per-binary flags and credentials.
+
+## Adding an agent or MCP tool
+
+Both self-register at **compile time** — there is no runtime plugin directory:
+
+- **Agent** — the single agent is `res/agents/base.cpp`. Every `.cpp` under `res/agents/` is globbed into the build.
+- **MCP tool** — drop a `.cpp` in `res/mcp_tools/` with a `MIROBODY_REGISTER_TOOL(...)` line declaring its parameter table, then rebuild. See `res/mcp_tools/echo.cpp` for the smallest example and [Adding Tools](/en/tools/adding-tools).
 
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=connect --cov-report=html
-
-# Run specific test file
-pytest tests/test_provider_garmin.py
-
-# Run integration tests
-pytest -m integration
+# after adding a file under res/, just rebuild
+./build.sh
 ```
 
-## Project Structure
+## Project layout
 
 ```
 mirobody/
-├── mirobody/                # Main application package
-│   ├── chat/               # Chat and agent services
-│   │   ├── adapters/      # Protocol adapters (HTTP, WebSocket)
-│   │   ├── agent.py       # Agent registry and loading
-│   │   ├── service.py     # Chat service routes
-│   │   └── unified_chat_service.py  # Core chat logic
-│   ├── mcp/                # MCP protocol implementation
-│   │   ├── service.py     # JSON-RPC handler
-│   │   ├── tool.py        # Tool loading and execution
-│   │   └── resource.py    # Resource management
-│   ├── pulse/              # Health data platform
-│   │   ├── theta/         # OAuth providers (Garmin, Whoop, etc.)
-│   │   ├── apple/         # Apple Health platform
-│   │   ├── core/          # Core health services
-│   │   ├── file_parser/   # File processing handlers
-│   │   └── router/        # API routes
-│   ├── pub/                # Public tools and agents
-│   │   ├── tools/         # General MCP tools
-│   │   ├── tools_health/  # Health-specific MCP tools
-│   │   ├── resources/     # MCP resources
-│   │   └── agents/        # Agent implementations
-│   ├── server/             # HTTP server
-│   ├── user/               # Authentication
-│   └── utils/              # Utilities
-├── database/               # Database schemas and migrations
-│   └── resource/          # SQL initialization files
-├── compose.yaml           # Docker Compose configuration
-├── config.yaml            # Base configuration (immutable)
-├── config.localdb.yaml    # Your environment configuration
-├── .env                   # Environment variables
-├── main.py                # Application entry point
-├── requirements.txt       # Python dependencies
-├── package.json           # Node.js dependencies
-└── run.sh                 # Deployment script
+├── src/            # C++ core (server, chat, llm, mcp, fhir, health/vendor, database, storage, …)
+│   ├── mirobody.h  # public C ABI
+│   └── main.cpp    # standalone server entry point
+├── res/            # compiled/served resources: agents/, mcp_tools/, mcp_resources/, sql/, htdoc/
+├── tests/          # Catch2 unit tests (build/tests/mirobody_tests)
+├── cli/            # standalone per-subsystem debug binaries
+├── htdoc/          # web client source (webpack -> res/htdoc)
+├── bindings/       # Java / Go / C# / Node / Rust FFI examples
+├── android/  ios/  electron/  qt/  miniapp/   # host apps / clients
+├── CMakeLists.txt  build.sh  build.cmd
+└── config.example.yml
 ```
 
-## Key Directories
-
-<AccordionGroup>
-  <Accordion title="mirobody/chat" icon="comments">
-    Chat service with agent orchestration, message history, and protocol adapters for HTTP (SSE) and WebSocket.
-  </Accordion>
-
-  <Accordion title="mirobody/mcp" icon="bolt">
-    MCP protocol implementation with JSON-RPC 2.0 handler, tool/resource loading, and authentication.
-  </Accordion>
-
-  <Accordion title="mirobody/pulse" icon="heartbeat">
-    Health data platform with OAuth providers, Apple Health integration, file processing, and data aggregation.
-  </Accordion>
-
-  <Accordion title="mirobody/pub" icon="folder-open">
-    Public tools, resources, and agents that can be discovered via MCP. Add custom tools here.
-  </Accordion>
-</AccordionGroup>
+See the full tree and the other build artifacts in [Installation → Repository layout](/en/installation#repository-layout).
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Contributing" icon="code-pull-request" href="/en/development/contributing">
-    Learn how to contribute to the project
+    How to submit changes
   </Card>
   <Card title="Testing" icon="flask" href="/en/development/testing">
-    Write tests for your code
+    Write and run tests
   </Card>
   <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
-    Add a new provider integration
+    Add a new health data source
   </Card>
   <Card title="Deployment" icon="rocket" href="/en/deployment/docker">
-    Deploy your changes
+    Ship your build
   </Card>
 </CardGroup>
-

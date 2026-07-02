@@ -1,365 +1,112 @@
 ---
-title: "Whoop Provider Example"
-description: "Complete implementation example of the Whoop provider"
+title: "OAuth 2.0 Vendor Example (Fitbit)"
+description: "A full OAuth 2.0 device-brand client against the C++ vendor contract — and a note on Whoop."
 ---
+
+<Warning>
+**Whoop is not a shipped vendor client.** The confirmed device-brand clients in `src/health/vendor/device/` are **Fitbit, Garmin, and Withings** only. Whoop has no first-party `vendor::Vendor` — it would be reached through an **aggregator platform** (e.g. Terra, Rook, Spike), or you'd add a client yourself. *(verify — Whoop may only be reachable via an aggregator.)* This page therefore uses **Fitbit** as the OAuth 2.0 example, since it's a real, fully-implemented device client.
+</Warning>
 
 ## Overview
 
-The Whoop provider demonstrates OAuth 2.0 authentication with token refresh and comprehensive recovery and performance data integration.
+**Fitbit** ([`src/health/vendor/device/fitbit.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/fitbit.cpp), id `fitbit`) is the best example of a device brand with a **complete** OAuth 2.0 implementation against the vendor contract: it implements `fetch`, `authorize_url`, `revoke`, and a signed `handle_webhook`. Contrast it with the [Garmin example](/en/examples/garmin-provider), which is mostly stubs because Garmin's data API is partner-gated.
 
 <Info>
-This example shows OAuth 2.0 implementation with automatic token refresh. Perfect for learning modern OAuth patterns.
+This is a `vendor::Vendor`, not a Python provider class. See [Vendor System](/en/concepts/providers) for the interface it implements.
 </Info>
 
-## Key Features
+## `authorize_url` — build the consent URL
 
-<CardGroup cols={2}>
-  <Card title="OAuth 2.0" icon="shield">
-    Modern OAuth with refresh tokens
-  </Card>
-  <Card title="Recovery Data" icon="heart-pulse">
-    HRV, resting HR, recovery scores
-  </Card>
-  <Card title="Sleep Analytics" icon="bed">
-    Detailed sleep stages and quality
-  </Card>
-  <Card title="Workout Data" icon="dumbbell">
-    Exercise sessions with intensity zones
-  </Card>
-</CardGroup>
+A confidential server client authenticates with its secret at the token step, so **PKCE is not used**; `authorize_url` is pure string construction (no network call), requiring the OAuth `client_id`:
 
-## Provider Structure
-
-```python
-from mirobody.pulse.theta.platform.base import BaseThetaProvider
-import aiohttp
-
-class ThetaWhoopProvider(BaseThetaProvider):
-    """Whoop OAuth 2.0 Provider"""
-    
-    def __init__(self):
-        super().__init__()
-        
-        # OAuth 2.0 configuration
-        self.client_id = safe_read_cfg("WHOOP_CLIENT_ID")
-        self.client_secret = safe_read_cfg("WHOOP_CLIENT_SECRET")
-        self.redirect_url = safe_read_cfg("WHOOP_REDIRECT_URL")
-        
-        # API endpoints
-        self.auth_url = "https://api.prod.whoop.com/oauth/oauth2/auth"
-        self.token_url = "https://api.prod.whoop.com/oauth/oauth2/token"
-        self.api_base_url = "https://api.prod.whoop.com/developer/v2"
-        
-        # Scopes
-        self.scopes = "offline read:recovery read:sleep read:cycles read:workout"
+```cpp
+std::string authorize_url(const std::string& redirect_uri, const std::string& state,
+                          const std::string& /*user_id*/, const std::string& /*provider*/) override {
+    if (config().client_id.empty()) {
+        throw VendorError(info_.id + ": authorize_url requires an OAuth client_id — set "
+                          "MIROBODY_VENDOR_FITBIT_CLIENT_ID");
+    }
+    std::string url = std::string(kAuthorizeUrl) +   // https://www.fitbit.com/oauth2/authorize
+                      "?response_type=code&client_id=" + url_encode(config().client_id) +
+                      "&scope=" + url_encode(kDefaultScope);  // "activity heartrate sleep weight profile"
+    if (!redirect_uri.empty()) url += "&redirect_uri=" + url_encode(redirect_uri);
+    if (!state.empty())        url += "&state=" + url_encode(state);
+    return url;
+}
 ```
 
-## Data Mapping
+The token exchange itself happens out of band at `/oauth2/token`; the resulting access token is stored as `config.api_key`.
 
-Whoop provides detailed recovery and performance metrics:
+## `fetch` — per-domain time-series GETs
 
-```python
-WHOOP_INDICATOR_MAPPING = {
-    "sleep": {
-        "score.stage_summary.total_in_bed_time_milli": (
-            StandardIndicator.SLEEP_IN_BED.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.stage_summary.total_light_sleep_time_milli": (
-            StandardIndicator.SLEEP_ANALYSIS_ASLEEP_CORE.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.stage_summary.total_slow_wave_sleep_time_milli": (
-            StandardIndicator.SLEEP_ANALYSIS_ASLEEP_DEEP.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.sleep_efficiency_percentage": (
-            StandardIndicator.SLEEP_EFFICIENCY.value.name,
-            lambda x: x,
-            "%"
-        )
-    },
-    "recovery": {
-        "score.hrv_rmssd_milli": (
-            StandardIndicator.HRV.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.resting_heart_rate": (
-            StandardIndicator.DAILY_HEART_RATE_RESTING.value.name,
-            lambda x: x,
-            "count/min"
-        ),
-        "score.respiratory_rate": (
-            StandardIndicator.RESPIRATORY_RATE.value.name,
-            lambda x: x,
-            "breaths/min"
-        )
+Fitbit's Web API serves whole-day ranges (`yyyy-MM-dd`). `fetch` maps a `DataDomain` onto the documented endpoint and returns Fitbit's JSON:
+
+```cpp
+static std::string endpoint(DataDomain d, const std::string& u,
+                            const std::string& s, const std::string& e) {
+    switch (d) {
+        case DataDomain::Activity:    return "/1/user/" + u + "/activities/steps/date/" + s + "/" + e + ".json";
+        case DataDomain::HeartRate:   return "/1/user/" + u + "/activities/heart/date/" + s + "/" + e + ".json";
+        case DataDomain::Sleep:       return "/1.2/user/" + u + "/sleep/date/" + s + "/" + e + ".json";
+        case DataDomain::BodyMetrics: return "/1/user/" + u + "/body/log/weight/date/" + s + "/" + e + ".json";
+        default:
+            throw VendorError("fitbit: unsupported domain (brokers: activity, heart_rate, sleep, body_metrics)");
     }
 }
 ```
 
-## OAuth 2.0 Implementation
+The user path segment is the Fitbit user id, or `-` (the API's alias for the token owner). The access token (`config.api_key`) rides as a bearer header.
 
-### Initiating the Link
+## `handle_webhook` — verify the signature
 
-```python
-async def link(self, request: LinkRequest) -> Dict[str, Any]:
-    """Initiate OAuth 2.0 flow"""
-    user_id = request.user_id
-    
-    # Generate state for CSRF protection
-    state_payload = {"s": str(uuid.uuid4())}
-    state = urlencode(state_payload)
-    
-    # Store in Redis
-    redis_client = await self._get_redis_client()
-    await redis_client.setex(f"oauth2:state:{state}", 900, user_id)
-    await redis_client.setex(f"oauth2:redir:{state}", 900, self.redirect_url)
-    await redis_client.aclose()
-    
-    # Build authorization URL
-    params = {
-        "client_id": self.client_id,
-        "response_type": "code",
-        "redirect_uri": self.redirect_url,
-        "scope": self.scopes,
-        "state": state,
-    }
-    authorization_url = f"{self.auth_url}?{urlencode(params)}"
-    
-    return {"link_web_url": authorization_url}
+Fitbit signs subscription notifications with `X-Fitbit-Signature` = `base64(HMAC-SHA1(raw_body))` keyed by the client secret + `"&"`. The client verifies it with a constant-time compare before parsing:
+
+```cpp
+const std::string key = config().client_secret + "&";
+std::array<unsigned char, 20> mac = storage::hmac_sha1(key, body);
+const std::string expected = storage::base64_encode(mac.data(), mac.size());
+if (!ct_equal(expected, sig)) {
+    throw VendorError(info_.id + ": webhook signature verification failed (X-Fitbit-Signature)");
+}
 ```
 
-### Handling the Callback
+Because the signing scheme is **publicly documented**, this can be implemented faithfully — the reason Fitbit's webhook is real where Garmin's is a stub.
 
-```python
-async def callback(self, code: str, state: str) -> Dict[str, Any]:
-    """Handle OAuth 2.0 callback"""
-    
-    # Validate state
-    redis_client = await self._get_redis_client()
-    user_id = await redis_client.get(f"oauth2:state:{state}")
-    redirect_uri = await redis_client.get(f"oauth2:redir:{state}")
-    await redis_client.delete(f"oauth2:state:{state}")
-    await redis_client.delete(f"oauth2:redir:{state}")
-    await redis_client.aclose()
-    
-    if not user_id:
-        raise ValueError("Invalid or expired state")
-    
-    # Exchange code for tokens
-    async with aiohttp.ClientSession() as session:
-        data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-        }
-        
-        async with session.post(self.token_url, data=data) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"Token exchange failed: {await resp.text()}")
-            token_data = await resp.json()
-    
-    # Save credentials with expiration
-    access_token = token_data["access_token"]
-    refresh_token = token_data.get("refresh_token")
-    expires_in = token_data.get("expires_in")
-    expires_at = int(time.time()) + int(expires_in) if expires_in else None
-    
-    await self.db_service.save_oauth2_credentials(
-        user_id, self.info.slug, access_token, refresh_token, expires_at
-    )
-    
-    # Trigger data sync
-    asyncio.create_task(self._pull_and_push_for_user({
-        "user_id": user_id,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-    }))
-    
-    return {"provider_slug": self.info.slug, "stage": "completed"}
+## `revoke` — drop the grant
+
+`revoke` POSTs the token to `/oauth2/revoke`, authenticated as the confidential client (HTTP Basic `client_id:client_secret`).
+
+## Configuration
+
+```bash
+MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
+MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
+# after the OAuth token exchange, the access token is used as the API key:
+MIROBODY_VENDOR_FITBIT_API_KEY=fitbit_oauth2_access_token
+# optional host override (default https://api.fitbit.com)
+MIROBODY_VENDOR_FITBIT_BASE_URL=https://api.fitbit.com
 ```
 
-## Token Refresh
+## If you really need Whoop
 
-Automatic token refresh ensures uninterrupted access:
+Two honest paths:
 
-```python
-async def get_valid_access_token(self, user_id: str) -> Optional[str]:
-    """Get valid access token, refreshing if necessary"""
-    
-    # Get stored credentials
-    creds = await self.db_service.get_user_credentials(
-        user_id, self.info.slug, LinkType.OAUTH2
-    )
-    
-    if not creds:
-        return None
-    
-    access_token = creds["access_token"]
-    expires_at = creds.get("expires_at")
-    
-    # Check if still valid
-    if expires_at and time.time() < expires_at:
-        return access_token
-    
-    # Token expired, refresh it
-    refresh_token = creds.get("refresh_token")
-    if not refresh_token:
-        return None
-    
-    async with aiohttp.ClientSession() as session:
-        data = {
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-        }
-        
-        async with session.post(self.token_url, data=data) as resp:
-            if resp.status != 200:
-                # Refresh failed, remove invalid credentials
-                await self.db_service.delete_user_theta_provider(
-                    user_id, self.info.slug
-                )
-                return None
-            
-            token_data = await resp.json()
-    
-    # Update credentials
-    new_access_token = token_data["access_token"]
-    new_refresh_token = token_data.get("refresh_token", refresh_token)
-    new_expires_in = token_data.get("expires_in")
-    new_expires_at = int(time.time()) + int(new_expires_in) if new_expires_in else None
-    
-    await self.db_service.save_oauth2_credentials(
-        user_id, self.info.slug, new_access_token, new_refresh_token, new_expires_at
-    )
-    
-    return new_access_token
-```
+1. **Via an aggregator** — connect Whoop through Terra / Rook / Spike (whichever lists Whoop in its provider catalogue) and fetch through that aggregator's `vendor::Vendor`. *(verify the aggregator's current Whoop support.)*
+2. **Write a first-party client** — add `src/health/vendor/device/whoop.cpp` implementing the contract against Whoop's public OAuth 2.0 API, and register it. Follow [Provider Integration](/en/development/provider-integration); Fitbit above is the closest template.
 
-## Data Fetching with Pagination
+## Next steps
 
-```python
-async def pull_from_vendor_api(
-    self,
-    access_token: str,
-    refresh_token: Optional[str] = None,
-    days: int = 2
-) -> List[Dict[str, Any]]:
-    """Pull data from Whoop API with pagination"""
-    
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Accept": "application/json"
-    }
-    
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=days)
-    
-    all_raw_data = []
-    
-    async with aiohttp.ClientSession() as session:
-        endpoints = {
-            "sleep": f"{self.api_base_url}/activity/sleep",
-            "recovery": f"{self.api_base_url}/recovery",
-            "workout": f"{self.api_base_url}/activity/workout",
-            "cycle": f"{self.api_base_url}/cycle"
-        }
-        
-        for data_type, endpoint in endpoints.items():
-            try:
-                params = {
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                    "limit": 25
-                }
-                
-                # Handle pagination
-                data = await self._fetch_paginated_data(
-                    session, endpoint, headers, params
-                )
-                
-                if data:
-                    all_raw_data.append({
-                        "data_type": data_type,
-                        "data": data,
-                        "timestamp": int(time.time() * 1000)
-                    })
-            except Exception as e:
-                logging.error(f"Error fetching {data_type}: {str(e)}")
-                continue
-    
-    return all_raw_data
-```
-
-## Supported Data Types
-
-<Tabs>
-  <Tab title="Sleep">
-    - Total in bed time
-    - Light sleep
-    - Deep sleep (slow-wave)
-    - REM sleep
-    - Sleep efficiency
-    - Disturbances
-  </Tab>
-
-  <Tab title="Recovery">
-    - HRV (RMSSD)
-    - Resting heart rate
-    - Respiratory rate
-    - SpO2
-    - Skin temperature
-    - Recovery score
-  </Tab>
-
-  <Tab title="Cycles">
-    - Strain score
-    - Kilojoules
-    - Average heart rate
-    - Max heart rate
-  </Tab>
-
-  <Tab title="Workouts">
-    - Activity type
-    - Duration
-    - Intensity zones
-    - Calories burned
-    - Heart rate stats
-  </Tab>
-</Tabs>
-
-## Source Code
-
-The complete Whoop provider source code is available at:
-```
-connect/theta/mirobody_whoop/provider_whoop.py
-```
-
-## Key Differences from OAuth 1.0
-
-<AccordionGroup>
-  <Accordion title="Token Types" icon="key">
-    OAuth 2.0 uses bearer tokens, OAuth 1.0 uses signed requests
-  </Accordion>
-
-  <Accordion title="Token Expiration" icon="clock">
-    OAuth 2.0 tokens expire and need refresh, OAuth 1.0 tokens don't expire
-  </Accordion>
-
-  <Accordion title="Simplicity" icon="check">
-    OAuth 2.0 is simpler - no signature calculation required
-  </Accordion>
-
-  <Accordion title="Refresh Flow" icon="rotate">
-    OAuth 2.0 has built-in token refresh, OAuth 1.0 requires re-authorization
-  </Accordion>
-</AccordionGroup>
+<CardGroup cols={2}>
+  <Card title="Garmin Example" icon="watch" href="/en/examples/garmin-provider">
+    A mostly-stubbed device client and why
+  </Card>
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Build a new `vendor::Vendor`
+  </Card>
+  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
+    OAuth patterns across the vendor clients
+  </Card>
+  <Card title="Provider Overview" icon="plug" href="/en/providers/overview">
+    Every shipped vendor
+  </Card>
+</CardGroup>

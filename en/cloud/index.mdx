@@ -1,0 +1,47 @@
+---
+title: "Welcome to the Mirobody API"
+description: "The managed, OpenAI-compatible health API — the open-source Mirobody engine, hosted for you with keys, usage, and a console."
+---
+
+**Mirobody API** is the **managed** way to use Mirobody. It's the same [open-source engine](/en/index) — we run it for you and wrap it in an **OpenAI-compatible `/v1` API**, with API keys, usage metering, and a developer console. Point any OpenAI SDK at the base URL, pass an `mb_live_*` key, and the agent answers from each end-user's **real, structured health data**, with traceable citations.
+
+<Note>
+**Built on the open source.** This platform is a **customized, managed layer on top of the [open-source Mirobody engine](/en/index)** — the same core, minus the infrastructure. You don't build, host, or operate anything: get a key and call `/v1`. Everything the hosted agent does, the open-source engine does too — the API just makes it turnkey.
+</Note>
+
+## Two ways to use Mirobody
+
+Pick the path that fits you — the engine underneath is the same.
+
+<CardGroup cols={2}>
+  <Card title="Managed API — you are here" icon="cloud" href="/en/cloud/quickstart">
+    Get an `mb_live_*` key and call `/v1/chat/completions`. We host the engine, storage, and models. Best for shipping fast without running infrastructure.
+  </Card>
+  <Card title="Self-host the open source" icon="server" href="/en/index">
+    Build the C++ engine and run it yourself — on a server or fully on-device. Full control; your data never has to leave your machine.
+  </Card>
+</CardGroup>
+
+## Why the managed API
+
+- **OpenAI-compatible** — reuse your existing OpenAI SDK; just change the base URL and key.
+- **Answers from real data, cited** — the agent reads each end-user's health records and shows the sources it used.
+- **Multi-tenant by design** — one key, a fully isolated [Subject](/en/api-reference/overview#multi-tenancy-the-user-field) per end-user.
+- **No infrastructure** — managed keys, storage, models, a console, and billing. Nothing to deploy.
+
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/en/cloud/quickstart">
+    Sign in, create a key, and make your first `/v1` call in minutes.
+  </Card>
+  <Card title="API Reference" icon="code" href="/en/api-reference/overview">
+    Auth, multi-tenancy, retention, and every `/v1` endpoint.
+  </Card>
+  <Card title="Regions" icon="location-dot" href="/en/cloud/regions/overview">
+    Which cluster to use and what's live today.
+  </Card>
+  <Card title="Compliance" icon="shield" href="/en/cloud/compliance">
+    PIPL / HIPAA / GDPR posture; request a DPA.
+  </Card>
+</CardGroup>

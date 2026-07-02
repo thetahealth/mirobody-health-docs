@@ -3,7 +3,7 @@ title: "Files"
 description: "POST /v1/files, GET /v1/files — upload & parse reports, list, fetch parsed text."
 ---
 
-Upload a health document and Mirobody parses it into the Subject's store. PDFs and images go through **OCR** (original text kept for `read_file`); Excel / CSV are parsed structurally (long/wide tables auto-detected) into health records. The chat agent then reads files with its `read_file` / `ls` tools.
+Upload a health document and Mirobody parses it into the Subject's store. PDFs and images go through **OCR**; Excel / CSV are parsed structurally into health records. The chat agent then reads uploaded files automatically when it answers.
 
 ## Upload & parse
 
@@ -16,11 +16,11 @@ Content-Type:  multipart/form-data
 | Field | Description |
 | --- | --- |
 | `file` | The document (PDF / image / Excel / CSV). |
-| `user` | Subject the file belongs to. |
-| `retention` | `permanent` (default) / `1h` / `2h` / `6h` / `1d` / `session`. The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). |
+| `user` | Subject the file belongs to. **Optional** — omitting it falls back to your account's **`default`** Subject, so always pass it for per-end-user isolation. |
+| `retention` | **Optional here** (unlike `POST /v1/data`, where it's required). Same values as [Data retention](/en/api-reference/overview#data-retention). |
 
 ```bash
-curl https://mcp.thetahealth.cn/v1/files \
+curl https://test-mirobody-api.thetahealth.ai/v1/files \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" \
   -F "file=@checkup_2026.pdf"
@@ -30,18 +30,20 @@ Response:
 
 ```json
 {
-  "file_key": "uploads/20260616_xxx.pdf",
+  "object": "file",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
   "filename": "checkup_2026.pdf",
-  "indicators": 3,
-  "abstract": "Annual checkup — glucose slightly elevated ...",
+  "bytes": 20544,
+  "status": "processed",
+  "created_at": 1782924296,
   "subject": "alice"
 }
 ```
 
-`indicators` is an **integer count** of structured indicators extracted, not a list of names.
+The file's identifier is **`id`** (a slash-containing key) — use it as `{file_key}` in the fetch and list calls below. `created_at` on the upload response is **epoch seconds**. The upload response does **not** include an indicator count or an abstract.
 
 <Note>
-Images and PDFs are OCR'd to text that the agent can `read_file`; structured-indicator extraction is asynchronous / best-effort, so the upload response's `indicators` is often `0` for images. For guaranteed structured data, use [`POST /v1/data`](/en/api-reference/data) or upload a CSV / Excel file.
+Images and PDFs are OCR'd to text the agent can read; structured-indicator extraction is asynchronous / best-effort. For guaranteed structured data, use [`POST /v1/data`](/en/api-reference/data) or upload a CSV / Excel file.
 </Note>
 
 ## List files
@@ -55,51 +57,46 @@ Authorization: Bearer mb_live_*
 {
   "object": "list",
   "data": [
-    { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
+    {
+      "object": "file",
+      "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+      "filename": "checkup_2026.pdf",
+      "file_type": "application/pdf",
+      "bytes": 20544,
+      "created_at": 1782924296716
+    }
   ],
   "subject": "alice"
 }
 ```
 
-The file list is wrapped in an object: `data` holds the array of files, and `subject` echoes the Subject the list belongs to.
+`data` holds the files; `subject` echoes the Subject. Each item exposes both `id` and `file_key` (identical values). Note `created_at` in the **list** is **epoch milliseconds** — the upload response above uses epoch seconds.
 
 ## Fetch parsed text
 
 ```http
-GET /v1/files/{file_key}
+GET /v1/files/{file_key}?user=alice
 Authorization: Bearer mb_live_*
 ```
 
-Returns the parsed text and abstract for one file — the same content the agent's `read_file` tool sees.
+Returns the parsed text for one file — the same content the agent reads:
 
-## Delete a file
-
-```http
-DELETE /v1/files/{file_key}
-Authorization: Bearer mb_live_*
+```json
+{
+  "object": "file",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+  "filename": "checkup_2026.pdf",
+  "extracted_text": "date,indicator,value\n2026-06-16,fasting_glucose,5.4\n",
+  "abstract": "",
+  "subject": "alice"
+}
 ```
 
-Deletes one uploaded file (and its parsed text) immediately.
+`abstract` may be empty (it isn't generated for every file type).
 
-```bash
-curl -X DELETE "https://mcp.thetahealth.cn/v1/files/uploads/20260616_xxx.pdf" \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
-```
-
-## Erase a Subject
-
-```http
-DELETE /v1/subjects/{user}
-Authorization: Bearer mb_live_*
-```
-
-The right-to-be-forgotten sweep: erases **all** of a user's data — every structured record *and* every uploaded file. Use it to honor an end-user deletion request.
-
-```bash
-curl -X DELETE "https://mcp.thetahealth.cn/v1/subjects/alice" \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
-```
+## Deleting files
 
 <Note>
-These deletes require a key with the `data:delete` (or `data:write`) scope. To delete structured records only (without touching files), see [`DELETE /v1/data`](/en/api-reference/data#delete-records-right-to-be-forgotten).
+There is currently **no per-file or per-Subject delete endpoint** in `/v1` — `DELETE /v1/files/{file_key}` and `DELETE /v1/subjects/{user}` are **not yet available** on the current cluster. Today, time-bounded uploads are removed by **[retention](/en/api-reference/overview#data-retention) expiry** (hour grains auto-delete; `session` data is capped at 24h). For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/cloud/compliance).
 </Note>

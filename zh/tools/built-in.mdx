@@ -1,249 +1,189 @@
 ---
-title: "内置 Tools"
-description: "Mirobody 默认提供的健康 tools"
+title: "内置工具"
+description: "Mirobody C++ 引擎默认提供的 MCP 工具"
 ---
 
 ## 概览
 
-Mirobody 默认包含两个关键的健康 tools，使 AI agents 能够安全访问并分析用户 health 数据。
+Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中一个小小的 C++ 文件，在编译时自注册（参见 [添加自定义工具](/zh/tools/adding-tools)）。它们通过 [`/mcp` 端点](/zh/tools/mcp-integration) 暴露给外部客户端，同时也作为 function-call 描述符交给内置 Agent，因此 OpenAI 和 Gemini 客户端可以在本地进程内调用它们。
 
-<CardGroup cols={2}>
-  <Card title="get_user_health_profile" icon="user">
-    获取完整用户 profile 与摘要信息
-  </Card>
-  <Card title="get_health_indicator" icon="chart-line">
-    查询指定健康指标与时间序列数据
-  </Card>
-</CardGroup>
+<Info>
+标注 **需要 auth** 的工具只对已认证的调用者运行 —— 引擎会在分发前解析调用者身份（JWT 或个人 MCP secret）并将其作为 `UserInfo` 注入。无需 auth 的工具（如 `echo` 和 `render_chart`）对任何人都可运行。
+</Info>
 
-## get_user_health_profile
+| 工具 | Auth | 作用 |
+|------|:----:|--------------|
+| [`list_files`](#list_files) | ✅ | 列出用户已上传的文件 |
+| [`read_file`](#read_file) | ✅ | 按 `file_key` 读取一个上传文件 |
+| [`family_health`](#family_health) | ✅ | 读取用户或已共享护理圈成员的近期 FHIR `Observation` |
+| [`whoami`](#whoami) | ✅ | 确认认证状态并返回 session id |
+| [`recall_memory`](#recall_memory) | ✅ | 检索用户最相关的长期记忆 |
+| [`remember`](#remember) | ✅ | 在长期记忆中存储一条事实 |
+| [`render_chart`](#render_chart) | — | 在聊天界面绘制图表（Apache ECharts） |
+| [`summarize_conversation`](#summarize_conversation) | ✅ | 为当前对话设置一个简短标题 |
+| [`echo`](#echo) | — | 回显文本（示例 / 连通性测试） |
 
-获取用户完整健康 profile，包括已连接设备、摘要统计与 profile 信息。
+## 文件工具
 
-### Function Signature
+### list_files
 
-```python
-async def get_user_health_profile(user_info: UserInfo) -> Dict[str, Any]:
-    """
-    Get user health profile including connected devices and summary data
-    
-    Args:
-        user_info: User authentication information (automatically injected)
-        
-    Returns:
-        Dict containing:
-            - profile: User profile information
-            - connected_providers: List of linked health devices
-            - summary: Health data summary and statistics
-    """
+列出已认证用户上传的文件。每个条目包含文件的名称、MIME 类型、`file_key` 和上传时间。当文件在上传时被抽取出文本（图片、PDF、扫描件），该条目的 MIME 会报告为 `text/plain`，且 `read_file` 会将抽取出的文本作为 `content` 返回 —— 即便原始文件并非文本格式。
+
+<ParamField body="(无参数)">
+  调用者由 auth 解析得出；无需任何参数。
+</ParamField>
+
+返回一个由 `{ filename, file_key, mime, uploaded_at }` 组成的 JSON 数组。
+
+### read_file
+
+按 `file_key`（由 `list_files` 返回）读取用户的某个上传文件。所有权通过按用户维护的文件索引强制执行，因此调用者无法通过猜测 key 来读取其他用户的对象。文本类文件（以及任何带有抽取文本的文件）会以 `content` 内联返回；其它二进制类型则返回一个临时的签名 `url`，而不是内联模型无法使用的字节。
+
+<ParamField body="file_key" type="string" required>
+  要读取文件的 `file_key`，由 `list_files` 返回。
+</ParamField>
+
+文本返回 `{ filename, mime, content }`，二进制返回 `{ filename, mime, url, note }`。
+
+## 健康工具
+
+### family_health
+
+读取近期健康记录 —— FHIR `Observation` 资源 —— 属于用户本人，或已共享其健康数据的护理圈成员。Agent 正是借此回答诸如*"我睡得怎么样？"*或*"妈妈最近怎么样？"*之类的问题。
+
+`member` 参数解析到一个目标用户：为空或 `"me"` 表示调用者本人；数字 id、姓名、昵称或邮箱则匹配某位已共享其数据的人。读取会被两次把关 —— 此人必须在调用者的健康共享列表中，且 `can_read_health` 会再次授权此次读取。只有已共享其数据的成员才可访问。
+
+<ParamField body="member" type="string">
+  要读取谁的健康数据：某位护理圈成员的姓名 / 昵称 / 邮箱 / id，或 `"me"`（或省略）表示调用者。当聊天输入框的"当前为谁"选择器已选中某位成员时，默认使用该成员。
+</ParamField>
+
+<ParamField body="count" type="integer">
+  返回多少条近期 observation。默认 `20`，最大 `100`。
+</ParamField>
+
+返回 `{ subject, observation_count, observations: [{ code, value, time }, …] }`。
+
+## 记忆工具
+
+### recall_memory
+
+针对某个查询，检索用户最相关的长期记忆（已存储的事实、偏好和过往上下文），使模型能在作答前基于它对用户已了解的信息来立足。需在服务端启用长期记忆（否则会返回一个干净的工具错误）。
+
+<ParamField body="query" type="string" required>
+  要在用户记忆中检索的内容。
+</ParamField>
+
+<ParamField body="top_k" type="integer">
+  返回记忆的最大数量（默认 5）。
+</ParamField>
+
+返回 `{ memories: [{ id, text, kind, score, created_at }, …] }`。
+
+### remember
+
+在长期记忆中存储一条关于用户的持久事实（一个稳定的偏好、目标或值得日后回忆的个人细节），以便未来某一轮可以用 `recall_memory` 取回。由模型决定什么值得保留。
+
+<ParamField body="text" type="string" required>
+  要记住的事实，写成一句自包含的话。
+</ParamField>
+
+<ParamField body="kind" type="string">
+  类别标签：`fact` | `preference` | `episode`（默认 `fact`）。
+</ParamField>
+
+返回 `{ id, stored }`。
+
+## 聊天 / UI 工具
+
+### render_chart
+
+直接在用户的聊天中绘制图表。模型以一个完整的 [Apache ECharts](https://echarts.apache.org/) `option` 对象调用它；聊天流会把该调用转成一个图表事件，前端用 `echarts.setOption()` 渲染。该 option 通过调用参数带外传给客户端，因此模型的上下文不会因回显它而膨胀 —— 工具本身只校验该 option 并返回一个简短确认。
+
+<ParamField body="option" type="object" required>
+  一个完整的 Apache ECharts option 对象，例如 `{"xAxis":{"type":"category","data":["Mon","Tue"]},"yAxis":{"type":"value"},"series":[{"type":"line","data":[70.1,70.4]}]}`。
+</ParamField>
+
+<ParamField body="title" type="string">
+  可选的简短说明文字，显示在图表旁边。
+</ParamField>
+
+### summarize_conversation
+
+为当前对话记录一段简明摘要（一个简短标题，≤ 200 字符），用作用户聊天历史里的标签。它会覆盖引擎根据开场问题生成的占位标题。一旦模型理解了用户的诉求，就会自行撰写这段摘要。
+
+<ParamField body="summary" type="string" required>
+  对话的简短、自包含摘要（≤ 200 字符）。
+</ParamField>
+
+返回 `{ updated: true }`。
+
+## 示例 / 测试工具
+
+### whoami
+
+确认调用者已认证，并返回其（不透明的）session 标识。当本轮"当前为"某位调用者可读取的护理圈成员时，它还会标记 `acting_for_member`。它从不回显任何内部用户主键。
+
+<ParamField body="(无参数)" />
+
+返回 `{ authenticated: true, session_id, acting_for_member? }`。
+
+### echo
+
+回显所提供的文本。它是参考工具 —— 丢文件即注册模式最小可能的示例（见 [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/echo.cpp)）—— 同时兼作连通性检查。
+
+<ParamField body="text" type="string" required>
+  要回显的文本。
+</ParamField>
+
+返回 `{ echo: "<text>" }`。
+
+## 一个工具是如何定义的
+
+每个工具都是一个 `res/mcp_tools/<name>.cpp`，声明一个 `Tool` —— 名称、描述、一个 `auth` 标志、一张小小的 `Param` 表以及一个 handler —— 然后用 `MIROBODY_REGISTER_TOOL(...)` 自注册。C++11 没有运行时反射，因此参数显式声明（它们会展开成 MCP 的 `inputSchema` 以及 OpenAI / Gemini 的 function 描述符），并在编译期检查。以下是 `echo` 的全部内容：
+
+```cpp res/mcp_tools/echo.cpp
+#include "mcp/tool.hpp"
+#include <rapidjson/document.h>
+
+namespace {
+using namespace mirobody::mcp;
+
+Result echo(const Args& args, const UserInfo&, const ToolContext&) {
+    const std::string text = args.str("text");
+    rapidjson::Document d;
+    d.SetObject();
+    rapidjson::Document::AllocatorType& a = d.GetAllocator();
+    d.AddMember("echo",
+                rapidjson::Value(text.c_str(),
+                                 static_cast<rapidjson::SizeType>(text.size()), a),
+                a);
+    return Result::ok(to_json(d));
+}
+
+const Tool kEcho = {
+    "echo",
+    "Echo back the provided text.",
+    false,                                                    // auth
+    { Param("text", Type::String, Required, "Text to echo back") },
+    &echo,
+};
+}   // namespace
+
+MIROBODY_REGISTER_TOOL(kEcho);
 ```
 
-### Parameters
-
-<ParamField body="user_info" type="UserInfo" required>
-  用户认证信息。通过 MCP 调用时该参数会由系统 **自动提供**，无需手动传入。
-</ParamField>
-
-
-### Use Cases
-
-- **Profile Overview**：在 dashboard 中展示用户健康 profile
-- **Device Status**：检查哪些设备已连接并在同步
-- **Data Availability**：确认有哪些健康数据可用于分析
-- **Agent Context**：为 agent 提供用户上下文以生成更个性化的回答
-
-## get_health_indicator
-
-获取指定健康指标数据，并支持可选的时间范围过滤。
-
-### Function Signature
-
-```python
-async def get_health_indicator(
-    user_info: UserInfo,
-    indicator: str,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    limit: Optional[int] = 100
-) -> List[Dict[str, Any]]:
-    """
-    Get health indicator data for a specific metric
-    
-    Args:
-        user_info: User authentication information (automatically injected)
-        indicator: Health indicator name (e.g., "HEART_RATE", "STEPS", "SLEEP_DURATION")
-        start_time: Optional start time filter (ISO 8601 format)
-        end_time: Optional end time filter (ISO 8601 format)
-        limit: Maximum number of records to return (default: 100)
-        
-    Returns:
-        List of health indicator records with values and timestamps
-    """
-```
-
-### Parameters
-
-<ParamField body="user_info" type="UserInfo" required>
-  User authentication information (automatically provided)
-</ParamField>
-
-<ParamField body="indicator" type="string" required>
-  健康指标名称。示例：
-  - `HEART_RATE`: 心率测量
-  - `DAILY_STEPS`: 每日步数
-  - `SLEEP_DURATION`: 睡眠时长
-  - `HRV`: 心率变异性
-  - `WEIGHT`: 体重
-  
-  完整列表请参见[标准指标](/zh/providers/overview#standard-health-indicators)。
-</ParamField>
-
-<ParamField body="start_time" type="string">
-  过滤数据的起始时间（ISO 8601 格式）。例如：`2024-01-01T00:00:00Z`
-</ParamField>
-
-<ParamField body="end_time" type="string">
-  过滤数据的结束时间（ISO 8601 格式）。例如：`2024-01-15T23:59:59Z`
-</ParamField>
-
-<ParamField body="limit" type="integer">
-  返回记录的最大数量。默认：100，最大：1000
-</ParamField>
-
-### Use Cases
-
-- **Trend Analysis**：查询一周的心率数据并分析趋势
-- **Comparative Analysis**：对比不同月份的睡眠时长
-- **Correlation Studies**：分析不同健康指标之间的关系
-- **Report Generation**：拉取数据生成个性化健康报告
-
-## 查询健康数据
-
-这两个 tools 都会查询 `theta_ai.th_series_data` 表，该表包含来自所有已连接设备的标准化健康指标。
-
-### Available Indicators
-
-<AccordionGroup>
-  <Accordion title="Activity Indicators" icon="person-running">
-    - `DAILY_STEPS`: 每日步数
-    - `DAILY_DISTANCE`: 行走距离
-    - `DAILY_CALORIES_ACTIVE`: 活动消耗热量
-    - `DAILY_CALORIES_BASAL`: 基础代谢
-    - `ACTIVE_TIME`: 活动时长
-    - `DAILY_FLOORS_CLIMBED`: 爬楼层数
-  </Accordion>
-
-  <Accordion title="Heart Rate Indicators" icon="heart-pulse">
-    - `HEART_RATE`: 瞬时心率
-    - `DAILY_HEART_RATE_RESTING`: 静息心率
-    - `DAILY_HEART_RATE_MIN`: 当日最低心率
-    - `DAILY_HEART_RATE_MAX`: 当日最高心率
-    - `DAILY_AVG_HEART_RATE`: 当日平均心率
-    - `HRV`: 心率变异性（RMSSD）
-  </Accordion>
-
-  <Accordion title="Sleep Indicators" icon="bed">
-    - `DAILY_SLEEP_DURATION`: 总睡眠时长
-    - `SLEEP_IN_BED`: 在床时间
-    - `DAILY_AWAKE_TIME`: 睡眠期间清醒时间
-    - `DAILY_LIGHT_SLEEP`: 浅睡时长
-    - `DAILY_DEEP_SLEEP`: 深睡时长
-    - `DAILY_REM_SLEEP`: REM 睡眠时长
-    - `SLEEP_EFFICIENCY`: 睡眠效率（百分比）
-  </Accordion>
-
-  <Accordion title="Body Metrics" icon="weight-scale">
-    - `WEIGHT`: 体重
-    - `HEIGHT`: 身高
-    - `BMI`: 体重指数
-    - `BODY_FAT_PERCENTAGE`: 体脂率
-    - `SKELETAL_MUSCLE_MASS`: 骨骼肌量
-  </Accordion>
-</AccordionGroup>
-
-## Agent 查询示例
-
-以下示例展示 AI agents 如何使用这些 tools：
-
-<Tabs>
-  <Tab title="查询 Profile">
-    **User:** "我连接了哪些健康设备？"
-    
-    **Agent Action:**
-    ```python
-    profile = await get_user_health_profile(user_info)
-    connected = profile["connected_providers"]
-    ```
-    
-    **Response:** "您连接了 2 个设备：Garmin（上次同步于 2 小时前）和 Whoop（上次同步于 1 小时前）。"
-  </Tab>
-
-  <Tab title="趋势分析">
-    **User:** "显示我过去一周的心率"
-    
-    **Agent Action:**
-    ```python
-    data = await get_health_indicator(
-        user_info,
-        indicator="HEART_RATE",
-        start_time="2024-01-08T00:00:00Z",
-        end_time="2024-01-15T23:59:59Z"
-    )
-    ```
-    
-    **Response:** "您的平均心率是 68 bpm。我注意到 1 月 12 日的心率较高（平均 75 bpm），这与您的锻炼日相符。"
-  </Tab>
-
-  <Tab title="对比分析">
-    **User:** "对比我本周和上周的睡眠"
-    
-    **Agent Action:**
-    ```python
-    this_week = await get_health_indicator(
-        user_info,
-        indicator="DAILY_SLEEP_DURATION",
-        start_time="2024-01-08T00:00:00Z",
-        end_time="2024-01-14T23:59:59Z"
-    )
-    
-    last_week = await get_health_indicator(
-        user_info,
-        indicator="DAILY_SLEEP_DURATION",
-        start_time="2024-01-01T00:00:00Z",
-        end_time="2024-01-07T23:59:59Z"
-    )
-    ```
-    
-    **Response:** "本周您平均睡眠 7.5 小时，而上周是 6.8 小时——提升了 10%！"
-  </Tab>
-</Tabs>
-
-## 安全
-
-<AccordionGroup>
-  <Accordion title="OAuth 认证" icon="shield">
-    所有用户数据相关 tools 都需要 OAuth 认证。执行 tool 之前会自动校验 `user_info` 参数。
-  </Accordion>
-
-  <Accordion title="数据范围" icon="lock">
-    Tools 只能访问当前认证用户的数据；数据库层面会阻止跨用户的数据访问。
-  </Accordion>
-
-  <Accordion title="审计日志" icon="clipboard-list">
-    所有 tool 调用都会记录 user ID、timestamp 与参数，用于安全审计。
-  </Accordion>
-</AccordionGroup>
+完整流程见 [添加自定义工具](/zh/tools/adding-tools)。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="添加自定义 Tools" icon="plus" href="/zh/tools/adding-tools">
-    用 Python 创建你自己的 tools
+  <Card title="添加自定义工具" icon="plus" href="/zh/tools/adding-tools">
+    在 `res/mcp_tools/` 中添加你自己的 C++ 工具
   </Card>
-  <Card title="MCP Integration" icon="bolt" href="/zh/tools/mcp-integration">
-    连接到 Claude、Cursor 或 ChatGPT
+  <Card title="MCP 集成" icon="bolt" href="/zh/tools/mcp-integration">
+    将 Claude、Cursor 或 ChatGPT 连接到 `/mcp` 端点
   </Card>
-  <Card title="API Reference" icon="book" href="/zh/api-reference/mcp-servers">
-    MCP 协议的 tools 文档
+  <Card title="工具与 Agent 概览" icon="wrench" href="/zh/tools/overview">
+    Agent、工具与 MCP 如何协同
   </Card>
 </CardGroup>

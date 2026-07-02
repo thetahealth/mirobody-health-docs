@@ -1,20 +1,22 @@
 ---
 title: "China Cluster"
-description: "mcp.thetahealth.cn — the primary live cluster."
+description: "mirobody-api.thetahealth.cn — China-region cluster (provisioning)."
 ---
 
-China is Mirobody's primary live cluster. All data stays within mainland China.
+The China cluster keeps 100% of data within mainland China. It's mid-migration to the new `mirobody-api.thetahealth.cn` host and is currently **provisioning** — for live integration today, use the [global test cluster](/en/cloud/regions/global).
 
 ## Hosts
 
-| Role | URL |
-| --- | --- |
-| **API** (`base_url`) | `https://mcp.thetahealth.cn/v1` |
-| **API — test cluster** | `https://test-mcp.thetahealth.cn/v1` |
-| **Developer console** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) |
-| **Mirobody app** (consumer) | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) |
+| Role | URL | Status |
+| --- | --- | --- |
+| **API** (`base_url`) | `https://mirobody-api.thetahealth.cn/v1` | 🚧 Provisioning |
+| **API — test** | `https://test-mirobody-api.thetahealth.cn/v1` | 🚧 Provisioning |
+| **Developer console** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) · test [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/) | ✅ Live |
+| **Mirobody app** (consumer) | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) | ✅ Live |
 
-The **test cluster** is for integration testing only — its data is non-production and may be reset at any time. Point at the prod `base_url` for real workloads.
+<Note>
+The legacy API host `mcp.thetahealth.cn` is being retired in favour of `mirobody-api.thetahealth.cn`. Point new integrations at `mirobody-api.*`.
+</Note>
 
 The console is where you create `mb_live_*` keys, view usage, and try the Playground. The Mirobody app is the flagship consumer product — the same engine behind this API.
 

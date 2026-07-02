@@ -1,406 +1,99 @@
 ---
 title: "Provider 概览"
-description: "了解 Mirobody 的 Provider 系统及其与健康设备 API 的集成方式"
+description: "Mirobody 可连接的健康数据源，按四大 vendor 类别组织。"
 ---
 
-## 什么是 Provider？
+## 什么是 provider
 
-Provider 是将 Mirobody 与外部健康和健身设备 API 集成的插件模块。每个 Provider 负责处理 OAuth 身份验证、数据获取以及将数据转换为标准化格式。
+一个 **provider**（代码中的 `vendor::Vendor`）是针对某个健康数据源、已编译进程序的 C++ 客户端。每个 provider 都实现同一套 `authorize / fetch / webhook` 契约，并在运行时按 **id** 解析。关于其架构 —— 契约、诚实的桩、注册表 —— 参见 [Vendor 系统](/zh/concepts/providers)。
 
-## Provider 架构
+本页列出 `src/health/vendor/` 中实际发布的数据源，分为四大类别。
 
-Mirobody 使用可扩展的 Provider 架构，使添加新的健康设备集成变得非常容易：
+## 聚合平台（`platform/`）
 
-```
-BaseThetaProvider (抽象基类)
-    ↓
-ThetaGarminProvider (OAuth1 实现)
-ThetaWhoopProvider (OAuth2 实现)
-YourCustomProvider (您的自定义实现)
-```
+15 家 B2B 健康数据聚合器，以同一套契约中转可穿戴、检验和/或临床数据。每家都携带真实的 `VendorInfo` 元数据（市场定位、地区、合规、数据域），无需凭据即可查询；传输层针对各平台的**公开** API 实现，无文档的操作保留为显式的桩。
 
-### 核心组件
+| Vendor (id) | 地区 | 备注 |
+|-------------|--------|-------|
+| **Terra** (`terra`) | Global | 连接组件 + HMAC webhook；广泛的可穿戴覆盖 |
+| **Validic** (`validic`) | US | 企业级 PGHD；EHR 写回受门控 |
+| **Human API** (`human_api`) | US | 临床 + 可穿戴聚合 |
+| **Junction** (`junction`) | US | 可穿戴 + 美国检验网络 |
+| **Metriport** (`metriport`) | US | 开源；整合的 FHIR + 设备 |
+| **Rook** (`rook`) | Global | 可穿戴 API；按源撤销 |
+| **Spike** (`spike`) | Global | 可穿戴 + Nutrition-AI |
+| **Thryve** (`thryve`) | EU | 欧盟托管的医疗级可穿戴 API |
+| **WeFitter** (`wefitter`) | EU | 游戏化；按 profile 连接 |
+| **Vitalera** (`vitalera`) | Global | 支持 FHIR；HMAC webhook |
+| **Open Wearables** (`open_wearables`) | Self-hosted | 开源；`base_url` 必填 |
+| **Redox** (`redox`) | US | EHR 互操作；FHIR R4 |
+| **Particle Health** (`particle_health`) | US | 经 FHIR `$everything` 获取临床记录 |
+| **HealthConnect** (`healthconnect`) | US | EHR + 可穿戴；FHIR `Observation` |
+| **LexisNexis** (`lexisnexis`) | US | 人寿保险核保；需销售授权 |
 
-<CardGroup cols={2}>
-  <Card title="身份验证处理程序" icon="key">
-    管理 OAuth 1.0 或 OAuth 2.0 流程，实现安全的用户授权
+<Info>
+实现深度**因操作而异** —— 某些 vendor 实现了 `fetch` + `authorize_url` + `handle_webhook` + `revoke`，另一些只实现了 `fetch`。逐 vendor 的状态表位于 [`src/health/vendor/README.md`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/README.md)。
+</Info>
+
+## 设备品牌（`device/`）
+
+针对消费级可穿戴品牌的直连客户端，供希望直接对话品牌、而不经聚合器的部署使用：
+
+<CardGroup cols={3}>
+  <Card title="Fitbit" icon="watch">
+    `fitbit` —— Fitbit Web API，OAuth 2.0。`fetch`（按域的时间序列）、`authorize_url`、`revoke` 以及带签名的 `handle_webhook`（`X-Fitbit-Signature`）均已实现。
   </Card>
-  <Card title="数据拉取器" icon="download">
-    从厂商 API 获取健康数据，支持分页和速率限制
+  <Card title="Withings" icon="watch">
+    `withings` —— Health Mate API，OAuth 2.0。已实现 `fetch`（表单 `action` 服务）与 `authorize_url`；webhook / revoke 为桩。
   </Card>
-  <Card title="数据格式化程序" icon="arrows-rotate">
-    将厂商特定的数据转换为标准化的健康指标
-  </Card>
-  <Card title="数据库服务" icon="database">
-    持久化存储原始数据和格式化数据，以便进行审计追踪
+  <Card title="Garmin" icon="watch">
+    `garmin` —— Garmin Health API。需合作方授权且为**推送式**；仅 `revoke` 已接通。参见 [Garmin 示例](/zh/examples/garmin-provider)。
   </Card>
 </CardGroup>
 
-## 可用 Provider
+<Warning>
+**Fitbit、Garmin 与 Withings 是仅有的、拥有第一方客户端的设备品牌。** 其他品牌 —— **Oura、Polar、Whoop、Dexcom 等** —— 需**通过聚合器**接入（Terra、Validic、Thryve、Rook、Spike）；除非专门添加一个客户端以刻意绕过聚合器，否则它们没有专属客户端。
+</Warning>
 
-### Garmin Connect
+## 临床 EHR（`ehr/`）—— SMART on FHIR
 
-<Tabs>
-  <Tab title="概览">
-    **身份验证**: OAuth 1.0  
-    **状态**: 生产就绪 (Production Ready)  
-    **数据类型**: 活动、睡眠、心率、HRV、呼吸、压力、身体成分
+由于美国 ONC Cures Act 强制每个认证 EHR 采用 **SMART App Launch + FHIR R4** 标准，一个**单一的通用客户端**（`ehr`）便覆盖了所有 EHR —— Epic、Oracle Health / Cerner、athenahealth、MEDITECH、Veradigm 等 —— 以各租户的 FHIR base URL 参数化。
 
-    Garmin Connect 是最全面的健康数据源之一，提供来自 Garmin 可穿戴设备和健身设备的详细指标。
-  </Tab>
+- `base_url` **必填且按租户而定**（每家医院有各自的 FHIR 服务 base URL）；客户端拒绝猜测它。
+- 认证采用 SMART-on-FHIR OAuth 2.0 bearer token；`fetch` 发起标准的 FHIR R4 `Observation` 搜索（`patient` + `category` + `date` 区间）并返回 FHIR JSON。
+- 租户的 base URL 通过 `EhrDirectory`（[`ehr/directory.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/ehr/directory.hpp)）从公开的 **Service Base URL** 目录发现：**ONC Lantern**（全国聚合目录）与 **Oracle Health / Cerner** 发布的清单。
 
-  <Tab title="支持的数据">
-    | 类别 | 指标 |
-    |----------|---------|
-    | **活动** | 步数、距离、卡路里（活动和基础）、爬楼层数、活动时间 |
-    | **心率** | 每日最低、最高、平均、静息心率、时间序列样本 |
-    | **睡眠** | 时长、深睡/浅睡/REM 睡眠、清醒时间、血氧、呼吸 |
-    | **HRV** | 时间序列 HRV 值 |
-    | **呼吸** | 呼吸频率样本 |
-    | **压力** | 压力水平测量 |
-    | **身体** | 体重、BMI、体脂率、骨骼肌重量 |
-    | **锻炼** | 锻炼时长、强度、心率 |
-  </Tab>
+浏览器驱动的连接流程位于 `/health/ehr/*` —— 参见[使用 Provider](/zh/providers/using-providers)。
 
-  <Tab title="配置">
-    ```yaml config.localdb.yaml
-    GARMIN_CLIENT_ID: '您的_consumer_key'
-    GARMIN_CLIENT_SECRET: '您的_consumer_secret'
-    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
-    ```
+## 手机健康存储（`phone/`）
 
-    有关详细设置说明，请参阅 [配置指南](/zh/configuration)。
-  </Tab>
-</Tabs>
+| Vendor (id) | 备注 |
+|-------------|-------|
+| **Huawei** (`huawei`) | 华为 Health Kit **Cloud** REST API（Account Kit OAuth）。经 `sampleSet:polymerize` 实现 `fetch`；同意 OAuth 与订阅 webhook 为桩。 |
 
-### Whoop
+<Note>
+**Apple Health、Samsung Health、Google Health Connect 以及小米 / Mi Fitness 仅设备本地可用** —— 它们不暴露服务端 API，因此不是 vendor 客户端。宿主 App 在设备本地读取它们，并把 FHIR `Observation` POST 到内嵌的 FHIR 端点。参见[数据流](/zh/concepts/data-flow)。
+</Note>
 
-<Tabs>
-  <Tab title="概览">
-    **身份验证**: OAuth 2.0  
-    **状态**: 生产就绪 (Production Ready)  
-    **数据类型**: 睡眠、恢复、周期、锻炼、身体测量
+## 数据域
 
-    Whoop 提供全面的恢复和负荷指标，深受运动员和健身爱好者的欢迎。
-  </Tab>
+每个 vendor 都声明它中转哪些归一化的 `DataDomain`，`fetch` 接收其中之一：
 
-  <Tab title="支持的数据">
-    | 类别 | 指标 |
-    |----------|---------|
-    | **睡眠** | 在床总时间、清醒时间、浅睡/慢波/REM 睡眠、睡眠效率 |
-    | **恢复** | HRV、静息心率、呼吸频率、血氧、皮肤温度 |
-    | **周期** | 负荷、千焦耳、平均心率 |
-    | **锻炼** | 活动类型、时长、强度、心率区间、卡路里 |
-    | **身体** | 身高、体重、最高心率 |
-  </Tab>
-
-  <Tab title="配置">
-    ```yaml config.localdb.yaml
-    WHOOP_CLIENT_ID: '您的_client_id'
-    WHOOP_CLIENT_SECRET: '您的_client_secret'
-    WHOOP_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_whoop/callback'
-    WHOOP_SCOPES: 'offline read:recovery read:sleep read:cycles read:profile read:workout read:body_measurement'
-    ```
-
-    有关详细设置说明，请参阅 [配置指南](/zh/configuration)。
-  </Tab>
-</Tabs>
-
-## Provider 生命周期
-
-理解 Provider 的生命周期有助于您更有效地开发和使用它们：
-
-<Steps>
-  <Step title="初始化">
-    应用程序启动时，会自动从 `THETA_PROVIDER_DIRS` 指定的目录中发现并初始化 Provider。
-
-    ```yaml config.yaml
-    THETA_PROVIDER_DIRS:
-      - mirobody/pulse/theta
-    ```
-  </Step>
-
-  <Step title="注册">
-    系统会调用每个 Provider 的 `create_provider()` 类方法来验证配置并创建实例。
-
-    ```python
-    @classmethod
-    def create_provider(cls, config: Dict[str, Any]) -> Optional['ThetaYourProvider']:
-        if not cls._validate_config(config):
-            return None
-        return cls()
-    ```
-  </Step>
-
-  <Step title="用户绑定">
-    当用户发起绑定时，Provider 的 `link()` 方法会生成一个 OAuth 授权 URL。
-
-    ```python
-    async def link(self, request: LinkRequest) -> Dict[str, Any]:
-        # 生成 OAuth 授权 URL
-        return {"link_web_url": authorization_url}
-    ```
-  </Step>
-
-  <Step title="身份验证">
-    用户授权后，Provider 的 `callback()` 方法会交换 Token 并保存凭据。
-
-    ```python
-    async def callback(self, code: str, state: str) -> Dict[str, Any]:
-        # 使用 code 交换 token
-        # 将凭据保存到数据库
-        # 触发初始数据拉取
-        return {"provider_slug": self.info.slug, "stage": "completed"}
-    ```
-  </Step>
-
-  <Step title="数据同步">
-    Provider 会定期或按需从厂商 API 拉取数据，保存原始数据，进行格式化，并推送到平台。
-
-    ```python
-    async def _pull_and_push_for_user(self, credentials: Dict) -> bool:
-        # 从厂商 API 拉取数据
-        # 保存原始数据
-        # 转换为标准格式
-        # 推送到平台
-        pass
-    ```
-  </Step>
-
-  <Step title="取消绑定">
-    当用户取消绑定时，Provider 的 `unlink()` 方法会撤销访问权限并删除存储的凭据。
-
-    ```python
-    async def unlink(self, user_id: str) -> Dict[str, Any]:
-        # 在厂商处撤销访问权限 (可选)
-        # 从数据库中删除凭据
-        return {"success": True}
-    ```
-  </Step>
-</Steps>
-
-## 标准化健康指标
-
-所有 Provider 收集的数据都会转换为标准化的健康指标，以确保不同设备之间的一致性：
-
-<AccordionGroup>
-  <Accordion title="活动指标" icon="person-running">
-    - `DAILY_STEPS`: 步数
-    - `DAILY_DISTANCE`: 行进距离（米）
-    - `DAILY_CALORIES_ACTIVE`: 活动消耗卡路里（kcal）
-    - `DAILY_CALORIES_BASAL`: 基础代谢卡路里（kcal）
-    - `DAILY_FLOORS_CLIMBED`: 爬楼层数
-    - `ACTIVE_TIME`: 活动时长（分钟）
-  </Accordion>
-
-  <Accordion title="心率指标" icon="heart-pulse">
-    - `HEART_RATE`: 瞬时心率 (bpm)
-    - `DAILY_HEART_RATE_MIN`: 每日最低心率 (bpm)
-    - `DAILY_HEART_RATE_MAX`: 每日最高心率 (bpm)
-    - `DAILY_AVG_HEART_RATE`: 每日平均心率 (bpm)
-    - `DAILY_HEART_RATE_RESTING`: 静息心率 (bpm)
-    - `HRV`: 心率变异性 RMSSD (ms)
-  </Accordion>
-
-  <Accordion title="睡眠指标" icon="bed">
-    - `DAILY_SLEEP_DURATION`: 总睡眠时长 (ms)
-    - `SLEEP_IN_BED`: 在床时间 (ms)
-    - `DAILY_AWAKE_TIME`: 睡眠期间清醒时间 (ms)
-    - `DAILY_LIGHT_SLEEP`: 浅睡时长 (ms)
-    - `DAILY_DEEP_SLEEP`: 深睡时长 (ms)
-    - `DAILY_REM_SLEEP`: REM 睡眠时长 (ms)
-    - `SLEEP_EFFICIENCY`: 睡眠效率百分比
-  </Accordion>
-
-  <Accordion title="身体指标" icon="weight-scale">
-    - `WEIGHT`: 体重 (kg)
-    - `HEIGHT`: 身高 (m)
-    - `BMI`: 身体质量指数
-    - `BODY_FAT_PERCENTAGE`: 体脂率
-    - `SKELETAL_MUSCLE_MASS`: 骨骼肌重量 (kg)
-  </Accordion>
-
-  <Accordion title="呼吸指标" icon="lungs">
-    - `RESPIRATORY_RATE`: 呼吸频率 (次/分钟)
-    - `BLOOD_OXYGEN`: 血氧饱和度 (SpO2) 百分比
-  </Accordion>
-
-  <Accordion title="锻炼指标" icon="dumbbell">
-    - `WORKOUT_DURATION_LOW`: 低强度锻炼时长 (分钟)
-    - `WORKOUT_DURATION_MEDIUM`: 中强度锻炼时长 (分钟)
-    - `WORKOUT_DURATION_HIGH`: 高强度锻炼时长 (分钟)
-    - `ALTITUDE_GAIN`: 爬升高度 (米)
-    - `SPEED`: 平均速度 (m/s)
-  </Accordion>
-</AccordionGroup>
-
-<Info>
-有关标准化指标的完整列表，请参阅 Mirobody 框架文档中的 `StandardIndicator` 枚举。
-</Info>
-
-## Provider 要求
-
-为确保质量和一致性，所有 Provider 必须实现以下内容：
-
-<Tabs>
-  <Tab title="必需方法">
-    ```python
-    class ThetaYourProvider(BaseThetaProvider):
-        @classmethod
-        def create_provider(cls, config: Dict) -> Optional['ThetaYourProvider']:
-            """用于实例化 Provider 的工厂方法"""
-            
-        @property
-        def info(self) -> ProviderInfo:
-            """Provider 元数据"""
-            
-        async def link(self, request: Any) -> Dict[str, Any]:
-            """发起 OAuth 流程"""
-            
-        async def callback(self, *args, **kwargs) -> Dict[str, Any]:
-            """处理 OAuth 回调"""
-            
-        async def unlink(self, user_id: str) -> Dict[str, Any]:
-            """取消用户关联"""
-            
-        async def format_data(self, raw_data: Dict) -> StandardPulseData:
-            """将原始数据转换为标准格式"""
-            
-        async def pull_from_vendor_api(self, *args, **kwargs) -> List[Dict]:
-            """从厂商 API 拉取数据"""
-            
-        async def save_raw_data_to_db(self, raw_data: Dict) -> List[Dict]:
-            """将原始数据保存到数据库"""
-            
-        async def is_data_already_processed(self, raw_data: Dict) -> bool:
-            """检查数据是否已处理"""
-            
-        async def _pull_and_push_for_user(self, credentials: Dict) -> bool:
-            """为用户拉取并推送数据"""
-    ```
-  </Tab>
-
-  <Tab title="数据库模式 (Schema)">
-    每个 Provider 都需要一个数据库表：
-
-    ```sql
-    CREATE TABLE IF NOT EXISTS theta_ai.health_data_<provider> (
-        id SERIAL PRIMARY KEY,
-        create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        is_del BOOLEAN DEFAULT FALSE,
-        msg_id VARCHAR(255) UNIQUE NOT NULL,
-        raw_data JSONB NOT NULL,
-        theta_user_id VARCHAR(255) NOT NULL,
-        external_user_id VARCHAR(255)
-    );
-    
-    CREATE INDEX idx_health_data_<provider>_theta_user_id 
-        ON theta_ai.health_data_<provider>(theta_user_id);
-    CREATE INDEX idx_health_data_<provider>_msg_id 
-        ON theta_ai.health_data_<provider>(msg_id);
-    ```
-  </Tab>
-
-  <Tab title="配置">
-    在 `config.yaml` 中要求的配置：
-
-    ```yaml
-    # OAuth 凭据 (必需)
-    <PROVIDER>_CLIENT_ID: "您的_client_id"
-    <PROVIDER>_CLIENT_SECRET: "您的_client_secret"
-    <PROVIDER>_REDIRECT_URL: "您的_回调_url"
-    
-    # OAuth 端点 (可选，在代码中提供默认值)
-    <PROVIDER>_AUTH_URL: "https://..."
-    <PROVIDER>_TOKEN_URL: "https://..."
-    <PROVIDER>_API_BASE_URL: "https://..."
-    
-    # OAuth 权限范围 (可选)
-    <PROVIDER>_SCOPES: "scope1 scope2"
-    ```
-  </Tab>
-</Tabs>
-
-## Provider 发现机制
-
-Mirobody 会从配置的目录中自动发现并加载 Provider：
-
-```python
-# 在 config.localdb.yaml 中
-THETA_PROVIDER_DIRS:
-  - mirobody/pulse/theta     # 系统内置 Provider
-  - mirobody/pulse/custom    # 您的自定义 Provider
-```
-
-目录结构：
-
-```
-mirobody/pulse/theta/
-├── mirobody_garmin_connect/
-│   ├── __init__.py
-│   └── provider_garmin.py
-├── mirobody_whoop/
-│   ├── __init__.py
-│   └── provider_whoop.py
-└── mirobody_your_provider/
-    ├── __init__.py
-    └── provider_your_provider.py
-```
-
-<Tip>
-为保持一致性，Provider 目录名称应遵循 `mirobody_<provider_name>` 模式。
-</Tip>
-
-## 最佳实践
-
-<AccordionGroup>
-  <Accordion title="错误处理" icon="triangle-exclamation">
-    - 外部 API 调用始终使用 try-except 代码块
-    - 记录带有上下文的错误日志（用户 ID、时间戳、错误详情）
-    - 失败时返回空结果，而不是导致程序崩溃
-    - 对瞬时错误实现指数退避 (Exponential backoff)
-    - 优雅地处理速率限制
-  </Accordion>
-
-  <Accordion title="数据验证" icon="check">
-    - 使用前验证 OAuth Token 的有效性
-    - 在转换前检查数据类型
-    - 优雅地处理缺失值或 null 值
-    - 验证时间戳格式
-    - 验证单位是否符合预期值
-  </Accordion>
-
-  <Accordion title="性能优化" icon="gauge-high">
-    - 所有 I/O 操作使用 async/await
-    - 为大型数据集实现分页
-    - 限制对厂商 API 的并发请求数
-    - 缓存频繁访问的配置项
-    - 使用数据库连接池
-  </Accordion>
-
-  <Accordion title="安全性" icon="shield-halved">
-    - 切勿记录敏感数据（Token、密码）
-    - 在数据库中加密存储凭据
-    - 所有的外部通信都使用 HTTPS
-    - 验证 OAuth state 参数
-    - 为 OAuth 2.0 实现 Token 刷新机制
-  </Accordion>
-</AccordionGroup>
+`Activity` · `Sleep` · `HeartRate` · `Glucose` · `Nutrition` · `BodyMetrics`（体重、BMI、血压、SpO2 等） · `Labs` · `Clinical`
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Provider 集成" icon="book" href="/zh/development/provider-integration">
-    构建新 Provider 的完整指南
+  <Card title="使用 Provider" icon="link" href="/zh/providers/using-providers">
+    配置凭据并关联账号
   </Card>
-  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
-    了解 OAuth 身份验证流程和实现细节
+  <Card title="Vendor 系统" icon="plug" href="/zh/concepts/providers">
+    深入了解 `vendor::Vendor` 契约
   </Card>
-  <Card title="数据映射" icon="table" href="/zh/development/data-mapping">
-    学习如何将厂商数据映射到标准指标
+  <Card title="Garmin 示例" icon="watch" href="/zh/examples/garmin-provider">
+    一个对照契约的设备品牌客户端
   </Card>
-  <Card title="Provider 测试" icon="flask" href="/zh/development/provider-testing">
-    Provider 的测试策略
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    添加一个新数据源
   </Card>
 </CardGroup>

@@ -1,382 +1,112 @@
 ---
-title: "Whoop Provider 示例"
-description: "Whoop Provider 的完整实现示例"
+title: "OAuth 2.0 Vendor 示例（Fitbit）"
+description: "一个对照 C++ vendor 契约的完整 OAuth 2.0 设备品牌客户端 —— 以及关于 Whoop 的说明。"
 ---
+
+<Warning>
+**Whoop 不是已发布的 vendor 客户端。** `src/health/vendor/device/` 中已确认的设备品牌客户端仅有 **Fitbit、Garmin 和 Withings**。Whoop 没有第一方 `vendor::Vendor` —— 它需通过**聚合平台**（如 Terra、Rook、Spike）接入，或由你自己添加一个客户端。*(verify — Whoop 可能只能经聚合器接入。)* 因此本页以 **Fitbit** 作为 OAuth 2.0 示例，因为它是一个真实、已完整实现的设备客户端。
+</Warning>
 
 ## 概览
 
-Whoop Provider 展示了带 Token 刷新的 OAuth 2.0 身份验证实现，以及全面的恢复 (Recovery) 和表现 (Performance) 数据集成。
+**Fitbit**（[`src/health/vendor/device/fitbit.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/fitbit.cpp)，id 为 `fitbit`）是对照 vendor 契约、拥有**完整** OAuth 2.0 实现的设备品牌的最佳范例：它实现了 `fetch`、`authorize_url`、`revoke` 以及带签名的 `handle_webhook`。可将它与 [Garmin 示例](/zh/examples/garmin-provider)对照，后者因 Garmin 的数据 API 需合作方授权而大多为桩。
 
 <Info>
-本示例展示了带自动 Token 刷新的 OAuth 2.0 实现，非常适合学习现代 OAuth 模式。
+这是一个 `vendor::Vendor`，而非 Python provider 类。它所实现的接口参见 [Vendor 系统](/zh/concepts/providers)。
 </Info>
 
-## 核心特性
+## `authorize_url` —— 构建同意 URL
 
-<CardGroup cols={2}>
-  <Card title="OAuth 2.0" icon="shield">
-    带刷新 Token 的现代 OAuth 模式
-  </Card>
-  <Card title="恢复数据" icon="heart-pulse">
-    HRV、静息心率、恢复分数
-  </Card>
-  <Card title="睡眠分析" icon="bed">
-    详细的睡眠阶段和质量分析
-  </Card>
-  <Card title="运动数据" icon="dumbbell">
-    带强度分区的锻炼会话数据
-  </Card>
-</CardGroup>
+保密型服务端客户端在 token 步骤用其 secret 认证，因此**不使用 PKCE**；`authorize_url` 是纯字符串构建（无网络调用），需要 OAuth `client_id`：
 
-## Provider 结构
-
-```python
-from mirobody.pulse.theta.platform.base import BaseThetaProvider
-import aiohttp
-
-class ThetaWhoopProvider(BaseThetaProvider):
-    """Whoop OAuth 2.0 Provider"""
-    
-    def __init__(self):
-        super().__init__()
-        
-        # OAuth 2.0 配置
-        self.client_id = safe_read_cfg("WHOOP_CLIENT_ID")
-        self.client_secret = safe_read_cfg("WHOOP_CLIENT_SECRET")
-        self.redirect_url = safe_read_cfg("WHOOP_REDIRECT_URL")
-        
-        # API 端点
-        self.auth_url = "https://api.prod.whoop.com/oauth/oauth2/auth"
-        self.token_url = "https://api.prod.whoop.com/oauth/oauth2/token"
-        self.api_base_url = "https://api.prod.whoop.com/developer/v2"
-        
-        # 权限范围 (Scopes)
-        self.scopes = "offline read:recovery read:sleep read:cycles read:workout"
+```cpp
+std::string authorize_url(const std::string& redirect_uri, const std::string& state,
+                          const std::string& /*user_id*/, const std::string& /*provider*/) override {
+    if (config().client_id.empty()) {
+        throw VendorError(info_.id + ": authorize_url requires an OAuth client_id — set "
+                          "MIROBODY_VENDOR_FITBIT_CLIENT_ID");
+    }
+    std::string url = std::string(kAuthorizeUrl) +   // https://www.fitbit.com/oauth2/authorize
+                      "?response_type=code&client_id=" + url_encode(config().client_id) +
+                      "&scope=" + url_encode(kDefaultScope);  // "activity heartrate sleep weight profile"
+    if (!redirect_uri.empty()) url += "&redirect_uri=" + url_encode(redirect_uri);
+    if (!state.empty())        url += "&state=" + url_encode(state);
+    return url;
+}
 ```
 
-## 数据映射
+token 交换本身在带外于 `/oauth2/token` 完成；所得的 access token 存为 `config.api_key`。
 
-Whoop 提供了详细的恢复和表现指标：
+## `fetch` —— 按域的时间序列 GET
 
-```python
-WHOOP_INDICATOR_MAPPING = {
-    "sleep": {
-        "score.stage_summary.total_in_bed_time_milli": (
-            StandardIndicator.SLEEP_IN_BED.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.stage_summary.total_light_sleep_time_milli": (
-            StandardIndicator.SLEEP_ANALYSIS_ASLEEP_CORE.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.stage_summary.total_slow_wave_sleep_time_milli": (
-            StandardIndicator.SLEEP_ANALYSIS_ASLEEP_DEEP.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.sleep_efficiency_percentage": (
-            StandardIndicator.SLEEP_EFFICIENCY.value.name,
-            lambda x: x,
-            "%"
-        )
-    },
-    "recovery": {
-        "score.hrv_rmssd_milli": (
-            StandardIndicator.HRV.value.name,
-            lambda x: x,
-            "ms"
-        ),
-        "score.resting_heart_rate": (
-            StandardIndicator.DAILY_HEART_RATE_RESTING.value.name,
-            lambda x: x,
-            "count/min"
-        ),
-        "score.respiratory_rate": (
-            StandardIndicator.RESPIRATORY_RATE.value.name,
-            lambda x: x,
-            "breaths/min"
-        )
+Fitbit 的 Web API 以整天区间提供数据（`yyyy-MM-dd`）。`fetch` 把一个 `DataDomain` 映射到有文档的端点并返回 Fitbit 的 JSON：
+
+```cpp
+static std::string endpoint(DataDomain d, const std::string& u,
+                            const std::string& s, const std::string& e) {
+    switch (d) {
+        case DataDomain::Activity:    return "/1/user/" + u + "/activities/steps/date/" + s + "/" + e + ".json";
+        case DataDomain::HeartRate:   return "/1/user/" + u + "/activities/heart/date/" + s + "/" + e + ".json";
+        case DataDomain::Sleep:       return "/1.2/user/" + u + "/sleep/date/" + s + "/" + e + ".json";
+        case DataDomain::BodyMetrics: return "/1/user/" + u + "/body/log/weight/date/" + s + "/" + e + ".json";
+        default:
+            throw VendorError("fitbit: unsupported domain (brokers: activity, heart_rate, sleep, body_metrics)");
     }
 }
 ```
 
-## OAuth 2.0 实现
+用户路径段是 Fitbit 用户 id，或 `-`（该 API 中 token 拥有者的别名）。access token（`config.api_key`）以 bearer 头携带。
 
-### 发起绑定
+## `handle_webhook` —— 验证签名
 
-```python
-async def link(self, request: LinkRequest) -> Dict[str, Any]:
-    """发起 OAuth 2.0 流程"""
-    user_id = request.user_id
-    
-    # 生成用于 CSRF 保护的 state
-    state_payload = {"s": str(uuid.uuid4())}
-    state = urlencode(state_payload)
-    
-    # 存储在 Redis 中
-    redis_client = await self._get_redis_client()
-    await redis_client.setex(f"oauth2:state:{state}", 900, user_id)
-    await redis_client.setex(f"oauth2:redir:{state}", 900, self.redirect_url)
-    await redis_client.aclose()
-    
-    # 构建授权 URL
-    params = {
-        "client_id": self.client_id,
-        "response_type": "code",
-        "redirect_uri": self.redirect_url,
-        "scope": self.scopes,
-        "state": state,
-    }
-    authorization_url = f"{self.auth_url}?{urlencode(params)}"
-    
-    return {"link_web_url": authorization_url}
+Fitbit 用 `X-Fitbit-Signature` = `base64(HMAC-SHA1(raw_body))`（以 client secret + `"&"` 为密钥）对订阅通知签名。客户端在解析前用恒定时间比较验证它：
+
+```cpp
+const std::string key = config().client_secret + "&";
+std::array<unsigned char, 20> mac = storage::hmac_sha1(key, body);
+const std::string expected = storage::base64_encode(mac.data(), mac.size());
+if (!ct_equal(expected, sig)) {
+    throw VendorError(info_.id + ": webhook signature verification failed (X-Fitbit-Signature)");
+}
 ```
 
-### 处理回调
+由于签名方案是**公开有文档的**，这能被忠实实现 —— 这正是 Fitbit 的 webhook 为真、而 Garmin 的为桩的原因。
 
-```python
-async def callback(self, code: str, state: str) -> Dict[str, Any]:
-    """处理 OAuth 2.0 回调"""
-    
-    # 验证 state
-    redis_client = await self._get_redis_client()
-    user_id = await redis_client.get(f"oauth2:state:{state}")
-    redirect_uri = await redis_client.get(f"oauth2:redir:{state}")
-    await redis_client.delete(f"oauth2:state:{state}")
-    await redis_client.delete(f"oauth2:redir:{state}")
-    await redis_client.aclose()
-    
-    if not user_id:
-        raise ValueError("无效或已过期的 state")
-    
-    # 使用 code 交换 token
-    async with aiohttp.ClientSession() as session:
-        data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-        }
-        
-        async with session.post(self.token_url, data=data) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"Token 交换失败: {await resp.text()}")
-            token_data = await resp.json()
-    
-    # 保存带有过期时间的凭据
-    access_token = token_data["access_token"]
-    refresh_token = token_data.get("refresh_token")
-    expires_in = token_data.get("expires_in")
-    expires_at = int(time.time()) + int(expires_in) if expires_in else None
-    
-    await self.db_service.save_oauth2_credentials(
-        user_id, self.info.slug, access_token, refresh_token, expires_at
-    )
-    
-    # 触发数据同步
-    asyncio.create_task(self._pull_and_push_for_user({
-        "user_id": user_id,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-    }))
-    
-    return {"provider_slug": self.info.slug, "stage": "completed"}
+## `revoke` —— 撤销授权
+
+`revoke` 把 token POST 到 `/oauth2/revoke`，以保密客户端身份认证（HTTP Basic `client_id:client_secret`）。
+
+## 配置
+
+```bash
+MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
+MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
+# after the OAuth token exchange, the access token is used as the API key:
+MIROBODY_VENDOR_FITBIT_API_KEY=fitbit_oauth2_access_token
+# optional host override (default https://api.fitbit.com)
+MIROBODY_VENDOR_FITBIT_BASE_URL=https://api.fitbit.com
 ```
 
-## Token 刷新
+## 如果你确实需要 Whoop
 
-自动 Token 刷新确保持续的访问：
+两条诚实的路径：
 
-```python
-async def get_valid_access_token(self, user_id: str) -> Optional[str]:
-    """获取有效的 access token，必要时进行刷新"""
-    
-    # 获取存储的凭据
-    creds = await self.db_service.get_user_credentials(
-        user_id, self.info.slug, LinkType.OAUTH2
-    )
-    
-    if not creds:
-        return None
-    
-    access_token = creds["access_token"]
-    expires_at = creds.get("expires_at")
-    
-    # 检查是否仍然有效
-    if expires_at and time.time() < expires_at:
-        return access_token
-    
-    # Token 已过期，刷新它
-    refresh_token = creds.get("refresh_token")
-    if not refresh_token:
-        return None
-    
-    async with aiohttp.ClientSession() as session:
-        data = {
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-        }
-        
-        async with session.post(self.token_url, data=data) as resp:
-            if resp.status != 200:
-                # 刷新失败，移除无效凭据
-                await self.db_service.delete_user_theta_provider(
-                    user_id, self.info.slug
-                )
-                return None
-            
-            token_data = await resp.json()
-    
-    # 更新凭据
-    new_access_token = token_data["access_token"]
-    new_refresh_token = token_data.get("refresh_token", refresh_token)
-    new_expires_in = token_data.get("expires_in")
-    new_expires_at = int(time.time()) + int(new_expires_in) if new_expires_in else None
-    
-    await self.db_service.save_oauth2_credentials(
-        user_id, self.info.slug, new_access_token, new_refresh_token, new_expires_at
-    )
-    
-    return new_access_token
-```
-
-## 带分页的数据获取
-
-```python
-async def pull_from_vendor_api(
-    self,
-    access_token: str,
-    refresh_token: Optional[str] = None,
-    days: int = 2
-) -> List[Dict[str, Any]]:
-    """从 Whoop API 分页获取数据"""
-    
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Accept": "application/json"
-    }
-    
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=days)
-    
-    all_raw_data = []
-    
-    async with aiohttp.ClientSession() as session:
-        endpoints = {
-            "sleep": f"{self.api_base_url}/activity/sleep",
-            "recovery": f"{self.api_base_url}/recovery",
-            "workout": f"{self.api_base_url}/activity/workout",
-            "cycle": f"{self.api_base_url}/cycle"
-        }
-        
-        for data_type, endpoint in endpoints.items():
-            try:
-                params = {
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                    "limit": 25
-                }
-                
-                # 处理分页
-                data = await self._fetch_paginated_data(
-                    session, endpoint, headers, params
-                )
-                
-                if data:
-                    all_raw_data.append({
-                        "data_type": data_type,
-                        "data": data,
-                        "timestamp": int(time.time() * 1000)
-                    })
-            except Exception as e:
-                logging.error(f"获取 {data_type} 出错: {str(e)}")
-                continue
-    
-    return all_raw_data
-```
-
-## 支持的数据类型
-
-<Tabs>
-  <Tab title="睡眠">
-    - 总在床时间
-    - 浅睡时间
-    - 深睡时间 (Slow-wave)
-    - REM 睡眠时间
-    - 睡眠效率
-    - 睡眠中断情况
-  </Tab>
-
-  <Tab title="恢复">
-    - HRV (RMSSD)
-    - 静息心率
-    - 呼吸频率
-    - 血氧 (SpO2)
-    - 皮肤温度
-    - 恢复分数
-  </Tab>
-
-  <Tab title="周期 (Cycles)">
-    - 压力分数 (Strain score)
-    - 千焦耳 (Kilojoules)
-    - 平均心率
-    - 最大心率
-  </Tab>
-
-  <Tab title="锻炼">
-    - 活动类型
-    - 持续时间
-    - 强度分区
-    - 卡路里消耗
-    - 心率统计
-  </Tab>
-</Tabs>
-
-## 源代码
-
-完整的 Whoop Provider 源代码位于：
-```
-connect/theta/mirobody_whoop/provider_whoop.py
-```
-
-## 与 OAuth 1.0 的主要区别
-
-<AccordionGroup>
-  <Accordion title="Token 类型" icon="key">
-    OAuth 2.0 使用 Bearer Token，OAuth 1.0 使用签名请求
-  </Accordion>
-
-  <Accordion title="Token 过期" icon="clock">
-    OAuth 2.0 Token 会过期并需要刷新，OAuth 1.0 Token 通常不会过期
-  </Accordion>
-
-  <Accordion title="便捷性" icon="check">
-    OAuth 2.0 更简单 - 无需计算复杂的签名
-  </Accordion>
-
-  <Accordion title="刷新流程" icon="rotate">
-    OAuth 2.0 内置了 Token 刷新机制，OAuth 1.0 通常需要重新授权
-  </Accordion>
-</AccordionGroup>
+1. **经聚合器** —— 通过 Terra / Rook / Spike（哪个在其 provider 目录中列出了 Whoop 就用哪个）连接 Whoop，并经该聚合器的 `vendor::Vendor` 获取。*(verify the aggregator's current Whoop support.)*
+2. **编写一个第一方客户端** —— 添加 `src/health/vendor/device/whoop.cpp`，对照 Whoop 的公开 OAuth 2.0 API 实现契约并注册它。参照 [Provider 集成](/zh/development/provider-integration)；上面的 Fitbit 是最接近的模板。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Garmin 示例" icon="code" href="/zh/examples/garmin-provider">
-    查看 OAuth 1.0 实现
+  <Card title="Garmin 示例" icon="watch" href="/zh/examples/garmin-provider">
+    一个大多为桩的设备客户端及其原因
   </Card>
-  <Card title="集成指南" icon="book" href="/zh/development/provider-integration">
-    构建你自己的 Provider
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    构建一个新的 `vendor::Vendor`
   </Card>
   <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
-    深入了解 OAuth 模式
+    各 vendor 客户端中的 OAuth 模式
   </Card>
-  <Card title="测试指南" icon="flask" href="/zh/development/provider-testing">
-    测试你的 Provider
+  <Card title="Provider 概览" icon="plug" href="/zh/providers/overview">
+    每一个已发布的 vendor
   </Card>
 </CardGroup>

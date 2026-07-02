@@ -1,135 +1,164 @@
 ---
 title: "Docker 部署"
-description: "使用 Docker 和 Docker Compose 部署 Mirobody"
+description: "用仓库自带的多阶段 Dockerfile 构建并运行 Mirobody 的 C++ 引擎。"
 ---
 
 ## 概览
 
-Docker 提供了一种最简单的方法，可以在隔离的容器中部署 Mirobody 及其所有依赖项。
+仓库自带一个多阶段 `Dockerfile`，它编译出独立的 `mirobody` 二进制，并产出一个精简的运行时镜像：
 
-## 快速部署
+1. **builder** —— Ubuntu 24.04，带完整的构建工具链和 dev 头文件；从系统包集合编译出 `mirobody` 可执行文件（vcpkg 仅用于 Windows；Linux 用 CMake `find_package`）。
+2. **runtime** —— Ubuntu 24.04，只带二进制实际链接的共享库（经 `ldd` 提取），外加用于出站 TLS 的 CA 证书。
+
+镜像把 `config.example.yml` 烘焙成优先级最低的默认层。真实设置来自环境变量，或你挂载到 `/app/config.yml` 的一个 `config.yml`。
+
+<Info>
+没有针对 Postgres/Redis 的 `docker compose` 套件，也没有 `deploy.sh` —— 那些属于旧的 Python 引擎。你构建一个镜像，让它连你自己的数据库（以及可选的 Redis）运行。
+</Info>
+
+## 构建并运行
 
 <Steps>
-  <Step title="克隆仓库">
+  <Step title="克隆">
     ```bash
     git clone https://github.com/thetahealth/mirobody.git
     cd mirobody
     ```
   </Step>
 
-  <Step title="配置">
+  <Step title="构建镜像">
     ```bash
-    cp .env_example .env
-    cp config.example.yaml config.yaml
-    # 使用您的设置编辑 config.yaml
+    docker build -t mirobody:latest .
+    ```
+
+    镜像默认链接 **PostgreSQL** 后端。用一个 build arg 选择其他 SQL 后端：
+
+    ```bash
+    docker build --build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY -t mirobody:legacy .
     ```
   </Step>
 
-  <Step title="部署">
+  <Step title="准备 config.yml">
     ```bash
-    ./deploy.sh
+    cp config.example.yml config.yml
     ```
 
-    或者手动运行：
-    ```bash
-    docker-compose up -d
+    编辑 `config.yml`，设置至少一个 LLM 密钥外加你的数据库连接（参见 [数据库后端](#数据库后端)）：
+
+    ```yaml config.yml
+    GOOGLE_API_KEY: 'AIza...'      # 或 OPENAI_API_KEY
+
+    PG_HOST: 'host.docker.internal'   # 一个容器内可达的 Postgres
+    PG_PORT: 5432
+    PG_USER: 'postgres'
+    PG_DBNAME: 'mirobody'
+    PG_PASSWORD: '...'
+    PG_ENCRYPTION_KEY: '...'
     ```
+  </Step>
+
+  <Step title="运行">
+    镜像内部把 `HTTP_PORT=80` 固定好，并以非特权用户运行。把你的配置挂载覆盖烘焙进去的模板：
+
+    ```bash
+    docker run -p 80:80 \
+      -v $PWD/config.yml:/app/config.yml \
+      mirobody:latest
+    ```
+
+    容器监听 80 端口；示例把宿主机 80 端口映射到它。打开 <a href="http://localhost">http://localhost</a>。
   </Step>
 
   <Step title="验证">
     ```bash
-    curl http://localhost:18080/health
+    curl http://localhost/api/health   # -> ok
     ```
   </Step>
 </Steps>
 
-## Docker Compose 服务
+<Note>
+容器内的优先级是：环境变量 → 挂载的 `config.yml` → 远程配置 → 烘焙进去的 `config.example.yml`。因此你完全可以用 `-e` 环境变量而非文件来配置，例如 `-e GOOGLE_API_KEY=... -e PG_HOST=...`。
+</Note>
 
-部署包含三个服务：
+## 数据库后端
 
-| 服务 | 端口 | 描述 |
-|---------|------|-------------|
-| backend | 18080 | FastAPI 应用程序服务器 |
-| postgres | 5432 | PostgreSQL 数据库 |
-| redis | 6379 | Redis 缓存和会话存储 |
+SQL 后端是编译**进**二进制的，所以在镜像构建时就固定了。
 
-## 配置
+| 后端 | 何时使用 | 如何做 |
+| ------- | ----------- | --- |
+| **PostgreSQL** | 服务器 / 多用户（桌面默认） | 默认镜像；把 `PG_*` 指向你的数据库 |
+| **SQLite** | 自包含、单文件、无外部 DB | 用 `--build-arg MIROBODY_DATABASE_BACKEND=SQLITE` 构建 |
+| PostgreSQL（旧 schema） | 已有的 `res/sql/pg_legacy` 部署 | `--build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY` |
 
-### 环境变量
+<Tip>
+自带的 `Dockerfile` 为 PostgreSQL 后端安装了 `libpq-dev`。要构建 MySQL / DuckDB 镜像，先把相应的 `-dev` 包加到 Dockerfile 的 `apt-get install` 行里。
+</Tip>
 
-```bash .env
-# 数据库
-POSTGRES_USER=holistic_user
-POSTGRES_PASSWORD=您的安全密码
-POSTGRES_DB=holistic_db
+## 缓存（可选）
 
-# Redis
-REDIS_PASSWORD=您的 Redis 密码
-```
+服务器默认使用进程内的内存缓存 —— 单实例无需 Redis。要在多副本间共享缓存状态，跑一个 Redis 并在配置里（或经环境变量）设置 `REDIS_HOST`（以及 `REDIS_PORT` / `REDIS_PASSWORD`）。
 
-### Docker Compose 覆盖
+## 经环境变量配置
 
-创建 `docker-compose.override.yml` 进行本地自定义：
-
-```yaml docker-compose.override.yml
-version: '3.8'
-
-services:
-  backend:
-    environment:
-      - LOG_LEVEL=DEBUG
-    ports:
-      - "18081:18080"  # 自定义端口
-```
-
-## 管理命令
+任何配置键都可被同名环境变量覆盖（最高优先级）。用于密钥很方便：
 
 ```bash
-# 查看日志
-docker-compose logs -f backend
-
-# 重启服务
-docker-compose restart backend
-
-# 停止所有服务
-docker-compose down
-
-# 重新构建容器
-docker-compose build --no-cache
-
-# 在容器中执行命令
-docker-compose exec backend python -c "print('Hello')"
+docker run -p 80:80 \
+  -e GOOGLE_API_KEY="AIza..." \
+  -e PG_HOST="db.internal" \
+  -e PG_PASSWORD="..." \
+  -e PG_ENCRYPTION_KEY="..." \
+  -e CONFIG_ENCRYPTION_KEY="..." \
+  mirobody:latest
 ```
 
-## 数据持久化
-
-数据持久化在 Docker 卷（Volumes）中：
-
-- `pgdata`: PostgreSQL 数据
-- `redis-data`: Redis 持久化数据
+## 管理
 
 ```bash
-# 备份数据库
-docker-compose exec postgres pg_dump -U holistic_user holistic_db > backup.sql
+# 日志（二进制把日志打到 stdout）
+docker logs -f <container>
 
-# 恢复数据库
-docker-compose exec -T postgres psql -U holistic_user holistic_db < backup.sql
+# 停止（SIGTERM 触发优雅关停）
+docker stop <container>
+
+# 进入运行中的容器 shell
+docker exec -it <container> /bin/sh
 ```
 
-## 故障排除
+## 关于运行时镜像的说明
 
 <AccordionGroup>
-  <Accordion title="端口冲突" icon="network-wired">
-    在 `config.yaml` 或 `docker-compose.override.yml` 中更改端口
+  <Accordion title="静态资源与 SQL 位于 /app 下" icon="folder-open">
+    二进制相对其工作目录解析 `res/htdoc`（`HTTP_ROOT`）和 `res/sql`，所以 `res/` 和 `config.yml` 与二进制一起位于 `/app` 下。Web 客户端在容器的端口上提供。
   </Accordion>
 
-  <Accordion title="容器无法启动" icon="circle-exclamation">
-    检查日志：`docker-compose logs backend`
+  <Accordion title="为 Tanka 登录而存在的 Node" icon="node">
+    运行时镜像安装了 `nodejs`，以便服务器在启动时自动发现 Tanka 二维码登录的签名器。如果你不用 Tanka，它就是多余的 —— 设置 `TANKA_LOGIN_ENABLED=false`（或 `TANKA_WASM_AUTODISCOVER=false`）。
   </Accordion>
 
-  <Accordion title="数据库连接失败" icon="database">
-    验证 PostgreSQL 是否正在运行：`docker-compose ps postgres`
+  <Accordion title="没有 Docker HEALTHCHECK" icon="heart-pulse">
+    运行时镜像只有库（没有 `curl`/`wget`），所以没有内置的 `HEALTHCHECK`。在 Kubernetes 下，对 `/api/health` 使用 `httpGet` 存活/就绪探针。
+  </Accordion>
+
+  <Accordion title="可选文档格式默认关闭" icon="file">
+    服务器镜像为了保持精简，把 PDF/OCR/`.xls` 关掉了（经 xlnt 的 `.xlsx` 是内置的）。要启用 PDF/OCR，把依赖和 CMake 标志加到 Dockerfile —— 参见其中的注释和 [文件处理](/zh/concepts/file-processing)。
   </Accordion>
 </AccordionGroup>
 
-关于生产环境部署，请参阅 [生产环境部署](/zh/deployment/production)。
+## 故障排查
+
+<AccordionGroup>
+  <Accordion title="端口冲突" icon="network-wired">
+    重映射宿主机一侧：`docker run -p 8080:80 …`，或用 `-e HTTP_PORT=8080` 改内部端口并映射到它。
+  </Accordion>
+
+  <Accordion title="容器立即退出" icon="circle-exclamation">
+    查看 `docker logs <container>` —— 最常见的原因是连不上数据库（`PG_HOST`），或 `PG_ENCRYPTION_KEY` 缺失/无效。连接设置错误会按设计直接让启动失败。
+  </Accordion>
+
+  <Accordion title="连不上宿主机上的数据库" icon="database">
+    在容器内，宿主机是 `host.docker.internal`（Docker Desktop）—— 把 `PG_HOST` 设为它，而非 `localhost`。
+  </Accordion>
+</AccordionGroup>
+
+关于生产环境加固，参见 [生产部署](/zh/deployment/production)。

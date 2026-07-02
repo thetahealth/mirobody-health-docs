@@ -1,23 +1,28 @@
 ---
 title: "全球集群"
-description: "国际集群——即将推出。"
+description: "mirobody-api.thetahealth.ai —— 主集群；测试环境现已上线。"
 ---
 
-<Info>
-**主前端 [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) 已上线。** 面向 2B 的 API 集群（`mcp.thetahealth.ai`）**尚未向外部合作伙伴开放**——正在逐步开放中。
-</Info>
+**基于 `mirobody.ai` 的全球集群**是 Mirobody 的主环境。其**测试栈现已上线** —— 控制台、C 端应用与 API 今天都可用于集成对接。
+
+## 主机地址
+
+| 角色 | 地址 | 状态 |
+| --- | --- | --- |
+| **API**（`base_url`） | `https://mirobody-api.thetahealth.ai/v1` | 🚧 筹备中 |
+| **API —— 测试** | `https://test-mirobody-api.thetahealth.ai/v1` | ✅ 已上线 |
+| **开发者控制台** | [platform.mirobody.ai](https://platform.mirobody.ai/) · 测试 [test-platform.mirobody.ai](https://test-platform.mirobody.ai/) | ✅ 已上线（测试） |
+| **C 端应用** | [chat.mirobody.ai](https://chat.mirobody.ai/) · 测试 [test-chat.mirobody.ai](https://test-chat.mirobody.ai/) | ✅ 已上线（测试） |
+
+<Note>
+生产主机（`mirobody-api.thetahealth.ai`、`platform.mirobody.ai`、`chat.mirobody.ai`）正在上线中。在此之前，请基于上面的**测试**主机进行开发 —— 本文档中的每个代码示例用的都是这些主机。
+</Note>
 
 ## 集群信息
 
-- **主前端**：[mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/)——已上线
-- **API base URL**（`mcp.thetahealth.ai`）：**尚未对外开放**；将在发布时公布
-- **LLM 提供方**：OpenAI / Gemini / Anthropic
-
-## 与中国集群的差异
-
-- 数据存储于美国，无跨境复制。
-- 合规框架：HIPAA + GDPR（规划中——详见[全球合规](/zh/cloud/compliance)）。
-- 默认启用 OpenAI / Gemini 工具。
+- **LLM 提供方**：由 Mirobody 托管（`mirobody-flash` / `mirobody-expert`）—— 无需你自带 LLM 密钥。
+- **数据驻留**：美国，无跨境复制。
+- **合规**：HIPAA + GDPR（规划中）—— 详见[合规](/zh/cloud/compliance)。
 
 ## 欧盟（EU）——即将推出
 

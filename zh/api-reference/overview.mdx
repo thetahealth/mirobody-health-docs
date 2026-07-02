@@ -3,31 +3,27 @@ title: "API 概览"
 description: "兼容 OpenAI 的健康数据 API —— base URL、鉴权、多租户、留存与错误。"
 ---
 
-Mirobody 的托管 API **兼容 OpenAI**。把任意 OpenAI SDK 指向下方的 base URL，传入一个 `mb_live_*` 密钥，调用 `/v1/chat/completions` —— 智能体会基于每个终端用户**真实、结构化的健康数据**作答，并附带可追溯的引用。同一套引擎也可通过 `pip install mirobody` 或开源技术栈自行部署；托管 API 在其之上提供了托管存储、密钥与计费。
+Mirobody 的托管 API **兼容 OpenAI**。把任意 OpenAI SDK 指向下方的 base URL，传入一个 `mb_live_*` 密钥，调用 `/v1/chat/completions` —— 智能体会基于每个终端用户**真实、结构化的健康数据**作答，并附带可追溯的引用。同一套引擎也可**自行部署** —— 构建[开源 C++ 引擎](/zh/index)（`./build.sh`）并自己运行；托管 API 在其之上提供了托管存储、密钥与计费。
 
-你在[开发者控制台](https://cdm.thetahealth.cn/)中创建密钥、查看用量、试用在线 Playground。本文档是 API 参考。
+你在[开发者控制台](https://test-platform.mirobody.ai/)中创建密钥、查看用量、试用在线 Playground。本文档是 API 参考。
 
 ## Base URL
 
-生产环境：
+Mirobody 采用**全球优先**架构。当前可用于集成对接的线上环境是全球**测试**集群 —— 请把你的 SDK 指向这里：
 
 ```text
-https://mcp.thetahealth.cn/v1
+https://test-mirobody-api.thetahealth.ai/v1
 ```
 
-测试集群（用于集成测试，数据为非生产、可能被重置）：
+它的数据为非生产、可能被随时重置，因此切勿在其中放置真实的终端用户数据。生产环境（`https://mirobody-api.thetahealth.ai/v1`）与**中国**集群（`https://mirobody-api.thetahealth.cn/v1`）均在筹备中 —— 完整的主机矩阵与上线状态见[区域](/zh/cloud/regions/overview)。
 
-```text
-https://test-mcp.thetahealth.cn/v1
-```
-
-每次调用都用 `mb_live_*` 密钥鉴权 —— 见[鉴权](#authentication)。全球区域**即将上线**；详见[区域](/zh/cloud/regions/overview)。
+每次调用都用 `mb_live_*` 密钥鉴权 —— 见[鉴权](#鉴权)。
 
 ## 鉴权
 
 | 接口面 | 方案 | 如何获取 |
 | --- | --- | --- |
-| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://cdm.thetahealth.cn/developer/keys) → **API Keys** 中创建密钥。密钥仅显示**一次**。 |
+| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://test-platform.mirobody.ai/developer/keys) → **API Keys** 中创建密钥。密钥仅显示**一次**。 |
 | `/api/console/*`（控制台） | 会话 **JWT**（登录） | 在控制台中通过邮箱验证码或微信登录。 |
 
 `/v1` 密钥**不是** JWT —— 它们是与你的账户绑定的长期 API 密钥。切勿在客户端代码中携带它们。
@@ -43,7 +39,7 @@ https://test-mcp.thetahealth.cn/v1
 | **响应** | `choices[0].message.content`（外加 `reasoning_content`、`tool_steps`）、`usage`，以及顶层 `health_records` / `citations` |
 
 <Note>
-**采样参数的处理方式。** `max_tokens` 为兼容 OpenAI 而被接受，但**不强制生效** —— 输出长度由智能体自行决定。`n` 必须为 `1`，传入其它值会返回 `400`。`temperature`、`top_p`、`stop`、`seed` 等参数会被接受但**忽略**。
+**采样参数为兼容而被接受，但生成由智能体自行掌控。** `max_tokens` 会被接受但**不强制生效** —— 输出长度由智能体控制。`temperature`、`top_p`、`stop`、`seed` 会被接受但**忽略**。`n` 取 `1` 以外的值同样**不强制生效** —— 响应仍只返回单个 choice。
 </Note>
 
 ## 多租户：`user` 字段
@@ -56,19 +52,23 @@ https://test-mcp.thetahealth.cn/v1
 
 | `retention` | 含义 | 生命周期 |
 | --- | --- | --- |
-| `permanent`（默认） | 保留至显式删除 | 永久 |
-| `1h` / `2h` / `6h` | 写入后约这么多小时自动删除 | ≤ 24h |
-| `1d` | 一天内自动删除 | ≤ 24h |
+| `permanent` | 保留至显式删除（内联 `health_context` 的默认值） | 永久 |
 | `session` | 绑定到 `session_id`，会话结束时丢弃 | ≤ 24h，或 `DELETE /v1/sessions/{id}` |
+| `1d` | 一天内自动删除 | ≤ 24h |
+| `6h` | 写入 6 小时后自动删除 | ≤ 6h |
+| `2h` | 写入 2 小时后自动删除 | ≤ 2h |
+| `1h` | 写入 1 小时后自动删除 | ≤ 1h |
 | `none` | 仅用于本次请求，永不持久化 | 在 `finally` 中删除 |
 
-可取值为：`permanent` | `1h` | `2h` | `6h` | `1d` | `session` | `none`。除 `permanent` 外，留存数据的硬上限始终为 **24 小时**。
+可取值为：`permanent`（又名 `persistent`）| `1h` | `2h` | `6h` | `1d` | `session` | `none`。任何有时限的粒度都被硬上限限制为 **≤ 24h**。
 
-`none` 适用于内联 `health_context`（用完即弃）。在 `POST /v1/data` 上，`none` 会被**拒绝并返回 `HTTP 400`**（写入存储却要求不存储是自相矛盾的）—— 用完即弃的数据请改为在 `POST /v1/chat/completions` 上以 `health_context` + `retention=none` 内联附带。智能体**只会读取数据主体(Subject)当前未过期的数据**。
+在 **`POST /v1/data` 上 `retention` 字段为必填** —— 没有默认值；省略它会返回 `400`（`code: invalid_retention`）。对于 `POST /v1/chat/completions` 上的内联 `health_context`，其默认值为 `permanent`。
+
+`none` 适用于内联 `health_context`（用完即弃）。在 `POST /v1/data` 上，`none` 会被**拒绝并返回 `HTTP 400`**（写入存储却要求不存储是自相矛盾的）—— 用完即弃的结构化数据请改为在 `POST /v1/chat/completions` 上以 `health_context` + `retention=none` 附带。智能体**只会读取数据主体(Subject)当前未过期的数据**。
 
 ## 引用
 
-回答会携带对其所用健康记录的可追溯引用（`health_records` / `citations`），因此结果是**可解释、可核查的** —— 不是"听起来合理"，而是"这个结论来自你的那条记录"。
+回答是**可解释、可核查的** —— 不是"听起来合理"，而是"这个结论来自你的那条记录"。当前的可追溯性由 **`health_records`** 承载（一个顶层数组，元素为 `{tool, data}` 对 —— 即回答所依据的实际工具输出）。`citations` 数组保留给 `record:N` 形式的引用，**目前返回为空**，因此请读取 `health_records`。
 
 ## 错误格式
 
@@ -77,21 +77,25 @@ https://test-mcp.thetahealth.cn/v1
 ```json
 {
   "error": {
-    "message": "X-... is required for this endpoint.",
+    "message": "`retention` is required (days int or 'persistent').",
     "type": "invalid_request_error",
-    "code": "invalid_request"
+    "code": "invalid_retention",
+    "param": "retention"
   }
 }
 ```
 
-| HTTP | 何时 |
-| --- | --- |
-| `400` | 请求格式错误 / 缺少必填字段 |
-| `401` | 缺少或无效的 `mb_live_*` 密钥 |
-| `404` | 未知资源（如 file_key / session_id） |
-| `429` | 速率限制 —— 详见[速率限制](/zh/cloud/rate-limits) |
-| `500` | `internal_error` —— 服务端内部错误 |
-| `502` | 上游智能体错误 —— 通常是瞬时的，请退避后重试 |
+`type` 始终为 `invalid_request_error`；`code` 与 `param` 用于定位具体问题。已观察到的（状态码, `code`）组合：
+
+| HTTP | `code` | 何时 |
+| --- | --- | --- |
+| `400` | `invalid_retention`（字段相关） | 请求格式错误 / 缺少必填字段 —— `param` 指明是哪个字段 |
+| `401` | `null` | 缺少或格式错误的 `Authorization` 头 |
+| `401` | `invalid_api_key` | 错误或已吊销的 `mb_live_*` 密钥 |
+| `404` | — | 未知资源（如 `file_key` / `session_id`） |
+| `429` | — | 速率限制 —— 详见[速率限制](/zh/cloud/rate-limits) |
+| `500` | `internal_error` | 意外的服务端故障 |
+| `502` | — | 上游智能体错误 —— 通常是瞬时的，请退避后重试 |
 
 在**流式**传输中，上游故障会在流结束前以 SSE 错误帧的形式到达。
 
@@ -103,6 +107,6 @@ https://test-mcp.thetahealth.cn/v1
 | `POST` | [`/v1/chat/completions`](/zh/api-reference/chat) | 兼容 OpenAI 的健康对话（流式、`health_context`、`mcp_servers`） |
 | `POST` · `GET` | [`/v1/data`](/zh/api-reference/data) | 写入 / 读取结构化记录 |
 | `POST` · `GET` | [`/v1/files`](/zh/api-reference/files) | 上传并解析文件（OCR / Excel）、列出、获取解析后的文本 |
-| `DELETE` | [`/v1/sessions/{id}`](/zh/api-reference/sessions) | 结束会话，清除其 `session` 数据 |
+| `DELETE` | [`/v1/sessions/{id}`](/zh/api-reference/sessions) | 结束会话（见注意事项 —— 会话记录清除尚未生效） |
 | `GET`·`POST`·`DELETE` | [`/api/console/keys`](/zh/api-reference/console/keys) | 管理 API 密钥（JWT） |
 | `GET` | [`/api/console/usage`](/zh/api-reference/console/usage) | 用量：请求数 / token / 费用（JWT） |

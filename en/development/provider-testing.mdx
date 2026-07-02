@@ -1,324 +1,132 @@
 ---
 title: "Provider Testing"
-description: "Testing strategies for custom provider integrations"
+description: "Verify a C++ vendor client with the vendor debug CLI and against a running server."
 ---
 
 ## Overview
 
-Thorough testing ensures your provider integration is reliable, secure, and handles edge cases properly.
+Vendor clients call live third-party APIs, so they aren't part of the unit suite. You verify them two ways: the **`vendor` debug CLI** (exercises one client's operations in isolation, no server) and **the HTTP routes** on a running server (the ownership-gated bind → verify → fetch path).
 
-## Testing Strategy
+<Info>
+This is not `pytest` with mocked `aiohttp`. Metadata (`VendorInfo`) needs no credentials; transport operations need real credentials against the vendor.
+</Info>
 
-<CardGroup cols={3}>
-  <Card title="Unit Tests" icon="vial">
-    Test individual methods in isolation
-  </Card>
-  <Card title="Integration Tests" icon="link">
-    Test OAuth flows end-to-end
-  </Card>
-  <Card title="Manual Testing" icon="hand">
-    Verify in real environment
-  </Card>
-</CardGroup>
+## The `vendor` debug CLI
 
-## Unit Testing
+The `cli/vendor.cpp` tool (built under `cli/` when `MIROBODY_BUILD_TOOLS` is ON — the default) drives one vendor's contract operations directly. Subcommands:
 
-Test individual provider methods:
-
-```python tests/test_yourprovider.py
-import pytest
-from connect.theta.mirobody_yourprovider.provider_yourprovider import ThetaYourProvider
-
-@pytest.mark.asyncio
-async def test_format_data():
-    """Test data transformation"""
-    provider = ThetaYourProvider.factory()
-    
-    # Mock raw data from vendor
-    raw_data = {
-        "steps": 10000,
-        "date": "2024-01-15",
-        "calories": 450
-    }
-    
-    # Transform data
-    formatted = provider.format_data(raw_data)
-    
-    # Verify transformation
-    assert len(formatted) == 2
-    assert formatted[0].indicator == StandardIndicator.DAILY_STEPS
-    assert formatted[0].value == "10000"
-
-@pytest.mark.asyncio
-async def test_deduplication():
-    """Test duplicate detection"""
-    provider = ThetaYourProvider.factory()
-    
-    # Check if data is already processed
-    is_duplicate = await provider.is_data_already_processed(
-        user_id="test_user",
-        msg_id="unique_record_123"
-    )
-    
-    assert is_duplicate == False
+```text
+vendor list                                          # all registered vendors
+vendor <id> info                                     # full metadata for one vendor
+vendor <id> auth-url  --redirect URL [--state S]     # build the consent URL
+vendor <id> providers [--user U]                     # connectable data sources
+vendor <id> fetch     --user U --domain sleep [--start ISO] [--end ISO]
+vendor <id> webhook   --file payload.json            # body from --file/--data/stdin
+vendor <id> revoke    --user U [--provider slug]
 ```
 
-## Integration Testing
+Credentials come from the same `MIROBODY_VENDOR_<ID>_*` env vars the server uses.
 
-Test complete OAuth flows:
+<Steps>
+  <Step title="Metadata (no credentials)">
+    Confirm your `VendorInfo` is complete and the id is registered:
+    ```bash
+    ./build/cli/vendor list
+    ./build/cli/vendor fitbit info
+    ```
+  </Step>
+  <Step title="Authorize URL">
+    ```bash
+    MIROBODY_VENDOR_FITBIT_CLIENT_ID=... \
+      ./build/cli/vendor fitbit auth-url --redirect https://localhost/cb --state abc
+    ```
+    Check the URL is well-formed and carries your scopes / `state`.
+  </Step>
+  <Step title="Fetch">
+    With a real access token, fetch a domain over a window:
+    ```bash
+    MIROBODY_VENDOR_FITBIT_API_KEY=... \
+      ./build/cli/vendor fitbit fetch --user - --domain heart_rate --start 2026-06-01 --end 2026-06-07
+    ```
+    Verify the returned JSON matches the vendor's documented shape, and that **unsupported domains throw** with a clear message.
+  </Step>
+  <Step title="Webhook (signed vendors)">
+    Feed a captured payload and confirm signature verification:
+    ```bash
+    ./build/cli/vendor fitbit webhook --file sample_notification.json
+    ```
+    Pass a tampered body and confirm it's rejected.
+  </Step>
+  <Step title="Revoke">
+    ```bash
+    MIROBODY_VENDOR_FITBIT_API_KEY=... MIROBODY_VENDOR_FITBIT_CLIENT_ID=... \
+    MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=... ./build/cli/vendor fitbit revoke --user -
+    ```
+  </Step>
+</Steps>
 
-```python
-@pytest.mark.asyncio
-async def test_oauth_flow():
-    """Test complete OAuth flow"""
-    provider = ThetaYourProvider.factory()
-    user_id = "test_user_oauth"
-    
-    # Step 1: Initiate link
-    link_result = await provider.link(user_id)
-    assert "link_web_url" in link_result
-    assert "state" in link_result or "oauth_token" in link_result
-    
-    # Step 2: Simulate callback
-    # (Use mock OAuth response)
-    callback_result = await provider.callback(
-        user_id=user_id,
-        code="mock_auth_code",
-        state=link_result.get("state")
-    )
-    
-    assert callback_result["success"] == True
-    
-    # Step 3: Verify tokens stored
-    tokens = await provider._get_tokens(user_id)
-    assert tokens is not None
+<Note>
+For stub operations, the CLI prints the vendor's "not implemented" reason — that's expected and is itself worth asserting (the message should name *why* it's a stub).
+</Note>
 
-@pytest.mark.asyncio
-async def test_data_pull():
-    """Test data fetching from API"""
-    provider = ThetaYourProvider.factory()
-    user_id = "test_user_data"
-    
-    # Pull data
-    raw_data = await provider.pull_from_vendor_api(user_id)
-    
-    # Verify data structure
-    assert isinstance(raw_data, list)
-    assert len(raw_data) > 0
-    
-    # Verify required fields
-    for record in raw_data:
-        assert "date" in record or "timestamp" in record
-```
+## Against a running server
 
-## Local HTTPS Setup for OAuth Development
-
-<Warning>
-Health data providers like WHOOP require HTTPS callback URLs for OAuth authentication due to security requirements.
-</Warning>
-
-During local development, your server typically runs on `http://localhost`, which these providers reject. To test OAuth flows locally, you need to set up a local HTTPS reverse proxy that terminates SSL/TLS and forwards requests to your development server. 
-
-This is accomplished by configuring your system's hosts file to map the production callback domain (e.g., `data-gray.thetahealth.ai`) to `127.0.0.1`, then running a reverse proxy on port 443 that handles HTTPS and proxies to your local HTTP server.
-
-Several tools can provide this functionality, including web servers with reverse proxy capabilities (nginx, Apache), specialized HTTPS proxy tools, or cloud-based tunneling services like ngrok. 
-
-**The general approach:**
-1. Install a local certificate authority tool like `mkcert` to generate trusted SSL certificates for your domain
-2. Configure the proxy to listen on port 443 with your SSL certificate and forward to your local development port (e.g., `localhost:18080`)
-3. Update your hosts file to resolve the callback domain to localhost
-
-This setup allows you to use the exact same callback URL in development as in production, making OAuth integration testing seamless without requiring deployment for every code change.
-
-## Manual Testing
-
-### 1. Test OAuth Link
+Exercise the ownership-gated HTTP path (all routes need a bearer JWT; the server listens on `HTTP_PORT`, default `8080`):
 
 ```bash
-# Get authorization URL
-curl "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/link?user_id=manual_test_user"
+# 1. bind the external account id (PENDING)
+curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
+  -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
+  -d '{"external_user_id": "FITBIT_USER_ID"}'
+
+# 2. verify ownership (-> VERIFIED)
+curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" -H "Authorization: Bearer $JWT"
+
+# 3. fetch a verified link's data
+curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-07" \
+  -H "Authorization: Bearer $JWT"
 ```
 
-Visit the returned URL and complete authorization.
+Confirm that fetching **before** verifying is refused, and that a second user can't bind the same `external_user_id` (the `UNIQUE(vendor_id, external_user_id)` backstop).
 
-### 2. Test Callback
+For an EHR (SMART on FHIR), walk the browser flow: `/health/ehr/providers` → `/health/ehr/authorize` → `/health/ehr/callback` → `/health/ehr/sync`, then read the persisted `Observation`s back from `/fhir/Observation`.
 
-After authorization, verify the callback was successful:
+## Local HTTPS for OAuth callbacks
 
-```bash
-# Check provider status
-curl "http://localhost:18080/api/v1/pulse/providers?user_id=manual_test_user"
-```
+Many vendors reject non-HTTPS redirect URIs, so a plain `http://localhost:8080` callback won't work for a real consent flow. Options for local development:
 
-Expected: Provider shows `"status": "connected"`
+- A local reverse proxy on port 443 terminating TLS (nginx / Caddy) with a trusted cert from **`mkcert`**, forwarding to `localhost:8080`, and a hosts-file entry mapping your production callback domain to `127.0.0.1` — so the **same** redirect URI works locally and in production.
+- A tunneling service such as **ngrok** (also handy for inbound **webhooks** and for `MCP_PUBLIC_URL` during local testing).
 
-### 3. Test Data Pull
+The point is to present the vendor with the exact HTTPS callback URL it expects without deploying for every change.
 
-```bash
-# Trigger data sync
-curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/sync?user_id=manual_test_user"
-```
-
-### 4. Verify Data
-
-```bash
-# Check database for new records
-psql -d your_db -c "SELECT COUNT(*) FROM theta_ai.health_data_yourprovider WHERE theta_user_id = 'manual_test_user';"
-
-# Check standardized data
-psql -d your_db -c "SELECT indicator, COUNT(*) FROM theta_ai.th_series_data WHERE user_id = 'manual_test_user' GROUP BY indicator;"
-```
-
-## Test Scenarios
+## What to cover
 
 <AccordionGroup>
-  <Accordion title="Happy Path" icon="check">
-    Test normal operation:
-    - Fresh OAuth connection
-    - Data fetch with valid tokens
-    - Proper data transformation
-    - Successful database storage
+  <Accordion title="Happy path" icon="check">
+    Valid credentials → `auth-url` builds, `fetch` returns documented JSON for each supported domain, signed `webhook` verifies, `revoke` succeeds.
   </Accordion>
-
-  <Accordion title="Error Handling" icon="triangle-exclamation">
-    Test error scenarios:
-    - Invalid OAuth credentials
-    - Expired tokens
-    - API rate limiting
-    - Network failures
-    - Malformed API responses
-    - Missing required fields
+  <Accordion title="Missing / wrong config" icon="triangle-exclamation">
+    Empty `api_key` / `client_id` → a clear `VendorError` naming the missing env var. Required `base_url` (self-hosted / EHR) empty → refusal, not a guessed host.
   </Accordion>
-
-  <Accordion title="Edge Cases" icon="code">
-    Test edge cases:
-    - Empty data responses
-    - Very large datasets
-    - Duplicate records
-    - Time zone conversions
-    - Null/missing values
+  <Accordion title="Edge cases" icon="code">
+    Unsupported `DataDomain` throws; empty date window uses the vendor default; tampered webhook signature is rejected; a stubbed op reports its reason.
   </Accordion>
 </AccordionGroup>
 
-## Mocking External APIs
-
-Use mocks for unit tests:
-
-```python
-from unittest.mock import AsyncMock, patch
-
-@pytest.mark.asyncio
-@patch('aiohttp.ClientSession.post')
-async def test_token_exchange(mock_post):
-    """Test token exchange with mocked API"""
-    # Mock API response
-    mock_response = AsyncMock()
-    mock_response.json.return_value = {
-        "access_token": "mock_token_123",
-        "refresh_token": "mock_refresh_456",
-        "expires_in": 3600
-    }
-    mock_post.return_value.__aenter__.return_value = mock_response
-    
-    provider = ThetaYourProvider.factory()
-    
-    # Test callback with mocked response
-    result = await provider.callback(
-        user_id="test_user",
-        code="mock_code",
-        state="mock_state"
-    )
-    
-    assert result["success"] == True
-```
-
-## Test Data
-
-Create realistic test data:
-
-```python
-# Mock vendor API response
-MOCK_GARMIN_DAILY_DATA = {
-    "summaries": [
-        {
-            "calendarDate": "2024-01-15",
-            "steps": 10543,
-            "distanceInMeters": 8234,
-            "activeKilocalories": 450,
-            "bmrKilocalories": 1650,
-            "floorsClimbed": 12,
-            "activeTimeInSeconds": 5400
-        }
-    ]
-}
-
-MOCK_WHOOP_SLEEP_DATA = {
-    "records": [
-        {
-            "id": "sleep_123",
-            "score": {
-                "total": 85,
-                "efficiency": 92
-            },
-            "duration_millis": 27000000,
-            "stages": {
-                "deep_millis": 7200000,
-                "light_millis": 14400000,
-                "rem_millis": 5400000
-            }
-        }
-    ]
-}
-```
-
-## Continuous Integration
-
-Add provider tests to CI pipeline:
-
-```yaml .github/workflows/test-providers.yml
-name: Test Providers
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio
-      
-      - name: Run provider tests
-        run: |
-          pytest tests/test_*_provider.py -v
-```
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Provider Integration" icon="puzzle-piece" href="/en/development/provider-integration">
-    Build a custom provider
-  </Card>
-  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
-    Implement OAuth flows
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Build the vendor you're testing
   </Card>
   <Card title="Testing Guide" icon="flask" href="/en/development/testing">
-    General testing practices
+    The Catch2 unit suite
   </Card>
-  <Card title="Examples" icon="code" href="/en/examples/garmin-provider">
-    See real provider code
+  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
+    Consent, webhooks, revocation
+  </Card>
+  <Card title="Using Providers" icon="link" href="/en/providers/using-providers">
+    The bind / verify / data routes
   </Card>
 </CardGroup>
-
-<Note>
-For complete testing examples and patterns, see the <a href="https://github.com/thetahealth/mirobody/blob/main/mirobody/pulse/README.md">Provider Integration Guide</a> in the repository.
-</Note>

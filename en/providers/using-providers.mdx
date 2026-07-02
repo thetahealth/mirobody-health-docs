@@ -1,121 +1,131 @@
 ---
 title: "Using Providers"
-description: "Connect wearables, mobile health platforms, and EHR sources to Mirobody"
+description: "Configure credentials and link a wearable, aggregator, or EHR to Mirobody."
 ---
 
-## What a Provider is
+## How linking works
 
-A **Provider** is a pluggable adapter that pulls raw data from an external source — a wearable API, a mobile health platform, a database — and normalizes it into Mirobody's `StandardPulseData` schema. Each provider lives in its own directory under `mirobody/pulse/` (or under `providers/` for custom ones) and is auto-discovered at boot.
+Connecting a source has two phases: **configure credentials** (once, by the operator) and **link an account** (per user, ownership-gated). Data then flows into the embedded FHIR store, where the agent reads it. For the underlying contract see [Vendor System](/en/concepts/providers).
 
-Providers in the health vertical fall into three groups:
+## 1 — Configure credentials
 
-- **Theta platform** (`mirobody/pulse/theta/`) — direct OAuth/credential integrations Mirobody maintains itself: Garmin, Whoop, Oura, Renpho, Vital, PostgreSQL.
-- **Apple** (`mirobody/pulse/apple/`) — iOS Health export plus CDA (Clinical Document Architecture) for medical records.
-- **Vital** (under the Theta platform) — an umbrella aggregator that fans out to 300+ wearable and EHR endpoints behind a single OAuth flow. EHR coverage spans roughly 90% of US records.
+Each vendor reads its credentials from environment variables, by convention (`<ID>` is the vendor id upper-cased):
 
-All providers write to the same normalized tables (`th_series_data`, `th_event_data`), so downstream tools, agents, and MCP clients see one unified data model regardless of source.
+```bash
+MIROBODY_VENDOR_<ID>_API_KEY=...        # bearer / API key (most REST vendors)
+MIROBODY_VENDOR_<ID>_CLIENT_ID=...      # OAuth client id
+MIROBODY_VENDOR_<ID>_CLIENT_SECRET=...  # OAuth client secret
+MIROBODY_VENDOR_<ID>_BASE_URL=...       # host override; empty => vendor default
+```
 
-## Provider matrix
+Examples:
 
-| Provider | Module | Data | Auth | Config keys | Credentials |
-|----------|--------|------|------|-------------|-------------|
-| **Garmin** | `mirobody/pulse/theta/mirobody_garmin_connect/` | Activity, sleep, heart rate, HRV, stress, body composition, workouts | OAuth 1.0a | `GARMIN_CLIENT_ID`, `GARMIN_CLIENT_SECRET`, `GARMIN_REDIRECT_URL` | <a href="https://developer.garmin.com/">Garmin Developer Portal</a> |
-| **Whoop** | `mirobody/pulse/theta/mirobody_whoop/` | Recovery, sleep, strain, workouts, cycles | OAuth 2.0 | `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, `WHOOP_REDIRECT_URL` | <a href="https://developer.whoop.com/">Whoop Developer Portal</a> |
-| **Oura** | `mirobody/pulse/theta/mirobody_oura/` | Sleep, readiness, activity, HRV | OAuth 2.0 | `OURA_CLIENT_ID`, `OURA_CLIENT_SECRET`, `OURA_REDIRECT_URL` | [cloud.ouraring.com](https://cloud.ouraring.com/) |
-| **Renpho** | `mirobody/pulse/theta/mirobody_renpho/` | Weight, body fat, BMI, muscle mass, water | Email + password | `RENPHO_*` (user-supplied per link) | Renpho mobile app account |
-| **Vital** | `mirobody/pulse/theta/mirobody_vital/` | 300+ wearables and EHR endpoints (Fitbit, Polar, Withings, Dexcom, Epic, Cerner, …) | OAuth via Vital | `VITAL_API_KEY`, `VITAL_ENVIRONMENT`, `VITAL_REDIRECT_URL` | [tryvital.io](https://tryvital.io/) |
-| **PostgreSQL** | `mirobody/pulse/theta/mirobody_pgsql/` | Any rows from a user-owned Postgres database | Connection string | per-link `host`, `port`, `database`, `user`, `password` | Your own DB |
-| **Apple Health** | `mirobody/pulse/apple/` | iOS Health export, CDA medical records | iOS app + Apple OAuth | `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | <a href="https://developer.apple.com/">Apple Developer Portal</a> |
-| **Google Health** | via Vital | Android Health Connect, Google Fit | OAuth via Vital | (configured under Vital) | <a href="https://console.cloud.google.com/">Google Cloud Console</a> |
+```bash
+# Fitbit (device brand, OAuth 2.0)
+MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
+MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
 
-See [Configuration](/en/configuration) for where to put these keys and how the Fernet encryption works on first load.
+# Terra (aggregator)
+MIROBODY_VENDOR_TERRA_API_KEY=your_api_key
 
-## How to connect a provider
+# Generic EHR (SMART on FHIR) — base_url is REQUIRED (per-tenant FHIR base)
+MIROBODY_VENDOR_EHR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+MIROBODY_VENDOR_EHR_API_KEY=smart_on_fhir_access_token
+```
+
+<Info>
+Because config values whose names contain `_KEY` / `_SECRET` / `_TOKEN` are auto-encrypted on load (Fernet, via `CONFIG_ENCRYPTION_KEY`), you can also set these in `config.yml`. Environment variables take precedence. See [Configuration](/en/configuration).
+</Info>
+
+Register your application on the vendor's developer portal to obtain the client id / secret (or API key). The generic `ehr` client needs the tenant's FHIR **service base URL**, discoverable from the public Service Base URL directories (ONC Lantern; Oracle Health / Cerner).
+
+## 2 — Link an account (bind → verify → data)
+
+Linking is **ownership-gated**: a user proves they own the external account before any data is read, so a self-asserted id can never reach someone else's records. The health module exposes three routes (all require a bearer JWT and are scoped to the authenticated user):
 
 <Steps>
-  <Step title="Set OAuth credentials in config">
-    Register your application with the vendor's developer portal (link in the matrix above), then add the keys to `config.{env}.yaml`. For Garmin:
+  <Step title="Bind">
+    Record the external account id as a PENDING link.
 
-    ```yaml config.localdb.yaml
-    GARMIN_CLIENT_ID: 'your_consumer_key'
-    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
-    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
+    ```bash
+    curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
+      -H "Authorization: Bearer $JWT" \
+      -H "Content-Type: application/json" \
+      -d '{"external_user_id": "FITBIT_USER_ID"}'
     ```
 
-    Restart Mirobody so the encrypted values are reloaded. Full key list in [Configuration](/en/configuration).
-  </Step>
-
-  <Step title="Open the web UI">
-    Sign in at <a href="http://localhost:18080">localhost:18080</a> and open **Drive → Providers**. Every provider whose credentials are present in the config is listed; the rest are greyed out with a tooltip pointing back here.
-  </Step>
-
-  <Step title="Click Connect">
-    The button opens the vendor's OAuth consent screen in a new tab. Approve access; the vendor redirects to the callback URL configured above and Mirobody stores the refresh token (encrypted) in the user's row.
-
-    For password-based providers (Renpho) and DSN-based ones (PostgreSQL), a small form is shown instead of an OAuth redirect.
+    <Note>The exact request body per vendor may differ; check the vendor's `.cpp` and `src/health/vendor_service.*`. *(verify)*</Note>
   </Step>
 
   <Step title="Verify">
-    The provider card flips to **Connected** with a last-sync timestamp. You can also confirm via API:
+    Prove ownership through the vendor's consent / claim flow. On success the link is marked VERIFIED.
 
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/providers?user_id=YOUR_USER_ID"
+    curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" \
+      -H "Authorization: Bearer $JWT"
     ```
 
-    <Check>
-    The provider entry shows `"status": "connected"` and a non-null `last_sync`.
-    </Check>
+    A `UNIQUE(vendor_id, external_user_id)` constraint is the backstop — two users can't both claim one account.
+  </Step>
+
+  <Step title="Fetch data">
+    Once verified, pull a data domain over a time range. `Vendor::fetch` runs and returns the source's JSON.
+
+    ```bash
+    curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-30" \
+      -H "Authorization: Bearer $JWT"
+    ```
+
+    Valid `domain` values: `activity`, `sleep`, `heart_rate`, `glucose`, `nutrition`, `body_metrics`, `labs`, `clinical` (a vendor rejects domains it doesn't broker).
   </Step>
 </Steps>
 
-## Pull cadence and sync
+## Connecting an EHR (SMART on FHIR)
 
-Once a provider is linked, a per-user pull task is scheduled by `mirobody/pulse/theta/platform/pull_task.py`:
+An EHR is the one clinical source a **web page** can connect on its own (Apple / Samsung are on-device-only). Mirobody acts as an OAuth **client** of the EHR. The browser-driven flow lives under `/health/ehr/*`:
 
-- **Initial backfill** runs immediately. Window depends on the vendor — Garmin and Whoop default to 30 days, Oura to 90, Vital to whatever the upstream API allows.
-- **Incremental pulls** run on a fixed cadence (hourly for most, daily for body-composition-only providers). Each pull is windowed by `last_sync` and deduplicated by `msg_id`.
-- **Token refresh** is automatic for OAuth 2.0 providers; OAuth 1.0a tokens (Garmin) do not expire.
-- **Failures** are logged with the user/provider pair and retried on the next tick — they do not block other providers.
+<Steps>
+  <Step title="Find the tenant">
+    Search the Service Base URL directories for the hospital / clinic:
 
-Manual sync:
+    ```bash
+    curl "http://localhost:8080/health/ehr/providers?q=Epic" -H "Authorization: Bearer $JWT"
+    ```
+  </Step>
+  <Step title="Authorize">
+    `POST /health/ehr/authorize {fhir_base_url}` runs SMART discovery (`/.well-known/smart-configuration`) + PKCE, caches the verifier/state, and returns the `authorize_url` for the browser to redirect to.
+  </Step>
+  <Step title="Callback">
+    The EHR redirects back to `GET /health/ehr/callback?code=&state=`; the code is exchanged for an access token, cached per user.
+  </Step>
+  <Step title="Sync">
+    `POST /health/ehr/sync` uses the cached token to fetch `Observation`s via the `ehr` client and persists each through the FHIR store.
+  </Step>
+</Steps>
 
-```bash
-curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_garmin/pull" \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "YOUR_USER_ID"}'
-```
+Configure the SMART client with the `SMART_FHIR_*` keys (client id / redirect uri / scope; see `config.example.yml`). In the web client this is **Settings → Connect EHR**.
 
-To disconnect:
+## On-device stores (no linking here)
 
-```bash
-curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink" \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "YOUR_USER_ID"}'
-```
+Apple Health, Samsung Health, Google Health Connect, and Xiaomi have **no server API and no link flow** on the server. The native host apps read them on-device and POST FHIR `Observation`s to `/fhir`. See [Data Flow](/en/concepts/data-flow).
 
 ## Bring your own provider
 
-If the device or data source you need isn't in the matrix, write your own. Drop a `mirobody_<slug>/` directory into the top-level `providers/` folder, inherit from `BaseThetaProvider`, implement `info`, the credential validator, and (optionally) `pull_from_vendor_api`. Mirobody picks it up on the next boot.
-
-<CardGroup cols={1}>
-  <Card title="Provider Integration Guide" icon="plug" href="/en/development/provider-integration">
-    Full walkthrough: directory layout, base class, OAuth patterns, data mapping, testing.
-  </Card>
-</CardGroup>
+If the source you need isn't shipped, add a `vendor::Vendor` in `src/health/vendor/` and register it — see [Provider Integration](/en/development/provider-integration). Since vendors are compiled in, you rebuild the core rather than dropping a file at runtime.
 
 ## Next steps
 
 <CardGroup cols={2}>
+  <Card title="Provider Overview" icon="plug" href="/en/providers/overview">
+    The full list of shipped vendors
+  </Card>
   <Card title="Configuration" icon="gear" href="/en/configuration">
-    All provider config keys and where to put them
+    Where credentials go and how encryption works
   </Card>
-  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
-    OAuth 1.0a and 2.0 patterns used by Theta providers
+  <Card title="Garmin Example" icon="watch" href="/en/examples/garmin-provider">
+    A device-brand client walkthrough
   </Card>
-  <Card title="Data Mapping" icon="arrows-rotate" href="/en/development/data-mapping">
-    Vendor payload to `StandardPulseData`
-  </Card>
-  <Card title="Provider Testing" icon="flask" href="/en/development/provider-testing">
-    Test link, callback, pull, and unlink end-to-end
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Implement a new `vendor::Vendor`
   </Card>
 </CardGroup>

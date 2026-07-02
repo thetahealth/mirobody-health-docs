@@ -1,155 +1,120 @@
 ---
 title: "Data Mapping"
-description: "Transform vendor-specific health data into standardized indicators"
+description: "How vendor data is categorized by DataDomain, normalized to UCUM units, and represented as FHIR R4."
 ---
 
 ## Overview
 
-Data mapping transforms vendor-specific JSON responses into Mirobody's standardized format. This ensures consistency across all health data sources.
+In Mirobody, "data mapping" is three separate concerns, not one `format_data` step:
 
-## Standard Format
+1. **Domain mapping** — a vendor maps its endpoints onto the normalized `DataDomain` enum so callers request data by category.
+2. **Unit normalization** — free-text units are folded to canonical **UCUM** (shipped).
+3. **FHIR representation** — the canonical resource shape everything converges on is **FHIR R4** (`Observation` for measurements).
 
-All health data is transformed into `StandardPulseData` objects:
+<Info>
+There is no `StandardPulseData` / `StandardIndicator` model any more. `fetch` returns the **vendor's own JSON** (or FHIR JSON for FHIR-native sources); the canonical store is the embedded FHIR R4 endpoint.
+</Info>
 
-```python
-from mirobody.pulse.theta.platform.indicator import StandardPulseData, StandardIndicator
+## 1 — Domain mapping
 
-data = StandardPulseData(
-    indicator=StandardIndicator.HEART_RATE,
-    value="72",
-    start_time="2024-01-15T10:00:00Z",
-    end_time="2024-01-15T10:00:00Z",
-    source="garmin"
-)
+Every `fetch` takes a `DataDomain`, and each vendor maps it onto the endpoint(s) it actually brokers:
+
+```cpp
+enum class DataDomain {
+    Activity, Sleep, HeartRate, Glucose,
+    Nutrition, BodyMetrics, Labs, Clinical
+};
 ```
 
-## Mapping Pattern
+A REST vendor switches on the domain to pick a path (Fitbit):
 
-### Basic Mapping
-
-Map simple values directly:
-
-```python
-INDICATOR_MAPPING = {
-    "daily_steps": StandardIndicator.DAILY_STEPS,
-    "sleep_seconds": StandardIndicator.DAILY_SLEEP_DURATION,
-    "resting_heart_rate": StandardIndicator.DAILY_HEART_RATE_RESTING,
+```cpp
+switch (d) {
+    case DataDomain::Activity:    return "/1/user/" + u + "/activities/steps/date/" + s + "/" + e + ".json";
+    case DataDomain::HeartRate:   return "/1/user/" + u + "/activities/heart/date/" + s + "/" + e + ".json";
+    case DataDomain::Sleep:       return "/1.2/user/" + u + "/sleep/date/" + s + "/" + e + ".json";
+    case DataDomain::BodyMetrics: return "/1/user/" + u + "/body/log/weight/date/" + s + "/" + e + ".json";
+    default: throw VendorError("fitbit: unsupported domain (activity, heart_rate, sleep, body_metrics)");
 }
-
-def format_data(self, raw_data: Dict) -> List[StandardPulseData]:
-    """Transform vendor data"""
-    results = []
-    
-    for vendor_key, standard_indicator in INDICATOR_MAPPING.items():
-        if vendor_key in raw_data:
-            results.append(StandardPulseData(
-                indicator=standard_indicator,
-                value=str(raw_data[vendor_key]),
-                start_time=raw_data["date"],
-                end_time=raw_data["date"]
-            ))
-    
-    return results
 ```
 
-### Nested Data Mapping
+A FHIR vendor maps the domain onto the FHIR `Observation` `category` token instead (the `ehr` SMART-on-FHIR client):
 
-For nested JSON structures:
-
-```python
-def format_sleep_data(self, sleep_response: Dict) -> List[StandardPulseData]:
-    """Map nested sleep data"""
-    results = []
-    sleep_data = sleep_response.get("sleep", {})
-    
-    # Total sleep duration
-    if "total_seconds" in sleep_data:
-        results.append(StandardPulseData(
-            indicator=StandardIndicator.DAILY_SLEEP_DURATION,
-            value=str(sleep_data["total_seconds"] * 1000),  # Convert to ms
-            start_time=sleep_data["start_time"],
-            end_time=sleep_data["end_time"]
-        ))
-    
-    # Sleep stages
-    stages = sleep_data.get("stages", {})
-    if "deep_seconds" in stages:
-        results.append(StandardPulseData(
-            indicator=StandardIndicator.DAILY_DEEP_SLEEP,
-            value=str(stages["deep_seconds"] * 1000),
-            start_time=sleep_data["start_time"],
-            end_time=sleep_data["end_time"]
-        ))
-    
-    return results
+```cpp
+case DataDomain::HeartRate:   return "vital-signs";
+case DataDomain::BodyMetrics: return "vital-signs";
+case DataDomain::Glucose:     return "laboratory";
+case DataDomain::Labs:        return "laboratory";
+case DataDomain::Activity:    return "activity";
+case DataDomain::Clinical:    return nullptr;   // unfiltered: the full observation set
 ```
 
-### Unit Conversion
+A vendor **throws for domains it doesn't broker** rather than returning empty — the caller learns the source's scope.
 
-Convert vendor units to standard units:
+## 2 — Unit normalization (UCUM)
 
-```python
-# Standard units: grams, milliseconds, meters
-UNIT_CONVERSIONS = {
-    "kg_to_grams": lambda x: x * 1000,
-    "seconds_to_ms": lambda x: x * 1000,
-    "minutes_to_ms": lambda x: x * 60 * 1000,
+The terminology engine in [`src/fhir/units/`](https://github.com/thetahealth/mirobody/tree/main/src/fhir/units) turns a free-text "value + unit" string into a canonical **UCUM** unit plus the LOINC PROPERTY family that disambiguates it. Pure local computation — no DB, no embedding API.
+
+```cpp
+#include "fhir/units/normalize.hpp"
+#include "fhir/units/families.hpp"
+using namespace mirobody::fhir::units;
+
+normalize_unit("MG/DL");        // "mg/dL"
+normalize_unit(u8"毫摩尔每升");  // "mmol/L"
+normalize_unit("mmHg");         // "mm[Hg]"
+
+ParsedQuantity q = parse_value_unit("<5.6 mg/dL");
+// q.comparator == "<", q.value == 5.6, q.unit == "mg/dL"
+
+unit_family("mmol/L");          // "SCnc"
+unit_family("mg/dL");           // "MCnc"
+```
+
+The pipeline: NFKC-lite (full-width forms, superscripts) → symbol fold → alias lookup → annotation strip → greedy morpheme tokenize-compose. Case is preserved (UCUM is case-sensitive). Multilingual input is supported: **en, zh, ja, ko, ru, de, fr, es**. Covered by `tests/fhir/units_test.cpp`.
+
+## 3 — FHIR R4 representation
+
+The canonical store is FHIR R4 (`src/fhir/`). FHIR-native vendors — the generic `ehr` client, plus Vitalera / HealthConnect / Redox / Particle Health / Metriport-Medical — already return FHIR resources; on-device stores POST `Observation`s. A measurement is an `Observation` with a normalized (UCUM) `valueQuantity`:
+
+```json
+{
+  "resourceType": "Observation",
+  "status": "final",
+  "category": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs" }] }],
+  "code": { "text": "Heart rate" },
+  "valueQuantity": { "value": 72, "unit": "/min", "system": "http://unitsofmeasure.org", "code": "/min" }
 }
-
-# Example
-weight_kg = raw_data["weight"]
-weight_grams = UNIT_CONVERSIONS["kg_to_grams"](weight_kg)
 ```
 
-## Standard Indicators
+Resources are stored per-user as generic validated JSON and served over `/fhir` (see [Data Flow](/en/concepts/data-flow)).
 
-### Activity Indicators
+<Note>
+Mapping an indicator to a **coded** `Observation.code` (SNOMED CT / LOINC / RxNorm) — i.e. terminology resolve and the document → coded-FHIR write-back — is **in progress**. UCUM normalization and the RESTful FHIR store are shipped; full terminology mapping is planned (see `src/fhir/README.md` phases 3–4). Until then, `Observation.code` may carry a `text` rather than a resolved code. *(verify)*
+</Note>
 
-| Standard Indicator | Unit | Description |
-|-------------------|------|-------------|
-| `DAILY_STEPS` | steps | Total daily steps |
-| `DAILY_DISTANCE` | meters | Distance traveled |
-| `DAILY_CALORIES_ACTIVE` | kcal | Active calories |
-| `DAILY_FLOORS_CLIMBED` | floors | Floors/flights climbed |
-| `ACTIVE_TIME` | milliseconds | Active time duration |
+## Mapping a new source
 
-### Sleep Indicators
+When you add a `vendor::Vendor` ([Provider Integration](/en/development/provider-integration)):
 
-| Standard Indicator | Unit | Description |
-|-------------------|------|-------------|
-| `DAILY_SLEEP_DURATION` | milliseconds | Total sleep time |
-| `DAILY_DEEP_SLEEP` | milliseconds | Deep sleep duration |
-| `DAILY_LIGHT_SLEEP` | milliseconds | Light sleep duration |
-| `DAILY_REM_SLEEP` | milliseconds | REM sleep duration |
-| `SLEEP_EFFICIENCY` | percentage | Sleep efficiency |
+1. Decide which `DataDomain`s the source brokers; list them in `VendorInfo.domains`.
+2. In `fetch`, map each domain onto the source's endpoint (REST path) or FHIR `category` (FHIR source); throw for unsupported domains.
+3. Return the source's JSON (or FHIR JSON). Don't pre-normalize — normalization/FHIR conversion is a downstream, shared concern.
+4. If you surface units, run them through `parse_value_unit` / `normalize_unit` so they land as UCUM.
 
-### Heart Rate Indicators
-
-| Standard Indicator | Unit | Description |
-|-------------------|------|-------------|
-| `HEART_RATE` | bpm | Instantaneous HR |
-| `DAILY_HEART_RATE_RESTING` | bpm | Resting HR |
-| `DAILY_AVG_HEART_RATE` | bpm | Average daily HR |
-| `HRV` | ms | Heart rate variability |
-
-## Complete Reference
-
-For the full list of standard indicators and detailed mapping examples:
-
-<Card title="Full Provider Integration Guide" icon="book" href="https://github.com/thetahealth/mirobody/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
-  See complete data mapping patterns, unit conversions, and indicator reference
-</Card>
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Provider Integration" icon="puzzle-piece" href="/en/development/provider-integration">
-    Build a custom provider
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Implement `fetch` and domain mapping
+  </Card>
+  <Card title="Data Flow" icon="diagram-project" href="/en/concepts/data-flow">
+    From vendor JSON to the FHIR store
+  </Card>
+  <Card title="File Processing" icon="file" href="/en/concepts/file-processing">
+    UCUM normalization for document values
   </Card>
   <Card title="Provider Testing" icon="flask" href="/en/development/provider-testing">
-    Test data transformations
-  </Card>
-  <Card title="Examples" icon="code" href="/en/examples/garmin-provider">
-    See real mapping code
+    Verify your fetch output
   </Card>
 </CardGroup>

@@ -17,15 +17,16 @@ Content-Type:  application/json
 | --- | --- | --- |
 | `records` | array | Each record `{indicator, value, unit, time}`. Inserted in batches (1000 per batch). |
 | `user` | string | Subject the records belong to (tenant-isolation key). |
-| `retention` | string | `permanent` (default) / `1h` / `2h` / `6h` / `1d` / `session`. The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). **`retention=none` is rejected here with HTTP `400`** — writing to the store but asking not to store is contradictory. For use-and-forget data, attach it as `health_context` with `retention=none` on [`POST /v1/chat/completions`](/en/api-reference/chat#inline-health-context) instead. |
-| `session_id` | string | Required when `retention=session`. |
+| `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as a synonym for `permanent`). The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). Omitting it returns HTTP `400` (`code: invalid_retention`). **`retention=none` is also rejected here with `400`** — writing to the store but asking not to store is contradictory; for use-and-forget data attach it inline as `health_context` with `retention=none` on [`POST /v1/chat/completions`](/en/api-reference/chat#inline-health_context) instead. Only a *missing* value is rejected — unknown or out-of-range values are currently accepted without validation. |
+| `session_id` | string | Scopes `retention=session` records. **Not currently enforced** — accepted without it, but records written without a `session_id` can't be targeted by a session delete. |
 
 ```bash
-curl https://mcp.thetahealth.cn/v1/data \
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
         "user": "alice",
+        "retention": "permanent",
         "records": [
           {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
           {"indicator": "fasting_glucose", "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
@@ -36,7 +37,7 @@ curl https://mcp.thetahealth.cn/v1/data \
 Response:
 
 ```json
-{ "ingested": 2, "subject": "alice", "retention": "permanent" }
+{ "status": "ok", "ingested": 2, "subject": "alice" }
 ```
 
 ## Read records
@@ -59,62 +60,50 @@ Expired records are purged before the read, so you always get the Subject's curr
 import requests
 
 r = requests.get(
-    "https://mcp.thetahealth.cn/v1/data",
+    "https://test-mirobody-api.thetahealth.ai/v1/data",
     headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
     params={"user": "alice", "indicator": "fasting_glucose", "limit": 100, "offset": 0},
 )
 print(r.json())
 ```
 
-The response wraps the records with pagination metadata:
+The response is an OpenAI-style list. Records are under **`data`**, and each record's `value` is a **formatted string** (e.g. `"5.4 mmol/L"`), not a number:
 
 ```json
 {
-  "records": [ /* up to `limit` records */ ],
-  "total": 248,
-  "limit": 100,
-  "offset": 0,
-  "has_more": true
+  "object": "list",
+  "data": [
+    {
+      "indicator": "fasting_glucose",
+      "value": "5.4 mmol/L",
+      "parsed_value": null,
+      "parsed_unit": null,
+      "time": "2026-06-16T07:30:00+00",
+      "source": "api",
+      "comment": ""
+    }
+  ],
+  "has_more": false,
+  "subject": "alice"
 }
 ```
 
 | Field | Description |
 | --- | --- |
-| `total` | Total matching records for the Subject (and `indicator`, if filtered). |
-| `limit` | The `limit` that was applied. |
-| `offset` | The `offset` that was applied. |
-| `has_more` | `true` when `offset + limit < total` — fetch the next page by advancing `offset`. |
-
-## Delete records (right to be forgotten)
-
-```http
-DELETE /v1/data?user=alice&indicator=fasting_glucose
-Authorization: Bearer mb_live_*
-```
-
-Deletes the Subject's structured records. `indicator` is optional — omit it to delete **all** of the Subject's records.
-
-| Query | Description |
-| --- | --- |
-| `user` | Subject whose records to delete. |
-| `indicator` | Optional — restrict the delete to a single indicator. Omit to delete every record for the Subject. |
-
-```bash
-# delete just one indicator
-curl -X DELETE "https://mcp.thetahealth.cn/v1/data?user=alice&indicator=fasting_glucose" \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
-
-# delete all of the Subject's structured records
-curl -X DELETE "https://mcp.thetahealth.cn/v1/data?user=alice" \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
-```
-
-To erase **everything** for a user — all structured records *and* uploaded files — use [`DELETE /v1/subjects/{user}`](/en/api-reference/files#erase-a-subject).
+| `data` | The array of records (up to `limit`). |
+| `has_more` | `true` when more records remain past this page — advance `offset` to fetch them. |
+| `subject` | The Subject the records belong to (resolved from `user`). |
 
 <Note>
-Deletes require a key with the `data:delete` (or `data:write`) scope.
+The response does **not** currently return `total`, `limit`, or `offset` fields — page by advancing the `offset` query param and reading until `has_more` is `false`.
+</Note>
+
+## Deleting data
+
+<Note>
+Explicit delete endpoints are **not yet available** in `/v1` — `DELETE /v1/data`, `DELETE /v1/files/{file_key}`, and `DELETE /v1/subjects/{user}` are not implemented on the current cluster. Today, records are removed by **[retention](/en/api-reference/overview#data-retention) expiry**: the time-bounded grains (`1h`–`1d`) auto-delete, and `session` data is capped at 24h. For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/cloud/compliance).
 </Note>
 
 <Note>
-For one-off data that should not persist, attach it inline to a chat request as `health_context` with `retention="none"` instead of writing it here — see [Chat → Inline data](/en/api-reference/chat#inline-health-context).
+For one-off data that should not persist at all, attach it inline to a chat request as `health_context` with `retention="none"` instead of writing it here — see [Chat → Inline data](/en/api-reference/chat#inline-health_context).
 </Note>

@@ -1,37 +1,178 @@
 ---
-title: "Provider System"
-description: "Deep dive into the Mirobody provider system architecture"
+title: "Vendor System"
+description: "How Mirobody connects to health-data sources: the C++ vendor::Vendor abstraction, the four buckets, and the authorize / fetch / webhook contract."
 ---
 
-## Provider System Overview
+## What a vendor is
 
-The provider system is the core of Mirobody, enabling seamless integration with various health device APIs through a standardized interface.
+In Mirobody a **vendor** is a C++ client for one health-data source, living one-per-file under `src/health/vendor/`. Every vendor implements the same abstract interface — `vendor::Vendor` in [`src/health/vendor/vendor.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/vendor.hpp) — so the rest of the engine talks to a wearable brand, a B2B aggregator, and a hospital EHR through one contract, and picks the concrete client at runtime by **id**.
 
 <Info>
-The provider system follows a plugin architecture, making it easy to add new integrations without modifying core code.
+This is the C++ port of the old Python "provider" plugins. There is no `BaseThetaProvider`, no `mirobody/pulse/`, and no per-boot directory discovery any more — vendors are compiled in and resolved by id through a registry.
 </Info>
 
-## Key Concepts
+## The four buckets
+
+The per-vendor clients are sorted into four directories under `src/health/vendor/`:
 
 <CardGroup cols={2}>
-  <Card title="Provider" icon="plug">
-    A plugin that integrates with a specific health device API (e.g., Garmin, Whoop)
+  <Card title="Aggregator platforms" icon="layer-group">
+    `platform/` — 15 B2B health-data aggregators (Terra, Validic, Human API, Junction, Metriport, Rook, Spike, Thryve, WeFitter, Vitalera, Open Wearables, Redox, Particle Health, HealthConnect, LexisNexis)
   </Card>
-  <Card title="BaseThetaProvider" icon="cube">
-    Abstract base class that all providers must inherit from
+  <Card title="Device brands" icon="watch">
+    `device/` — direct clients for consumer wearable brands: **Fitbit, Garmin, Withings**
   </Card>
-  <Card title="Provider Discovery" icon="magnifying-glass">
-    Automatic detection and loading of provider plugins from configured directories
+  <Card title="Clinical EHRs" icon="hospital">
+    `ehr/` — one **generic SMART-on-FHIR** client that covers every ONC-certified EHR (Epic, Oracle Health / Cerner, athenahealth, …), parameterized by the tenant's FHIR base URL
   </Card>
-  <Card title="Provider Registry" icon="list">
-    Central registry of all available and active providers
+  <Card title="Phone health stores" icon="mobile">
+    `phone/` — smartphone-vendor stores that expose a cloud API. Today: **Huawei** Health Kit
   </Card>
 </CardGroup>
 
-## Provider Lifecycle
+<Note>
+**On-device-only stores have no vendor client.** Apple Health, Samsung Health, Google Health Connect, and Xiaomi / Mi Fitness expose no server-callable API, so they are **not** `vendor::Vendor`s. Instead the host app reads samples on-device and POSTs them as FHIR `Observation`s to the embedded FHIR endpoint. See [Data Flow](/en/concepts/data-flow).
+</Note>
 
-<Frame>
-  <img src="/images/provider-lifecycle.svg" alt="Provider lifecycle: Discovered → Validated → Registered → Active → Linked → Syncing, with continuous sync and unlink/re-link" />
-</Frame>
+Device *brands* with their own OAuth REST APIs are normally reached **through an aggregator** (Terra, Validic, Thryve, Rook, Spike). Only three have a dedicated direct client (Fitbit, Garmin, Withings); others — Oura, Polar, Whoop, … — stay aggregator-only unless someone adds a client to deliberately bypass the aggregator.
 
-For more details, see the [Provider Overview](/en/providers/overview).
+## The vendor contract
+
+Every vendor derives from `VendorBase` and overrides the operations whose wire contract is confirmable from the source's public docs. The interface (abbreviated from `vendor.hpp`):
+
+```cpp
+namespace mirobody { namespace vendor {
+
+class Vendor {
+public:
+  virtual ~Vendor() = default;
+
+  // Static metadata (no network, no credentials).
+  virtual const VendorInfo& info() const = 0;
+
+  // Begin consumer-mediated consent; returns the entry point handed to the user
+  // (usually an OAuth authorize URL).
+  virtual std::string authorize_url(const std::string& redirect_uri,
+                                    const std::string& state,
+                                    const std::string& user_id,
+                                    const std::string& provider) = 0;
+
+  // The data sources a connected user can link, as the vendor's JSON.
+  virtual std::string list_providers(const std::string& user_id) = 0;
+
+  // Fetch `domain` for `user_id` over [start_iso, end_iso], as the vendor's JSON.
+  virtual std::string fetch(const std::string& user_id,
+                            DataDomain domain,
+                            const std::string& start_iso,
+                            const std::string& end_iso) = 0;
+
+  // Validate and parse an inbound webhook delivery; returns the event as JSON.
+  virtual std::string handle_webhook(const std::string& raw_headers,
+                                     const std::string& body) = 0;
+
+  // Revoke a user's authorization / disconnect them.
+  virtual void revoke(const std::string& user_id,
+                      const std::string& provider) = 0;
+};
+
+}}
+```
+
+- **`DataDomain`** is the normalized data category: `Activity`, `Sleep`, `HeartRate`, `Glucose`, `Nutrition`, `BodyMetrics`, `Labs`, `Clinical`.
+- **Time bounds** are ISO-8601 strings; empty means "the vendor's default window".
+- **Data-returning operations hand back the vendor's own JSON** as a string. (A normalized model over that JSON is a later step; several FHIR-based vendors already return FHIR resources.)
+
+### Honest stubs
+
+`VendorBase` implements every operation as a stub that throws `VendorError("... not implemented")`. A concrete vendor overrides only the operations it can implement faithfully; the rest stay stubs **on purpose**, for one of three documented reasons:
+
+- **gated / undocumented** — the contract (e.g. a webhook signature scheme) isn't public, so implementing it would mean fabricating an unverifiable scheme;
+- **contract mismatch** — the documented endpoint needs an argument the interface doesn't carry;
+- **no such endpoint** — the platform simply exposes no operation of that shape.
+
+Each `<id>.cpp` header records why anything is left a stub. Fabricating a contract is treated as worse than an honest "not implemented".
+
+## Metadata without credentials
+
+Each vendor carries a `VendorInfo` describing its positioning, region, compliance posture, data domains, and integration style — queryable **without any credentials or network call**. This lets the registry describe the whole field for selection and comparison.
+
+```cpp
+struct VendorInfo {
+  std::string id;              // stable lowercase key, e.g. "terra"
+  std::string display_name;    // "Terra API"
+  std::string positioning;
+  std::string data_source_coverage;
+  std::string docs_url;
+  Region region;               // Global | US | EU | SelfHosted
+  bool open_source;
+  std::vector<std::string> compliance;   // "HIPAA", "GDPR", "SOC2_TYPE_II", …
+  std::vector<DataDomain>   domains;
+  std::vector<Integration>  integrations; // Rest | Sdk | Webhook | WebSocket | Fhir | Hl7 | WhiteLabel
+  // …
+};
+```
+
+## Resolved by id through a registry
+
+The concrete vendor classes are never named outside their own translation unit. Callers reach them only through the registry ([`src/health/vendor/registry.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/registry.hpp)):
+
+```cpp
+namespace mirobody { namespace vendor {
+
+// Every registered vendor id, in matrix order.
+std::vector<std::string> vendor_ids();
+
+// Static metadata for all vendors — no credentials, no network.
+std::vector<VendorInfo> all_vendor_info();
+
+// Construct the vendor for `id`; throws VendorError if unknown.
+std::unique_ptr<Vendor> open_vendor(const std::string& id, const VendorConfig& config);
+
+}}
+```
+
+### Configuration
+
+A vendor is configured with a `VendorConfig` built by convention from environment variables:
+
+```
+MIROBODY_VENDOR_<ID>_API_KEY        # bearer / API key (most REST vendors)
+MIROBODY_VENDOR_<ID>_CLIENT_ID      # OAuth client id
+MIROBODY_VENDOR_<ID>_CLIENT_SECRET  # OAuth client secret
+MIROBODY_VENDOR_<ID>_BASE_URL       # API host override; empty => vendor default
+```
+
+`<ID>` is the vendor id upper-cased (e.g. `HUMAN_API`, `FITBIT`, `EHR`). For vendors whose host is per-deployment (self-hosted or contract-gated, like the generic `ehr` client), `base_url` is **required** — the client refuses rather than guess a host.
+
+## From HTTP to a vendor
+
+The health module (`src/health/`) is the HTTP front end that sits on top of these clients. Access is **ownership-gated**: a user must prove they own the external account before any data is read.
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| POST | `/vendors/{id}/bind` | Record the user's external account id as a PENDING link |
+| POST | `/vendors/{id}/bind/verify` | Prove ownership via the vendor's consent flow → VERIFIED |
+| GET | `/vendors/{id}/data?domain=&start=&end=` | Fetch data for a verified link over a time range (`Vendor::fetch`) |
+
+The SMART-on-FHIR EHR connect flow is browser-driven and has its own routes under `/health/ehr/*` (`providers`, `authorize`, `callback`, `sync`). Every route requires a bearer JWT and is scoped to the authenticated user.
+
+<Warning>
+`/api/providers` is a **different** endpoint — it lists the chat **LLM providers** (OpenAI, Gemini, MiroThinker, …) for the model picker, not health vendors. Health-data sources are the `vendor::Vendor` clients described here.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Provider Overview" icon="plug" href="/en/providers/overview">
+    The real vendor buckets and what each supports
+  </Card>
+  <Card title="Using Providers" icon="link" href="/en/providers/using-providers">
+    Configure credentials and link an account
+  </Card>
+  <Card title="Data Flow" icon="diagram-project" href="/en/concepts/data-flow">
+    How vendor data reaches the FHIR store and the agent
+  </Card>
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Implement a new `vendor::Vendor`
+  </Card>
+</CardGroup>

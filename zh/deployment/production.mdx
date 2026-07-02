@@ -1,196 +1,172 @@
 ---
 title: "生产环境部署"
-description: "将 Mirobody 部署到生产环境的最佳实践"
+description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端、健康检查与合规。"
 ---
+
+在生产环境中，Mirobody 就是独立的 `mirobody` 二进制（或 Docker 镜像），由 `config.yml` 和环境变量驱动，背后是你自己的数据库、缓存和对象存储。本页覆盖本地运行之外真正要紧的设置；任何在引擎中无法核实的内容都会标注出来。
 
 ## 生产检查清单
 
 <AccordionGroup>
   <Accordion title="安全性" icon="shield">
-    - [ ] 使用强度高且随机生成的密钥
-    - [ ] 启用 HTTPS/TLS
-    - [ ] 限制 CORS 允许的来源域名
-    - [ ] 为敏感信息使用环境变量
-    - [ ] 启用数据库加密
-    - [ ] 设置防火墙规则
+    - [ ] 替换 `config.yml` 里每一个 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位符
+    - [ ] 经环境提供 `CONFIG_ENCRYPTION_KEY`（加密静态的 `_KEY`/`_SECRET`/… 值）
+    - [ ] 设置一个强 `JWT_KEY`（HS256）或 `JWT_PRIVATE_KEY`（RS256）
+    - [ ] 设置 `PG_ENCRYPTION_KEY`（加密敏感数据列；别放进文件）
+    - [ ] 移除 `EMAIL_PREDEFINE_CODES`（demo 验证码仅供测试）
+    - [ ] 把 CORS 的 `Access-Control-Allow-Origin` 限制到你的域名
+    - [ ] 在二进制前面用反向代理 / 负载均衡器终结 TLS
   </Accordion>
 
-  <Accordion title="性能" icon="gauge">
-    - [ ] 配置连接池
-    - [ ] 启用 Redis 持久化
-    - [ ] 设置缓存
-    - [ ] 优化数据库查询
-    - [ ] 配置速率限制
+  <Accordion title="后端" icon="database">
+    - [ ] 把 `PG_*` 指向一个托管的 PostgreSQL（桌面/服务器默认后端）
+    - [ ] 如果你跑多于一个实例，设置 `REDIS_HOST`（共享缓存）
+    - [ ] 配置一个对象存储后端（S3 / OSS / Azure Blob），而非本地磁盘
   </Accordion>
 
-  <Accordion title="监控" icon="chart-line">
-    - [ ] 设置日志聚合
-    - [ ] 配置健康检查
-    - [ ] 启用指标采集
-    - [ ] 设置告警
-    - [ ] 监控错误率
+  <Accordion title="合规（PHI）" icon="user-shield">
+    - [ ] 让 LLM 留在设备本地，或把托管调用经 BAA 覆盖的通道路由（Vertex AI / Azure OpenAI）
+    - [ ] 在你所在区域自托管，并把出站依赖固定到该区域（GDPR 数据驻留）
+    - [ ] 除非用户主动开启，否则让健康圈分享保持关闭（它默认关闭）
   </Accordion>
 
-  <Accordion title="备份与恢复" icon="database">
-    - [ ] 自动化数据库备份
-    - [ ] 测试恢复程序
-    - [ ] 备份配置文件
-    - [ ] 文档化恢复过程
+  <Accordion title="运维" icon="chart-line">
+    - [ ] 把存活/就绪探针接到 `/api/health`
+    - [ ] 把 stdout 日志送到你的聚合器（或设置 `LOG_DIR`）
+    - [ ] 自动化 PostgreSQL 备份并测试恢复
   </Accordion>
 </AccordionGroup>
 
-## 安全配置
+## 密钥与密钥串
 
-### 生成安全密钥
-
-```bash
-# 数据库加密密钥 (32 字符)
-openssl rand -hex 32
-
-# JWT 密钥
-openssl rand -base64 48
-
-# Redis 密码
-openssl rand -base64 32
-```
-
-### 生产环境 config.yaml
-
-```yaml
-# 安全设置
-DATABASE_DECRYPTION_KEY: '[生成的密钥]'
-JWT_KEY: '[生成的密钥]'
-REDIS_PASSWORD: '[强密码]'
-PG_PASSWORD: '[强密码]'
-
-# HTTPS URL
-MCP_FRONTEND_URL: 'https://您的域名.com'
-MCP_PUBLIC_URL: 'https://api.您的域名.com'
-WHOOP_REDIRECT_URL: 'https://api.您的域名.com/api/v1/pulse/theta/theta_whoop/callback'
-
-# 严格的 CORS
-HTTP_HEADERS:
-  Access-Control-Allow-Origin: 'https://您的域名.com'
-
-# SSL/TLS
-REDIS_SSL: true
-```
-
-## 部署架构
-
-### AWS 示例
-
-```
-┌─────────────────────────┐
-│  Route 53 (DNS)         │
-└────────┬────────────────┘
-         │
-┌────────▼────────────────┐
-│  CloudFront (CDN)       │
-└────────┬────────────────┘
-         │
-┌────────▼────────────────┐
-│  ALB (负载均衡器)        │
-└────┬────────────┬───────┘
-     │            │
-┌────▼────┐  ┌───▼─────┐
-│ ECS/EC2 │  │ ECS/EC2 │
-│ API 1   │  │ API 2   │
-└────┬────┘  └───┬─────┘
-     │           │
-     └─────┬─────┘
-           │
-    ┌──────▼──────────┐
-    │                 │
-┌───▼─────────┐  ┌───▼────────────┐
-│ RDS         │  │ ElastiCache    │
-│ PostgreSQL  │  │ Redis          │
-└─────────────┘  └────────────────┘
-```
-
-## 环境变量
-
-为敏感配置使用环境变量：
+生成强值，并经环境提供加密密钥：
 
 ```bash
-export DATABASE_DECRYPTION_KEY="..."
-export JWT_KEY="..."
-export OPENAI_API_KEY="..."
-export POSTGRES_PASSWORD="..."
-export REDIS_PASSWORD="..."
+openssl rand -hex 32     # JWT_KEY (HS256)、PG_ENCRYPTION_KEY、CONFIG_ENCRYPTION_KEY、LOCAL_STORAGE_SECRET
 ```
 
-## 监控与日志
+```bash
+export CONFIG_ENCRYPTION_KEY="<generated>"
+```
 
-### 日志配置
+设置了 `CONFIG_ENCRYPTION_KEY` 后，任何键名包含 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK`、`_TOKEN` 的值都会被静态自动加密（Fernet `gAAAA…`）—— 于是只要把密钥留在环境里，你就可以提交一个加密后的 `config.yml`。`PG_ENCRYPTION_KEY` 有意**不**自动加密（它用于引导数据库启动），所以把它放在环境变量或密钥管理器里。
 
-```yaml config.yaml
+对于 RS256（让其他服务能对照发布的 JWKS 校验你的令牌），设置 `JWT_PRIVATE_KEY` 而非 `JWT_KEY`；`cli/jwt_keygen` 会铸出一对密钥。
+
+## 生产配置示例
+
+```yaml config.yml
 LOG_LEVEL: 'INFO'
 LOG_DIR: '/var/log/mirobody'
+
+HTTP_HOST: '0.0.0.0'
+HTTP_PORT: 8080
+HTTP_HEADERS:
+  Access-Control-Allow-Origin: 'https://yourdomain.com'
+  Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+  Access-Control-Allow-Headers: 'Authorization, Content-Type, X-Timezone'
+
+# 数据库（托管的 PostgreSQL）
+PG_HOST: 'your-db-host.rds.amazonaws.com'
+PG_PORT: 5432
+PG_USER: 'postgres'
+PG_DBNAME: 'mirobody'
+# PG_PASSWORD / PG_ENCRYPTION_KEY：经环境提供
+
+# 缓存（仅多实例时需要）
+REDIS_HOST: 'your-redis.cache.amazonaws.com'
+REDIS_PORT: 6379
+
+# 公开 MCP 端点（MiroThinker 和远程 MCP 客户端必需）
+MCP_PUBLIC_URL: 'https://api.yourdomain.com'
 ```
 
-### 健康检查端点
+把密钥单独提供：
 
 ```bash
-# 监控应用程序健康状况
-curl https://api.您的域名.com/health
+export PG_PASSWORD="..."
+export PG_ENCRYPTION_KEY="..."
+export JWT_KEY="..."
+export GOOGLE_API_KEY="..."      # 或 OPENAI_API_KEY
+export CONFIG_ENCRYPTION_KEY="..."
 ```
 
-### 需监控的指标
+## TLS 与反向代理
 
-- 请求延迟 (p50, p95, p99)
-- 各端点的错误率
-- 提供商同步成功率
-- 数据库连接池使用情况
-- Redis 缓存命中率
-- CPU 和内存使用率
+二进制在 `HTTP_HOST:HTTP_PORT` 上提供纯 HTTP + WebSocket。在它前面终结 TLS（nginx、Caddy、云负载均衡器），并转发到二进制的端口。如果你在代理处把应用挂到子路径下，设置 `HTTP_URI_PREFIX` 与之匹配，让生成的 URL 和路由对齐。*（引擎自身不终结 TLS —— 请核实你的代理为实时的 `/api/chat` 路由转发了 WebSocket 升级头。）*
 
-## 备份策略
-
-### 数据库备份
+## 健康检查
 
 ```bash
-# 每日自动备份
-0 2 * * * pg_dump -h localhost -U holistic_user holistic_db | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
+curl https://api.yourdomain.com/api/health   # -> ok
 ```
 
-### 配置备份
+`GET /api/health` 是一个无需鉴权的存活探针。在 Kubernetes 下，把它同时用于 `httpGet` 的存活和就绪探针（Docker 运行时镜像只有库，所以容器内没有 `curl` 供 `HEALTHCHECK` 使用）。
 
-```bash
-# 备份配置
-tar -czf config-backup-$(date +%Y%m%d).tar.gz config.yaml .env
-```
+## 在 Docker / Kubernetes 下运行
+
+自带的 `Dockerfile` 正是为此而写：它以非特权用户（uid 10001）运行，并期望从环境变量或挂载的 `config.yml` 获取密钥/设置。镜像里烘焙了几条运维相关的约定：
+
+- 在托管环境中，通过设置 `ENV=PROD`（或 `TEST` / `GRAY`）**跳过进程内的 schema 迁移** —— 服务器会假定 schema 已应用。
+- **Sentry 崩溃上报**会写入一个数据库目录；镜像把 `SENTRY_DATABASE_PATH` 指向 `/tmp/mirobody/sentry`，使其在只读根文件系统下仍可写。
+- **Tanka 登录**会引入 `nodejs`；不用就禁用它（`TANKA_LOGIN_ENABLED=false`）。
+
+<Warning>
+`ENV=PROD` 会选择远程配置环境**并且**跳过迁移。只有在你的数据库 schema 已置备好（来自 `res/sql/<backend>`）之后才用它。首次针对空数据库自托管运行时，让默认的进程内迁移去创建 schema。
+</Warning>
+
+## 对象存储
+
+使用一个持久的后端，而非本地磁盘。在 `config.yml` 里填写 S3、阿里云 OSS 或 Azure Blob 块 —— 参见 [配置 → 文件存储](/zh/configuration#文件存储)。把存储区域固定到你的合规区域。
+
+## 合规 —— HIPAA 与 GDPR
+
+因为内核在设备本地或自托管运行，个人健康数据无需离开你的基础设施。PHI 唯一可能离开的地方是 LLM 调用：
+
+- **HIPAA** —— **完全在设备本地**运行模型（Gemma 4；原生应用的"设备本地"提供商），或把托管模型经 BAA 合格的通道路由：**Google Gemini 经 Vertex AI**（`GOOGLE_GENAI_USE_VERTEXAI=1` + `GCP_PROJECT` / `VERTEX_LOCATION`）或 **OpenAI 经 Azure OpenAI**（`AZURE_OPENAI_ENDPOINT` + 部署 + 密钥）。公开的 AI Studio / OpenAI 直连端点不在 BAA 覆盖范围内。
+- **GDPR** —— 在你所在区域自托管，并把每一个出站依赖固定到该区域：Gemini 用 `VERTEX_LOCATION` / `VERTEX_BASE_URL`，GPT 用 Azure 资源区域，对象存储按后端设定区域，主权云用 `AZURE_BLOB_ENDPOINT_SUFFIX`。
+
+健康圈分享是可选启用、默认关闭的，且 AI 助手对另一位成员的数据是**只读**的。托管云的合规姿态参见 [合规](/zh/cloud/compliance)。
 
 ## 扩容
 
-### 水平扩展
+- **水平** —— 在负载均衡器后跑多个实例；设置 `REDIS_HOST` 让它们共享缓存状态，并对读密集型负载使用 PostgreSQL 只读副本。*（只要每个连接在其生命周期内保持在同一实例上，SSE/WebSocket 对话路由就不需要粘性会话 —— 请对照你负载均衡器的连接处理方式核实。）*
+- **垂直** —— C++ 二进制很轻量；按你的 LLM 并发和文档处理负载来配置 CPU/内存。
 
-- 在负载均衡器后部署多个 API 实例
-- 使用 Redis 集群进行分布式缓存
-- 为读密集型工作负载使用数据库只读副本
+## 监控
 
-### 垂直扩展
+二进制把日志打到 stdout（或 `LOG_DIR`）。值得关注的指标：
 
-根据负载调整资源：
+- 对话轮次延迟和错误率
+- Provider 同步成功率
+- 数据库连接健康
+- 缓存命中率（Redis，如果启用）
+- 每实例的 CPU / 内存
 
-```yaml
-# docker-compose.yml
-services:
-  backend:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
+*（Mirobody 并未提供我们能在此确认的 Prometheus/指标端点 —— 在代理 / 平台层做埋点，或对照当前构建核实。）*
+
+## 备份
+
+```bash
+# 每日 PostgreSQL dump（cron）
+0 2 * * * pg_dump -h <host> -U postgres mirobody | gzip > /backups/mirobody-$(date +\%Y\%m\%d).sql.gz
 ```
+
+也备份你的 `config.yml`（加密后）和对象存储桶。定期测试恢复。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="Docker 部署" icon="docker" href="/zh/deployment/docker">
-    使用 Docker 部署和运行
+    构建并运行容器镜像
   </Card>
   <Card title="配置" icon="gear" href="/zh/configuration">
-    生产环境的关键配置选项
+    所有生产环境键集中一处
+  </Card>
+  <Card title="合规" icon="user-shield" href="/zh/cloud/compliance">
+    HIPAA / GDPR 姿态
+  </Card>
+  <Card title="API 参考" icon="code" href="/zh/api-reference/overview">
+    你的客户端会调用的端点
   </Card>
 </CardGroup>

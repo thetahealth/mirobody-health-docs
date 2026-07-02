@@ -1,306 +1,110 @@
 ---
-title: "Garmin Provider Example"
-description: "Complete implementation example of the Garmin Connect provider"
+title: "Garmin Vendor Example"
+description: "How the Garmin device-brand client maps onto the C++ vendor contract — and why most of it is deliberately a stub."
 ---
 
 ## Overview
 
-The Garmin provider is a production-ready implementation that demonstrates OAuth 1.0 authentication and comprehensive health data integration.
+Garmin is a real device-brand client — [`src/health/vendor/device/garmin.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/garmin.cpp), registered as `garmin`. It's the most instructive example of Mirobody's "implement only what's publicly confirmable, leave the rest an honest stub" rule, because Garmin's data API is **partner-gated and push-based**.
 
 <Info>
-This example shows real code from the Garmin provider implementation. Use it as a reference when building your own providers.
+This is a `vendor::Vendor`, not a Python `BaseThetaProvider`. It implements the shared `authorize / fetch / webhook` contract; see [Vendor System](/en/concepts/providers) for the interface.
 </Info>
 
-## Key Features
+## What Garmin's API shape forces
 
-<CardGroup cols={2}>
-  <Card title="OAuth 1.0" icon="key">
-    Three-legged OAuth authentication
-  </Card>
-  <Card title="Comprehensive Data" icon="chart-line">
-    Activities, sleep, HRV, stress, body metrics
-  </Card>
-  <Card title="Rate Limiting" icon="gauge">
-    Respects API rate limits
-  </Card>
-  <Card title="Error Handling" icon="shield">
-    Robust error recovery
-  </Card>
-</CardGroup>
+| Aspect | Reality | Effect on the client |
+|--------|---------|----------------------|
+| **Auth** | OAuth 2.0 + **PKCE** (Garmin migrated off OAuth 1.0a); the flow is public | `authorize_url` is a **stub** — PKCE needs a stateful `code_verifier` that a bare URL builder can't stash (that belongs in the EHR-style stateful connect layer) |
+| **Data delivery** | **Push-based**: Garmin POSTs summaries to a registered webhook; pulls are partner-gated and retain only ~7 days | `fetch` is a **stub** that explains the model rather than faking a synchronous pull |
+| **Webhook signature** | Pushes carry **no documented signature** | `handle_webhook` is a **stub** — it can't verify authenticity from public docs |
+| **Disconnect** | The account-disconnect hook **is** publicly documented | `revoke` **is implemented** |
 
-## Provider Structure
+So of the six contract operations, Garmin ships exactly one working call — `revoke` — and three deliberate stubs (`fetch`, `authorize_url`, `handle_webhook`), with `list_providers` N/A (single brand). This is the intended state, recorded in the file header.
 
-```python
-from mirobody.pulse.theta.platform.base import BaseThetaProvider
-from requests_oauthlib import OAuth1Session
+## `revoke` — the one wired operation
 
-class ThetaGarminProvider(BaseThetaProvider):
-    """Garmin Connect OAuth 1.0 Provider"""
-    
-    def __init__(self):
-        super().__init__()
-        # Load configuration
-        self.client_id = safe_read_cfg("GARMIN_CLIENT_ID")
-        self.client_secret = safe_read_cfg("GARMIN_CLIENT_SECRET")
-        self.redirect_url = safe_read_cfg("GARMIN_REDIRECT_URL")
-        
-        # OAuth 1.0 endpoints
-        self.request_token_url = "https://connectapi.garmin.com/oauth-service/oauth/request_token"
-        self.auth_url = "https://connect.garmin.com/oauthConfirm/"
-        self.access_token_url = "https://connectapi.garmin.com/oauth-service/oauth/access_token"
-        self.api_base_url = "https://apis.garmin.com/wellness-api/rest"
-```
+`revoke` calls Garmin's required account-disconnect endpoint, `DELETE /wellness-api/rest/user/registration`, authenticated with the user's OAuth 2.0 access token as a bearer:
 
-## Data Mapping Configuration
-
-Garmin provides extensive health data. Here's how it's mapped:
-
-```python
-GARMIN_DATA_CONFIG = {
-    "dailies": {
-        "timestamp_source": "calendarDate",
-        "simple_fields": {
-            "steps": {
-                "indicator": StandardIndicator.DAILY_STEPS.value.name,
-                "converter": lambda x: x,
-                "unit": "count"
-            },
-            "distanceInMeters": {
-                "indicator": StandardIndicator.DAILY_DISTANCE.value.name,
-                "converter": lambda x: x,
-                "unit": "m"
-            },
-            "activeKilocalories": {
-                "indicator": StandardIndicator.DAILY_CALORIES_ACTIVE.value.name,
-                "converter": lambda x: x,
-                "unit": "kcal"
-            },
-            "restingHeartRateInBeatsPerMinute": {
-                "indicator": StandardIndicator.DAILY_HEART_RATE_RESTING.value.name,
-                "converter": lambda x: x,
-                "unit": "count/min"
-            }
-        },
-        "time_series": {
-            "timeOffsetHeartRateSamples": {
-                "indicator": StandardIndicator.HEART_RATE.value.name,
-                "unit": "count/min",
-                "format": "list",
-                "value_field": "heartRateInBeatsPerMinute",
-                "offset_field": "timestampOffsetInSeconds"
-            }
-        }
-    },
-    "sleeps": {
-        "timestamp_source": "calendarDate",
-        "simple_fields": {
-            "durationInSeconds": {
-                "indicator": StandardIndicator.DAILY_SLEEP_DURATION.value.name,
-                "converter": lambda x: x * 1000,  # seconds to milliseconds
-                "unit": "ms"
-            },
-            "deepSleepDurationInSeconds": {
-                "indicator": StandardIndicator.DAILY_DEEP_SLEEP.value.name,
-                "converter": lambda x: x * 1000,
-                "unit": "ms"
-            }
-        }
+```cpp
+void revoke(const std::string& /*user_id*/, const std::string& /*provider*/) override {
+    if (config().api_key.empty()) {
+        throw VendorError(info_.id + ": revoke requires a Garmin OAuth 2.0 access token — set "
+                          "MIROBODY_VENDOR_GARMIN_API_KEY (partner-gated; needs approved creds)");
+    }
+    client::HttpRequest req;
+    req.url     = base_url() + "/wellness-api/rest/user/registration";
+    req.headers = { "Authorization: Bearer " + config().api_key };
+    client::HttpResponse res = client::HttpClient().request("DELETE", req);
+    if (res.status < 200 || res.status >= 300) {
+        throw VendorError(info_.id + ": revoke failed (HTTP " +
+                          std::to_string(res.status) + "): " + res.body.substr(0, 300));
     }
 }
 ```
 
-## OAuth 1.0 Implementation
+The data host defaults to `https://apis.garmin.com` (override via `MIROBODY_VENDOR_GARMIN_BASE_URL`).
 
-### Initiating the Link
+## `fetch` — a stub that explains itself
 
-```python
-async def link(self, request: LinkRequest) -> Dict[str, Any]:
-    """Initiate OAuth 1.0 flow"""
-    user_id = request.user_id
-    
-    # Create OAuth 1.0 session
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-    )
-    
-    # Get request token
-    resp = oauth.post(self.request_token_url)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Failed to get request token: {resp.text}")
-    
-    # Parse response
-    params = parse_qs(resp.text)
-    oauth_token = params['oauth_token'][0]
-    oauth_token_secret = params['oauth_token_secret'][0]
-    
-    # Store token secret in Redis
-    redis_client = await self._get_redis_client()
-    await redis_client.setex(f"oauth:secret:{oauth_token}", 900, oauth_token_secret)
-    await redis_client.setex(f"oauth:user:{oauth_token}", 900, user_id)
-    await redis_client.aclose()
-    
-    # Build authorization URL
-    auth_params = {
-        "oauth_token": oauth_token,
-        "oauth_callback": self.redirect_url
-    }
-    authorization_url = f"{self.auth_url}?{urlencode(auth_params)}"
-    
-    return {"link_web_url": authorization_url}
+Rather than the generic "not implemented", Garmin's `fetch` throws a message stating the reason, so a caller learns the model:
+
+```cpp
+std::string fetch(const std::string&, DataDomain,
+                  const std::string&, const std::string&) override {
+    throw VendorError(info_.id + ": Garmin Health is push-based and partner-gated "
+                      "(OAuth2.0). Data is pushed to a registered webhook, not pulled — "
+                      "wire the Ping/Pull data endpoints (partner-gated spec) or consume the "
+                      "push once approved partner credentials exist.");
+}
 ```
 
-### Handling the Callback
+## Metadata (`info()`)
 
-```python
-async def callback(self, oauth_token: str, oauth_verifier: str) -> Dict[str, Any]:
-    """Handle OAuth 1.0 callback"""
-    
-    # Retrieve token secret from Redis
-    redis_client = await self._get_redis_client()
-    oauth_token_secret = await redis_client.get(f"oauth:secret:{oauth_token}")
-    user_id = await redis_client.get(f"oauth:user:{oauth_token}")
-    await redis_client.delete(f"oauth:secret:{oauth_token}")
-    await redis_client.delete(f"oauth:user:{oauth_token}")
-    await redis_client.aclose()
-    
-    # Create OAuth session with verifier
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        resource_owner_key=oauth_token,
-        resource_owner_secret=oauth_token_secret,
-        verifier=oauth_verifier
-    )
-    
-    # Get access token
-    resp = oauth.post(self.access_token_url)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Failed to get access token: {resp.text}")
-    
-    # Parse tokens
-    params = parse_qs(resp.text)
-    access_token = params['oauth_token'][0]
-    access_token_secret = params['oauth_token_secret'][0]
-    
-    # Save credentials
-    await self.db_service.save_oauth1_credentials(
-        user_id, self.info.slug, access_token, access_token_secret
-    )
-    
-    # Trigger initial data pull
-    asyncio.create_task(self._pull_and_push_for_user({
-        "user_id": user_id,
-        "access_token": access_token,
-        "access_token_secret": access_token_secret,
-    }))
-    
-    return {
-        "provider_slug": self.info.slug,
-        "stage": "completed"
-    }
+Even with most operations stubbed, the vendor's `VendorInfo` is fully populated and queryable without credentials:
+
+```cpp
+i.id                 = "garmin";
+i.display_name       = "Garmin Health";
+i.positioning        = "Premium wearable brand; partner-gated, push-based Health API";
+i.integration_method = "OAuth2.0 + PKCE; push (Ping/Push webhook) delivery; backfill triggers async";
+i.docs_url           = "https://developer.garmin.com/gc-developer-program/health-api/";
+i.region             = Region::Global;
+i.domains            = {DataDomain::Activity, DataDomain::HeartRate,
+                        DataDomain::Sleep, DataDomain::BodyMetrics};
+i.integrations       = {Integration::Rest, Integration::Webhook};
 ```
 
-## Data Fetching
+## Configuration
 
-Garmin provides multiple endpoints for different data types:
-
-```python
-async def pull_from_vendor_api(
-    self,
-    access_token: str,
-    token_secret: str,
-    days: int = 2
-) -> List[Dict[str, Any]]:
-    """Pull data from Garmin API"""
-    
-    # Create OAuth 1.0 session
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        resource_owner_key=access_token,
-        resource_owner_secret=token_secret
-    )
-    
-    # Calculate date range
-    end_date = datetime.now(timezone.utc).date()
-    start_date = end_date - timedelta(days=days)
-    
-    all_raw_data = []
-    
-    # Fetch different data types
-    endpoints = {
-        "dailies": f"{self.api_base_url}/dailies",
-        "sleeps": f"{self.api_base_url}/sleeps",
-        "hrv": f"{self.api_base_url}/hrv",
-        "stress": f"{self.api_base_url}/stressDetails"
-    }
-    
-    for data_type, endpoint in endpoints.items():
-        try:
-            params = {
-                "uploadStartTimeInSeconds": int(start_date.timestamp()),
-                "uploadEndTimeInSeconds": int(end_date.timestamp())
-            }
-            
-            resp = oauth.get(endpoint, params=params)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data:
-                    all_raw_data.append({
-                        "data_type": data_type,
-                        "data": data,
-                        "timestamp": int(time.time() * 1000)
-                    })
-        except Exception as e:
-            logging.error(f"Error fetching {data_type}: {str(e)}")
-            continue
-    
-    return all_raw_data
+```bash
+# Garmin partner-gated OAuth 2.0 access token (needed for revoke; data path is partner-gated)
+MIROBODY_VENDOR_GARMIN_API_KEY=your_garmin_oauth2_access_token
+# optional host override
+MIROBODY_VENDOR_GARMIN_BASE_URL=https://apis.garmin.com
 ```
 
-## Supported Data Types
+## Takeaways for your own vendor
 
-The Garmin provider supports:
+- **Implement what's publicly confirmable; stub the rest with a reason.** A stub that names the missing contract is better than a fabricated one.
+- **A stateful OAuth flow (PKCE) doesn't fit `authorize_url` alone** — Mirobody keeps such flows in a stateful connect layer (as the SMART-on-FHIR EHR connect service does), not in the URL-builder signature.
+- **`VendorInfo` should be complete regardless** — it powers selection / comparison without a network call.
 
-<Tabs>
-  <Tab title="Activity">
-    - Daily steps
-    - Distance (meters)
-    - Active calories
-    - Basal calories
-    - Floors climbed
-    - Active time
-  </Tab>
+For a device brand with a fuller implementation, contrast Garmin with **Fitbit** (`src/health/vendor/device/fitbit.cpp`), which implements `fetch`, `authorize_url`, `revoke`, and a signed `handle_webhook`.
 
-  <Tab title="Heart Rate">
-    - Minimum daily
-    - Maximum daily
-    - Average daily
-    - Resting rate
-    - Time series samples
-  </Tab>
+## Next steps
 
-  <Tab title="Sleep">
-    - Total duration
-    - Deep sleep
-    - Light sleep
-    - REM sleep
-    - Awake time
-  </Tab>
-
-  <Tab title="Advanced">
-    - HRV (heart rate variability)
-    - Stress levels
-    - Respiration rate
-    - Body composition
-  </Tab>
-</Tabs>
-
-## Source Code
-
-The complete Garmin provider source code is available at:
-```
-connect/theta/mirobody_garmin_connect/provider_garmin.py
-```
-
+<CardGroup cols={2}>
+  <Card title="Vendor System" icon="plug" href="/en/concepts/providers">
+    The contract Garmin implements
+  </Card>
+  <Card title="Provider Integration" icon="code" href="/en/development/provider-integration">
+    Build your own `vendor::Vendor`
+  </Card>
+  <Card title="OAuth Implementation" icon="key" href="/en/development/oauth-implementation">
+    OAuth 2.0 / PKCE patterns in the vendor clients
+  </Card>
+  <Card title="Provider Overview" icon="watch" href="/en/providers/overview">
+    All shipped vendors
+  </Card>
+</CardGroup>

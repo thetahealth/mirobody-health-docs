@@ -1,23 +1,28 @@
 ---
 title: "Global Cluster"
-description: "International cluster — coming soon."
+description: "mirobody-api.thetahealth.ai — the primary cluster; test environment live now."
 ---
 
-<Info>
-**The primary frontend [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) is live.** The 2B-facing API cluster (`mcp.thetahealth.ai`) is **not yet open to external partners** — opening progressively.
-</Info>
+The **global cluster on `mirobody.ai`** is Mirobody's primary environment. Its **test stack is live now** — console, consumer app, and API are all reachable for integration today.
+
+## Hosts
+
+| Role | URL | Status |
+| --- | --- | --- |
+| **API** (`base_url`) | `https://mirobody-api.thetahealth.ai/v1` | 🚧 Provisioning |
+| **API — test** | `https://test-mirobody-api.thetahealth.ai/v1` | ✅ Live |
+| **Developer console** | [platform.mirobody.ai](https://platform.mirobody.ai/) · test [test-platform.mirobody.ai](https://test-platform.mirobody.ai/) | ✅ Live (test) |
+| **Consumer app** | [chat.mirobody.ai](https://chat.mirobody.ai/) · test [test-chat.mirobody.ai](https://test-chat.mirobody.ai/) | ✅ Live (test) |
+
+<Note>
+Production hosts (`mirobody-api.thetahealth.ai`, `platform.mirobody.ai`, `chat.mirobody.ai`) are being brought online. Until then, build against the **test** hosts above — that's what every code sample in these docs uses.
+</Note>
 
 ## Cluster info
 
-- **Primary frontend**: [mirobody.thetahealth.ai](https://mirobody.thetahealth.ai/) — Live
-- **API base URL** (`mcp.thetahealth.ai`): **not yet available externally**; published at launch
-- **LLM providers**: OpenAI / Gemini / Anthropic
-
-## Differences from the China cluster
-
-- Data stored in the US, no cross-border replication.
-- Compliance framework: HIPAA + GDPR (planned — see [Global Compliance](/en/cloud/compliance)).
-- OpenAI / Gemini tools enabled by default.
+- **LLM providers**: managed by Mirobody (`mirobody-flash` / `mirobody-expert`) — no LLM key of your own needed.
+- **Data residency**: United States, no cross-border replication.
+- **Compliance**: HIPAA + GDPR (planned) — see [Compliance](/en/cloud/compliance).
 
 ## European Union (EU) — coming soon
 

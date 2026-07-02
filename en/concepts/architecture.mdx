@@ -1,173 +1,135 @@
 ---
 title: "Architecture Overview"
-description: "How Mirobody is laid out: AI & agent engine, FHIR + health standards, data pipeline, and infrastructure."
+description: "How the Mirobody C++ engine is laid out: LLM clients, MCP tools, the agent, health vendors, and embedded FHIR R4."
 ---
 
-Mirobody is a layered, plugin-friendly engine. Each layer can be replaced or extended independently — no monoliths, no hidden coupling.
+Mirobody is a **C++11 engine** — the C++ port of the earlier Python server. It runs standalone on desktop/server or **on-device** inside the Android / iOS apps, so health data never has to leave the phone. It builds with CMake (plus vcpkg on Windows) and is composed of five pieces you can extend independently.
 
-<Frame caption="Mirobody architecture: Clients → AI & Agent Engine → FHIR & Health Standards → Health Data Pipeline (Pulse) → Infrastructure">
+<Frame caption="Mirobody: one C++ core (LLM clients · MCP tools · agent · health vendors · FHIR R4) shipping as a standalone binary, an Android JNI library, or an iOS C API.">
   <img src="/images/architecture.svg" alt="Mirobody architecture overview" />
 </Frame>
 
-## AI & Agent Engine
+## The five pieces
 
-| Module | Path | Description |
-|--------|------|-------------|
-| **Chat Service** | `mirobody/chat/` | Session management, conversation history, HTTP + WebSocket streaming adapters, memory integration, session sharing |
-| **Agent Implementations** | `mirobody/pub/agents/` | DeepAgent (LangChain-based), MixAgent (two-phase fusion), BaseAgent (direct LLM) |
-| **LLM Clients** | `mirobody/utils/llm/` | Provider-agnostic adapter for OpenAI, Gemini, Anthropic, Azure OpenAI, Volcengine, Dashscope. HIPAA-compliant routing for clinical workloads |
-| **MCP Server** | `mirobody/mcp/` | JSON-RPC 2.0, local + HTTP remote endpoint, auto-discovers tools and resources |
-| **Tools** | `mirobody/pub/tools/`, `tools/` | Built-in tools (file ops, charts, `execute`) + your drop-in Python files |
-| **Skills** | `skills/` | Claude Agent Skills (`SKILL.md` + `metadata.json`) auto-discovered at startup |
-| **Embeddings** | `mirobody/utils/embedding.py` | 1024-dim provider-agnostic embeddings (Gemini / Qwen), pgvector semantic search |
-| **Prompt Templates** | `prompts/` | Jinja2 system prompts with dynamic context (user timezone, available tools, health profile) |
+| Piece | Path | Description |
+|-------|------|-------------|
+| **LLM clients** | `src/llm/` | One streaming `llm::Client` per provider: `OpenAIChatClient`, `GeminiClient`, `MiroThinkerClient`, plus `EmbeddingClient` and the realtime `OpenAIRealtimeClient` / `GeminiLiveClient` (audio over WebSocket). |
+| **MCP tools** | `src/mcp/` + `res/mcp_tools/` | Server-side tools exposed over the `/mcp` endpoint (JSON-RPC 2.0). The nine built-ins are C++ files that self-register at compile time. |
+| **Agent** | `src/chat/` + `res/agents/base.cpp` | One agent ("Base"): picks an LLM client by provider, builds a system prompt, streams the turn back, calling MCP tools. |
+| **Health vendors** | `src/health/vendor/` | One `vendor::Vendor` per source behind an authorize / fetch / webhook contract, resolved by id via a registry. |
+| **FHIR R4** | `src/fhir/` | Embedded RESTful FHIR R4 endpoint + terminology (units normalized to UCUM). |
 
-### Three agents, three jobs
+Agents and tools **self-register at compile time**: drop a `.cpp` in the matching `res/` directory and rebuild — `CMakeLists.txt` globs `res/mcp_tools/*.cpp` (and `res/agents/`) with `CONFIGURE_DEPENDS`.
 
-| Agent | Phases | Use case |
-|---|---|---|
-| **DeepAgent** | Single model handles tools + response | Complex multi-step research, file ops, planning |
-| **MixAgent** | Orchestrator model (e.g. Claude Sonnet) → Responder model (e.g. Gemini Flash) | High-volume workloads where reasoning matters more than narration |
-| **BaseAgent** | Direct LLM chat, no tools | Simple Q&A, low-latency, testing |
+## The agent
 
-DeepAgent is the default. See [Tools Overview](/en/tools/overview) for switching and configuration.
+Mirobody runs **one simple agent** — [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp). It has no agent loop, no planner, and no middleware. For each turn it picks an LLM client by **provider name**, builds a fixed inline **system prompt** (current time, response language, and guidance to use the file / health tools), and **streams the provider's events straight back**, letting the model call the built-in MCP tools.
 
-### Tools and Skills
+<Note>
+**No "deep agents" architecture.** There is no task planning / todos, no sub-agent delegation, no virtual filesystem, no sandboxed execution, and no Agent Skills registry in the C++ engine (Mirobody). The historical Deep / Mix / Base split is gone — this single agent is all of it. You select a **provider**, not an agent type.
+</Note>
 
-**Tools** are plain Python functions in `tools/` — type hints + docstrings are the only "schema". Mirobody parses them once at startup and exposes them via MCP.
+### Providers
 
-```python
-# tools/my_tool.py
-def get_my_metric(date: str, user_info: dict) -> dict:
-    """
-    Fetch a custom metric for the given date.
+The agent registers up to four provider clients, keyed by the model name the `/api/providers` selector shows:
 
-    Args:
-        date: ISO 8601 date string.
+- **`gemini-2.5-flash`** — Google Gemini 2.5 Flash (the **default** provider), `GeminiClient`.
+- **`gpt-5-nano`** — OpenAI GPT-5 nano, `OpenAIChatClient`.
+- **`mirothinker-1.7`** — MiroThinker (MiroMind), `MiroThinkerClient`.
+- **`gemma-4-e2b`** — on-device Gemma 4 E2B served over a local OpenAI-compatible endpoint (registered only when a base URL is set).
 
-    Returns:
-        Dict containing the metric value and unit.
-    """
-    user_id = user_info["user_id"]    # injected by Mirobody from JWT
-    return {"value": 42, "unit": "steps"}
+The native apps also run **Gemma 4 E2B on-device** (LiteRT-LM on Android/iOS, llama.cpp on Electron) — fully offline, no API key. **Tool execution differs by provider:** OpenAI and Gemini receive the tools as function-call descriptors and the engine runs each call **locally, in-process** as the authenticated user; MiroThinker runs tools **provider-side** — MiroMind reaches back to your `/mcp` endpoint over the public internet at `MCP_PUBLIC_URL`. Realtime audio chat is available over WebSocket via OpenAI Realtime and Gemini Live.
+
+See [Tools & Agent Overview](/en/tools/overview) for configuration.
+
+## MCP tools
+
+Tools are C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools). Each declares a `Tool` — name, description, an `auth` flag, a `Param` table, and a handler — and self-registers via `MIROBODY_REGISTER_TOOL(...)`. C++11 has no runtime reflection, so parameters are declared explicitly and the registry expands them into the MCP `inputSchema` and the OpenAI / Gemini function descriptors.
+
+```cpp
+// res/mcp_tools/echo.cpp — the smallest complete tool
+const Tool kEcho = {
+    "echo",
+    "Echo back the provided text.",
+    false,                                                    // auth
+    { Param("text", Type::String, Required, "Text to echo back") },
+    &echo,
+};
+MIROBODY_REGISTER_TOOL(kEcho);
 ```
 
-**Skills** are Claude Agent Skills — a `SKILL.md` (the playbook the agent reads when the skill activates) plus a `metadata.json` (Mirobody-specific, used for discovery and IDE integration).
+Nine tools ship: `list_files`, `read_file`, `family_health`, `whoami`, `recall_memory`, `remember`, `render_chart`, `summarize_conversation`, and `echo`. An `auth` tool receives the caller's identity as `UserInfo`; other backends it needs (cache, object store, database, memory) arrive through `ToolContext`. See [Built-in Tools](/en/tools/built-in) and [Adding Custom Tools](/en/tools/adding-tools).
 
-```
-skills/glucose-coach/
-├── metadata.json   # name, summary, when_to_use, when_not_to_use, tags
-└── SKILL.md        # YAML frontmatter (name, description, license) + body
-```
+## Health vendors
 
-See [Adding Tools](/en/tools/adding-tools) and [MCP Integration](/en/tools/mcp-integration) for details.
+Each data source is a `vendor::Vendor` in `src/health/vendor/`, behind one authorize / fetch / webhook contract and resolved by id via a registry. The buckets:
 
-## FHIR & Health Standards
+| Bucket | Path | Sources |
+|--------|------|---------|
+| **Platforms** | `platform/` | 15 B2B aggregators — Terra, Validic, Human API, Junction, Metriport, … |
+| **Phone** | `phone/` | Huawei |
+| **Device** | `device/` | Fitbit, Garmin, Withings, Oura, Polar |
+| **EHR** | `ehr/` | SMART on FHIR — one generic client for ONC-certified EHRs (Epic, Oracle Health / Cerner, athenahealth), discovery via ONC Lantern |
 
-| Module | Path | Description |
-|--------|------|-------------|
-| **FHIR Mapping** | `mirobody/pulse/core/fhir_mapping.py` | In-memory cache `indicator → FHIR code`, with optional auto-registration of new codes |
-| **Indicator Registry** | `mirobody/pulse/core/indicators_info.py` | 400+ `StandardIndicator` enum, multi-source (Vital, Apple Health, Garmin, Whoop, Renpho, ...) |
-| **Unit Conversion** | `mirobody/pulse/core/units.py` | Bidirectional: kg ↔ lb, °C ↔ °F, mg·dL⁻¹ ↔ mmol·L⁻¹, mmHg ↔ kPa, etc. |
-| **Indicator Search** | `mirobody/indicator/` | Embedding-based free-text → indicator code + concept-graph expansion across LOINC / SNOMED CT / RxNorm / CVX / DCM |
-| **Concept Graph** | `mirobody/indicator/concept_graph.py` + `fhir_concept_graph.bin` | Cross-vocabulary bridges and same-system siblings; pulled via Git LFS |
+On-device-only stores (Apple Health, Samsung Health, Google Health Connect, Xiaomi) have **no server client** — the host apps read them on-device and POST FHIR `Observation`s. Add a source by implementing a `vendor::Vendor`; see [Provider Integration](/en/development/provider-integration).
 
-### Two retrieval modes
+## FHIR R4 & terminology
 
-| Method | Scope | Input | Returns |
-|--------|-------|-------|---------|
-| `adapter.search(user_id, embeddings, top_k)` | Per-user | Pre-computed query embeddings | What does *this user* have that matches? |
-| `adapter.resolve(term, top_k)` | Global | Free text | What canonical codes does this term map to? |
-| `adapter.resolve_many(terms, top_k)` | Global, batched | List of free text | ~20–30× faster than looping `resolve()` |
+`src/fhir/` embeds a RESTful FHIR R4 endpoint (`/fhir/*`). Units are normalized to **UCUM**. Uploaded documents are parsed into indicators and values. Mapping indicators to **SNOMED CT / LOINC / RxNorm**, and the full document→indicator terminology pipeline, are **partly in progress** — UCUM has shipped; the broader terminology mapping is still landing. *(verify against the current build for the exact state.)*
 
-`search` joins `th_series_data` to scope to one user; `resolve` runs cosine over the full vocabulary and returns the global top-k *per code system* (LOINC, SNOMED CT, RXNORM, CVX, DCM, THETA).
+## Storage & infrastructure
 
-### Unit normalization
+- **Database** — chosen at **build time** via CMake `-DMIROBODY_DATABASE_BACKEND=`: `SQLITE` (mobile default), `POSTGRESQL` (desktop default), `MYSQL`, `DUCKDB`, or `CLICKHOUSE`. SQL schemas live in [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql).
+- **File storage** — S3 / S3-compatible (MinIO, R2), Alibaba OSS, Azure Blob, or the local filesystem (default), selected at runtime.
+- **Cache** — an in-process in-memory KV store by default, or Redis when `REDIS_HOST` is set.
+- **Config** — `config.yml` (from `config.example.yml`); precedence is env vars > `config.yml` > remote config > `config.example.yml`. Values whose names contain `_KEY` / `_PASSWORD` / `_SECRET` / `_TOKEN` (and similar) are auto-encrypted (Fernet) with `CONFIG_ENCRYPTION_KEY`. See [Configuration](/en/configuration).
+- **Auth** — multi-user JWT; an OAuth 2.0 authorization server with OIDC discovery + PKCE (so MCP clients can get tokens for `/mcp`); login via email one-time-code and Google / Apple / WeChat / GitHub (Firebase) plus Tanka QR.
+- **Web client** — a static SPA in `htdoc/`, built into `res/htdoc` (`HTTP_ROOT`) and served at the HTTP root.
 
-Free-text "value + unit" strings from any device or chart, in any of the supported languages (en, zh, ja, ko, ru, de, fr, es), get normalized to a canonical UCUM unit plus a LOINC PROPERTY family:
+## Deployment: one core, three forms
 
-```
-"90次每分钟"    → ParsedQuantity(value=90.0,  unit="/min",   family="NRat")
-"<5.6 mg/dL"   → ParsedQuantity(value=5.6,   unit="mg/dL",  family="MCnc", comparator="<")
-"Millimol pro Liter" → "mmol/L"
-"600步"        → ParsedQuantity(value=600.0, unit="{steps}", family="Num")
-```
+The same core ships three ways:
 
-Pure local computation — no DB, no embedding API.
+1. **Standalone binary** — `./build.sh` → `build/mirobody`, serving HTTP + WebSocket on `HTTP_HOST:HTTP_PORT` (default `0.0.0.0:8080`) and reading `./config.yml`.
+2. **Android** — `libmirobody.so` loaded via **JNI** inside the host app (Gradle + NDK).
+3. **iOS** — `libmirobody.a` / `mirobody.xcframework` linked via the **C API** in `src/mirobody.h`.
 
-## Health Data Pipeline (Pulse)
+That `extern "C"` C API also lets Java, Go, C#, Rust, Swift, or Python embed the core directly.
 
-| Module | Path | Description |
-|--------|------|-------------|
-| **Platform Manager** | `mirobody/pulse/` | Platform–Provider plugin architecture, normalization to `StandardPulseData` |
-| **Theta Platform** | `mirobody/pulse/theta/` | Direct device integrations: Garmin, Whoop, Oura, Renpho, PostgreSQL, more |
-| **Apple Health** | `mirobody/pulse/apple/` | Apple Health import, CDA (Clinical Document Architecture) processing |
-| **Data Upload** | `mirobody/pulse/data_upload/` | `StandardPulseData` → `th_series_data` write pipeline |
-| **File Parser** | `mirobody/pulse/file_parser/` | Multi-format: PDF, CSV, Excel, audio, image, genetic; LLM-powered indicator extraction |
-| **Aggregation** | `mirobody/pulse/core/aggregate_indicator/` | Series → daily summaries; derived metrics; sleep window 18:00–18:00 |
-| **Health Insights** | `mirobody/pulse/core/insight/` | AI-powered trend detection, anomaly analysis, pattern recipes (multi-signal, recovery, glucose) |
+### HTTP routes
 
-### Provider lifecycle
-
-Discovery → OAuth link → periodic pull → save raw (`th_raw_data`) → normalize to `StandardPulseData` → write (`th_series_data`) → aggregate to daily summaries → insights + indicator search.
-
-Every provider, whether built-in (`mirobody/pulse/theta/mirobody_garmin/`) or custom (`providers/mirobody_mydevice/`), implements the same `BaseThetaProvider` contract — see [Provider Integration](/en/development/provider-integration).
-
-## Infrastructure
-
-| Module | Path | Description |
-|--------|------|-------------|
-| **Configuration** | `mirobody/utils/config/` | YAML + env var layered config, Fernet encryption for `_KEY`/`_SECRET`/`_TOKEN`/etc. |
-| **Storage Backend** | `mirobody/utils/config/storage/` | Pluggable: Local filesystem, AWS S3, Aliyun OSS |
-| **Auth & User** | `mirobody/user/` | JWT, OAuth 2.0 (Google / Apple), WebAuthn / FIDO2, email verification |
-| **Server** | `mirobody/server/` | Starlette ASGI, JWT middleware, rate limiting |
-| **Database** | `mirobody/utils/db.py` | Async PostgreSQL (psycopg) + pgvector, Redis cache/session store |
-| **Sandbox** | E2B (external) | `execute` tool runs shell + Python in isolated cloud sandboxes |
-
-### Configuration layering
-
-```
-config.yaml            ← base, do not edit
-  └── config.{env}.yaml  ← your overrides; ENV=localdb → config.localdb.yaml
-       └── env vars       ← highest precedence; injected by .env or shell
-```
-
-Sensitive keys (anything whose name contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, `_TOKEN`) are auto-encrypted on first load using your `CONFIG_ENCRYPTION_KEY`. See [Configuration](/en/configuration).
-
-## Extension Points
-
-Drop a file in and Mirobody picks it up at next startup:
-
-| Directory | Discovered as | Naming convention |
-|-----------|---------------|-------------------|
-| `tools/` | MCP tools | Files ending in `.py`; functions or `*Service` classes; `_*.py` files are ignored |
-| `skills/` | Claude Agent Skills | One sub-directory per skill, each with `SKILL.md` + `metadata.json` |
-| `agents/` | Conversational agents | `*Agent` classes; require an async `generate_response` |
-| `providers/` | Data providers | `mirobody_<slug>/provider_<slug>.py` extending `BaseThetaProvider` |
-| `prompts/` | Prompt templates | Jinja2 `.jinja` files referenced via `PROMPTS_<AGENT>` |
-| `resources/` | MCP resources | HTML, JSON, or other static files exposed over MCP |
-
-Custom directories take precedence over built-ins of the same name.
+| Route | Purpose |
+|-------|---------|
+| `/api/health` | Health check |
+| `/api/chat` | Chat — **POST** streams Server-Sent Events; **GET** upgrades to WebSocket (realtime) |
+| `/api/providers` | List available providers |
+| `/api/history` | Conversation history |
+| `/api/files` | File upload / listing |
+| `/fhir/*` | Embedded FHIR R4 endpoint |
+| `/mcp`, `/mcp/{secret}` | MCP endpoint (JSON-RPC 2.0) |
+| `/oauth/*` | OAuth 2.0 authorization server |
 
 ## End-to-end request flow
 
-Here's what happens when a user sends "Show me my knee pain trend" in the web UI:
+Here's what happens when a signed-in user sends *"How did I sleep recently?"* in the web UI:
 
 ```
-1. Browser POSTs to /api/chat (SSE).
-2. JWT middleware → user_id.
-3. Chat service creates/uses a session, persists user message to th_messages.
-4. DeepAgent (default) is loaded with the user's PROVIDERS_DEEP config.
-5. Agent calls tools/list via MCP, plans, then calls tools:
-   - get_user_profile  → user_id, timezone, available providers
-   - indicator search  → "knee pain" → SNOMED CT / LOINC candidates
-   - get_health_data   → time series joined by user_id + indicator
-   - chart_service     → renders PNG, uploads to S3, returns presigned URL
-6. Agent streams thinking / reply chunks via SSE; response is persisted.
-7. Aggregator + insights run in background for next session.
+1. Browser POSTs to /api/chat (Server-Sent Events).
+2. JWT middleware resolves the caller → user_id.
+3. The chat service seeds/uses a conversation and persists the user message.
+4. The Base agent is created: it detects the response language, builds the
+   system prompt, and resolves the LLM client for the requested provider
+   (default gemini-2.5-flash).
+5. The client streams the turn. When the model calls a tool:
+   - OpenAI / Gemini → the engine runs it locally in-process as the user
+     (e.g. family_health → recent FHIR Observations; render_chart → a chart
+     event the frontend draws with ECharts).
+   - MiroThinker → the tool runs provider-side over MCP_PUBLIC_URL.
+6. Reply chunks stream back over SSE; the response is persisted.
+7. summarize_conversation may set a short title for the chat-history list.
 ```
 
-For the session-sharing read-path (no auth), see [Session Sharing](/en/api-reference/chat).
+For the session-sharing read path, see [Session Sharing](/en/api-reference/chat).
 
 ## Where to go next
 
@@ -176,12 +138,12 @@ For the session-sharing read-path (no auth), see [Session Sharing](/en/api-refer
     How devices and EHRs hook in
   </Card>
   <Card title="Data Flow" icon="arrow-progress" href="/en/concepts/data-flow">
-    From raw vendor payloads to normalized indicators
+    From raw vendor payloads to normalized FHIR
   </Card>
   <Card title="File Processing" icon="file" href="/en/concepts/file-processing">
     Multi-format file ingestion and parsing
   </Card>
-  <Card title="Tools & MCP" icon="bolt" href="/en/tools/overview">
+  <Card title="Tools & Agent" icon="wrench" href="/en/tools/overview">
     Build and expose tools across the MCP ecosystem
   </Card>
 </CardGroup>

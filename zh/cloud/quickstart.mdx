@@ -3,17 +3,21 @@ title: "快速开始"
 description: "在控制台创建密钥，发起第一次 /v1 调用。"
 ---
 
-Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp.thetahealth.cn/v1`，带上 `mb_live_*` 密钥，智能体即可基于每个终端用户的真实健康数据作答。
+Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://test-mirobody-api.thetahealth.ai/v1`，带上 `mb_live_*` 密钥，智能体即可基于每个终端用户的真实健康数据作答。
 
 <Note>
-账户管理——**API 密钥、用量、在线 Playground**——都在开发者控制台 [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/)。本文档是参考与指引；控制台才是你登录与管理一切的地方。
+账户管理——**API 密钥、用量、在线 Playground**——都在开发者控制台 [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/)。本文档是参考与指引；控制台才是你登录与管理一切的地方。
 </Note>
 
-<Steps>
-  <Step title="获取 API 密钥">
-    在控制台创建密钥——明文只显示**一次**。
+<Info>
+**今日可用：**面向全球 **test** 集群开发——API `https://test-mirobody-api.thetahealth.ai/v1`，控制台 [test-platform.mirobody.ai](https://test-platform.mirobody.ai/)。生产集群与中国集群正在开通中（[区域](/zh/cloud/regions/overview)）。控制台默认中文——用右上角的语言切换可切到英文。
+</Info>
 
-    <Card title="打开控制台 → API 密钥" icon="key" href="https://cdm.thetahealth.cn/developer/keys" horizontal>
+<Steps>
+  <Step title="登录并获取 API 密钥">
+    用**邮箱验证码**登录控制台——输入邮箱，收取 6 位验证码，即可登录。然后打开 **API Keys** 创建一个密钥；明文只显示**一次**。（需要评估账户？发邮件给 [Mirobody 支持](mailto:developer@thetahealth.ai)。）
+
+    <Card title="打开控制台 → API 密钥" icon="key" href="https://test-platform.mirobody.ai/developer/keys" horizontal>
       登录、创建 `mb_live_*` 密钥并复制。
     </Card>
 
@@ -25,7 +29,7 @@ Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp
   <Step title="发起第一次调用">
     <CodeGroup>
     ```bash curl
-    curl https://mcp.thetahealth.cn/v1/chat/completions \
+    curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -38,7 +42,7 @@ Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp
     ```python Python (OpenAI SDK)
     from openai import OpenAI
 
-    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
     resp = client.chat.completions.create(
         model="mirobody-flash",
         messages=[{"role": "user", "content": "我的空腹血糖趋势如何？"}],
@@ -52,7 +56,7 @@ Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp
 
     const client = new OpenAI({
       apiKey: process.env.MIROBODY_API_KEY,
-      baseURL: "https://mcp.thetahealth.cn/v1",
+      baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
     });
     const resp = await client.chat.completions.create({
       model: "mirobody-flash",
@@ -63,23 +67,24 @@ Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp
     ```
     </CodeGroup>
 
-    `user` 字段把每个终端用户隔离为一个 [Subject](/zh/api-reference/overview#multi-tenancy-the-user-field)——传入各自稳定的 id 即可。完整说明见 [对话参考](/zh/api-reference/chat)。
+    `user` 字段把每个终端用户隔离为一个 [Subject](/zh/api-reference/overview#多租户：user-字段)——传入各自稳定的 id 即可。完整说明见 [对话参考](/zh/api-reference/chat)。
   </Step>
 
   <Step title="给这个 Subject 写点数据">
     新建的 Subject 没有数据，智能体会如实说明。先写一条记录（或用 [`POST /v1/files`](/zh/api-reference/files) 上传一份报告），再问一次：
 
     ```bash
-    curl https://mcp.thetahealth.cn/v1/data \
+    curl https://test-mirobody-api.thetahealth.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
             "user": "alice",
+            "retention": "permanent",
             "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
           }'
     ```
 
-    详见 [数据](/zh/api-reference/data) 与 [文件](/zh/api-reference/files)。
+    `POST /v1/data` **必须**传 `retention`（无默认值）——省略会返回 `400`。详见 [数据](/zh/api-reference/data) 与 [文件](/zh/api-reference/files)。
   </Step>
 </Steps>
 
@@ -88,10 +93,10 @@ Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp
 控制台自带 **Playground**——在浏览器里跑对话、上传文件、查看工具步骤，无需写代码。
 
 <CardGroup cols={2}>
-  <Card title="Playground" icon="flask" href="https://cdm.thetahealth.cn/developer">
+  <Card title="Playground" icon="flask" href="https://test-platform.mirobody.ai/developer">
     在浏览器里基于你的账户试用智能体。
   </Card>
-  <Card title="用量" icon="chart-line" href="https://cdm.thetahealth.cn/developer/usage">
+  <Card title="用量" icon="chart-line" href="https://test-platform.mirobody.ai/developer/usage">
     请求数、tokens、费用。
   </Card>
 </CardGroup>
@@ -99,10 +104,10 @@ Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://mcp
 ## 在线体验
 
 <CardGroup cols={2}>
-  <Card title="mirobody.thetahealth.cn" icon="globe" href="https://mirobody.thetahealth.cn/">
-    **Mirobody 应用** —— 旗舰 C 端产品，与本 API 同一套引擎。
+  <Card title="Mirobody 应用" icon="globe" href="https://test-chat.mirobody.ai/">
+    **chat.mirobody.ai** —— 旗舰 C 端产品，与本 API 同一套引擎。
   </Card>
-  <Card title="开发者控制台" icon="terminal" href="https://cdm.thetahealth.cn/developer">
+  <Card title="开发者控制台" icon="terminal" href="https://test-platform.mirobody.ai/developer">
     创建 `mb_live_*` 密钥、查看用量、试用 Playground。
   </Card>
 </CardGroup>

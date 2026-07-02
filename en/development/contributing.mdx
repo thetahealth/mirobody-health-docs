@@ -1,109 +1,146 @@
 ---
 title: "Contributing"
-description: "Guidelines for contributing to Mirobody"
+description: "How to build, change, and contribute to the Mirobody C++ engine."
 ---
 
 ## Welcome Contributors!
 
-We appreciate your interest in contributing to Mirobody. This guide will help you get started.
+Mirobody is a **C++11 engine** built with **CMake**. This guide covers building it, the change workflow, and PR conventions.
 
 ## Ways to Contribute
 
 <CardGroup cols={2}>
-  <Card title="Add Providers" icon="plug">
-    Integrate new health device providers
+  <Card title="Add a vendor" icon="plug">
+    A new `vendor::Vendor` in `src/health/vendor/` — see [Provider Integration](/en/development/provider-integration)
   </Card>
-  <Card title="Fix Bugs" icon="bug">
+  <Card title="Add an MCP tool" icon="wrench">
+    A `.cpp` in `res/mcp_tools/` using the `MIROBODY_REGISTER_TOOL` macro
+  </Card>
+  <Card title="Fix bugs" icon="bug">
     Report and fix issues
   </Card>
-  <Card title="Improve Docs" icon="book">
-    Enhance documentation
-  </Card>
-  <Card title="Add Features" icon="sparkles">
-    Propose and implement new features
+  <Card title="Improve docs" icon="book">
+    Enhance this documentation
   </Card>
 </CardGroup>
 
-## Getting Started
+## Build the engine
+
+Mirobody builds against **system-installed** libraries on Linux / WSL / macOS; **vcpkg** is used on Windows.
 
 <Steps>
-  <Step title="Fork the repository">
-    Create your own fork of the Mirobody repository
-  </Step>
-
-  <Step title="Set up development environment">
-    Follow the [Development Setup](/en/development/setup) guide
-  </Step>
-
-  <Step title="Create a branch">
+  <Step title="Install dependencies">
+    **Debian / Ubuntu / WSL:**
     ```bash
-    git checkout -b feature/your-feature-name
+    sudo apt install build-essential cmake ninja-build pkg-config \
+      libwebsockets-dev libcurl4-openssl-dev libssl-dev rapidjson-dev \
+      libyaml-cpp-dev libhiredis-dev libpq-dev libjpeg-dev libpng-dev \
+      libtiff-dev libwebp-dev
     ```
-  </Step>
 
-  <Step title="Make your changes">
-    Implement your feature or fix
-  </Step>
-
-  <Step title="Test your changes">
+    **macOS (Homebrew):**
     ```bash
-    pytest
+    brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+      rapidjson yaml-cpp hiredis libpq jpeg-turbo libpng libtiff webp
     ```
+
+    Also install the `-dev` package for whichever database backend you build (Postgres is the default). See the repository README's "Building" section for the full list.
   </Step>
 
-  <Step title="Commit and push">
+  <Step title="Build">
     ```bash
-    git add .
-    git commit -m "Add: description of your changes"
-    git push origin feature/your-feature-name
+    ./build.sh            # host arch, PostgreSQL backend, into ./build
+    ./mirobody            # run it (reads ./config.yml)
     ```
+
+    `build.sh` takes an arch and/or backend selector in any order, plus `clean`:
+    ```bash
+    ./build.sh sqlite         # SQLite backend -> ./build_sqlite
+    ./build.sh arm64 mysql    # cross combo, its own build dir
+    ./build.sh clean          # wipe the build dir and reconfigure
+    ```
+
+    On **Windows**, use `build.cmd` (Visual Studio + vcpkg, which auto-pulls dependencies) → `build\mirobody.exe`.
   </Step>
 
-  <Step title="Create pull request">
-    Open a pull request with a clear description of your changes
+  <Step title="Optional features (off by default)">
+    Some capabilities are CMake options, gated off unless you enable them:
+    ```bash
+    cmake -DMIROBODY_ENABLE_PDF=ON -DMIROBODY_ENABLE_OCR=ON ...   # PDF (PDFium) + OCR (Tesseract)
+    cmake -DMIROBODY_ENABLE_XLS=ON ...                            # legacy .xls (vendored libxls)
+    ```
+    (`.xlsx` via xlnt and CSV are always built when xlnt is found. `OCR` requires `PDF`.)
   </Step>
 </Steps>
 
-## Code Style
+Other build outputs: `build-shared.sh` (the `libmirobody` C-ABI shared library), `build-python.sh` (the Python wheel, built **from source** via pybind11 — not `pip install mirobody`), and the Android (Gradle + NDK) / iOS (`mirobody.xcframework`) targets. There's also a multi-stage `Dockerfile`.
 
-- Follow PEP 8 guidelines
-- Use `black` for code formatting
-- Use `ruff` for linting
-- Write docstrings for all public methods
-- Add type hints
+## Change workflow
+
+<Steps>
+  <Step title="Fork & branch">
+    ```bash
+    git checkout -b feat/your-change
+    ```
+  </Step>
+  <Step title="Make your change">
+    Follow the existing structure — one concern per file, headers document the "why". If you add a self-registering unit (an MCP tool or agent), drop the `.cpp` in the matching `res/` directory; the build picks it up.
+  </Step>
+  <Step title="Build and test">
+    ```bash
+    ./build.sh
+    ctest --test-dir build            # or: ./build/tests/mirobody_tests
+    ```
+    See [Testing](/en/development/testing).
+  </Step>
+  <Step title="Commit & push">
+    ```bash
+    git add -A
+    git commit -m "feat: describe your change"
+    git push origin feat/your-change
+    ```
+  </Step>
+  <Step title="Open a pull request">
+    With a clear description: what it does, why, and how to test.
+  </Step>
+</Steps>
+
+## Code conventions
+
+- **C++11.** Match the surrounding style; the codebase leans on standard library, `rapidjson`, and thin internal wrappers (`client::HttpClient`, `storage::*`) rather than heavy frameworks.
+- **Header comments explain intent** — especially *why* something is a stub or a workaround. New vendor stubs must record their reason (gated / contract mismatch / no such endpoint).
+- **Don't fabricate contracts.** If a wire format isn't publicly confirmable, leave an honest stub (throw `VendorError`/`DocumentError` with a reason) rather than guessing.
+- **Add or update tests** for behavior you change (Catch2, under `tests/`).
 
 ## Pull Request Guidelines
 
 <AccordionGroup>
-  <Accordion title="Title Format" icon="heading">
-    Use conventional commit format:
-    - `feat:` for new features
-    - `fix:` for bug fixes
-    - `docs:` for documentation
-    - `refactor:` for code refactoring
-    - `test:` for adding tests
+  <Accordion title="Title format" icon="heading">
+    Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
   </Accordion>
-
   <Accordion title="Description" icon="file-lines">
-    - Explain what the PR does
-    - Why the change is needed
-    - How to test the changes
-    - Link related issues
+    - What the PR does and why
+    - How to build / test it
+    - Linked issues
   </Accordion>
-
   <Accordion title="Checklist" icon="list-check">
-    - [ ] Code follows style guidelines
-    - [ ] Tests added/updated
-    - [ ] Documentation updated
-    - [ ] All tests pass
-    - [ ] No linter warnings
+    - [ ] Builds with `./build.sh`
+    - [ ] `ctest` passes
+    - [ ] Tests added / updated
+    - [ ] Docs updated if behavior changed
+    - [ ] Stubs (if any) document their reason
   </Accordion>
 </AccordionGroup>
 
 ## Questions?
 
-- Open an issue for questions
-- Join our community discussions
-- [Mirobody Support](mailto:developer@thetahealth.ai)
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
+    Bug reports and feature requests
+  </Card>
+  <Card title="Mirobody Support" icon="envelope" href="mailto:developer@thetahealth.ai">
+    Direct technical support
+  </Card>
+</CardGroup>
 
-Thank you for contributing! 🎉
+Thank you for contributing!

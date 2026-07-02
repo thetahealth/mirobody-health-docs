@@ -17,15 +17,16 @@ Content-Type:  application/json
 | --- | --- | --- |
 | `records` | array | 每条记录 `{indicator, value, unit, time}`。分批插入（每批 1000 条）。 |
 | `user` | string | 记录所属的数据主体(Subject)（多租户隔离键）。 |
-| `retention` | string | `permanent`（默认）/ `1h` / `2h` / `6h` / `1d` / `session`。`1h` / `2h` / `6h` 表示写入后约这么多小时自动删除（上限仍为 24 小时）。**`none` 在 `/v1/data` 上会被拒绝并返回 `HTTP 400`** —— 写入存储却要求不存储是自相矛盾的。用完即弃的数据请改为在 `POST /v1/chat/completions` 上以 `health_context` + `retention=none` 内联附带。 |
-| `session_id` | string | 当 `retention=session` 时必填。 |
+| `retention` | string | **必填 —— 没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的同义词也可接受）。小时粒度会在写入后约这么多小时自动删除（上限仍硬性限制为 ≤ 24 小时）。省略它会返回 `HTTP 400`（`code: invalid_retention`）。**`retention=none` 在此处同样会被拒绝并返回 `400`** —— 写入存储却要求不存储是自相矛盾的；用完即弃的数据请改为在 [`POST /v1/chat/completions`](/zh/api-reference/chat#内联-health_context) 上以 `health_context` + `retention=none` 内联附带。仅当该值**缺失**时才会被拒绝 —— 未知或超范围的值目前会被接受而不做校验。 |
+| `session_id` | string | 用于限定 `retention=session` 记录的范围。**目前不强制** —— 不带它也会被接受，但未附带 `session_id` 写入的记录无法被会话删除操作定位到。 |
 
 ```bash
-curl https://mcp.thetahealth.cn/v1/data \
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
         "user": "alice",
+        "retention": "permanent",
         "records": [
           {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
           {"indicator": "fasting_glucose", "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
@@ -36,7 +37,7 @@ curl https://mcp.thetahealth.cn/v1/data \
 响应：
 
 ```json
-{ "ingested": 2, "subject": "alice", "retention": "permanent" }
+{ "status": "ok", "ingested": 2, "subject": "alice" }
 ```
 
 ## 读取记录
@@ -51,67 +52,58 @@ Authorization: Bearer mb_live_*
 | `user` | 要读取的数据主体(Subject)。 |
 | `indicator` | 可选，按指标名称过滤。 |
 | `limit` | `1`–`1000`。 |
-| `offset` | 分页偏移量，默认 `0`。 |
+| `offset` | 分页偏移量，默认 `0`。在返回 `limit` 条之前先跳过这么多条记录。 |
 
 读取前会先清除已过期的记录，因此你拿到的总是数据主体(Subject)当前有效的数据。
-
-响应是一个带分页元信息的对象：
-
-```json
-{
-  "records": [
-    {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}
-  ],
-  "total": 42,
-  "limit": 100,
-  "offset": 0,
-  "has_more": false
-}
-```
-
-| 字段 | 说明 |
-| --- | --- |
-| `records` | 本页记录。 |
-| `total` | 匹配过滤条件的记录总数。 |
-| `limit` / `offset` | 本次请求生效的分页参数。 |
-| `has_more` | 是否还有更多记录（`offset + limit < total`）。 |
 
 ```python Python
 import requests
 
 r = requests.get(
-    "https://mcp.thetahealth.cn/v1/data",
+    "https://test-mirobody-api.thetahealth.ai/v1/data",
     headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
-    params={"user": "alice", "indicator": "fasting_glucose", "limit": 100},
+    params={"user": "alice", "indicator": "fasting_glucose", "limit": 100, "offset": 0},
 )
 print(r.json())
 ```
 
-## 删除记录（被遗忘权）
+响应是一个 OpenAI 风格的列表。记录位于 **`data`** 下，且每条记录的 `value` 是一个**格式化字符串**（例如 `"5.4 mmol/L"`），而非数字：
 
-```http
-DELETE /v1/data?user=alice&indicator=fasting_glucose
-Authorization: Bearer mb_live_*
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "indicator": "fasting_glucose",
+      "value": "5.4 mmol/L",
+      "parsed_value": null,
+      "parsed_unit": null,
+      "time": "2026-06-16T07:30:00+00",
+      "source": "api",
+      "comment": ""
+    }
+  ],
+  "has_more": false,
+  "subject": "alice"
+}
 ```
 
-删除某个数据主体(Subject)的结构化记录。`indicator` 可选 —— 省略时会清除该用户的**全部**结构化记录。
-
-| 查询参数 | 说明 |
+| 字段 | 说明 |
 | --- | --- |
-| `user` | 要删除其数据的数据主体(Subject)。省略则指向账号的默认 Subject。 |
-| `indicator` | 可选，只删除该指标的记录；省略则删除全部。 |
-
-```bash
-curl -X DELETE "https://mcp.thetahealth.cn/v1/data?user=alice&indicator=fasting_glucose" \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
-```
-
-要清空某个用户的**全部数据与文件**（结构化记录 + 上传文件），请使用 `DELETE /v1/subjects/{user}`（详见[文件 → 删除文件](/zh/api-reference/files)）。
+| `data` | 记录数组（最多 `limit` 条）。 |
+| `has_more` | 当本页之后还有更多记录时为 `true` —— 递增 `offset` 以获取它们。 |
+| `subject` | 记录所属的数据主体(Subject)（由 `user` 解析得到）。 |
 
 <Note>
-删除类端点需要带有 `data:delete`（或 `data:write`）scope 的密钥。
+该响应目前**不**返回 `total`、`limit` 或 `offset` 字段 —— 请通过递增 `offset` 查询参数分页，并一直读取到 `has_more` 为 `false`。
+</Note>
+
+## 删除数据
+
+<Note>
+`/v1` 中**尚不提供**显式删除端点 —— `DELETE /v1/data`、`DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上均未实现。如今，记录通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除：有时限的粒度（`1h`–`1d`）会自动删除，`session` 数据上限为 24 小时。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/cloud/compliance)。
 </Note>
 
 <Note>
-对于不应持久化的一次性数据，请将其作为 `health_context` 内联附加到对话请求中、并设 `retention="none"`，而不要写到这里 —— 详见[对话 → 内联数据](/zh/api-reference/chat#inline-health-context)。
+对于完全不应持久化的一次性数据，请将其作为 `health_context` 内联附加到对话请求中、并设 `retention="none"`，而不要写到这里 —— 详见[对话 → 内联数据](/zh/api-reference/chat#内联-health_context)。
 </Note>

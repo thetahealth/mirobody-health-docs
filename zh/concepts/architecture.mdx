@@ -1,170 +1,132 @@
 ---
 title: "架构概览"
-description: "Mirobody 的分层结构：AI 与 Agent 引擎、FHIR 与健康标准、数据管线、基础设施。"
+description: "Mirobody C++ 引擎的结构：LLM 客户端、MCP 工具、Agent、健康 vendor 与内嵌的 FHIR R4。"
 ---
 
-Mirobody 是一套分层、可插拔的引擎。每一层都可以独立替换或扩展 —— 没有单体，没有隐藏耦合。
+Mirobody 是一套 **C++11 引擎** —— 早期 Python 服务器的 C++ 移植版。它可以在桌面/服务器上独立运行，也可以在 Android / iOS 应用内**端侧**运行，因此健康数据无需离开手机。它用 CMake 构建（Windows 上外加 vcpkg），由五个可以独立扩展的部分组成。
 
-<Frame caption="Mirobody 架构：客户端 → AI 与 Agent 引擎 → FHIR 与健康标准 → 健康数据管线 (Pulse) → 基础设施">
-  <img src="/images/architecture_cn.svg" alt="Mirobody 架构概览" />
+<Frame caption="Mirobody：一个 C++ 核心（LLM 客户端 · MCP 工具 · Agent · 健康 vendor · FHIR R4），以独立二进制、Android JNI 库或 iOS C API 的形式交付。">
+  <img src="/images/architecture_cn.svg" alt="Mirobody architecture overview" />
 </Frame>
 
-## AI 与 Agent 引擎
+## 五个部分
 
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| **Chat 服务** | `mirobody/chat/` | 会话管理、对话历史、HTTP + WebSocket 流式适配器、记忆集成、会话分享 |
-| **Agent 实现** | `mirobody/pub/agents/` | DeepAgent（基于 LangChain）、MixAgent（两阶段融合）、BaseAgent（直连 LLM） |
-| **LLM 客户端** | `mirobody/utils/llm/` | 适配 OpenAI、Gemini、Anthropic、Azure OpenAI、火山引擎、阿里 Dashscope；含 HIPAA 合规路由 |
-| **MCP 服务器** | `mirobody/mcp/` | JSON-RPC 2.0，本地 + HTTP 远程端点，自动发现工具与资源 |
-| **Tools** | `mirobody/pub/tools/`、`tools/` | 内置工具（文件操作、图表、`execute`）+ 你拖入的 Python 文件 |
-| **Skills** | `skills/` | Claude Agent Skills（`SKILL.md` + `metadata.json`），启动时自动发现 |
-| **Embeddings** | `mirobody/utils/embedding.py` | 1024 维、提供商无关（Gemini / Qwen），pgvector 语义检索 |
-| **Prompt 模板** | `prompts/` | Jinja2 系统 prompt，可动态注入上下文（用户时区、可用工具、健康 profile） |
+| 部分 | 路径 | 说明 |
+|-------|------|-------------|
+| **LLM 客户端** | `src/llm/` | 每个 provider 一个流式 `llm::Client`：`OpenAIChatClient`、`GeminiClient`、`MiroThinkerClient`，外加 `EmbeddingClient` 以及实时的 `OpenAIRealtimeClient` / `GeminiLiveClient`（WebSocket 上的音频）。 |
+| **MCP 工具** | `src/mcp/` + `res/mcp_tools/` | 通过 `/mcp` 端点（JSON-RPC 2.0）暴露的服务端工具。九个内置工具是在编译时自注册的 C++ 文件。 |
+| **Agent** | `src/chat/` + `res/agents/base.cpp` | 一个 Agent（"Base"）：按 provider 选择一个 LLM 客户端，构建 system prompt，把这一轮流式返回，其间调用 MCP 工具。 |
+| **健康 vendor** | `src/health/vendor/` | 每个数据源一个 `vendor::Vendor`，置于 authorize / fetch / webhook 契约之后，通过注册表按 id 解析。 |
+| **FHIR R4** | `src/fhir/` | 内嵌的 RESTful FHIR R4 端点 + 术语（单位归一化为 UCUM）。 |
 
-### 三种 Agent，各司其职
+Agent 和工具都在**编译时自注册**：把一个 `.cpp` 丢进相应的 `res/` 目录并重新构建 —— `CMakeLists.txt` 会用 `CONFIGURE_DEPENDS` glob `res/mcp_tools/*.cpp`（以及 `res/agents/`）。
 
-| Agent | 阶段 | 适用场景 |
-|---|---|---|
-| **DeepAgent** | 单模型处理工具 + 回复 | 复杂多步研究、文件操作、规划 |
-| **MixAgent** | 编排者模型（如 Claude Sonnet）→ 回复者模型（如 Gemini Flash） | 高吞吐场景，对推理要求高过文笔 |
-| **BaseAgent** | 直连 LLM，无工具 | 简单 Q&A、低延迟、测试 |
+## Agent
 
-默认是 DeepAgent。切换方式与配置见 [工具概览](/zh/tools/overview)。
+Mirobody 运行**一个简单的 Agent** —— [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp)。它没有 Agent 循环，没有 planner，也没有中间件。每一轮它按 **provider 名称**选择一个 LLM 客户端，构建一段固定的内联 **system prompt**（当前时间、回复语言，以及使用文件 / 健康工具的引导），并把 **provider 的事件直接流式返回**，让模型调用内置的 MCP 工具。
 
-### Tools 与 Skills
+<Note>
+**没有 "deep agents" 架构。** C++ 引擎（Mirobody）中没有任务规划 / todos、没有子 Agent 委派、没有虚拟文件系统、没有沙箱执行，也没有 Agent Skills 注册表。历史上的 Deep / Mix / Base 之分已不复存在 —— 这一个 Agent 就是全部。你选择的是一个 **provider**，而不是 Agent 类型。
+</Note>
 
-**Tools** 就是 `tools/` 下的普通 Python 函数 —— 类型提示 + docstring 就是它唯一的"schema"。Mirobody 在启动时解析一次，然后通过 MCP 暴露出去。
+### 支持的提供商
 
-```python
-# tools/my_tool.py
-def get_my_metric(date: str, user_info: dict) -> dict:
-    """
-    获取指定日期的自定义指标。
+该 Agent 注册最多四个 provider 客户端，以 `/api/providers` 选择器展示的模型名为键：
 
-    Args:
-        date: ISO 8601 日期字符串。
+- **`gemini-2.5-flash`** —— Google Gemini 2.5 Flash（**默认** provider），`GeminiClient`。
+- **`gpt-5-nano`** —— OpenAI GPT-5 nano，`OpenAIChatClient`。
+- **`mirothinker-1.7`** —— MiroThinker（MiroMind），`MiroThinkerClient`。
+- **`gemma-4-e2b`** —— 端侧 Gemma 4 E2B，通过本地 OpenAI 兼容端点提供服务（仅在设置了 base URL 时才注册）。
 
-    Returns:
-        包含指标值与单位的字典。
-    """
-    user_id = user_info["user_id"]    # 由 Mirobody 从 JWT 中自动注入
-    return {"value": 42, "unit": "steps"}
+原生应用还会在**端侧**运行 **Gemma 4 E2B**（Android/iOS 上用 LiteRT-LM，Electron 上用 llama.cpp）—— 完全离线、无需 API 密钥。**工具执行因 provider 而异：** OpenAI 和 Gemini 把工具作为 function-call 描述符接收，引擎以已认证用户的身份在**本地进程内**执行每次调用；MiroThinker 则在 **provider 侧**运行工具 —— MiroMind 通过公网在 `MCP_PUBLIC_URL` 反向访问你的 `/mcp` 端点。实时音频聊天可通过 WebSocket 经 OpenAI Realtime 和 Gemini Live 使用。
+
+配置见 [工具与 Agent 概览](/zh/tools/overview)。
+
+## MCP 工具
+
+工具是 [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中的 C++ 文件。每个声明一个 `Tool` —— 名称、描述、一个 `auth` 标志、一张 `Param` 表以及一个 handler —— 并通过 `MIROBODY_REGISTER_TOOL(...)` 自注册。C++11 没有运行时反射，因此参数显式声明，注册表会把它们展开成 MCP 的 `inputSchema` 以及 OpenAI / Gemini 的 function 描述符。
+
+```cpp
+// res/mcp_tools/echo.cpp — the smallest complete tool
+const Tool kEcho = {
+    "echo",
+    "Echo back the provided text.",
+    false,                                                    // auth
+    { Param("text", Type::String, Required, "Text to echo back") },
+    &echo,
+};
+MIROBODY_REGISTER_TOOL(kEcho);
 ```
 
-**Skills** 即 Claude Agent Skills —— 一个 `SKILL.md`（被激活时 Agent 读取的 playbook）加上一个 `metadata.json`（Mirobody 用于发现与 IDE 集成的元数据）。
+默认提供九个工具：`list_files`、`read_file`、`family_health`、`whoami`、`recall_memory`、`remember`、`render_chart`、`summarize_conversation` 和 `echo`。一个 `auth` 工具以 `UserInfo` 接收调用者身份；它需要的其它后端（缓存、对象存储、数据库、记忆）通过 `ToolContext` 送达。参见 [内置工具](/zh/tools/built-in) 与 [添加自定义工具](/zh/tools/adding-tools)。
 
-```
-skills/glucose-coach/
-├── metadata.json   # name、summary、when_to_use、when_not_to_use、tags
-└── SKILL.md        # YAML frontmatter（name、description、license）+ 正文
-```
+## 健康 vendor
 
-参见 [添加工具](/zh/tools/adding-tools) 与 [MCP 集成](/zh/tools/mcp-integration)。
+每个数据源是 `src/health/vendor/` 中的一个 `vendor::Vendor`，置于同一份 authorize / fetch / webhook 契约之后，并通过注册表按 id 解析。分桶如下：
 
-## FHIR 与健康标准
+| 分桶 | 路径 | 数据源 |
+|--------|------|---------|
+| **Platforms** | `platform/` | 15 个 B2B 聚合器 —— Terra、Validic、Human API、Junction、Metriport…… |
+| **Phone** | `phone/` | Huawei |
+| **Device** | `device/` | Fitbit、Garmin、Withings、Oura、Polar |
+| **EHR** | `ehr/` | SMART on FHIR —— 面向 ONC 认证 EHR（Epic、Oracle Health / Cerner、athenahealth）的一个通用客户端，通过 ONC Lantern 发现 |
 
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| **FHIR 映射** | `mirobody/pulse/core/fhir_mapping.py` | 内存缓存 `indicator → FHIR code`，可选自动注册新代码 |
-| **指标注册表** | `mirobody/pulse/core/indicators_info.py` | 400+ `StandardIndicator` 枚举，多源（Vital、Apple Health、Garmin、Whoop、Renpho ……） |
-| **单位换算** | `mirobody/pulse/core/units.py` | 双向：kg ↔ lb、°C ↔ °F、mg·dL⁻¹ ↔ mmol·L⁻¹、mmHg ↔ kPa 等 |
-| **指标搜索** | `mirobody/indicator/` | 基于 Embedding 的自由文本 → 指标代码，跨 LOINC / SNOMED CT / RxNorm / CVX / DCM 的概念图扩展 |
-| **概念图** | `mirobody/indicator/concept_graph.py` + `fhir_concept_graph.bin` | 跨术语桥与同体系兄弟节点；通过 Git LFS 拉取 |
+仅端侧的存储（Apple Health、Samsung Health、Google Health Connect、Xiaomi）**没有服务端客户端** —— 由宿主应用在端侧读取并 POST FHIR `Observation`。要添加一个数据源，实现一个 `vendor::Vendor`；参见 [Provider 集成](/zh/development/provider-integration)。
 
-### 两种检索模式
+## FHIR R4 与术语
 
-| 方法 | 范围 | 输入 | 返回 |
-|------|------|------|------|
-| `adapter.search(user_id, embeddings, top_k)` | 单用户 | 预先算好的查询 Embedding | *这个用户* 有什么与查询相符 |
-| `adapter.resolve(term, top_k)` | 全局 | 自由文本 | 这个术语映射到哪些规范代码 |
-| `adapter.resolve_many(terms, top_k)` | 全局批处理 | 自由文本列表 | 比循环 `resolve()` 快 ~20–30× |
+`src/fhir/` 内嵌了一个 RESTful FHIR R4 端点（`/fhir/*`）。单位归一化为 **UCUM**。上传的文档会被解析成指标和数值。把指标映射到 **SNOMED CT / LOINC / RxNorm**，以及完整的文档→指标术语流水线，**部分仍在进行中** —— UCUM 已交付；更广的术语映射仍在落地。*(verify：以当前构建为准确认确切状态。)*
 
-`search` 会 join `th_series_data` 把范围限定到一个用户；`resolve` 对整个词表做余弦匹配，按每个代码体系（LOINC、SNOMED CT、RXNORM、CVX、DCM、THETA）各自取 top-k。
+## 存储与基础设施
 
-### 单位归一化
+- **数据库** —— 在**构建期**通过 CMake `-DMIROBODY_DATABASE_BACKEND=` 选定：`SQLITE`（移动端默认）、`POSTGRESQL`（桌面端默认）、`MYSQL`、`DUCKDB` 或 `CLICKHOUSE`。SQL schema 位于 [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql)。
+- **文件存储** —— S3 / S3 兼容（MinIO、R2）、阿里云 OSS、Azure Blob 或本地文件系统（默认），在运行时选定。
+- **缓存** —— 默认是一个进程内的内存 KV 存储，或在设置了 `REDIS_HOST` 时使用 Redis。
+- **配置** —— `config.yml`（源自 `config.example.yml`）；优先级为 环境变量 > `config.yml` > 远程配置 > `config.example.yml`。键名包含 `_KEY` / `_PASSWORD` / `_SECRET` / `_TOKEN`（及类似）的值会用 `CONFIG_ENCRYPTION_KEY` 自动加密（Fernet）。参见 [配置](/zh/configuration)。
+- **认证** —— 多用户 JWT；一个带 OIDC discovery + PKCE 的 OAuth 2.0 授权服务器（以便 MCP 客户端为 `/mcp` 获取 token）；通过邮箱一次性验证码，以及 Google / Apple / WeChat / GitHub（Firebase）外加 Tanka QR 登录。
+- **Web 客户端** —— `htdoc/` 中的一个静态 SPA，构建进 `res/htdoc`（`HTTP_ROOT`）并在 HTTP 根路径提供服务。
 
-来自任何设备或图表、覆盖多语言（en、zh、ja、ko、ru、de、fr、es）的"数值 + 单位"自由文本，会被归一化到一个规范的 UCUM 单位 + 一个 LOINC PROPERTY 家族：
+## 部署：一个核心，三种形态
 
-```
-"90次每分钟"    → ParsedQuantity(value=90.0,  unit="/min",   family="NRat")
-"<5.6 mg/dL"   → ParsedQuantity(value=5.6,   unit="mg/dL",  family="MCnc", comparator="<")
-"Millimol pro Liter" → "mmol/L"
-"600步"        → ParsedQuantity(value=600.0, unit="{steps}", family="Num")
-```
+同一个核心以三种方式交付：
 
-完全本地计算 —— 不依赖数据库，不调用 Embedding API。
+1. **独立二进制** —— `./build.sh` → `build/mirobody`，在 `HTTP_HOST:HTTP_PORT`（默认 `0.0.0.0:8080`）上提供 HTTP + WebSocket 服务，并读取 `./config.yml`。
+2. **Android** —— `libmirobody.so` 通过 **JNI** 加载进宿主应用（Gradle + NDK）。
+3. **iOS** —— `libmirobody.a` / `mirobody.xcframework` 通过 `src/mirobody.h` 中的 **C API** 链接。
 
-## 健康数据管线 (Pulse)
+那个 `extern "C"` C API 还让 Java、Go、C#、Rust、Swift 或 Python 得以直接嵌入该核心。
 
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| **Platform 管理器** | `mirobody/pulse/` | Platform–Provider 插件架构，统一归一化到 `StandardPulseData` |
-| **Theta 平台** | `mirobody/pulse/theta/` | 直接对接：Garmin、Whoop、Oura、Renpho、PostgreSQL 等 |
-| **Apple Health** | `mirobody/pulse/apple/` | Apple Health 导入、CDA（临床文档架构）处理 |
-| **数据上行** | `mirobody/pulse/data_upload/` | `StandardPulseData` → `th_series_data` 写入流水线 |
-| **文件解析** | `mirobody/pulse/file_parser/` | 多格式：PDF、CSV、Excel、音频、图像、基因；LLM 抽取指标 |
-| **聚合** | `mirobody/pulse/core/aggregate_indicator/` | 时间序列 → 日聚合；派生指标；睡眠窗口 18:00–18:00 |
-| **健康 Insight** | `mirobody/pulse/core/insight/` | AI 趋势识别、异常分析、模式 recipe（多信号、恢复、血糖） |
+### HTTP 路由
 
-### Provider 生命周期
-
-发现 → OAuth 绑定 → 周期拉取 → 保存原始数据（`th_raw_data`）→ 归一化为 `StandardPulseData` → 写入（`th_series_data`）→ 聚合为日摘要 → Insight + 指标搜索。
-
-无论是内置 Provider（`mirobody/pulse/theta/mirobody_garmin/`）还是自定义 Provider（`providers/mirobody_mydevice/`），都实现同一份 `BaseThetaProvider` 契约 —— 参见 [Provider 集成](/zh/development/provider-integration)。
-
-## 基础设施
-
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| **配置** | `mirobody/utils/config/` | 分层 YAML + 环境变量；含 `_KEY` / `_SECRET` / `_TOKEN` 等字段的 Fernet 自动加密 |
-| **存储后端** | `mirobody/utils/config/storage/` | 可插拔：本地文件系统、AWS S3、阿里云 OSS |
-| **认证与用户** | `mirobody/user/` | JWT、OAuth 2.0（Google / Apple）、WebAuthn / FIDO2、邮箱验证 |
-| **服务端** | `mirobody/server/` | Starlette ASGI、JWT 中间件、限流 |
-| **数据库** | `mirobody/utils/db.py` | 异步 PostgreSQL（psycopg）+ pgvector，Redis 缓存 / 会话存储 |
-| **沙箱** | E2B（外部） | `execute` 工具在隔离的云沙箱内跑 shell + Python |
-
-### 配置层级
-
-```
-config.yaml                ← 基础配置，不要修改
-  └── config.{env}.yaml     ← 你的覆盖；ENV=localdb → config.localdb.yaml
-       └── 环境变量          ← 优先级最高，通过 .env 或 shell 注入
-```
-
-敏感字段（键名包含 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK`、`_TOKEN`）在首次加载时使用你的 `CONFIG_ENCRYPTION_KEY` 自动加密。详见 [配置](/zh/configuration)。
-
-## 扩展点
-
-把文件丢进去，下次启动自动生效：
-
-| 目录 | 被识别为 | 命名约定 |
-|------|----------|----------|
-| `tools/` | MCP 工具 | `.py` 结尾；顶层函数或 `*Service` 类；`_*.py` 文件被忽略 |
-| `skills/` | Claude Agent Skills | 每个 skill 一个子目录，含 `SKILL.md` + `metadata.json` |
-| `agents/` | 对话 Agent | `*Agent` 类；需要 async `generate_response` |
-| `providers/` | 数据 Provider | `mirobody_<slug>/provider_<slug>.py`，继承 `BaseThetaProvider` |
-| `prompts/` | Prompt 模板 | Jinja2 `.jinja` 文件，被 `PROMPTS_<AGENT>` 引用 |
-| `resources/` | MCP 资源 | HTML、JSON 或其他静态文件，通过 MCP 暴露 |
-
-同名时，自定义目录优先于内置。
+| 路由 | 用途 |
+|-------|---------|
+| `/api/health` | 健康检查 |
+| `/api/chat` | 聊天 —— **POST** 流式返回 Server-Sent Events；**GET** 升级为 WebSocket（实时） |
+| `/api/providers` | 列出可用 provider |
+| `/api/history` | 对话历史 |
+| `/api/files` | 文件上传 / 列表 |
+| `/fhir/*` | 内嵌的 FHIR R4 端点 |
+| `/mcp`, `/mcp/{secret}` | MCP 端点（JSON-RPC 2.0） |
+| `/oauth/*` | OAuth 2.0 授权服务器 |
 
 ## 端到端请求流程
 
-用户在 Web UI 里发 "Show me my knee pain trend" 之后会发生什么：
+已登录用户在 Web UI 里发出*"我最近睡得怎么样？"*时，会发生什么：
 
 ```
-1. 浏览器 POST 到 /api/chat（SSE）。
-2. JWT 中间件 → user_id。
-3. Chat 服务建立或复用 session，把用户消息持久化到 th_messages。
-4. DeepAgent（默认）按用户的 PROVIDERS_DEEP 配置加载。
-5. Agent 调用 MCP tools/list 规划，然后顺序调用工具：
-   - get_user_profile   → user_id、时区、可用 provider
-   - 指标搜索           → "knee pain" → SNOMED CT / LOINC 候选
-   - get_health_data    → 按 user_id + 指标 join 时间序列
-   - chart_service      → 渲染 PNG、上传 S3、返回 presigned URL
-6. Agent 通过 SSE 流式输出 thinking / reply chunk；响应持久化。
-7. 聚合 + Insight 在后台运行，为下一次会话准备好。
+1. Browser POSTs to /api/chat (Server-Sent Events).
+2. JWT middleware resolves the caller → user_id.
+3. The chat service seeds/uses a conversation and persists the user message.
+4. The Base agent is created: it detects the response language, builds the
+   system prompt, and resolves the LLM client for the requested provider
+   (default gemini-2.5-flash).
+5. The client streams the turn. When the model calls a tool:
+   - OpenAI / Gemini → the engine runs it locally in-process as the user
+     (e.g. family_health → recent FHIR Observations; render_chart → a chart
+     event the frontend draws with ECharts).
+   - MiroThinker → the tool runs provider-side over MCP_PUBLIC_URL.
+6. Reply chunks stream back over SSE; the response is persisted.
+7. summarize_conversation may set a short title for the chat-history list.
 ```
 
 会话分享（无需登录的只读路径）见 [会话分享](/zh/api-reference/chat)。
@@ -176,12 +138,12 @@ config.yaml                ← 基础配置，不要修改
     设备和 EHR 如何接入
   </Card>
   <Card title="数据流" icon="arrow-progress" href="/zh/concepts/data-flow">
-    从厂商原始 payload 到归一化指标
+    从厂商原始 payload 到归一化的 FHIR
   </Card>
   <Card title="文件处理" icon="file" href="/zh/concepts/file-processing">
     多格式文件的接入与解析
   </Card>
-  <Card title="Tools 与 MCP" icon="bolt" href="/zh/tools/overview">
-    构建工具并跨 MCP 生态暴露
+  <Card title="工具与 Agent" icon="wrench" href="/zh/tools/overview">
+    跨 MCP 生态构建并暴露工具
   </Card>
 </CardGroup>

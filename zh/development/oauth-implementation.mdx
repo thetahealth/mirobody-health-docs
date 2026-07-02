@@ -1,211 +1,118 @@
 ---
-title: "OAuth 实现"
-description: "为提供商集成实现 OAuth 1.0 和 OAuth 2.0 流程"
+title: "Vendor 客户端中的 OAuth"
+description: "C++ vendor 客户端如何处理 OAuth 2.0 授权、PKCE、webhook 与撤销。"
 ---
 
 ## 概览
 
-健康设备提供商使用 OAuth 进行安全的用户授权。Mirobody 支持 OAuth 1.0 和 OAuth 2.0 协议。
+大多数健康数据源以 **OAuth 2.0** 授权。在 Mirobody 中，这在每个 C++ `vendor::Vendor` 内经三个契约操作处理 —— `authorize_url`、`handle_webhook`、`revoke` —— 另外，对于浏览器驱动的 SMART-on-FHIR EHR，还有一个独立的有状态连接服务。不再有 `OAuth1Session` / `aiohttp` 的 provider 代码。
 
-<CardGroup cols={2}>
-  <Card title="OAuth 1.0" icon="key">
-    使用者：Garmin, Fitbit (旧版)
-  </Card>
-  <Card title="OAuth 2.0" icon="lock">
-    使用者：Whoop, Apple Health, 大多数现代 API
-  </Card>
-</CardGroup>
+<Info>
+代码库中存在两种 OAuth 角色，别把它们混淆：
+- **`src/oauth/`** —— Mirobody 作为一个 OAuth 2.0 **授权服务器**（它向 API 客户端签发 token；OIDC 发现 + PKCE）。
+- **Vendor 客户端** —— Mirobody 作为某个健康源（Fitbit、某个 EHR 等）*的* OAuth **客户端**。本页讲的是客户端这一侧。
+</Info>
 
-## OAuth 2.0 实现
+## OAuth 2.0 —— `authorize_url` 步骤
 
-大多数现代健康 API 使用 OAuth 2.0。以下是其实现方式：
+`authorize_url` 构建你重定向用户去的同意 URL。它是**纯字符串构建** —— 无网络调用。Fitbit（`device/fitbit.cpp`）是参考：保密型服务端客户端在 token 步骤用其 secret 认证，因此这里**不使用 PKCE**。
 
-### 1. 发起授权
-
-```python
-async def link(self, user_id: str, return_url: str = None) -> Dict:
-    """发起 OAuth 2.0 授权"""
-    # 生成用于 CSRF 保护的 state 参数
-    state = self._generate_state()
-    await self._store_state(user_id, state, return_url)
-    
-    # 构建授权 URL
-    auth_params = {
-        "client_id": self.client_id,
-        "response_type": "code",
-        "redirect_uri": self.redirect_url,
-        "scope": self.scopes,
-        "state": state
+```cpp
+std::string authorize_url(const std::string& redirect_uri, const std::string& state,
+                          const std::string& /*user_id*/, const std::string& /*provider*/) override {
+    if (config().client_id.empty()) {
+        throw VendorError(info_.id + ": authorize_url requires an OAuth client_id — set "
+                          "MIROBODY_VENDOR_FITBIT_CLIENT_ID");
     }
-    
-    auth_url = f"{self.auth_url}?{urlencode(auth_params)}"
-    
-    return {
-        "link_web_url": auth_url,
-        "state": state
-    }
+    std::string url = "https://www.fitbit.com/oauth2/authorize"
+                      "?response_type=code&client_id=" + url_encode(config().client_id) +
+                      "&scope=" + url_encode("activity heartrate sleep weight profile");
+    if (!redirect_uri.empty()) url += "&redirect_uri=" + url_encode(redirect_uri);
+    if (!state.empty())        url += "&state=" + url_encode(state);
+    return url;
+}
 ```
 
-### 2. 处理回调
+- `state` 是你的关联 / CSRF 值，会在回调时原样回传。
+- **token 交换**（在该 vendor 的 `/oauth2/token` 用 `code` 换 access token）在带外完成；所得的 access token 就是你存为 `MIROBODY_VENDOR_<ID>_API_KEY` 并在 `fetch` 时传入的那个。
 
-```python
-async def callback(self, user_id: str, code: str, state: str, **kwargs) -> Dict:
-    """处理 OAuth 回调并使用 code 交换令牌"""
-    # 验证 state 参数
-    stored_state = await self._get_stored_state(user_id)
-    if state != stored_state:
-        raise ValueError("Invalid state parameter")
-    
-    # 使用授权码交换访问令牌
-    token_data = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": self.redirect_url,
-        "client_id": self.client_id,
-        "client_secret": self.client_secret
-    }
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.post(self.token_url, data=token_data) as resp:
-            tokens = await resp.json()
-    
-    # 安全地存储令牌
-    await self._store_tokens(user_id, tokens)
-    
-    return {"success": True, "message": "Provider linked successfully"}
+## 撤销
+
+`revoke` 撤销授权。Fitbit 把 token POST 到 `/oauth2/revoke`，以保密客户端身份认证（HTTP Basic `client_id:client_secret`）：
+
+```cpp
+req.url     = base_url() + "/oauth2/revoke";
+req.body    = "token=" + url_encode(config().api_key);
+req.headers = { "Authorization: Basic " +
+                storage::base64_encode(config().client_id + ":" + config().client_secret) };
 ```
 
-### 3. 令牌刷新
+Garmin 的 `revoke` 则调用其有文档的账号断连 hook（`DELETE /wellness-api/rest/user/registration`，Bearer）。Withings 没有公开的 token 撤销端点，所以它的 `revoke` 是一个诚实的桩。
 
-```python
-async def _refresh_token(self, user_id: str) -> Dict:
-    """刷新过期的访问令牌"""
-    tokens = await self._get_tokens(user_id)
-    refresh_token = tokens.get("refresh_token")
-    
-    if not refresh_token:
-        raise ValueError("No refresh token available")
-    
-    token_data = {
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-        "client_id": self.client_id,
-        "client_secret": self.client_secret
-    }
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.post(self.token_url, data=token_data) as resp:
-            new_tokens = await resp.json()
-    
-    # 更新存储的令牌
-    await self._store_tokens(user_id, new_tokens)
-    
-    return new_tokens
+## 验证 webhook
+
+当某个源对其 webhook 签名时，在信任请求体之前先验证它。Fitbit 用 `X-Fitbit-Signature = base64(HMAC-SHA1(raw_body))`（以 `client_secret + "&"` 为密钥）签名；客户端重新计算并以恒定时间比较：
+
+```cpp
+const std::string key = config().client_secret + "&";
+std::array<unsigned char, 20> mac = storage::hmac_sha1(key, body);
+if (!ct_equal(storage::base64_encode(mac.data(), mac.size()), sig)) {
+    throw VendorError(info_.id + ": webhook signature verification failed (X-Fitbit-Signature)");
+}
 ```
 
-## OAuth 1.0 实现
+若签名方案**不公开**（如 Garmin 的未签名推送），`handle_webhook` 保留为桩 —— Mirobody 不会捏造一个验证方案。
 
-某些提供商 (如 Garmin) 使用 OAuth 1.0：
+## PKCE 与有状态流程（SMART on FHIR、Garmin）
 
-### 1. 请求令牌 (Request Token)
+某些流程需要 **PKCE**：在 authorize 时铸造的 `code_verifier` 必须被持久化，并在 token 交换时重放。裸 `authorize_url` 无处存放该 verifier，因此 PKCE 同意住在一个**有状态的连接层**里，而不在 vendor 的 `authorize_url` 中。这正是 Garmin 的 `authorize_url` 是桩的原因。
 
-```python
-async def link(self, user_id: str, return_url: str = None) -> Dict:
-    """发起 OAuth 1.0 流程"""
-    from requests_oauthlib import OAuth1Session
-    
-    # 存储返回 URL
-    if return_url:
-        await self._store_return_url(user_id, return_url)
-    
-    # 创建 OAuth1 会话
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        callback_uri=self.redirect_url
-    )
-    
-    # 获取请求令牌
-    request_token = oauth.fetch_request_token(self.request_token_url)
-    
-    # 临时存储请求令牌
-    await self._store_request_token(user_id, request_token)
-    
-    # 构建授权 URL
-    auth_url = oauth.authorization_url(self.auth_url)
-    
-    return {"link_web_url": auth_url}
-```
+已发布的示例是 **SMART-on-FHIR EHR 连接服务**（`src/health/ehr_connect.*`），其中 Mirobody 是某医院 EHR 的 OAuth 客户端：
 
-### 2. 交换访问令牌
+<Steps>
+  <Step title="Authorize">
+    `POST /health/ehr/authorize {fhir_base_url}` 运行 **SMART 发现**（`{base}/.well-known/smart-configuration`），生成 PKCE verifier + `state`，**缓存**它们，并返回供浏览器使用的该租户 `authorize_url`。
+  </Step>
+  <Step title="Callback">
+    `GET /health/ehr/callback?code=&state=` —— 无 bearer；用户由一次性的 `state` 恢复。缓存的 verifier 被重放，用于在该租户的 token 端点交换 `code`，access token 按用户缓存。
+  </Step>
+  <Step title="Sync">
+    `POST /health/ehr/sync` 使用缓存的 token，经 `ehr` 客户端获取 `Observation` 并持久化它们。
+  </Step>
+</Steps>
 
-```python
-async def callback(self, user_id: str, oauth_token: str, oauth_verifier: str, **kwargs) -> Dict:
-    """使用 verifier 交换访问令牌"""
-    from requests_oauthlib import OAuth1Session
-    
-    # 检索请求令牌
-    request_token = await self._get_request_token(user_id)
-    
-    # 使用请求令牌创建 OAuth1 会话
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        resource_owner_key=request_token["oauth_token"],
-        resource_owner_secret=request_token["oauth_token_secret"],
-        verifier=oauth_verifier
-    )
-    
-    # 获取访问令牌
-    access_token = oauth.fetch_access_token(self.access_token_url)
-    
-    # 存储访问令牌
-    await self._store_tokens(user_id, access_token)
-    
-    return {"success": True}
-```
+由 `SMART_FHIR_*` 系列键配置（client id / redirect uri / scope）。PKCE 生成本身有单元测试（`tests/oauth/pkce_test.cpp`）。
 
-## 安全最佳实践
+## 安全须知
 
 <AccordionGroup>
-  <Accordion title="令牌存储" icon="shield">
-    - 在存入数据库前**加密令牌**
-    - 使用安全的密钥管理 (例如环境变量)
-    - 绝不记录令牌或凭据日志
-    - 在支持的情况下实现令牌轮换 (Token Rotation)
+  <Accordion title="Token 存储" icon="shield">
+    access token 存于 `VendorConfig.api_key`，源自 `MIROBODY_VENDOR_<ID>_*`。名称中含 `_KEY` / `_SECRET` / `_TOKEN` 的配置值会在加载时自动加密（Fernet）。绝不记录 token。
   </Accordion>
-
-  <Accordion title="State 参数" icon="fingerprint">
-    针对 OAuth 2.0：
-    - 生成加密强度高的随机 state
-    - 临时存储 state (10-15 分钟 TTL)
-    - 在回调中验证 state
-    - 防止 CSRF 攻击
+  <Accordion title="State / CSRF" icon="fingerprint">
+    向 `authorize_url` 传入一个随机 `state`，并在回调时验证它。EHR 连接服务使用一个一次性的、同时携带用户绑定的缓存 `state`。
   </Accordion>
-
-  <Accordion title="错误处理" icon="triangle-exclamation">
-    - 优雅地处理过期令牌
-    - 使用指数退避算法重试失败请求
-    - 记录错误时避免暴露敏感数据
-    - 向用户提供清晰的错误消息
+  <Accordion title="恒定时间比较" icon="clock">
+    用恒定时间比较（`ct_equal`）比对 webhook 签名，绝不用 `==`。
+  </Accordion>
+  <Accordion title="不要猜测契约" icon="triangle-exclamation">
+    无公开签名方案 → webhook 为桩。无有文档的撤销 → revoke 为桩。诚实胜过捏造。
   </Accordion>
 </AccordionGroup>
 
-## 完整参考
-
-如需包含所有必需方法和模式的详细实现，请参阅：
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="完整集成指南" icon="book" href="https://github.com/thetahealth/mirobody/blob/main/connect/PROVIDER_INTEGRATION_GUIDE.md">
-    项目仓库中的完整提供商集成指南
+  <Card title="OAuth 2.0 示例（Fitbit）" icon="key" href="/zh/examples/whoop-provider">
+    一个完整的 OAuth 2.0 设备客户端
   </Card>
-  <Card title="Garmin 示例" icon="code" href="/zh/examples/garmin-provider">
-    OAuth 1.0 实现示例
+  <Card title="Garmin 示例" icon="watch" href="/zh/examples/garmin-provider">
+    为何 PKCE / 推送保留为桩
   </Card>
-  <Card title="Whoop 示例" icon="code" href="/zh/examples/whoop-provider">
-    OAuth 2.0 实现示例
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    构建一个新的 `vendor::Vendor`
   </Card>
-  <Card title="提供商测试" icon="flask" href="/zh/development/provider-testing">
-    测试策略
+  <Card title="使用 Provider" icon="link" href="/zh/providers/using-providers">
+    端到端的 EHR 连接流程
   </Card>
 </CardGroup>

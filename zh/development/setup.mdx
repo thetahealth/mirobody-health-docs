@@ -1,34 +1,34 @@
 ---
 title: "开发环境搭建"
-description: "搭建 Mirobody 的本地开发环境"
+description: "搭建 Mirobody 的本地 C++ 开发构建：CMake + Ninja、build.sh 与测试套件。"
 ---
+
+Mirobody 是一个 **C++11** 代码库，用 **CMake** 和 **Ninja** 构建（Windows 上加 vcpkg）。在它上面做开发，意味着安装原生工具链、构建 `mirobody` 目标、运行 Catch2 测试套件 —— 没有 Python 虚拟环境，也没有 `pip install` 步骤。
 
 ## 前置条件
 
-开始搭建开发环境前，请确保你已安装：
-
 <CardGroup cols={2}>
-  <Card title="Python 3.10+" icon="python">
-    运行应用程序所需
+  <Card title="C++11 工具链" icon="hammer">
+    GCC ≥ 4.8.1 / Clang ≥ 3.3 / Apple Clang / MSVC 2017+
   </Card>
-  <Card title="Node.js 18+" icon="node">
-    图表渲染和服务器端渲染 (SSR) 所需
+  <Card title="CMake + Ninja" icon="gear">
+    CMake 和 Ninja 生成器
   </Card>
-  <Card title="Docker & Docker Compose" icon="docker">
-    用于运行 PostgreSQL 和 Redis
+  <Card title="原生库" icon="boxes-stacked">
+    libwebsockets、libcurl、OpenSSL、rapidjson、yaml-cpp、hiredis、图像编解码器
   </Card>
-  <Card title="系统构建工具" icon="hammer">
-    gcc, gfortran 以及科学计算库
+  <Card title="一个数据库客户端" icon="database">
+    默认 PostgreSQL 后端用 libpq（或 SQLite 客户端）
   </Card>
   <Card title="Git" icon="git">
     用于版本控制
   </Card>
-  <Card title="代码编辑器" icon="code">
-    VS Code, PyCharm 或你偏好的 IDE
+  <Card title="Catch2 v3" icon="flask">
+    用于单元测试套件（`find_package(Catch2 3)`）
   </Card>
 </CardGroup>
 
-## 快速搭建
+## 搭建
 
 <Steps>
   <Step title="克隆仓库">
@@ -38,225 +38,177 @@ description: "搭建 Mirobody 的本地开发环境"
     ```
   </Step>
 
-  <Step title="安装系统依赖">
+  <Step title="安装原生依赖">
+    vcpkg 仅用于 Windows；Linux 和 macOS 用系统包管理器。
+
     <Tabs>
-      <Tab title="macOS">
+      <Tab title="Debian / Ubuntu / WSL">
         ```bash
-        xcode-select --install
-        brew install gcc gfortran fftw hdf5 openblas lapack
+        sudo apt install build-essential cmake ninja-build pkg-config \
+                         libwebsockets-dev libcurl4-openssl-dev libssl-dev \
+                         rapidjson-dev libyaml-cpp-dev libhiredis-dev libpq-dev \
+                         libjpeg-dev libpng-dev libtiff-dev libwebp-dev
+
+        # 测试套件所需的 Catch2 v3
+        sudo apt install catch2
         ```
       </Tab>
 
-      <Tab title="Linux (Ubuntu/Debian)">
+      <Tab title="macOS (Homebrew)">
         ```bash
-        sudo apt install -y g++ gfortran build-essential \
-          libfftw3-dev libhdf5-dev libblas-dev liblapack-dev
+        brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+                     rapidjson yaml-cpp hiredis libpq \
+                     jpeg-turbo libpng libtiff webp catch2
+        ```
+      </Tab>
+
+      <Tab title="Fedora / RHEL">
+        ```bash
+        sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
+                         libwebsockets-devel libcurl-devel openssl-devel \
+                         rapidjson-devel yaml-cpp-devel hiredis-devel libpq-devel \
+                         libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel \
+                         catch2-devel
         ```
       </Tab>
     </Tabs>
+
+    <Info>
+    在 Windows 上，安装 Visual Studio（使用 C++ 的桌面开发 + C++ CMake 工具）。vcpkg 会自动从 `vcpkg.json` 拉取每一个依赖 —— 包括 Catch2。参见 [安装指南](/zh/installation)。
+    </Info>
   </Step>
 
-  <Step title="创建虚拟环境">
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate  # Windows: .venv\Scripts\activate
-    pip install --upgrade pip
-    ```
-  </Step>
+  <Step title="构建">
+    `build.sh` 包装脚本会配置（Release、PostgreSQL 后端、测试默认开启）并构建：
 
-  <Step title="安装 Python 依赖">
     ```bash
-    pip install -e .
-
-    # 可选额外依赖
-    # pip install -e ".[cn]"    # 国内可选：阿里 OSS、火山、Dashscope
-    # pip install -e ".[fin]"   # 金融数据：yfinance
-    # pip install -e ".[test]"  # 测试套件
+    ./build.sh              # -> build/mirobody  和  build/tests/mirobody_tests
     ```
 
-    Mirobody 也发布在 PyPI 上，可用 `pip install mirobody` 做非可编辑安装。
-  </Step>
+    用一个 token（`sqlite`、`legacy`、`mysql`、`duckdb`、`ck`）选择其他 SQL 后端；每个后端有各自的 `build[_<backend>]` 目录，因此多个可以共存：
 
-  <Step title="安装 Node.js 依赖">
     ```bash
-    npm install --omit=dev
+    ./build.sh sqlite       # -> build_sqlite/
+    ./build.sh clean        # 清空并重新配置
     ```
 
-    服务端图表渲染器依赖。
-  </Step>
+    或者直接驱动 CMake 以获得更精细的控制（Debug 构建、额外标志）：
 
-  <Step title="启动后台服务">
     ```bash
-    docker compose up -d pg redis
-    ```
-
-    也可以让 Mirobody 连接你已有的 PostgreSQL / Redis 实例。
-  </Step>
-
-  <Step title="配置环境变量">
-    ```bash
-    echo "ENV=localdb" > .env
-    echo "CONFIG_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
-    ```
-
-    然后编辑 `config.localdb.yaml`：
-
-    ```yaml
-    # 默认 DeepAgent 必需
-    OPENROUTER_API_KEY: 'sk-or-...'
-
-    # 可选替代项
-    OPENAI_API_KEY: ''
-    GOOGLE_API_KEY: ''
-    ANTHROPIC_API_KEY: ''
-
-    # 数据库（默认值匹配 compose 文件）
-    PG_HOST: 'localhost'
-    PG_PORT: 5432
-    PG_USER: 'mirobody'
-    PG_PASSWORD: ''
-    PG_DBNAME: 'mirobody'
-
-    # Redis
-    REDIS_HOST: 'localhost'
-    REDIS_PORT: 6379
-    REDIS_DB: 0
-    REDIS_PASSWORD: ''
+    cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DMIROBODY_DATABASE_BACKEND=POSTGRESQL
+    cmake --build build
     ```
   </Step>
 
-  <Step title="运行应用">
+  <Step title="配置并运行">
     ```bash
-    python -m main
+    cp config.example.yml config.yml
     ```
 
-    服务器在 `http://localhost:18080` 启动。
+    在 `config.yml` 里设置一个 LLM 密钥（以及默认后端所需的 `PG_*` 连接），然后运行：
+
+    ```bash
+    ./mirobody --config config.yml
+    ```
+
+    服务器在 `http://localhost:8080` 启动。完整键列表见 [配置](/zh/configuration)。
 
     <Tip>
-    在 WSL 下运行同样可以从 Windows 直接访问该地址。
+    要一个无需外部数据库的零依赖开发循环，构建 SQLite 后端（`./build.sh sqlite`）并运行 `./build_sqlite/mirobody`。
     </Tip>
   </Step>
 </Steps>
 
-## 开发工具
+## 常用 CMake 选项
 
-### 推荐的 VS Code 扩展
+| 选项 | 默认 | 用途 |
+| ------ | ------- | ------- |
+| `MIROBODY_DATABASE_BACKEND` | `POSTGRESQL` | 链接哪个 SQL 后端（`SQLITE`、`MYSQL`、`DUCKDB`、`CLICKHOUSE`、`POSTGRESQL_LEGACY`） |
+| `MIROBODY_BUILD_TESTS` | `ON` | 构建 Catch2 测试套件 |
+| `MIROBODY_BUILD_TOOLS` | `ON` | 构建 `cli/` 调试二进制 |
+| `MIROBODY_ENABLE_PDF` | `OFF` | 经 PDFium 的 PDF 文本抽取 |
+| `MIROBODY_ENABLE_OCR` | `OFF` | 经 Tesseract 的 OCR（隐含 PDF） |
+| `MIROBODY_ENABLE_XLS` | `OFF` | 经 libxls 的旧版 `.xls` |
+| `MIROBODY_BUILD_SHARED` / `_PYTHON` / `_JNI` | 视情况 | 构建共享库 / Python wheel / JNI shim，替代（或并列于）二进制 |
 
-```json .vscode/extensions.json
-{
-  "recommendations": [
-    "ms-python.python",
-    "ms-python.vscode-pylance",
-    "ms-python.black-formatter",
-    "charliermarsh.ruff",
-    "tamasfe.even-better-toml",
-    "redhat.vscode-yaml"
-  ]
-}
-```
+## 运行测试
 
-### 代码格式化
+测试是一个 Catch2 可执行文件（`mirobody_tests`），经 `catch_discover_tests` 注册到 CTest。
 
 ```bash
-# 安装开发依赖
-pip install black ruff pytest pytest-asyncio
+# 构建（测试默认开启）
+./build.sh
 
-# 格式化代码
-black .
+# 经 CTest 运行
+ctest --test-dir build --output-on-failure
 
-# 代码检查 (Lint)
-ruff check .
+# 或直接运行二进制（Catch2 过滤器 / 标签）
+./build/tests/mirobody_tests
+./build/tests/mirobody_tests "[fhir]"      # 仅 fhir 测试
+./build/tests/mirobody_tests --list-tests
 ```
 
-### 运行测试
+测试源码位于 `tests/` 下（`chat/`、`fhir/`、`circle/`、`jwt/`、`cache/` 等子目录，外加一个 `e2e/` 套件）。
+
+## 调试 CLI
+
+桌面构建会在 `cli/` 下产出独立的各子系统 CLI（用 `-DMIROBODY_BUILD_TOOLS=OFF` 切换），它们绕过 HTTP/WS 服务器 —— 便于单独把玩某一个部分：
+
+- **LLM 客户端** —— `openai_chat`、`openai_responses`、`openai_realtime`、`gemini`、`gemini_live`、`mirothinker`
+- **存储** —— `aws_s3`、`aliyun_oss`、`azure_blob`
+- **转码器** —— `image`、`document`、`file_parser`
+- **FHIR** —— `fhir normalize "<5.6 mg/dL"`，以及 `fhir token <user_id> --config <yaml>` 为 FHIR 路由铸出一个 bearer JWT
+- **鉴权** —— `jwt_keygen`（RS256 / JWKS 的 RSA 密钥对）、`google_jwt`、`firebase_jwt`
+- **其他** —— `mcp`、`agent`、`vendor`
+
+各二进制的标志和凭据见仓库中的 `cli/README.md`。
+
+## 新增一个 Agent 或 MCP 工具
+
+两者都在**编译期**自注册 —— 没有运行时插件目录：
+
+- **Agent** —— 唯一的 agent 是 `res/agents/base.cpp`。`res/agents/` 下的每个 `.cpp` 都会被 glob 进构建。
+- **MCP 工具** —— 在 `res/mcp_tools/` 里丢一个 `.cpp`，用一行 `MIROBODY_REGISTER_TOOL(...)` 声明它的参数表，然后重新构建。最小示例见 `res/mcp_tools/echo.cpp` 和 [新增工具](/zh/tools/adding-tools)。
 
 ```bash
-# 运行所有测试
-pytest
-
-# 运行并生成覆盖率报告
-pytest --cov=connect --cov-report=html
-
-# 运行特定的测试文件
-pytest tests/test_provider_garmin.py
-
-# 运行集成测试
-pytest -m integration
+# 在 res/ 下加完文件后，重新构建即可
+./build.sh
 ```
 
 ## 项目结构
 
 ```
 mirobody/
-├── mirobody/                # 主应用程序包
-│   ├── chat/               # 聊天和 Agent 服务
-│   │   ├── adapters/      # 协议适配器 (HTTP, WebSocket)
-│   │   ├── agent.py       # Agent 注册和加载
-│   │   ├── service.py     # 聊天服务路由
-│   │   └── unified_chat_service.py  # 核心聊天逻辑
-│   ├── mcp/                # MCP 协议实现
-│   │   ├── service.py     # JSON-RPC 处理器
-│   │   ├── tool.py        # 工具加载和执行
-│   │   └── resource.py    # 资源管理
-│   ├── pulse/              # 健康数据平台
-│   │   ├── theta/         # OAuth 提供商 (Garmin, Whoop 等)
-│   │   ├── apple/         # Apple 健康平台
-│   │   ├── core/          # 核心健康服务
-│   │   ├── file_parser/   # 文件解析处理器
-│   │   └── router/        # API 路由
-│   ├── pub/                # 公共工具和 Agent
-│   │   ├── tools/         # 通用 MCP 工具
-│   │   ├── tools_health/  # 健康相关 MCP 工具
-│   │   ├── resources/     # MCP 资源
-│   │   └── agents/        # Agent 实现
-│   ├── server/             # HTTP 服务器
-│   ├── user/               # 身份验证
-│   └── utils/              # 实用工具
-├── database/               # 数据库架构和迁移
-│   └── resource/          # SQL 初始化文件
-├── compose.yaml           # Docker Compose 配置
-├── config.yaml            # 基础配置 (不可修改)
-├── config.localdb.yaml    # 你的环境配置
-├── .env                   # 环境变量
-├── main.py                # 应用程序入口
-├── requirements.txt       # Python 依赖
-├── package.json           # Node.js 依赖
-└── run.sh                 # 部署脚本
+├── src/            # C++ 内核（server、chat、llm、mcp、fhir、health/vendor、database、storage…）
+│   ├── mirobody.h  # 公开 C ABI
+│   └── main.cpp    # 独立服务器入口
+├── res/            # 编译/托管的资源：agents/、mcp_tools/、mcp_resources/、sql/、htdoc/
+├── tests/          # Catch2 单元测试（build/tests/mirobody_tests）
+├── cli/            # 独立的各子系统调试二进制
+├── htdoc/          # Web 客户端源码（webpack -> res/htdoc）
+├── bindings/       # Java / Go / C# / Node / Rust FFI 示例
+├── android/  ios/  electron/  qt/  miniapp/   # 宿主应用 / 客户端
+├── CMakeLists.txt  build.sh  build.cmd
+└── config.example.yml
 ```
 
-## 核心目录
-
-<AccordionGroup>
-  <Accordion title="mirobody/chat" icon="comments">
-    包含 Agent 编排、消息历史记录以及 HTTP (SSE) 和 WebSocket 协议适配器的聊天服务。
-  </Accordion>
-
-  <Accordion title="mirobody/mcp" icon="bolt">
-    MCP 协议实现，包含 JSON-RPC 2.0 处理器、工具/资源加载和身份验证。
-  </Accordion>
-
-  <Accordion title="mirobody/pulse" icon="heartbeat">
-    健康数据平台，包含 OAuth 提供商、Apple 健康集成、文件处理和数据聚合。
-  </Accordion>
-
-  <Accordion title="mirobody/pub" icon="folder-open">
-    可通过 MCP 发现的公共工具、资源和 Agent。在此处添加自定义工具。
-  </Accordion>
-</AccordionGroup>
+完整目录树以及其他构建工件见 [安装指南 → 仓库结构](/zh/installation#仓库结构)。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="参与贡献" icon="code-pull-request" href="/zh/development/contributing">
-    了解如何为项目做出贡献
+    如何提交变更
   </Card>
-  <Card title="测试指南" icon="flask" href="/zh/development/testing">
-    为你的代码编写测试
+  <Card title="测试" icon="flask" href="/zh/development/testing">
+    编写并运行测试
   </Card>
   <Card title="Provider 集成" icon="plug" href="/zh/development/provider-integration">
-    添加新的 Provider 集成
+    接入新的健康数据源
   </Card>
-  <Card title="部署指南" icon="rocket" href="/zh/deployment/docker">
-    部署你的改动
+  <Card title="部署" icon="rocket" href="/zh/deployment/docker">
+    发布你的构建
   </Card>
 </CardGroup>

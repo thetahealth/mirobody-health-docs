@@ -1,116 +1,98 @@
 ---
 title: "测试指南"
-description: "Mirobody 的测试规范与实践"
+description: "Mirobody 的 C++ 测试套件如何组织以及如何运行。"
 ---
 
-## 测试理念
+## 概览
 
-我们相信全面的测试是可靠性与可维护性的基础。我们的测试套件包括：
+Mirobody 的测试是**用 [Catch2 v3](https://github.com/catchorg/Catch2) 编写的 C++ 单元测试**，位于 [`tests/`](https://github.com/thetahealth/mirobody/tree/main/tests) 下，编译进单个 `mirobody_tests` 二进制。它们默认构建，并由 CTest 发现。
 
-- **单元测试 (Unit Tests)**：隔离测试单个组件
-- **集成测试 (Integration Tests)**：测试组件间的交互
-- **端到端测试 (End-to-End Tests)**：测试完整的工作流
+<Info>
+这是一套 C++ 套件，而非 `pytest`。（`tests/` 中还残留着旧引擎的一些 Python `.pyc` 文件，但活动的测试是那些 `*_test.cpp` 文件。）
+</Info>
 
 ## 运行测试
 
+测试作为常规构建的一部分被构建（`MIROBODY_BUILD_TESTS` CMake 选项默认为 **ON**，Android / iOS 除外）：
+
 ```bash
-# 运行所有测试
-pytest
-
-# 以详细模式运行
-pytest -v
-
-# 运行特定的测试文件
-pytest tests/test_provider_garmin.py
-
-# 运行匹配特定模式的测试
-pytest -k "test_oauth"
-
-# 运行并生成覆盖率报告
-pytest --cov=connect --cov-report=html
+./build.sh                      # builds the engine + tests
+ctest --test-dir build          # run the whole suite via CTest
 ```
 
-## 测试结构
+或直接运行测试二进制并使用 Catch2 的过滤：
 
-```
-tests/
-├── __init__.py
-├── conftest.py                    # 共享的 fixtures
-├── test_provider_garmin.py
-├── test_provider_whoop.py
-├── test_data_formatting.py
-└── fixtures/
-    ├── sample_responses.json
-    └── mock_data.py
+```bash
+./build/tests/mirobody_tests                 # all tests
+./build/tests/mirobody_tests "[fhir]"        # only the [fhir]-tagged tests
+./build/tests/mirobody_tests "[transcode]"   # only transcoder tests
 ```
 
-## 编写测试
+<Note>
+在 Windows 上，二进制为 `build\tests\mirobody_tests.exe`。构建目录名随你的后端选择器而定（如 `build_sqlite/tests/mirobody_tests`）。
+</Note>
 
-### 单元测试示例
+## 测试布局
 
-```python
-import pytest
-from connect.theta.mirobody_garmin.provider_garmin import ThetaGarminProvider
+测试镜像 `src/` 的模块树。当前覆盖包括：
 
-@pytest.fixture
-def provider():
-    return ThetaGarminProvider()
+| 领域 | 测试 |
+|------|-------|
+| **FHIR** | `tests/fhir/units_test.cpp`（UCUM 归一化）、`tests/fhir/resource_test.cpp`（资源校验） |
+| **Transcode** | `tests/transcode/document_test.cpp`、`tests/transcode/image_test.cpp`、`tests/transcode/file_test.cpp` |
+| **LLM 客户端** | `tests/llm/*` —— SSE 解析器、OpenAI / Gemini / MiroThinker 聊天、realtime / live |
+| **MCP** | `tests/mcp/tool_test.cpp`、`tests/mcp/resource_test.cpp`（工具 / 资源注册） |
+| **Chat** | `tests/chat/agent_test.cpp`、`event_test.cpp`、`history_test.cpp`、`persist_test.cpp` |
+| **基础设施** | `tests/cache/`、`tests/jwt/`、`tests/oauth/pkce_test.cpp`、`tests/storage/`、`tests/memory/`、`tests/circle/`、`tests/utils/` |
 
-@pytest.mark.asyncio
-async def test_provider_info(provider):
-    """测试 Provider 元数据"""
-    info = provider.info
-    assert info.slug == "theta_garmin"
-    assert info.supported is True
+测试目标直接链接那些自注册对象（`mcp_tools`、`mcp_resources`、`agent_impls`），方式与 app 目标相同 —— 这正是注册测试能观察到编译进程序的工具与 agent 的原因。
+
+## 编写一个测试
+
+在匹配的 `tests/<module>/` 目录下新增一个 `*_test.cpp`，然后在 [`tests/CMakeLists.txt`](https://github.com/thetahealth/mirobody/blob/main/tests/CMakeLists.txt) 的 `add_executable(mirobody_tests ...)` 源文件列表中登记它。
+
+```cpp
+#include <catch2/catch_test_macros.hpp>
+#include "fhir/units/normalize.hpp"
+
+using namespace mirobody::fhir::units;
+
+TEST_CASE("UCUM normalization folds common spellings", "[fhir][units]") {
+    REQUIRE(normalize_unit("MG/DL") == "mg/dL");
+    REQUIRE(normalize_unit("mmHg")  == "mm[Hg]");
+
+    ParsedQuantity q = parse_value_unit("<5.6 mg/dL");
+    REQUIRE(q.comparator == "<");
+    REQUIRE(q.value == Catch::Approx(5.6));
+    REQUIRE(q.unit == "mg/dL");
+}
 ```
 
-### 集成测试示例
+用 `[module]` 给测试打标签，以便可被选中（`mirobody_tests "[units]"`）。
 
-```python
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_complete_oauth_flow():
-    """测试完整的 OAuth 流程"""
-    provider = ThetaGarminProvider()
-    
-    # 测试绑定
-    request = MockRequest(user_id="test_user")
-    result = await provider.link(request)
-    assert "link_web_url" in result
-```
+## 单元套件覆盖什么 —— 又不覆盖什么
 
-## 最佳实践
+- **纯逻辑 / 无需数据库的逻辑**（单位引擎、FHIR 资源校验器、SSE 解析、PKCE、JWT、HMAC 签名）由无外部依赖的快速单元测试覆盖。
+- **依赖数据库的路径**（FHIR REST 处理器、聊天持久化）针对一个**运行中的、带数据库的服务器**端到端地演练，而非在单元二进制中。
+- **Vendor 客户端**在套件中**没有单元测试** —— 它们调用真实的第三方 API，因此针对一个运行中的服务器手动验证（参见 [Provider 测试](/zh/development/provider-testing)）。它们的元数据（`VendorInfo`）无需凭据、本可断言，但传输层靠手工验证。
 
-<AccordionGroup>
-  <Accordion title="测试命名" icon="signature">
-    - 使用描述性名称：`test_oauth_link_generates_valid_url`
-    - 以 `test_` 开头
-    - 将相关的测试组织在类中
-  </Accordion>
+## 持续集成
 
-  <Accordion title="Fixtures" icon="flask">
-    - 使用 fixtures 进行通用设置
-    - 保持 fixtures 简单
-    - 谨慎使用 `autouse=True`
-  </Accordion>
+CI 在推送时运行构建与测试。流水线定义在仓库的 CI 配置（`.gitlab-ci.yml`）中。*(verify the exact jobs in the repo.)*
 
-  <Accordion title="Mocking" icon="mask">
-    - Mock 外部服务
-    - 不要 Mock 正在测试的对象本身
-    - 对于 HTTP 调用，建议使用 `aioresponses`
-  </Accordion>
+## 下一步
 
-  <Accordion title="断言 (Assertions)" icon="check">
-    - 使用具体的断言
-    - 每个测试只验证一件事
-    - 添加有意义的失败提示消息
-  </Accordion>
-</AccordionGroup>
-
-## 持续集成 (CI)
-
-测试会在每次推送到 GitHub 时通过 GitHub Actions 自动运行。配置详情请参阅 `.github/workflows/test.yml`。
-
-<Tip>
-在实现新功能之前先编写测试（采用 TDD 开发模式）。
-</Tip>
+<CardGroup cols={2}>
+  <Card title="贡献指南" icon="code-pull-request" href="/zh/development/contributing">
+    构建与修改工作流
+  </Card>
+  <Card title="Provider 测试" icon="flask" href="/zh/development/provider-testing">
+    手动验证一个 vendor 客户端
+  </Card>
+  <Card title="Provider 集成" icon="plug" href="/zh/development/provider-integration">
+    新增一个 `vendor::Vendor`
+  </Card>
+  <Card title="文件处理" icon="file" href="/zh/development/file-processing">
+    转码器及其测试
+  </Card>
+</CardGroup>

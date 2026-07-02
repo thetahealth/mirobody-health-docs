@@ -1,324 +1,132 @@
 ---
 title: "Provider 测试"
-description: "自定义 Provider 集成的测试策略"
+description: "用 vendor 调试 CLI 并针对运行中的服务器验证一个 C++ vendor 客户端。"
 ---
 
 ## 概览
 
-充分测试能确保你的 Provider 集成可靠、安全，并能正确处理各种边界情况。
+vendor 客户端调用真实的第三方 API，因此它们不属于单元套件。你以两种方式验证它们：**`vendor` 调试 CLI**（隔离演练某个客户端的操作，无需服务器）和**运行中服务器上的 HTTP 路由**（所有权门控的 bind → verify → fetch 路径）。
 
-## 测试策略
+<Info>
+这不是带 mock `aiohttp` 的 `pytest`。元数据（`VendorInfo`）无需凭据；传输操作需要针对该 vendor 的真实凭据。
+</Info>
 
-<CardGroup cols={3}>
-  <Card title="单元测试" icon="vial">
-    隔离测试单个方法
-  </Card>
-  <Card title="集成测试" icon="link">
-    端到端测试 OAuth 流程
-  </Card>
-  <Card title="手动测试" icon="hand">
-    在真实环境中验证
-  </Card>
-</CardGroup>
+## `vendor` 调试 CLI
 
-## 单元测试
+`cli/vendor.cpp` 工具（当 `MIROBODY_BUILD_TOOLS` 为 ON 时构建于 `cli/` 下 —— 默认开启）直接驱动某个 vendor 的契约操作。子命令：
 
-测试单个 Provider 方法：
-
-```python tests/test_yourprovider.py
-import pytest
-from connect.theta.mirobody_yourprovider.provider_yourprovider import ThetaYourProvider
-
-@pytest.mark.asyncio
-async def test_format_data():
-    """测试数据转换"""
-    provider = ThetaYourProvider.factory()
-    
-    # Mock 来自厂商的原始数据
-    raw_data = {
-        "steps": 10000,
-        "date": "2024-01-15",
-        "calories": 450
-    }
-    
-    # 转换数据
-    formatted = provider.format_data(raw_data)
-    
-    # 验证转换结果
-    assert len(formatted) == 2
-    assert formatted[0].indicator == StandardIndicator.DAILY_STEPS
-    assert formatted[0].value == "10000"
-
-@pytest.mark.asyncio
-async def test_deduplication():
-    """测试重复数据检测"""
-    provider = ThetaYourProvider.factory()
-    
-    # 检查数据是否已处理
-    is_duplicate = await provider.is_data_already_processed(
-        user_id="test_user",
-        msg_id="unique_record_123"
-    )
-    
-    assert is_duplicate == False
+```text
+vendor list                                          # all registered vendors
+vendor <id> info                                     # full metadata for one vendor
+vendor <id> auth-url  --redirect URL [--state S]     # build the consent URL
+vendor <id> providers [--user U]                     # connectable data sources
+vendor <id> fetch     --user U --domain sleep [--start ISO] [--end ISO]
+vendor <id> webhook   --file payload.json            # body from --file/--data/stdin
+vendor <id> revoke    --user U [--provider slug]
 ```
 
-## 集成测试
+凭据来自服务器所用的同一批 `MIROBODY_VENDOR_<ID>_*` 环境变量。
 
-测试完整的 OAuth 流程：
+<Steps>
+  <Step title="元数据（无需凭据）">
+    确认你的 `VendorInfo` 完整且 id 已注册：
+    ```bash
+    ./build/cli/vendor list
+    ./build/cli/vendor fitbit info
+    ```
+  </Step>
+  <Step title="授权 URL">
+    ```bash
+    MIROBODY_VENDOR_FITBIT_CLIENT_ID=... \
+      ./build/cli/vendor fitbit auth-url --redirect https://localhost/cb --state abc
+    ```
+    检查该 URL 格式正确，并携带你的 scopes / `state`。
+  </Step>
+  <Step title="Fetch">
+    用一个真实的 access token，在某个时间窗内获取一个域：
+    ```bash
+    MIROBODY_VENDOR_FITBIT_API_KEY=... \
+      ./build/cli/vendor fitbit fetch --user - --domain heart_rate --start 2026-06-01 --end 2026-06-07
+    ```
+    验证返回的 JSON 与该 vendor 有文档的形态相符，且**不支持的域会抛错**并给出清晰的消息。
+  </Step>
+  <Step title="Webhook（带签名的 vendor）">
+    喂入一个捕获到的 payload 并确认签名验证：
+    ```bash
+    ./build/cli/vendor fitbit webhook --file sample_notification.json
+    ```
+    再传入一个被篡改的请求体，确认它被拒绝。
+  </Step>
+  <Step title="Revoke">
+    ```bash
+    MIROBODY_VENDOR_FITBIT_API_KEY=... MIROBODY_VENDOR_FITBIT_CLIENT_ID=... \
+    MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=... ./build/cli/vendor fitbit revoke --user -
+    ```
+  </Step>
+</Steps>
 
-```python
-@pytest.mark.asyncio
-async def test_oauth_flow():
-    """测试完整的 OAuth 流程"""
-    provider = ThetaYourProvider.factory()
-    user_id = "test_user_oauth"
-    
-    # 第 1 步：发起绑定
-    link_result = await provider.link(user_id)
-    assert "link_web_url" in link_result
-    assert "state" in link_result or "oauth_token" in link_result
-    
-    # 第 2 步：模拟回调
-    # (使用 Mock 的 OAuth 响应)
-    callback_result = await provider.callback(
-        user_id=user_id,
-        code="mock_auth_code",
-        state=link_result.get("state")
-    )
-    
-    assert callback_result["success"] == True
-    
-    # 第 3 步：验证 Token 已存储
-    tokens = await provider._get_tokens(user_id)
-    assert tokens is not None
+<Note>
+对于桩操作，CLI 会打印该 vendor 的"not implemented"原因 —— 这是预期的，其本身也值得断言（该消息应点明它*为何*是桩）。
+</Note>
 
-@pytest.mark.asyncio
-async def test_data_pull():
-    """测试从 API 获取数据"""
-    provider = ThetaYourProvider.factory()
-    user_id = "test_user_data"
-    
-    # 拉取数据
-    raw_data = await provider.pull_from_vendor_api(user_id)
-    
-    # 验证数据结构
-    assert isinstance(raw_data, list)
-    assert len(raw_data) > 0
-    
-    # 验证必要字段
-    for record in raw_data:
-        assert "date" in record or "timestamp" in record
-```
+## 针对运行中的服务器
 
-## 本地 HTTPS 设置（用于 OAuth 开发）
-
-<Warning>
-由于安全要求，WHOOP 等健康数据提供商要求 OAuth 身份验证必须使用 HTTPS 回调 URL。
-</Warning>
-
-在本地开发时，服务器通常运行在 `http://localhost`，而这些提供商会拒绝该地址。要在本地测试 OAuth 流程，你需要设置一个本地 HTTPS 反向代理，负责终止 SSL/TLS 并将请求转发到你的开发服务器。
-
-这可以通过配置系统的 hosts 文件将生产回调域名（例如 `data-gray.thetahealth.ai`）映射到 `127.0.0.1`，然后在 443 端口运行一个处理 HTTPS 并代理到本地 HTTP 服务器的反向代理来实现。
-
-有多种工具可以提供此功能，包括具有反向代理能力的 Web 服务器（nginx、Apache）、专门的 HTTPS 代理工具，或 ngrok 等基于云的隧道服务。
-
-**一般步骤：**
-1. 安装本地证书授权工具（如 `mkcert`）为你的域名生成受信任的 SSL 证书
-2. 配置代理监听 443 端口，使用你的 SSL 证书并转发到本地开发端口（例如 `localhost:18080`）
-3. 更新 hosts 文件，将回调域名解析到 localhost
-
-这种设置允许你在开发环境中使用与生产环境完全相同的回调 URL，从而使 OAuth 集成测试更加顺畅，而无需为每次代码更改都进行部署。
-
-## 手动测试
-
-### 1. 测试 OAuth 绑定
+演练所有权门控的 HTTP 路径（所有路由都需要 bearer JWT；服务器监听 `HTTP_PORT`，默认 `8080`）：
 
 ```bash
-# 获取授权 URL
-curl "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/link?user_id=manual_test_user"
+# 1. bind the external account id (PENDING)
+curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
+  -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
+  -d '{"external_user_id": "FITBIT_USER_ID"}'
+
+# 2. verify ownership (-> VERIFIED)
+curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" -H "Authorization: Bearer $JWT"
+
+# 3. fetch a verified link's data
+curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-07" \
+  -H "Authorization: Bearer $JWT"
 ```
 
-访问返回的 URL 并完成授权。
+确认在验证**之前**获取会被拒绝，且第二名用户不能 bind 同一个 `external_user_id`（`UNIQUE(vendor_id, external_user_id)` 这道防线）。
 
-### 2. 测试回调
+对于 EHR（SMART on FHIR），走一遍浏览器流程：`/health/ehr/providers` → `/health/ehr/authorize` → `/health/ehr/callback` → `/health/ehr/sync`，然后从 `/fhir/Observation` 读回已持久化的 `Observation`。
 
-授权后，验证回调是否成功：
+## 用于 OAuth 回调的本地 HTTPS
 
-```bash
-# 检查 Provider 状态
-curl "http://localhost:18080/api/v1/pulse/providers?user_id=manual_test_user"
-```
+许多 vendor 会拒绝非 HTTPS 的 redirect URI，因此一个普通的 `http://localhost:8080` 回调无法用于真实的同意流程。本地开发的选项：
 
-预期结果：Provider 显示 `"status": "connected"`
+- 一个在 443 端口终止 TLS 的本地反向代理（nginx / Caddy），使用来自 **`mkcert`** 的受信任证书，转发到 `localhost:8080`，并在 hosts 文件中加一条把你的生产回调域名映射到 `127.0.0.1` 的记录 —— 从而让**同一个** redirect URI 在本地和生产都能工作。
+- 一个隧道服务，如 **ngrok**（在本地测试期间也便于接收入站 **webhook** 以及用于 `MCP_PUBLIC_URL`）。
 
-### 3. 测试数据拉取
+关键在于，向 vendor 呈现它所期望的确切 HTTPS 回调 URL，而无需为每次改动都部署一遍。
 
-```bash
-# 触发数据同步
-curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_yourprovider/sync?user_id=manual_test_user"
-```
-
-### 4. 验证数据
-
-```bash
-# 检查数据库中的新记录
-psql -d your_db -c "SELECT COUNT(*) FROM theta_ai.health_data_yourprovider WHERE theta_user_id = 'manual_test_user';"
-
-# 检查标准化数据
-psql -d your_db -c "SELECT indicator, COUNT(*) FROM theta_ai.th_series_data WHERE user_id = 'manual_test_user' GROUP BY indicator;"
-```
-
-## 测试场景
+## 需要覆盖的内容
 
 <AccordionGroup>
-  <Accordion title="理想路径 (Happy Path)" icon="check">
-    测试正常操作：
-    - 全新的 OAuth 连接
-    - 使用有效 Token 获取数据
-    - 正确的数据转换
-    - 成功存储到数据库
+  <Accordion title="理想路径" icon="check">
+    有效凭据 → `auth-url` 能构建，`fetch` 为每个支持的域返回有文档的 JSON，带签名的 `webhook` 能验证，`revoke` 成功。
   </Accordion>
-
-  <Accordion title="错误处理" icon="triangle-exclamation">
-    测试错误场景：
-    - 无效的 OAuth 凭据
-    - Token 过期
-    - API 速率限制
-    - 网络故障
-    - 格式错误的 API 响应
-    - 缺少必要字段
+  <Accordion title="缺失 / 错误配置" icon="triangle-exclamation">
+    空的 `api_key` / `client_id` → 一个点明缺失环境变量的清晰 `VendorError`。必填的 `base_url`（自托管 / EHR）为空 → 拒绝执行，而非猜测一个主机。
   </Accordion>
-
   <Accordion title="边界情况" icon="code">
-    测试边界情况：
-    - 空的数据响应
-    - 超大数据集
-    - 重复记录
-    - 时区转换
-    - Null/缺失值
+    不支持的 `DataDomain` 抛错；空的日期窗使用 vendor 默认；被篡改的 webhook 签名被拒绝；桩操作报告其原因。
   </Accordion>
 </AccordionGroup>
-
-## Mock 外部 API
-
-在单元测试中使用 Mock：
-
-```python
-from unittest.mock import AsyncMock, patch
-
-@pytest.mark.asyncio
-@patch('aiohttp.ClientSession.post')
-async def test_token_exchange(mock_post):
-    """测试使用 Mock API 进行 Token 交换"""
-    # Mock API 响应
-    mock_response = AsyncMock()
-    mock_response.json.return_value = {
-        "access_token": "mock_token_123",
-        "refresh_token": "mock_refresh_456",
-        "expires_in": 3600
-    }
-    mock_post.return_value.__aenter__.return_value = mock_response
-    
-    provider = ThetaYourProvider.factory()
-    
-    # 使用 Mock 响应测试回调
-    result = await provider.callback(
-        user_id="test_user",
-        code="mock_code",
-        state="mock_state"
-    )
-    
-    assert result["success"] == True
-```
-
-## 测试数据
-
-创建真实的测试数据：
-
-```python
-# Mock 厂商 API 响应
-MOCK_GARMIN_DAILY_DATA = {
-    "summaries": [
-        {
-            "calendarDate": "2024-01-15",
-            "steps": 10543,
-            "distanceInMeters": 8234,
-            "activeKilocalories": 450,
-            "bmrKilocalories": 1650,
-            "floorsClimbed": 12,
-            "activeTimeInSeconds": 5400
-        }
-    ]
-}
-
-MOCK_WHOOP_SLEEP_DATA = {
-    "records": [
-        {
-            "id": "sleep_123",
-            "score": {
-                "total": 85,
-                "efficiency": 92
-            },
-            "duration_millis": 27000000,
-            "stages": {
-                "deep_millis": 7200000,
-                "light_millis": 14400000,
-                "rem_millis": 5400000
-            }
-        }
-    ]
-}
-```
-
-## 持续集成 (CI)
-
-将 Provider 测试添加到 CI 流水线中：
-
-```yaml .github/workflows/test-providers.yml
-name: Test Providers
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: 设置 Python 环境
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      
-      - name: 安装依赖
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio
-      
-      - name: 运行 Provider 测试
-        run: |
-          pytest tests/test_*_provider.py -v
-```
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Provider 集成" icon="puzzle-piece" href="/zh/development/provider-integration">
-    构建自定义 Provider
-  </Card>
-  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
-    实现 OAuth 流程
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    构建你正在测试的 vendor
   </Card>
   <Card title="测试指南" icon="flask" href="/zh/development/testing">
-    通用测试实践
+    Catch2 单元套件
   </Card>
-  <Card title="示例" icon="code" href="/zh/examples/garmin-provider">
-    查看真实的 Provider 代码
+  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
+    同意、webhook、撤销
+  </Card>
+  <Card title="使用 Provider" icon="link" href="/zh/providers/using-providers">
+    bind / verify / data 路由
   </Card>
 </CardGroup>
-
-<Note>
-有关完整的测试示例和模式，请参阅代码库中的 <a href="https://github.com/thetahealth/mirobody/blob/main/mirobody/pulse/README.md">Provider 集成指南</a>。
-</Note>

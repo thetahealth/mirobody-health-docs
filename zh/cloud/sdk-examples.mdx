@@ -8,7 +8,7 @@ description: "curl / Python / Node.js 的端到端 /v1 示例。"
 ## curl
 
 ```bash
-BASE=https://mcp.thetahealth.cn/v1
+BASE=https://test-mirobody-api.thetahealth.ai/v1
 KEY="mb_live_..."
 
 # 1) Basic chat
@@ -30,7 +30,7 @@ curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=alice" -F "file=@repor
 ```python
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://mcp.thetahealth.cn/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 
 # Non-streaming
 resp = client.chat.completions.create(
@@ -58,7 +58,7 @@ for chunk in stream:
 import requests
 
 up = requests.post(
-    "https://mcp.thetahealth.cn/v1/files",
+    "https://test-mirobody-api.thetahealth.ai/v1/files",
     headers={"Authorization": "Bearer mb_live_..."},
     data={"user": "alice"},
     files={"file": open("report.pdf", "rb")},
@@ -73,7 +73,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://mcp.thetahealth.cn/v1",
+  baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
 });
 
 // Non-streaming

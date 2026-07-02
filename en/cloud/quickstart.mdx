@@ -3,17 +3,21 @@ title: "Quickstart"
 description: "Create a key in the console and make your first /v1 call."
 ---
 
-Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https://mcp.thetahealth.cn/v1`, pass an `mb_live_*` key, and the agent answers from each end-user's real health data.
+Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https://test-mirobody-api.thetahealth.ai/v1`, pass an `mb_live_*` key, and the agent answers from each end-user's real health data.
 
 <Note>
-Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**cdm.thetahealth.cn**](https://cdm.thetahealth.cn/). These docs are a reference and guide; the console is where you sign in and manage everything.
+Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/). These docs are a reference and guide; the console is where you sign in and manage everything.
 </Note>
 
-<Steps>
-  <Step title="Get an API key">
-    Create a key in the console — the secret is shown **once**.
+<Info>
+**Live today:** build against the global **test** cluster — API `https://test-mirobody-api.thetahealth.ai/v1`, console [test-platform.mirobody.ai](https://test-platform.mirobody.ai/). Production and the China cluster are provisioning ([Regions](/en/cloud/regions/overview)). The console defaults to Chinese — use the language switch (top-right) for English.
+</Info>
 
-    <Card title="Open the console → API Keys" icon="key" href="https://cdm.thetahealth.cn/developer/keys" horizontal>
+<Steps>
+  <Step title="Sign in & get an API key">
+    Sign in to the console with **email code** — enter your email, receive a 6-digit code, and sign in. Then open **API Keys** and create one; the secret is shown **once**. (Need an evaluation account? Email [Mirobody Support](mailto:developer@thetahealth.ai).)
+
+    <Card title="Open the console → API Keys" icon="key" href="https://test-platform.mirobody.ai/developer/keys" horizontal>
       Sign in, create an `mb_live_*` key, and copy it.
     </Card>
 
@@ -25,7 +29,7 @@ Account management — **API keys, usage, and a live Playground** — lives in t
   <Step title="Make your first call">
     <CodeGroup>
     ```bash curl
-    curl https://mcp.thetahealth.cn/v1/chat/completions \
+    curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -38,7 +42,7 @@ Account management — **API keys, usage, and a live Playground** — lives in t
     ```python Python (OpenAI SDK)
     from openai import OpenAI
 
-    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
     resp = client.chat.completions.create(
         model="mirobody-flash",
         messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
@@ -52,7 +56,7 @@ Account management — **API keys, usage, and a live Playground** — lives in t
 
     const client = new OpenAI({
       apiKey: process.env.MIROBODY_API_KEY,
-      baseURL: "https://mcp.thetahealth.cn/v1",
+      baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
     });
     const resp = await client.chat.completions.create({
       model: "mirobody-flash",
@@ -70,16 +74,17 @@ Account management — **API keys, usage, and a live Playground** — lives in t
     A fresh Subject has no data, so the agent will say so. Write a record (or upload a report with [`POST /v1/files`](/en/api-reference/files)) and ask again:
 
     ```bash
-    curl https://mcp.thetahealth.cn/v1/data \
+    curl https://test-mirobody-api.thetahealth.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
             "user": "alice",
+            "retention": "permanent",
             "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
           }'
     ```
 
-    See [Data](/en/api-reference/data) and [Files](/en/api-reference/files).
+    `retention` is **required** on `POST /v1/data` (no default) — omitting it returns `400`. See [Data](/en/api-reference/data) and [Files](/en/api-reference/files).
   </Step>
 </Steps>
 
@@ -88,10 +93,10 @@ Account management — **API keys, usage, and a live Playground** — lives in t
 The console has a **Playground** — run chats, upload files, and inspect tool steps with no code.
 
 <CardGroup cols={2}>
-  <Card title="Playground" icon="flask" href="https://cdm.thetahealth.cn/developer">
+  <Card title="Playground" icon="flask" href="https://test-platform.mirobody.ai/developer">
     Try the agent in the browser against your account.
   </Card>
-  <Card title="Usage" icon="chart-line" href="https://cdm.thetahealth.cn/developer/usage">
+  <Card title="Usage" icon="chart-line" href="https://test-platform.mirobody.ai/developer/usage">
     Requests, tokens, and cost.
   </Card>
 </CardGroup>
@@ -99,10 +104,10 @@ The console has a **Playground** — run chats, upload files, and inspect tool s
 ## See it live
 
 <CardGroup cols={2}>
-  <Card title="mirobody.thetahealth.cn" icon="globe" href="https://mirobody.thetahealth.cn/">
-    **Mirobody app** — the flagship consumer product, the same engine behind this API.
+  <Card title="Mirobody app" icon="globe" href="https://test-chat.mirobody.ai/">
+    **chat.mirobody.ai** — the flagship consumer product, the same engine behind this API.
   </Card>
-  <Card title="Developer console" icon="terminal" href="https://cdm.thetahealth.cn/developer">
+  <Card title="Developer console" icon="terminal" href="https://test-platform.mirobody.ai/developer">
     Create `mb_live_*` keys, view usage, and try the Playground.
   </Card>
 </CardGroup>

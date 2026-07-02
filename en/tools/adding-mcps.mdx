@@ -1,54 +1,69 @@
 ---
 title: "Adding Custom MCPs"
-description: "Connect third-party MCP servers to extend your AI agent's capabilities"
+description: "How MCP works in Mirobody — the engine as an MCP server, and connecting external MCP servers"
 ---
 
 ## Overview
 
-Mirobody can connect to external MCP servers, allowing your AI agents to access thousands of additional tools and resources. This enables capabilities like file system access, GitHub integration, database queries, and much more.
+The Model Context Protocol (MCP) is an open standard that lets AI applications connect to tools and data sources. Learn more at <a href="https://modelcontextprotocol.io">modelcontextprotocol.io</a>.
 
-<Info>
-The Model Context Protocol (MCP) is an open standard that enables AI assistants to securely connect to external data sources and tools. Learn more at <a href="https://modelcontextprotocol.io">modelcontextprotocol.io</a>.
-</Info>
+Mirobody's primary role is as an **MCP server**: it exposes its [built-in tools](/en/tools/built-in) over the [`/mcp` endpoint](/en/tools/mcp-integration), and external clients — Claude Desktop, Cursor, ChatGPT, or any MCP client — connect *to* it.
 
-## Adding an MCP Server
+<CardGroup cols={2}>
+  <Card title="Connect a client to Mirobody" icon="plug" href="/en/tools/mcp-integration">
+    Point Claude, Cursor, or a custom client at the `/mcp` endpoint.
+  </Card>
+  <Card title="ChatGPT Apps" icon="robot" href="/en/tools/chatgpt-apps">
+    Expose Mirobody to ChatGPT as a remote MCP server.
+  </Card>
+</CardGroup>
 
-Adding custom MCPs to Mirobody is incredibly simple through the web interface.
+To extend what Mirobody's own agent can do, add a **built-in tool** in C++ — see [Adding Custom Tools](/en/tools/adding-tools).
+
+## Connecting an external MCP server
+
+<Warning>
+**Not verified in the current C++ engine (Mirobody).** The screenshots below describe adding a *third-party* MCP server through the web UI so its tools become available to the agent. This outbound-connection capability could **not be confirmed** against the open-source engine at the time of writing — the confirmed MCP surface is Mirobody acting as an MCP *server* (the `/mcp` endpoint) that clients connect to, and MiroThinker reaching that endpoint via `MCP_PUBLIC_URL`. Treat this section as *(verify)* and check the running build's web UI before relying on it.
+</Warning>
+
+If your build's web UI exposes MCP management, the flow is:
 
 <Steps>
-  <Step title="Navigate to the Drive page">
-    Open your Mirobody web interface and go to the Drive page where you manage your MCP connections.
+  <Step title="Open the MCP management view">
+    In the Mirobody web interface, go to the page where MCP connections are managed.
   </Step>
 
-  <Step title="Click Add MCP">
-    Click the "Add" button to start adding a new MCP server.
+  <Step title="Add an MCP server">
+    Start adding a new MCP server.
 
     <Frame>
-      <img src="/images/add-mcp.png" alt="Add MCP button in the Drive interface" />
+      <img src="/images/add-mcp.png" alt="Add MCP button in the web interface" />
     </Frame>
   </Step>
 
-  <Step title="Configure MCP details">
-    Fill in the MCP server configuration:
-    - **Name**: A friendly name for this MCP server
-    - **MCP Server URL**: The HTTP URL where your MCP server is accessible (e.g., `https://your-domain.com/mcp`)
-    - **Token** (optional): Authentication token if your MCP server requires token-based authentication
+  <Step title="Configure the server">
+    Provide the server details:
+    - **Name**: a friendly name for this MCP server
+    - **MCP Server URL**: the HTTP URL where the MCP server is reachable (e.g. `https://your-domain.com/mcp`)
+    - **Token** (optional): an authentication token, if the server requires one
 
     <Frame>
       <img src="/images/add-mcp-detail.png" alt="MCP configuration form with server details" />
     </Frame>
-
   </Step>
 
-  <Step title="Save and connect">
-    Click "Save" to add the MCP server. Mirobody will automatically:
-    - Validate the configuration
-    - Start the MCP server process
-    - Register available tools and resources
-    - Make them available to your AI agents
-
-    <Check>
-    Your MCP server is now connected and its tools are available to AI agents!
-    </Check>
+  <Step title="Save">
+    Save the configuration to register the server's tools.
   </Step>
 </Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
+    Connect Claude, Cursor, and ChatGPT to the `/mcp` endpoint
+  </Card>
+  <Card title="Adding Custom Tools" icon="plus" href="/en/tools/adding-tools">
+    Extend the agent with a C++ tool
+  </Card>
+</CardGroup>

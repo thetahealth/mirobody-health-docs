@@ -1,277 +1,101 @@
 ---
 title: "File Processing"
-description: "Upload and process health documents, lab reports, and medical records"
+description: "How Mirobody turns uploaded documents into LLM-consumable parts: PDF, Excel/CSV, OCR, and vision-model inlining."
 ---
 
 ## Overview
 
-Mirobody can process various types of health-related files, automatically extracting health indicators and making them available for AI analysis. This allows you to upload lab reports, medical records, and other health documents to build a comprehensive health history.
+Mirobody can ingest health documents — lab reports, spreadsheets, scanned records — and turn them into content a chat turn can carry. The work is done by the **document transcoder** in `src/transcode/` ([`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`), the document counterpart to the image transcoder. Its strategy is **text first, image (and OCR) fallback**.
 
-## Supported File Types
+<Info>
+This is the C++ transcoder, not the old Python `FileProcessor` / `PDFHandler` chain. There is no `ENABLE_INDICATOR_EXTRACTION` flag and no separate audio / genetic handler in this module — the transcoder decomposes a document into text and image parts; a vision-capable LLM then reads them during the chat turn.
+</Info>
 
-<CardGroup cols={2}>
-  <Card title="PDF Documents" icon="file-pdf">
-    Lab reports, medical records, prescriptions
-  </Card>
-  <Card title="Images" icon="image">
-    JPEG, PNG, GIF, WebP, HEIC - scanned documents and photos
-  </Card>
-  <Card title="Audio Files" icon="microphone">
-    WAV, MP3, AIFF, AAC, OGG, FLAC - voice recordings
-  </Card>
-  <Card title="Genetic Data" icon="dna">
-    Genetic test reports and analysis files
-  </Card>
-</CardGroup>
+## Supported formats
 
-## How It Works
+The container format is sniffed from the leading magic bytes, then routed to a handler:
+
+| Format | Library | Build gate | Output |
+|--------|---------|-----------|--------|
+| **PDF** | PDFium | `MIROBODY_ENABLE_PDF` (default **off**) | Text per page; scanned pages → image (+ OCR) |
+| **.xlsx** | xlnt | on when xlnt is found (always on Windows via vcpkg) | One Markdown table per worksheet |
+| **.xls** (legacy BIFF) | vendored libxls | `MIROBODY_ENABLE_XLS` (default **off**) | One Markdown table per sheet |
+| **.csv** | built in (RFC 4180) | always available | A single Markdown table |
+
+With a gate off, the input still sniffs but `process()` throws `DocumentError("... not built")` — nothing is silently mis-handled.
+
+<Note>
+Images uploaded on their own are handled by the sibling **image transcoder** (`src/transcode/image.hpp`), which fits an image to a target vision model's input limits. Audio and genetic-file handling from the old docs are **not** part of this C++ transcoder. *(verify)*
+</Note>
+
+## The pipeline
 
 <Steps>
-  <Step title="Upload Your Files">
-    Upload health documents through the web interface or API. Files are securely stored and encrypted.
+  <Step title="Sniff the format">
+    `detect_format()` reads the magic bytes: `%PDF-` → PDF, `PK\x03\x04` → xlsx (any OOXML zip), the OLE2 signature → legacy .xls, anything else non-empty → CSV.
   </Step>
 
-  <Step title="Automatic Processing">
-    The system automatically:
-    - Recognizes file type and content
-    - Extracts text and data from documents
-    - Identifies health indicators (lab results, vital signs, etc.)
+  <Step title="PDF — text layer first">
+    For each page, the embedded **text layer is extracted** as a text part. A page whose extractable text is below a small threshold (a scan) is treated as an image instead.
   </Step>
 
-  <Step title="Health Indicator Extraction">
-    LLM analyzes your documents to extract:
-    - Lab test results (blood work, metabolic panels, etc.)
-    - Vital signs (blood pressure, heart rate, weight, etc.)
-    - Medical measurements and observations
-    - Test dates and reference ranges
+  <Step title="Scanned page — rasterize → vision-compliant image">
+    A scanned page is rasterized (default 150 dpi), repacked to PNG, and run through `image::Transcoder` so it satisfies the target vision model's limits (Qwen-VL by default; Gemini / GPT limits are also available). It is emitted as an **image part** the chat turn inlines for the vision model.
   </Step>
 
-  <Step title="Query and Analyze">
-    Once processed, you can:
-    - Ask questions about your health data
-    - Track indicators over time
-    - Generate health summaries and reports
+  <Step title="OCR (optional)">
+    In a `MIROBODY_ENABLE_OCR` build (which additionally requires `MIROBODY_ENABLE_PDF`), the same raster is also run through **Tesseract** and the recovered text appended as a text part — so a scan yields both the image and its OCR text. OCR language defaults to `eng` (e.g. `eng+chi_sim` for mixed docs).
+  </Step>
+
+  <Step title="Spreadsheets — always text">
+    Each worksheet (xlsx / xls) or the whole CSV is rendered to a **GitHub-flavored Markdown table**; spreadsheet handling never produces image parts.
   </Step>
 </Steps>
 
-## Extracted Health Indicators
+The result is a `Document`: an ordered list of `Part`s, each either **Text** (UTF-8 / Markdown) or **Image** (an already vision-compliant image), tagged with the 1-based source page / sheet. A `max_pages` cap can bound very large documents; when it trips, a trailing note is appended so nothing is silently dropped. `Transcoder::to_markdown()` renders the whole document to one Markdown blob for callers (and the CLI) that want a single string.
 
-The system can automatically extract various types of health data:
+## Units get normalized to UCUM
 
-<AccordionGroup>
-  <Accordion title="Laboratory Tests" icon="flask">
-    - **Complete Blood Count**: WBC, RBC, Hemoglobin, Platelets
-    - **Metabolic Panel**: Glucose, Liver enzymes, Kidney function
-    - **Lipid Panel**: Cholesterol, Triglycerides, HDL, LDL
-    - **Thyroid Function**: TSH, T3, T4
-    - **Tumor Markers**: Various cancer screening markers
-  </Accordion>
-
-  <Accordion title="Physical Measurements" icon="ruler">
-    - Blood pressure (systolic/diastolic)
-    - Heart rate and pulse
-    - Weight and BMI
-    - Height
-    - Temperature
-    - Oxygen saturation (SpO2)
-  </Accordion>
-
-  <Accordion title="Device Data" icon="watch">
-    When combined with connected devices:
-    - Activity and exercise data
-    - Sleep patterns
-    - Heart rate variability
-    - Daily step counts
-  </Accordion>
-</AccordionGroup>
-
-## File Upload
-
-### Via Web Interface
-
-1. Log in to your Mirobody instance
-2. Navigate to the chat interface
-3. Click the file upload button
-4. Select your health documents
-5. Add optional notes about the files
-6. Upload and wait for processing to complete
-
-### Via REST API
-
-For simple file uploads without real-time progress:
-
-```bash
-curl -X POST http://localhost:18080/files/upload \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "files=@lab_report.pdf" \
-  -F "files=@blood_work.jpg"
-```
-
-### Via WebSocket API
-
-For uploads with real-time progress feedback (recommended for large files):
+Values pulled out of documents and charts are normalized by the terminology engine in `src/fhir/units/`: a free-text "value + unit" string becomes a canonical **UCUM** unit plus the LOINC PROPERTY family that disambiguates it. This is pure local computation — no DB, no embedding API.
 
 ```
-ws://localhost:18080/ws/upload-health-report?token=YOUR_TOKEN
+"MG/DL"              → "mg/dL"
+"毫摩尔每升"          → "mmol/L"
+"mmHg"               → "mm[Hg]"
+"<5.6 mg/dL"         → value 5.6, unit "mg/dL", comparator "<"
 ```
 
-WebSocket provides:
-- Real-time upload progress
-- Processing status updates
-- Detailed error messages
-- Support for large files with chunking
+Multilingual input is supported (en, zh, ja, ko, ru, de, fr, es).
 
-<Info>
-For detailed API documentation, WebSocket protocol, and implementation examples, see the [File Processing Implementation Guide](/en/development/file-processing).
-</Info>
+## What happens to the data
 
-## Configuration
-
-Enable health indicator extraction in your config file (e.g., `config.localdb.yaml`):
-
-```yaml config.localdb.yaml
-# File Processing Configuration
-ENABLE_INDICATOR_EXTRACTION: 1  # Enable automatic indicator extraction (1 = enabled, 0 = disabled)
-```
+The transcoded parts are read by the agent during a chat turn: uploaded files are stored per-user and the agent lists / reads them through the `list_files` and `read_file` MCP tools, feeding text parts and vision-compliant image parts to the LLM.
 
 <Warning>
-**At least one LLM key is required** for processing multimodal files (PDFs, images, audio). Without it:
-- File upload will work
-- Files will be stored
-- But automatic indicator extraction and content analysis will not function
+**At least one LLM key (or on-device Gemma) is required** to make sense of documents — uploading and storing a file works without one, but extracting meaning from PDFs / images needs a model. Text-only formats (CSV / xlsx) render to Markdown with no model.
 </Warning>
 
-### Processing Pipeline
+<Note>
+Writing extracted lab values back into the FHIR store as coded `Observation`s (the document → indicator → FHIR pipeline) is **in progress**: UCUM unit normalization and the RESTful FHIR store are shipped; terminology resolve (SNOMED CT / LOINC / RxNorm) and automatic write-back are planned. *(verify against `src/fhir/README.md`.)*
+</Note>
 
-The system uses a sophisticated pipeline:
+## Tests
 
-1. **File Upload** (0-30%): Receive and validate files, upload to object storage
-2. **Type Recognition** (30-35%): Auto-detect file type and select appropriate handler
-3. **Content Processing** (35-90%): Extract text, images, data; process in parallel for multi-page PDFs
-4. **Summary Generation** (90-95%): Generate file summary and intelligent name using LLM
-5. **Result Saving** (95-100%): Store in database, sync health indicators, update user profile
+The transcoder is covered by Catch2 tests: `tests/transcode/document_test.cpp` and `tests/transcode/image_test.cpp`; the unit engine by `tests/fhir/units_test.cpp`. See [Testing](/en/development/testing).
 
-## Privacy & Security
-
-<AccordionGroup>
-  <Accordion title="Data Encryption" icon="lock">
-    - All uploaded files are encrypted in transit (HTTPS)
-    - Files stored in object storage with encryption
-    - Secure token-based authentication required
-  </Accordion>
-
-  <Accordion title="Data Control" icon="shield">
-    - You own your data completely
-    - Files can be deleted at any time
-    - Cascade deletion removes all associated data
-    - Self-hosted deployment keeps data on your servers
-  </Accordion>
-
-  <Accordion title="Processing" icon="brain">
-    - File processing uses configured LLM providers (Google Gemini)
-    - Extracted data stored in your database only
-    - No data shared with third parties
-  </Accordion>
-</AccordionGroup>
-
-## File Management
-
-### Viewing Files
-
-All uploaded files are accessible through:
-- Chat history with file attachments
-- File list in message details
-- Direct file URLs (with authentication)
-
-### Deleting Files
-
-<Warning>
-Deleting files will also remove all extracted health indicators associated with those files from your health data.
-</Warning>
-
-To delete files:
-1. Navigate to the message containing the files
-2. Select files to delete
-3. Confirm deletion
-
-Files and their associated data are permanently removed from:
-- Object storage
-- Database records
-- Health indicator data
-
-## Best Practices
-
-<Tip>
-**For Large Files**: Upload PDFs and images work best. Multi-page PDFs are processed in parallel for faster results.
-</Tip>
-
-<Tip>
-**For Lab Reports**: Upload the full PDF report rather than screenshots for better extraction accuracy.
-</Tip>
-
-<Tip>
-**Add Context**: Include notes with your uploads (e.g., "Annual physical exam 2024") to make them easier to find later.
-</Tip>
-
-<Tip>
-**Organize by Date**: Name files with dates (YYYY-MM-DD format) for better chronological tracking.
-</Tip>
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title="File upload fails" icon="circle-exclamation">
-    **Solutions**:
-    - Check file size (recommend < 20MB per file)
-    - Verify authentication token is valid
-    - Ensure file type is supported
-    - Check server logs for specific errors
-  </Accordion>
-
-  <Accordion title="No indicators extracted" icon="magnifying-glass">
-    **Solutions**:
-    - Verify `ENABLE_INDICATOR_EXTRACTION: 1` in config
-    - Ensure at one LLM key is set and valid
-    - Check if file contains recognizable health data
-    - Try uploading a clearer or higher resolution image
-  </Accordion>
-
-  <Accordion title="Processing takes too long" icon="clock">
-    **Expectations**:
-    - Small files (< 5MB): 10-30 seconds
-    - Large PDFs: 1-3 minutes
-    - Multi-page documents: Longer but processed in parallel
-    
-    If processing exceeds these times, check server resources and logs.
-  </Accordion>
-</AccordionGroup>
-
-## Technical Details
-
-For developers and advanced users who need detailed information about:
-- WebSocket upload protocol
-- REST API endpoints and parameters
-- Processing pipeline architecture
-- Data models and schemas
-- Error handling and best practices
-
-<Card title="File Processing Implementation Guide" icon="code" href="/en/development/file-processing">
-  Complete technical documentation for file upload and processing
-</Card>
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/en/quickstart">
-    Get started with Mirobody
-  </Card>
-  <Card title="Configuration" icon="gear" href="/en/configuration">
-    Configure API keys and settings
-  </Card>
   <Card title="Data Flow" icon="diagram-project" href="/en/concepts/data-flow">
-    Understand how data moves through the system
+    How uploads fit alongside vendor and on-device data
+  </Card>
+  <Card title="File Processing Implementation" icon="code" href="/en/development/file-processing">
+    The transcoder API and build gates in depth
+  </Card>
+  <Card title="Vendor System" icon="plug" href="/en/concepts/providers">
+    Server-to-server health-data sources
   </Card>
   <Card title="API Reference" icon="book" href="/en/api-reference/overview">
-    Explore API endpoints
+    The OpenAI-compatible `/v1` surface
   </Card>
 </CardGroup>

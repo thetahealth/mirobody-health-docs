@@ -1,322 +1,110 @@
 ---
-title: "Garmin Provider 示例"
-description: "Garmin Connect Provider 的完整实现示例"
+title: "Garmin Vendor 示例"
+description: "Garmin 设备品牌客户端如何对应到 C++ vendor 契约 —— 以及为何其中大部分刻意保留为桩。"
 ---
 
 ## 概览
 
-Garmin Provider 是一个可用于生产环境的实现示例，展示了 OAuth 1.0 认证与全面的健康数据集成方式。
+Garmin 是一个真实的设备品牌客户端 —— [`src/health/vendor/device/garmin.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/garmin.cpp)，注册为 `garmin`。它是 Mirobody"只实现可公开确认的部分，其余保留为诚实的桩"这一规则最具启发性的例子，因为 Garmin 的数据 API **需合作方授权且为推送式**。
 
 <Info>
-本示例展示了 Garmin Provider 的真实实现代码。在构建你自己的 Provider 时，可以将其作为参考。
+这是一个 `vendor::Vendor`，而非 Python 的 `BaseThetaProvider`。它实现共享的 `authorize / fetch / webhook` 契约；接口参见 [Vendor 系统](/zh/concepts/providers)。
 </Info>
 
-## 核心特性
+## Garmin 的 API 形态带来的约束
 
-<CardGroup cols={2}>
-  <Card title="OAuth 1.0" icon="key">
-    三向 (Three-legged) OAuth 身份验证
-  </Card>
-  <Card title="全面数据" icon="chart-line">
-    活动、睡眠、HRV、压力、身体指标
-  </Card>
-  <Card title="速率限制" icon="gauge">
-    遵循 API 速率限制
-  </Card>
-  <Card title="错误处理" icon="shield">
-    健壮的错误恢复机制
-  </Card>
-</CardGroup>
+| 方面 | 实际情况 | 对客户端的影响 |
+|--------|---------|----------------------|
+| **认证** | OAuth 2.0 + **PKCE**（Garmin 已从 OAuth 1.0a 迁移）；流程公开 | `authorize_url` 是**桩** —— PKCE 需要一个有状态的 `code_verifier`，裸 URL 构建器无处存放它（那属于 EHR 式的有状态连接层） |
+| **数据投递** | **推送式**：Garmin 把汇总数据 POST 到已注册的 webhook；拉取需合作方授权且仅保留约 7 天 | `fetch` 是一个**桩**，它解释这一模型，而非伪造一次同步拉取 |
+| **Webhook 签名** | 推送**无任何有文档的签名** | `handle_webhook` 是**桩** —— 无法从公开文档验证真伪 |
+| **断开连接** | 账号断连 hook **是**公开有文档的 | `revoke` **已实现** |
 
-## Provider 结构
+于是在六个契约操作中，Garmin 恰好发布了一个可用调用 —— `revoke` —— 以及三个刻意保留的桩（`fetch`、`authorize_url`、`handle_webhook`），而 `list_providers` 不适用（单一品牌）。这是预期状态，记录在该文件的头部。
 
-```python
-from mirobody.pulse.theta.platform.base import BaseThetaProvider
-from requests_oauthlib import OAuth1Session
+## `revoke` —— 唯一接通的操作
 
-class ThetaGarminProvider(BaseThetaProvider):
-    """Garmin Connect OAuth 1.0 Provider"""
-    
-    def __init__(self):
-        super().__init__()
-        # 加载配置
-        self.client_id = safe_read_cfg("GARMIN_CLIENT_ID")
-        self.client_secret = safe_read_cfg("GARMIN_CLIENT_SECRET")
-        self.redirect_url = safe_read_cfg("GARMIN_REDIRECT_URL")
-        
-        # OAuth 1.0 端点
-        self.request_token_url = "https://connectapi.garmin.com/oauth-service/oauth/request_token"
-        self.auth_url = "https://connect.garmin.com/oauthConfirm/"
-        self.access_token_url = "https://connectapi.garmin.com/oauth-service/oauth/access_token"
-        self.api_base_url = "https://apis.garmin.com/wellness-api/rest"
-```
+`revoke` 调用 Garmin 必需的账号断连端点 `DELETE /wellness-api/rest/user/registration`，以用户的 OAuth 2.0 access token 作为 bearer 认证：
 
-## 数据映射配置
-
-Garmin 提供了详尽的健康数据。以下是其映射方式：
-
-```python
-GARMIN_DATA_CONFIG = {
-    "dailies": {
-        "timestamp_source": "calendarDate",
-        "simple_fields": {
-            "steps": {
-                "indicator": StandardIndicator.DAILY_STEPS.value.name,
-                "converter": lambda x: x,
-                "unit": "count"
-            },
-            "distanceInMeters": {
-                "indicator": StandardIndicator.DAILY_DISTANCE.value.name,
-                "converter": lambda x: x,
-                "unit": "m"
-            },
-            "activeKilocalories": {
-                "indicator": StandardIndicator.DAILY_CALORIES_ACTIVE.value.name,
-                "converter": lambda x: x,
-                "unit": "kcal"
-            },
-            "restingHeartRateInBeatsPerMinute": {
-                "indicator": StandardIndicator.DAILY_HEART_RATE_RESTING.value.name,
-                "converter": lambda x: x,
-                "unit": "count/min"
-            }
-        },
-        "time_series": {
-            "timeOffsetHeartRateSamples": {
-                "indicator": StandardIndicator.HEART_RATE.value.name,
-                "unit": "count/min",
-                "format": "list",
-                "value_field": "heartRateInBeatsPerMinute",
-                "offset_field": "timestampOffsetInSeconds"
-            }
-        }
-    },
-    "sleeps": {
-        "timestamp_source": "calendarDate",
-        "simple_fields": {
-            "durationInSeconds": {
-                "indicator": StandardIndicator.DAILY_SLEEP_DURATION.value.name,
-                "converter": lambda x: x * 1000,  # 秒转换为毫秒
-                "unit": "ms"
-            },
-            "deepSleepDurationInSeconds": {
-                "indicator": StandardIndicator.DAILY_DEEP_SLEEP.value.name,
-                "converter": lambda x: x * 1000,
-                "unit": "ms"
-            }
-        }
+```cpp
+void revoke(const std::string& /*user_id*/, const std::string& /*provider*/) override {
+    if (config().api_key.empty()) {
+        throw VendorError(info_.id + ": revoke requires a Garmin OAuth 2.0 access token — set "
+                          "MIROBODY_VENDOR_GARMIN_API_KEY (partner-gated; needs approved creds)");
+    }
+    client::HttpRequest req;
+    req.url     = base_url() + "/wellness-api/rest/user/registration";
+    req.headers = { "Authorization: Bearer " + config().api_key };
+    client::HttpResponse res = client::HttpClient().request("DELETE", req);
+    if (res.status < 200 || res.status >= 300) {
+        throw VendorError(info_.id + ": revoke failed (HTTP " +
+                          std::to_string(res.status) + "): " + res.body.substr(0, 300));
     }
 }
 ```
 
-## OAuth 1.0 实现
+数据主机默认为 `https://apis.garmin.com`（可经 `MIROBODY_VENDOR_GARMIN_BASE_URL` 覆盖）。
 
-### 发起绑定
+## `fetch` —— 一个会自我解释的桩
 
-```python
-async def link(self, request: LinkRequest) -> Dict[str, Any]:
-    """发起 OAuth 1.0 流程"""
-    user_id = request.user_id
-    
-    # 创建 OAuth 1.0 会话
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-    )
-    
-    # 获取 request token
-    resp = oauth.post(self.request_token_url)
-    if resp.status_code != 200:
-        raise RuntimeError(f"获取 request token 失败: {resp.text}")
-    
-    # 解析响应
-    params = parse_qs(resp.text)
-    oauth_token = params['oauth_token'][0]
-    oauth_token_secret = params['oauth_token_secret'][0]
-    
-    # 将 token secret 存储在 Redis 中
-    redis_client = await self._get_redis_client()
-    await redis_client.setex(f"oauth:secret:{oauth_token}", 900, oauth_token_secret)
-    await redis_client.setex(f"oauth:user:{oauth_token}", 900, user_id)
-    await redis_client.aclose()
-    
-    # 构建授权 URL
-    auth_params = {
-        "oauth_token": oauth_token,
-        "oauth_callback": self.redirect_url
-    }
-    authorization_url = f"{self.auth_url}?{urlencode(auth_params)}"
-    
-    return {"link_web_url": authorization_url}
+Garmin 的 `fetch` 不用通用的"not implemented"，而是抛出一条说明原因的消息，让调用方了解这一模型：
+
+```cpp
+std::string fetch(const std::string&, DataDomain,
+                  const std::string&, const std::string&) override {
+    throw VendorError(info_.id + ": Garmin Health is push-based and partner-gated "
+                      "(OAuth2.0). Data is pushed to a registered webhook, not pulled — "
+                      "wire the Ping/Pull data endpoints (partner-gated spec) or consume the "
+                      "push once approved partner credentials exist.");
+}
 ```
 
-### 处理回调
+## 元数据（`info()`）
 
-```python
-async def callback(self, oauth_token: str, oauth_verifier: str) -> Dict[str, Any]:
-    """处理 OAuth 1.0 回调"""
-    
-    # 从 Redis 中获取 token secret
-    redis_client = await self._get_redis_client()
-    oauth_token_secret = await redis_client.get(f"oauth:secret:{oauth_token}")
-    user_id = await redis_client.get(f"oauth:user:{oauth_token}")
-    await redis_client.delete(f"oauth:secret:{oauth_token}")
-    await redis_client.delete(f"oauth:user:{oauth_token}")
-    await redis_client.aclose()
-    
-    # 使用 verifier 创建 OAuth 会话
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        resource_owner_key=oauth_token,
-        resource_owner_secret=oauth_token_secret,
-        verifier=oauth_verifier
-    )
-    
-    # 获取 access token
-    resp = oauth.post(self.access_token_url)
-    if resp.status_code != 200:
-        raise RuntimeError(f"获取 access token 失败: {resp.text}")
-    
-    # 解析 token
-    params = parse_qs(resp.text)
-    access_token = params['oauth_token'][0]
-    access_token_secret = params['oauth_token_secret'][0]
-    
-    # 保存凭据
-    await self.db_service.save_oauth1_credentials(
-        user_id, self.info.slug, access_token, access_token_secret
-    )
-    
-    # 触发初始数据拉取
-    asyncio.create_task(self._pull_and_push_for_user({
-        "user_id": user_id,
-        "access_token": access_token,
-        "access_token_secret": access_token_secret,
-    }))
-    
-    return {
-        "provider_slug": self.info.slug,
-        "stage": "completed"
-    }
+即便大多数操作都是桩，该 vendor 的 `VendorInfo` 依然被完整填充，且无需凭据即可查询：
+
+```cpp
+i.id                 = "garmin";
+i.display_name       = "Garmin Health";
+i.positioning        = "Premium wearable brand; partner-gated, push-based Health API";
+i.integration_method = "OAuth2.0 + PKCE; push (Ping/Push webhook) delivery; backfill triggers async";
+i.docs_url           = "https://developer.garmin.com/gc-developer-program/health-api/";
+i.region             = Region::Global;
+i.domains            = {DataDomain::Activity, DataDomain::HeartRate,
+                        DataDomain::Sleep, DataDomain::BodyMetrics};
+i.integrations       = {Integration::Rest, Integration::Webhook};
 ```
 
-## 数据获取
+## 配置
 
-Garmin 为不同的数据类型提供了多个端点：
-
-```python
-async def pull_from_vendor_api(
-    self,
-    access_token: str,
-    token_secret: str,
-    days: int = 2
-) -> List[Dict[str, Any]]:
-    """从 Garmin API 拉取数据"""
-    
-    # 创建 OAuth 1.0 会话
-    oauth = OAuth1Session(
-        client_key=self.client_id,
-        client_secret=self.client_secret,
-        resource_owner_key=access_token,
-        resource_owner_secret=token_secret
-    )
-    
-    # 计算日期范围
-    end_date = datetime.now(timezone.utc).date()
-    start_date = end_date - timedelta(days=days)
-    
-    all_raw_data = []
-    
-    # 获取不同类型的数据
-    endpoints = {
-        "dailies": f"{self.api_base_url}/dailies",
-        "sleeps": f"{self.api_base_url}/sleeps",
-        "hrv": f"{self.api_base_url}/hrv",
-        "stress": f"{self.api_base_url}/stressDetails"
-    }
-    
-    for data_type, endpoint in endpoints.items():
-        try:
-            params = {
-                "uploadStartTimeInSeconds": int(start_date.timestamp()),
-                "uploadEndTimeInSeconds": int(end_date.timestamp())
-            }
-            
-            resp = oauth.get(endpoint, params=params)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data:
-                    all_raw_data.append({
-                        "data_type": data_type,
-                        "data": data,
-                        "timestamp": int(time.time() * 1000)
-                    })
-        except Exception as e:
-            logging.error(f"获取 {data_type} 出错: {str(e)}")
-            continue
-    
-    return all_raw_data
+```bash
+# Garmin partner-gated OAuth 2.0 access token (needed for revoke; data path is partner-gated)
+MIROBODY_VENDOR_GARMIN_API_KEY=your_garmin_oauth2_access_token
+# optional host override
+MIROBODY_VENDOR_GARMIN_BASE_URL=https://apis.garmin.com
 ```
 
-## 支持的数据类型
+## 对你自己 vendor 的启示
 
-Garmin Provider 支持：
+- **实现可公开确认的部分；其余用带原因的桩留白。** 一个点明缺失契约的桩，胜过一个捏造的契约。
+- **有状态的 OAuth 流程（PKCE）单靠 `authorize_url` 装不下** —— Mirobody 把这类流程保留在有状态的连接层（正如 SMART-on-FHIR EHR 连接服务所做的那样），而不是放进 URL 构建器的签名里。
+- **`VendorInfo` 无论如何都应完整** —— 它无需网络调用即可支撑选型 / 比较。
 
-<Tabs>
-  <Tab title="活动">
-    - 每日步数
-    - 距离（米）
-    - 活动消耗卡路里
-    - 基础代谢卡路里
-    - 爬楼层数
-    - 活动时间
-  </Tab>
-
-  <Tab title="心率">
-    - 每日最低心率
-    - 每日最高心率
-    - 每日平均心率
-    - 静息心率
-    - 心率时间序列样本
-  </Tab>
-
-  <Tab title="睡眠">
-    - 总睡眠时长
-    - 深睡时长
-    - 浅睡时长
-    - REM 睡眠时长
-    - 清醒时间
-  </Tab>
-
-  <Tab title="高级指标">
-    - HRV（心率变异性）
-    - 压力水平
-    - 呼吸频率
-    - 身体成分
-  </Tab>
-</Tabs>
-
-## 源代码
-
-完整的 Garmin Provider 源代码位于：
-```
-connect/theta/mirobody_garmin_connect/provider_garmin.py
-```
+若要看一个实现更完整的设备品牌，可将 Garmin 与 **Fitbit**（`src/health/vendor/device/fitbit.cpp`）对照，后者实现了 `fetch`、`authorize_url`、`revoke` 以及带签名的 `handle_webhook`。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Whoop 示例" icon="code" href="/zh/examples/whoop-provider">
-    查看 OAuth 2.0 实现
+  <Card title="Vendor 系统" icon="plug" href="/zh/concepts/providers">
+    Garmin 所实现的契约
   </Card>
-  <Card title="集成指南" icon="book" href="/zh/development/provider-integration">
-    构建你自己的 Provider
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    构建你自己的 `vendor::Vendor`
   </Card>
-  <Card title="数据映射" icon="table" href="/zh/development/data-mapping">
-    学习数据转换
+  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
+    vendor 客户端中的 OAuth 2.0 / PKCE 模式
   </Card>
-  <Card title="测试指南" icon="flask" href="/zh/development/provider-testing">
-    测试你的 Provider
+  <Card title="Provider 概览" icon="watch" href="/zh/providers/overview">
+    所有已发布的 vendor
   </Card>
 </CardGroup>

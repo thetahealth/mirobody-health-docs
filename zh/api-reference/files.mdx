@@ -3,7 +3,7 @@ title: "文件"
 description: "POST /v1/files、GET /v1/files —— 上传并解析报告、列出、获取解析后的文本。"
 ---
 
-上传一份健康文档，Mirobody 会将其解析进数据主体(Subject)的存储。PDF 和图片会经过 **OCR**（原始文本会保留供 `read_file` 使用）；Excel / CSV 会按结构解析（自动识别长表 / 宽表）为健康记录。对话智能体随后用其 `read_file` / `ls` 工具读取文件。
+上传一份健康文档，Mirobody 会将其解析进数据主体(Subject)的存储。PDF 和图片会经过 **OCR**；Excel / CSV 会按结构解析为健康记录。对话智能体随后会在作答时自动读取已上传的文件。
 
 ## 上传并解析
 
@@ -16,11 +16,11 @@ Content-Type:  multipart/form-data
 | 字段 | 说明 |
 | --- | --- |
 | `file` | 文档（PDF / 图片 / Excel / CSV）。 |
-| `user` | 文件所属的数据主体(Subject)。 |
-| `retention` | `permanent`（默认）/ `1h` / `2h` / `6h` / `1d` / `session` / `none`。`1h` / `2h` / `6h` 表示写入后约这么多小时自动删除（上限仍为 24 小时）。 |
+| `user` | 文件所属的数据主体(Subject)。**可选** —— 省略时会回退到你账户的 **`default`** 数据主体(Subject)，因此为实现按终端用户隔离，请始终传入它。 |
+| `retention` | **此处可选**（与 `POST /v1/data` 不同，那里为必填）。取值与[数据留存](/zh/api-reference/overview#数据留存)相同。 |
 
 ```bash
-curl https://mcp.thetahealth.cn/v1/files \
+curl https://test-mirobody-api.thetahealth.ai/v1/files \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" \
   -F "file=@checkup_2026.pdf"
@@ -30,16 +30,20 @@ curl https://mcp.thetahealth.cn/v1/files \
 
 ```json
 {
-  "file_key": "uploads/20260616_xxx.pdf",
+  "object": "file",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
   "filename": "checkup_2026.pdf",
-  "indicators": 3,
-  "abstract": "Annual checkup — glucose slightly elevated ...",
+  "bytes": 20544,
+  "status": "processed",
+  "created_at": 1782924296,
   "subject": "alice"
 }
 ```
 
+文件的标识符是 **`id`**（一个含斜杠的键）—— 在下方的获取与列出调用中将其用作 `{file_key}`。上传响应上的 `created_at` 是 **epoch 秒**。上传响应**不**包含指标计数或摘要。
+
 <Note>
-`indicators` 是一个**整数计数**（本次上传抽取出的结构化指标条数），而非指标名称数组。图片 / PDF 经 OCR 转为可被 `read_file` 读取的文本，结构化指标抽取是**异步、尽力而为**的，上传响应里的 `indicators` 往往为 `0`。如需确定的结构化指标，请改用 [`POST /v1/data`](/zh/api-reference/data) 或上传 CSV / Excel。
+图片和 PDF 会被 OCR 为智能体可读的文本；结构化指标抽取是异步、尽力而为的。如需确定的结构化数据，请使用 [`POST /v1/data`](/zh/api-reference/data) 或上传 CSV / Excel 文件。
 </Note>
 
 ## 列出文件
@@ -49,52 +53,50 @@ GET /v1/files?user=alice
 Authorization: Bearer mb_live_*
 ```
 
-返回一个包裹对象 —— 文件列表在 `data` 数组中：
-
 ```json
 {
   "object": "list",
   "data": [
-    { "file_key": "uploads/20260616_xxx.pdf", "filename": "checkup_2026.pdf", "file_type": "application/pdf", "created_at": "2026-06-16T07:40:00Z" }
+    {
+      "object": "file",
+      "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+      "filename": "checkup_2026.pdf",
+      "file_type": "application/pdf",
+      "bytes": 20544,
+      "created_at": 1782924296716
+    }
   ],
   "subject": "alice"
 }
 ```
 
+`data` 存放文件；`subject` 回显数据主体(Subject)。每一项都同时暴露 `id` 和 `file_key`（二者值相同）。注意**列表**中的 `created_at` 是 **epoch 毫秒** —— 而上方的上传响应用的是 epoch 秒。
+
 ## 获取解析后的文本
 
 ```http
-GET /v1/files/{file_key}
+GET /v1/files/{file_key}?user=alice
 Authorization: Bearer mb_live_*
 ```
 
-返回单个文件解析后的文本与摘要 —— 与智能体 `read_file` 工具所看到的内容一致。
+返回单个文件解析后的文本 —— 与智能体所读取的内容一致：
 
-## 删除文件（被遗忘权）
-
-```http
-DELETE /v1/files/{file_key}
-Authorization: Bearer mb_live_*
+```json
+{
+  "object": "file",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+  "filename": "checkup_2026.pdf",
+  "extracted_text": "date,indicator,value\n2026-06-16,fasting_glucose,5.4\n",
+  "abstract": "",
+  "subject": "alice"
+}
 ```
 
-立即删除单个文件及其解析后的文本。
+`abstract` 可能为空（并非每种文件类型都会生成它）。
 
-```bash
-curl -X DELETE "https://mcp.thetahealth.cn/v1/files/uploads/20260616_xxx.pdf" \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
-```
-
-要清空某个用户的**全部数据与文件**（结构化记录 + 上传文件），请使用：
-
-```http
-DELETE /v1/subjects/{user}
-Authorization: Bearer mb_live_*
-```
+## 删除文件
 
 <Note>
-删除类端点需要带有 `data:delete`（或 `data:write`）scope 的密钥。
-</Note>
-
-<Note>
-除显式删除外，文件还会按其 `retention` 自动清理：`1h` / `2h` / `6h` / `1d` / `session` 数据会自动过期，而用 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 结束会话会立即清除该会话的数据。`permanent` 文件会一直保留，直到被显式删除。
+`/v1` 中目前**没有按文件或按数据主体(Subject)删除的端点** —— `DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上**尚不可用**。如今，有时限的上传通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除（小时粒度会自动删除；`session` 数据上限为 24 小时）。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/cloud/compliance)。
 </Note>

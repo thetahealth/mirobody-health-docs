@@ -5,11 +5,22 @@ description: "Connect Mirobody tools to Claude, Cursor, ChatGPT, and other MCP c
 
 ## Overview
 
-Mirobody functions as an **OAuth-enabled MCP Server** that exposes all your tools to AI clients like Claude Desktop, Cursor, and custom MCP clients.
+Mirobody functions as an **OAuth-enabled MCP server** that exposes its [built-in tools](/en/tools/built-in) to AI clients like Claude Desktop, Cursor, and custom MCP clients. The endpoint speaks **JSON-RPC 2.0** and is served by `src/mcp/`.
 
 <Info>
 The Model Context Protocol (MCP) is a standard interface for AI applications to access tools, resources, and context.
 </Info>
+
+The engine exposes two request paths:
+
+```
+http://localhost:8080/mcp                 # authenticates via bearer JWT
+http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
+```
+
+<Note>
+The standalone binary listens on `HTTP_HOST:HTTP_PORT`, which defaults to `0.0.0.0:8080`. Adjust the port below if you've changed `HTTP_PORT`.
+</Note>
 
 ## MCP Configuration
 
@@ -27,7 +38,7 @@ Add Mirobody to your MCP configuration:
         "universal-mcp-proxy"
       ],
       "env": {
-        "UMCP_ENDPOINT": "http://localhost:18080/mcp"
+        "UMCP_ENDPOINT": "http://localhost:8080/mcp"
       }
     }
   }
@@ -84,9 +95,9 @@ After updating the configuration:
   <Step title="Test a tool">
     Try using one of your tools:
     
-    "Can you show me my health profile?"
+    "How did I sleep recently?"
     
-    The agent should call the `get_user_health_profile` tool.
+    The client should call the `family_health` tool. (A no-auth smoke test: ask it to `echo` some text.)
   </Step>
 </Steps>
 
@@ -110,15 +121,13 @@ The OAuth token is managed by Mirobody. Users authenticate once, and tools have 
 
 The MCP server exposes the following endpoint:
 
-**Base URL**: `http://localhost:18080/mcp`
+**Base URL**: `http://localhost:8080/mcp` (or `http://localhost:8080/mcp/{secret}` for a personal-MCP secret)
 
 **Protocol**: JSON-RPC 2.0
 
-**Methods**:
+**Methods** include:
 - `tools/list`: List all available tools
 - `tools/call`: Execute a specific tool
-- `resources/list`: List available resources
-- `resources/read`: Read a resource
 
 ## For ChatGPT
 
@@ -132,7 +141,7 @@ You can call tools directly via HTTP:
 
 ```bash
 # List all tools
-curl -X POST http://localhost:18080/mcp \
+curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -140,8 +149,8 @@ curl -X POST http://localhost:18080/mcp \
     "method": "tools/list"
   }'
 
-# Call a tool
-curl -X POST http://localhost:18080/mcp \
+# Call a tool (auth-scoped tools need a bearer JWT)
+curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{
@@ -149,8 +158,8 @@ curl -X POST http://localhost:18080/mcp \
     "id": 2,
     "method": "tools/call",
     "params": {
-      "name": "get_user_health_profile",
-      "arguments": {}
+      "name": "family_health",
+      "arguments": { "member": "me", "count": 20 }
     }
   }'
 ```

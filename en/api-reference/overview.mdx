@@ -3,29 +3,27 @@ title: "API Overview"
 description: "OpenAI-compatible health-data API — base URL, auth, multi-tenancy, retention, errors."
 ---
 
-Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call `/v1/chat/completions` — the agent answers from each end-user's **real, structured health data**, with traceable citations. The same engine also runs self-hosted via `pip install mirobody` or the open-source stack; the hosted API adds managed storage, keys, and billing on top.
+Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call `/v1/chat/completions` — the agent answers from each end-user's **real, structured health data**, with traceable citations. The same engine also runs **self-hosted** — build the [open-source C++ engine](/en/index) with `./build.sh` and run it yourself; the hosted API adds managed storage, keys, and billing on top.
 
-You create keys, watch usage, and try an interactive Playground in the [developer console](https://cdm.thetahealth.cn/). These docs are the API reference.
+You create keys, watch usage, and try an interactive Playground in the [developer console](https://test-platform.mirobody.ai/). These docs are the API reference.
 
 ## Base URL
 
-```text
-https://mcp.thetahealth.cn/v1
-```
-
-There's also a **test cluster** for integration testing — its data is non-production and may be reset at any time, so never put real end-user data there:
+Mirobody is **global-first**. The live integration environment today is the global **test** cluster — point your SDK here:
 
 ```text
-https://test-mcp.thetahealth.cn/v1
+https://test-mirobody-api.thetahealth.ai/v1
 ```
 
-Authenticate every call with an `mb_live_*` key — see [Authentication](#authentication). A global region is **coming soon**; see [Regions](/en/cloud/regions/overview).
+Its data is non-production and may be reset at any time, so never put real end-user data there. Production (`https://mirobody-api.thetahealth.ai/v1`) and the **China** cluster (`https://mirobody-api.thetahealth.cn/v1`) are provisioning — see [Regions](/en/cloud/regions/overview) for the full host matrix and live status.
+
+Authenticate every call with an `mb_live_*` key — see [Authentication](#authentication).
 
 ## Authentication
 
 | Surface | Scheme | How to get it |
 | --- | --- | --- |
-| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://cdm.thetahealth.cn/developer/keys) → **API Keys**. The secret is shown **once**. |
+| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://test-platform.mirobody.ai/developer/keys) → **API Keys**. The secret is shown **once**. |
 | `/api/console/*` (console) | Session **JWT** (login) | Email-code or WeChat login in the console. |
 
 `/v1` keys are **not** JWTs — they're long-lived API keys scoped to your account. Never ship them in client-side code.
@@ -41,7 +39,7 @@ Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body
 | **Response** | `choices[0].message.content` (+ `reasoning_content`, `tool_steps`), `usage`, plus top-level `health_records` / `citations` |
 
 <Note>
-**Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced** — the agent controls output length. `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. `n` must be `1`; any other value returns `400`.
+**Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced** — the agent controls output length. `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. `n` other than `1` is also not enforced — the response still returns a single choice.
 </Note>
 
 ## Multi-tenancy: the `user` field
@@ -54,7 +52,7 @@ Anything you supply (structured records, uploaded files, inline `health_context`
 
 | `retention` | Meaning | Lifetime |
 | --- | --- | --- |
-| `permanent` (default) | Kept until explicitly deleted | Permanent |
+| `permanent` | Kept until explicitly deleted (default for inline `health_context`) | Permanent |
 | `session` | Bound to `session_id`, dropped when the session ends | ≤ 24h, or `DELETE /v1/sessions/{id}` |
 | `1d` | Auto-deleted within a day | ≤ 24h |
 | `6h` | Auto-deleted 6 hours after write | ≤ 6h |
@@ -62,13 +60,15 @@ Anything you supply (structured records, uploaded files, inline `health_context`
 | `1h` | Auto-deleted 1 hour after write | ≤ 1h |
 | `none` | Used for this request only, never persisted | Deleted in `finally` |
 
-Accepted values are `permanent` | `1h` | `2h` | `6h` | `1d` | `session` | `none`. Any time-bounded grain is hard-capped at **≤ 24h**.
+Accepted values are `permanent` (a.k.a. `persistent`) | `1h` | `2h` | `6h` | `1d` | `session` | `none`. Any time-bounded grain is hard-capped at **≤ 24h**.
+
+On **`POST /v1/data` the `retention` field is required** — there is no default; omitting it returns `400` (`code: invalid_retention`). For inline `health_context` on `POST /v1/chat/completions`, it defaults to `permanent`.
 
 `none` is meant for inline `health_context` (use-and-forget). On `POST /v1/data` it is **rejected with HTTP `400`** (writing to the store but asking not to store is contradictory) — to use-and-forget structured data, attach it as `health_context` with `retention=none` on `POST /v1/chat/completions` instead. The agent **only ever reads the Subject's currently-unexpired data**.
 
 ## Citations
 
-Answers carry traceable references to the health records they used (`health_records` / `citations`), so results are **explainable and checkable** — not "sounds plausible," but "this conclusion came from that record of yours."
+Answers are **explainable and checkable** — not "sounds plausible," but "this conclusion came from that record of yours." Today the traceability is carried by **`health_records`** (a top-level array of `{tool, data}` pairs — the actual tool outputs the answer relied on). The `citations` array is reserved for `record:N`-style refs and is **currently returned empty**, so read `health_records`.
 
 ## Error format
 
@@ -77,21 +77,25 @@ Errors use the OpenAI-style envelope:
 ```json
 {
   "error": {
-    "message": "X-... is required for this endpoint.",
+    "message": "`retention` is required (days int or 'persistent').",
     "type": "invalid_request_error",
-    "code": "invalid_request"
+    "code": "invalid_retention",
+    "param": "retention"
   }
 }
 ```
 
-| HTTP | When |
-| --- | --- |
-| `400` | Malformed request / missing required field |
-| `401` | Missing or invalid `mb_live_*` key |
-| `404` | Unknown resource (e.g. file_key / session_id) |
-| `429` | Rate limit — see [Rate Limits](/en/cloud/rate-limits) |
-| `500` | `internal_error` — an unexpected server-side failure |
-| `502` | Upstream agent error — transient; retry with backoff |
+`type` is consistently `invalid_request_error`; `code` and `param` identify the specific problem. Observed (status, code) pairs:
+
+| HTTP | `code` | When |
+| --- | --- | --- |
+| `400` | `invalid_retention` (field-specific) | Malformed request / missing required field — `param` names the field |
+| `401` | `null` | Missing or malformed `Authorization` header |
+| `401` | `invalid_api_key` | Bad or revoked `mb_live_*` key |
+| `404` | — | Unknown resource (e.g. `file_key` / `session_id`) |
+| `429` | — | Rate limit — see [Rate Limits](/en/cloud/rate-limits) |
+| `500` | `internal_error` | Unexpected server-side failure |
+| `502` | — | Upstream agent error — transient; retry with backoff |
 
 In **streaming**, an upstream failure arrives as an SSE error frame before the stream ends.
 
@@ -103,6 +107,6 @@ In **streaming**, an upstream failure arrives as an SSE error frame before the s
 | `POST` | [`/v1/chat/completions`](/en/api-reference/chat) | OpenAI-compatible health chat (stream, `health_context`, `mcp_servers`) |
 | `POST` · `GET` | [`/v1/data`](/en/api-reference/data) | Write / read structured records |
 | `POST` · `GET` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch parsed text |
-| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session, purge its `session` data |
+| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session (see caveats — session-record purge is not yet effective) |
 | `GET`·`POST`·`DELETE` | [`/api/console/keys`](/en/api-reference/console/keys) | Manage API keys (JWT) |
 | `GET` | [`/api/console/usage`](/en/api-reference/console/usage) | Usage: requests / tokens / cost (JWT) |

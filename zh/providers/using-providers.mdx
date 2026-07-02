@@ -1,121 +1,131 @@
 ---
 title: "使用 Provider"
-description: "将可穿戴设备、移动健康平台和电子病历数据源接入 Mirobody"
+description: "配置凭据并将可穿戴设备、聚合器或 EHR 关联到 Mirobody。"
 ---
 
-## 什么是 Provider
+## 关联如何工作
 
-**Provider** 是一种可插拔的适配器，负责从外部数据源（可穿戴 API、移动健康平台、数据库等）拉取原始数据，并将其归一化为 Mirobody 的 `StandardPulseData` 标准结构。每个 Provider 位于 `mirobody/pulse/` 下的独立目录中（自定义 Provider 则放在 `providers/`），启动时自动加载。
+连接一个数据源分两个阶段：**配置凭据**（由运维方一次性完成）与**关联账号**（按用户、所有权门控）。数据随后流入内嵌的 FHIR 存储，agent 在其中读取。关于底层契约，参见 [Vendor 系统](/zh/concepts/providers)。
 
-健康垂直下的 Provider 大致分为三类：
+## 1 —— 配置凭据
 
-- **Theta 平台**（`mirobody/pulse/theta/`）—— 由 Mirobody 自行维护的直连 OAuth/凭据集成：Garmin、Whoop、Oura、Renpho、Vital、PostgreSQL。
-- **Apple**（`mirobody/pulse/apple/`）—— iOS Health 导出以及 CDA（Clinical Document Architecture）医疗记录。
-- **Vital**（位于 Theta 平台之下）—— 一个聚合层，通过单一 OAuth 流程对接 300+ 可穿戴和 EHR 端点，覆盖约 90% 的美国医疗记录。
+每个 vendor 按约定从环境变量读取其凭据（`<ID>` 是 vendor id 的大写形式）：
 
-所有 Provider 最终都写入相同的归一化表（`th_series_data`、`th_event_data`），因此下游工具、Agent 和 MCP 客户端无论数据来源如何，看到的都是统一的数据模型。
+```bash
+MIROBODY_VENDOR_<ID>_API_KEY=...        # bearer / API key (most REST vendors)
+MIROBODY_VENDOR_<ID>_CLIENT_ID=...      # OAuth client id
+MIROBODY_VENDOR_<ID>_CLIENT_SECRET=...  # OAuth client secret
+MIROBODY_VENDOR_<ID>_BASE_URL=...       # host override; empty => vendor default
+```
 
-## Provider 矩阵
+示例：
 
-| Provider | 模块 | 数据 | 认证方式 | 配置键 | 凭据获取 |
-|----------|------|------|----------|--------|----------|
-| **Garmin** | `mirobody/pulse/theta/mirobody_garmin_connect/` | 活动、睡眠、心率、HRV、压力、身体成分、训练 | OAuth 1.0a | `GARMIN_CLIENT_ID`、`GARMIN_CLIENT_SECRET`、`GARMIN_REDIRECT_URL` | <a href="https://developer.garmin.com/">Garmin 开发者门户</a> |
-| **Whoop** | `mirobody/pulse/theta/mirobody_whoop/` | 恢复、睡眠、负荷、训练、周期 | OAuth 2.0 | `WHOOP_CLIENT_ID`、`WHOOP_CLIENT_SECRET`、`WHOOP_REDIRECT_URL` | <a href="https://developer.whoop.com/">Whoop 开发者门户</a> |
-| **Oura** | `mirobody/pulse/theta/mirobody_oura/` | 睡眠、准备度、活动、HRV | OAuth 2.0 | `OURA_CLIENT_ID`、`OURA_CLIENT_SECRET`、`OURA_REDIRECT_URL` | [cloud.ouraring.com](https://cloud.ouraring.com/) |
-| **Renpho** | `mirobody/pulse/theta/mirobody_renpho/` | 体重、体脂、BMI、肌肉量、水分 | 邮箱 + 密码 | `RENPHO_*`（绑定时由用户提供） | Renpho 移动应用账号 |
-| **Vital** | `mirobody/pulse/theta/mirobody_vital/` | 300+ 可穿戴及 EHR 端点（Fitbit、Polar、Withings、Dexcom、Epic、Cerner 等） | 通过 Vital 的 OAuth | `VITAL_API_KEY`、`VITAL_ENVIRONMENT`、`VITAL_REDIRECT_URL` | [tryvital.io](https://tryvital.io/) |
-| **PostgreSQL** | `mirobody/pulse/theta/mirobody_pgsql/` | 用户自有 Postgres 数据库中的任意表 | 连接串 | 绑定时的 `host`、`port`、`database`、`user`、`password` | 您自己的数据库 |
-| **Apple Health** | `mirobody/pulse/apple/` | iOS Health 导出、CDA 医疗记录 | iOS App + Apple OAuth | `APPLE_CLIENT_ID`、`APPLE_TEAM_ID`、`APPLE_KEY_ID`、`APPLE_PRIVATE_KEY` | <a href="https://developer.apple.com/">Apple 开发者门户</a> |
-| **Google Health** | 通过 Vital | Android Health Connect、Google Fit | 通过 Vital 的 OAuth | （在 Vital 下配置） | <a href="https://console.cloud.google.com/">Google Cloud Console</a> |
+```bash
+# Fitbit (device brand, OAuth 2.0)
+MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
+MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
 
-各配置键的写入位置和首次加载时的 Fernet 加密机制，参见 [配置](/zh/configuration)。
+# Terra (aggregator)
+MIROBODY_VENDOR_TERRA_API_KEY=your_api_key
 
-## 如何连接一个 Provider
+# Generic EHR (SMART on FHIR) — base_url is REQUIRED (per-tenant FHIR base)
+MIROBODY_VENDOR_EHR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+MIROBODY_VENDOR_EHR_API_KEY=smart_on_fhir_access_token
+```
+
+<Info>
+由于名称中含 `_KEY` / `_SECRET` / `_TOKEN` 的配置值会在加载时自动加密（Fernet，经 `CONFIG_ENCRYPTION_KEY`），你也可以把这些值写进 `config.yml`。环境变量优先。参见[配置](/zh/configuration)。
+</Info>
+
+在 vendor 的开发者门户注册你的应用以获取 client id / secret（或 API key）。通用 `ehr` 客户端需要租户的 FHIR **服务 base URL**，可从公开的 Service Base URL 目录（ONC Lantern；Oracle Health / Cerner）发现。
+
+## 2 —— 关联账号（bind → verify → data）
+
+关联是**所有权门控**的：用户在读取任何数据之前先证明其拥有该外部账号，因此一个自称的 id 永远无法触及他人的记录。健康模块暴露三条路由（都需要 bearer JWT，并限定在已认证用户范围内）：
 
 <Steps>
-  <Step title="在配置文件中填入 OAuth 凭据">
-    先到对应厂商的开发者门户（见上方矩阵中的链接）注册应用，然后将凭据写入 `config.{env}.yaml`。以 Garmin 为例：
-
-    ```yaml config.localdb.yaml
-    GARMIN_CLIENT_ID: 'your_consumer_key'
-    GARMIN_CLIENT_SECRET: 'your_consumer_secret'
-    GARMIN_REDIRECT_URL: 'http://localhost:18080/api/v1/pulse/theta/theta_garmin/callback'
-    ```
-
-    重启 Mirobody，让加密后的值重新加载。完整的配置键列表见 [配置](/zh/configuration)。
-  </Step>
-
-  <Step title="打开 Web 界面">
-    访问 <a href="http://localhost:18080">localhost:18080</a> 登录，进入 **Drive → Providers**。所有在配置中找到凭据的 Provider 都会出现在列表里，其余则灰显并附带提示，指引你回到这里。
-  </Step>
-
-  <Step title="点击 Connect">
-    按钮会在新标签页中打开厂商的 OAuth 同意页。授权后，厂商会重定向回上一步配置的回调地址，Mirobody 会把（加密的）刷新令牌写入该用户记录。
-
-    对于密码型 Provider（Renpho）和 DSN 型 Provider（PostgreSQL），看到的是一个小表单而不是 OAuth 跳转。
-  </Step>
-
-  <Step title="验证">
-    Provider 卡片切换为 **Connected** 并显示最近同步时间。也可以通过 API 验证：
+  <Step title="Bind">
+    将外部账号 id 记录为 PENDING 关联。
 
     ```bash
-    curl "http://localhost:18080/api/v1/pulse/providers?user_id=YOUR_USER_ID"
+    curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
+      -H "Authorization: Bearer $JWT" \
+      -H "Content-Type: application/json" \
+      -d '{"external_user_id": "FITBIT_USER_ID"}'
     ```
 
-    <Check>
-    该 Provider 的 `"status"` 应为 `"connected"`，`last_sync` 不为空。
-    </Check>
+    <Note>各 vendor 具体的请求体可能不同；请查看该 vendor 的 `.cpp` 与 `src/health/vendor_service.*`。*(verify)*</Note>
+  </Step>
+
+  <Step title="Verify">
+    通过该 vendor 的同意 / 认领流程证明所有权。成功后该关联被标记为 VERIFIED。
+
+    ```bash
+    curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" \
+      -H "Authorization: Bearer $JWT"
+    ```
+
+    一个 `UNIQUE(vendor_id, external_user_id)` 约束是最后一道防线 —— 两名用户不能都认领同一个账号。
+  </Step>
+
+  <Step title="Fetch data">
+    验证之后，在某个时间区间内拉取一个数据域。`Vendor::fetch` 运行并返回该源的 JSON。
+
+    ```bash
+    curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-30" \
+      -H "Authorization: Bearer $JWT"
+    ```
+
+    合法的 `domain` 取值：`activity`、`sleep`、`heart_rate`、`glucose`、`nutrition`、`body_metrics`、`labs`、`clinical`（vendor 会拒绝它不中转的域）。
   </Step>
 </Steps>
 
-## 拉取节奏与同步
+## 连接一个 EHR（SMART on FHIR）
 
-Provider 绑定后，`mirobody/pulse/theta/platform/pull_task.py` 会为该用户调度一个 pull 任务：
+EHR 是**网页**能够自行连接的唯一临床数据源（Apple / Samsung 仅设备本地可用）。Mirobody 充当该 EHR 的 OAuth **客户端**。浏览器驱动的流程位于 `/health/ehr/*` 下：
 
-- **初次回填** 立即执行。窗口长度由厂商决定 —— Garmin 与 Whoop 默认 30 天，Oura 默认 90 天，Vital 按上游 API 允许的范围拉取。
-- **增量拉取** 按固定节奏运行（多数 Provider 每小时一次；仅体成分类的 Provider 改为每日一次）。每次拉取以 `last_sync` 为窗口起点，并按 `msg_id` 去重。
-- **Token 刷新** 对 OAuth 2.0 Provider 自动完成；OAuth 1.0a Token（Garmin）不过期。
-- **失败** 会按 用户/Provider 组合记录日志，并在下一次轮询时重试 —— 不会阻塞其他 Provider。
+<Steps>
+  <Step title="查找租户">
+    在 Service Base URL 目录中搜索该医院 / 诊所：
 
-手动触发同步：
+    ```bash
+    curl "http://localhost:8080/health/ehr/providers?q=Epic" -H "Authorization: Bearer $JWT"
+    ```
+  </Step>
+  <Step title="Authorize">
+    `POST /health/ehr/authorize {fhir_base_url}` 运行 SMART 发现（`/.well-known/smart-configuration`）+ PKCE，缓存 verifier/state，并返回供浏览器跳转的 `authorize_url`。
+  </Step>
+  <Step title="Callback">
+    EHR 重定向回 `GET /health/ehr/callback?code=&state=`；该 code 会被换成一个 access token，按用户缓存。
+  </Step>
+  <Step title="Sync">
+    `POST /health/ehr/sync` 使用缓存的 token，经 `ehr` 客户端获取 `Observation` 并逐条经 FHIR 存储持久化。
+  </Step>
+</Steps>
 
-```bash
-curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_garmin/pull" \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "YOUR_USER_ID"}'
-```
+用 `SMART_FHIR_*` 系列键配置 SMART 客户端（client id / redirect uri / scope；参见 `config.example.yml`）。在 Web 客户端中，这是 **Settings → Connect EHR**。
 
-解除绑定：
+## 设备本地存储（此处无需关联）
 
-```bash
-curl -X POST "http://localhost:18080/api/v1/pulse/theta/theta_garmin/unlink" \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "YOUR_USER_ID"}'
-```
+Apple Health、Samsung Health、Google Health Connect 以及小米在服务端**没有服务端 API，也没有关联流程**。原生宿主 App 在设备本地读取它们，并把 FHIR `Observation` POST 到 `/fhir`。参见[数据流](/zh/concepts/data-flow)。
 
-## 自定义 Provider
+## 自带 provider
 
-如果上面的矩阵里没有你需要的设备或数据源，自己写一个即可。在项目根目录的 `providers/` 下新建一个 `mirobody_<slug>/` 目录，继承 `BaseThetaProvider`，实现 `info`、凭据校验方法以及（可选的）`pull_from_vendor_api`。Mirobody 下次启动时会自动发现并加载。
-
-<CardGroup cols={1}>
-  <Card title="Provider 集成指南" icon="plug" href="/zh/development/provider-integration">
-    完整流程：目录结构、基类、OAuth 模式、数据映射、测试。
-  </Card>
-</CardGroup>
+如果你需要的数据源尚未发布，在 `src/health/vendor/` 下添加一个 `vendor::Vendor` 并注册它 —— 参见 [Provider 集成](/zh/development/provider-integration)。由于 vendor 是编译进程序的，你需要重新构建内核，而不是在运行时投放一个文件。
 
 ## 下一步
 
 <CardGroup cols={2}>
+  <Card title="Provider 概览" icon="plug" href="/zh/providers/overview">
+    已发布 vendor 的完整列表
+  </Card>
   <Card title="配置" icon="gear" href="/zh/configuration">
-    所有 Provider 的配置键及其写入位置
+    凭据的写入位置以及加密如何工作
   </Card>
-  <Card title="OAuth 实现" icon="key" href="/zh/development/oauth-implementation">
-    Theta Provider 使用的 OAuth 1.0a 与 2.0 模式
+  <Card title="Garmin 示例" icon="watch" href="/zh/examples/garmin-provider">
+    一个设备品牌客户端的走查
   </Card>
-  <Card title="数据映射" icon="arrows-rotate" href="/zh/development/data-mapping">
-    厂商原始数据到 `StandardPulseData`
-  </Card>
-  <Card title="Provider 测试" icon="flask" href="/zh/development/provider-testing">
-    端到端测试 link、callback、pull 与 unlink
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    实现一个新的 `vendor::Vendor`
   </Card>
 </CardGroup>

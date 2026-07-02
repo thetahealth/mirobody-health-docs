@@ -13,18 +13,18 @@ Background reading: the <a href="https://openai.com/index/introducing-apps-in-ch
 
 ## How it works
 
-Mirobody's MCP server is a first-class HTTP service. When you set `MCP_PUBLIC_URL` in your config, Mirobody advertises that URL as its remote endpoint and accepts MCP traffic over HTTPS at `<MCP_PUBLIC_URL>/mcp`. ChatGPT (or any remote MCP client) connects there, authenticates via OAuth, and starts calling tools.
+Mirobody's MCP server is a first-class HTTP service. When you set `MCP_PUBLIC_URL` in your config, Mirobody uses that as the externally-reachable URL of its `/mcp` endpoint. ChatGPT (or any remote MCP client) connects there, authenticates via OAuth, and starts calling tools.
 
 ## Prerequisites
 
-You need a publicly-reachable HTTPS URL that forwards to your Mirobody instance.
+You need a publicly-reachable HTTPS URL that forwards to your Mirobody instance. The standalone binary listens on `HTTP_HOST:HTTP_PORT` (default `0.0.0.0:8080`).
 
 <Steps>
   <Step title="Make sure Mirobody is running">
-    Local: `http://localhost:18080/mcp` should return MCP JSON. Verify with:
+    Local: `http://localhost:8080/mcp` should return MCP JSON. Verify with:
 
     ```bash
-    curl -X POST http://localhost:18080/mcp \
+    curl -X POST http://localhost:8080/mcp \
       -H "Content-Type: application/json" \
       -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
     ```
@@ -35,22 +35,22 @@ You need a publicly-reachable HTTPS URL that forwards to your Mirobody instance.
 
     ```bash
     # ngrok
-    ngrok http 18080
+    ngrok http 8080
 
     # Or cloudflared
-    cloudflared tunnel --url http://localhost:18080
+    cloudflared tunnel --url http://localhost:8080
     ```
 
     Use the resulting HTTPS URL (e.g. `https://abc123.ngrok.io`).
 
-    **Option B — production (deploy with your own domain)**: terminate TLS at a reverse proxy (Caddy / nginx / a managed load balancer) and forward to your Mirobody container.
+    **Option B — production (deploy with your own domain)**: terminate TLS at a reverse proxy (Caddy / nginx / a managed load balancer) and forward to your Mirobody instance.
   </Step>
 
   <Step title="Set MCP_PUBLIC_URL">
-    Add to your `config.{env}.yaml`:
+    Add to your `config.yml`:
 
     ```yaml
-    MCP_PUBLIC_URL: "https://abc123.ngrok.io"   # or your production domain
+    MCP_PUBLIC_URL: "https://abc123.ngrok.io/mcp"   # or your production domain + /mcp
     ```
 
     Restart Mirobody. Your public MCP endpoint is now `https://abc123.ngrok.io/mcp`.
@@ -95,7 +95,7 @@ Once `MCP_PUBLIC_URL` is set and your tunnel/domain is reachable, register the a
     </Frame>
 
     <Tip>
-    ChatGPT auto-discovers every tool registered in your Mirobody instance — including anything you drop into the top-level `tools/` and `skills/` directories.
+    ChatGPT auto-discovers every tool registered in your Mirobody instance — the [nine built-in tools](/en/tools/built-in) plus any C++ tool you added in `res/mcp_tools/` and rebuilt.
     </Tip>
   </Step>
 
@@ -105,11 +105,10 @@ Once `MCP_PUBLIC_URL` is set and your tunnel/domain is reachable, register the a
 
   <Step title="Start using your app">
     The connected ChatGPT session can now:
-    - Retrieve health profiles and time-series data
-    - Query data from connected providers (Garmin, Whoop, Oura, Renpho, Apple/Google Health, EHR)
-    - Call any custom tool you registered in `tools/`
-    - Activate any Skill from `skills/`
-    - Read resources exposed at `resources/`
+    - Read the user's health records (FHIR `Observation`s) via `family_health`
+    - List and read the user's uploaded files via `list_files` / `read_file`
+    - Store and recall long-term memory via `remember` / `recall_memory`
+    - Call any custom tool you added in `res/mcp_tools/` and rebuilt
 
     <Check>
     Your ChatGPT App is now wired to Mirobody.
@@ -119,26 +118,26 @@ Once `MCP_PUBLIC_URL` is set and your tunnel/domain is reachable, register the a
 
 ## Available Capabilities
 
-Once connected, ChatGPT has access to:
+Once connected, ChatGPT has access to Mirobody's [built-in MCP tools](/en/tools/built-in):
 
 <CardGroup cols={2}>
-  <Card title="Health Profile" icon="user">
-    Comprehensive user health context and connected device info
+  <Card title="Health Records" icon="user">
+    Recent FHIR `Observation`s for the user or a shared care-circle member (`family_health`)
   </Card>
-  <Card title="Time-Series Queries" icon="chart-line">
-    400+ standardized indicators with FHIR/LOINC/SNOMED CT cross-vocabulary search
+  <Card title="Uploaded Files" icon="file">
+    List and read uploaded files, including text extracted from images and PDFs (`list_files`, `read_file`)
+  </Card>
+  <Card title="Long-term Memory" icon="brain">
+    Store and recall durable facts about the user (`remember`, `recall_memory`)
+  </Card>
+  <Card title="Charts" icon="chart-line">
+    Render Apache ECharts visualizations in chat (`render_chart`)
   </Card>
   <Card title="Custom Tools" icon="wrench">
-    Anything you registered under `tools/`
+    Any C++ tool you added in `res/mcp_tools/` and rebuilt
   </Card>
-  <Card title="Skills" icon="bolt">
-    Claude Agent Skills auto-discovered from `skills/`
-  </Card>
-  <Card title="MCP Resources" icon="database">
-    Static and dynamic resources via `resources/`
-  </Card>
-  <Card title="Sandbox Execution" icon="terminal">
-    The `execute` tool runs Python / shell inside an E2B sandbox
+  <Card title="Conversation Title" icon="tag">
+    Set a short label for the current conversation (`summarize_conversation`)
   </Card>
 </CardGroup>
 
@@ -151,10 +150,10 @@ ChatGPT can synthesize across devices, records, and uploaded files. Real-world e
 For simple questions, you can ask:
 
 ```
-"Show me my health profile"
+"How did I sleep recently?"
 "What was my heart rate yesterday?"
-"Compare my sleep data from this week to last week"
-"What health devices do I have connected?"
+"Summarize my most recent lab results"
+"Chart my weight over the last month"
 ```
 
 ### Advanced Analysis: Diabetes Management
@@ -192,7 +191,7 @@ The same MCP endpoint also works for Claude Desktop, Cursor, and any other MCP c
 **Additional hardening:**
 
 - Treat `MCP_PUBLIC_URL` as a secret; do not share it publicly
-- Put the endpoint behind rate-limiting (Mirobody's `server/` middleware, or your reverse proxy)
+- Put the endpoint behind rate-limiting (Mirobody's `src/server/` middleware, or your reverse proxy)
 - Monitor access logs for unusual patterns
 - Only expose the tunnel when you're actively using it
 - For production: TLS at a managed proxy, IP allowlist if possible, observability on `/mcp`
@@ -203,8 +202,8 @@ The same MCP endpoint also works for Claude Desktop, Cursor, and any other MCP c
 
 ### Connection failed
 
-1. Verify your tunnel / domain is reachable: `curl -I https://<MCP_PUBLIC_URL>/mcp`
-2. Confirm Mirobody is bound to `0.0.0.0:18080` inside its container
+1. Verify your tunnel / domain is reachable: `curl -I https://<your-domain>/mcp`
+2. Confirm Mirobody is bound to `0.0.0.0:8080` (or your configured `HTTP_PORT`)
 3. Confirm `MCP_PUBLIC_URL` matches the URL you're giving ChatGPT
 4. Restart Mirobody after editing the config — it's only re-read on startup
 
@@ -212,6 +211,5 @@ The same MCP endpoint also works for Claude Desktop, Cursor, and any other MCP c
 
 1. Hit `/mcp` directly with `tools/list` and confirm tools are returned
 2. Check Mirobody logs for tool-loading errors at startup
-3. Make sure your files in `tools/` follow the docstring convention (see [Adding Tools](/en/tools/adding-tools))
-4. Drop `--no-cache` and rebuild if you changed `mirobody/pub/tools/` and don't see updates
+3. If you added a C++ tool, confirm the file is under `res/mcp_tools/` and rebuilt with `./build.sh` (see [Adding Tools](/en/tools/adding-tools))
 

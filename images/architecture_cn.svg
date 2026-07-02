@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 660" font-family="ui-sans-serif, system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif" role="img" aria-label="Mirobody 架构：客户端、AI 与智能体引擎、FHIR 与健康标准、健康数据管线 (Pulse)、基础设施">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 660" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', Roboto, Arial, sans-serif" role="img" aria-label="Mirobody v2 架构：客户端、C++ 引擎内核（Agent、MCP 工具、LLM 客户端）、FHIR R4 与术语、健康数据源（vendors）、运行时与基础设施">
   <style>
     :root{
       --ink:#0f172a; --sub:#475569; --box:#ffffff; --boxln:#e2e8f0;
-      --flow:#2563eb; --num:#94a3b8;
+      --flow:#2563eb; --flowln:#93c5fd; --num:#94a3b8;
     }
     .l1{--c:#6366f1} .l2{--c:#2563eb} .l3{--c:#0891b2} .l4{--c:#059669} .l5{--c:#64748b}
     @media (prefers-color-scheme: dark){
       :root{ --ink:#e8edf5; --sub:#9aa7bd; --box:#0e1726; --boxln:#26334a;
-             --flow:#60a5fa; --num:#5b6b86; }
+             --flow:#60a5fa; --flowln:#3b5170; --num:#5b6b86; }
       .l1{--c:#818cf8} .l2{--c:#60a5fa} .l3{--c:#22d3ee} .l4{--c:#34d399} .l5{--c:#94a3b8}
     }
     .band{fill:var(--c);opacity:.06}
@@ -30,18 +30,18 @@
     </marker>
   </defs>
 
-  <!-- Layer 1 — Clients -->
+  <!-- ================= 层 1 — 客户端 ================= -->
   <g class="l1">
     <rect class="band" x="16" y="16" width="1028" height="92" rx="14"/>
     <rect class="bar" x="16" y="16" width="5" height="92" rx="2.5"/>
     <text class="lnum" x="40" y="50">01</text>
-    <text class="lname" x="40" y="74">客户端</text>
-    <text class="lname" x="40" y="92">与接口</text>
+    <text class="lname" x="40" y="70">客户端</text>
+    <text class="lname" x="40" y="88">与接口</text>
 
     <g transform="translate(210,30)">
       <rect class="box" width="248" height="64" rx="10"/>
-      <text class="h" x="20" y="28">Web 与移动应用</text>
-      <text class="s" x="20" y="46">自托管 + mirobody.ai</text>
+      <text class="h" x="20" y="28">Web 与移动端应用</text>
+      <text class="s" x="20" y="46">自托管 · 端侧（Android / iOS）</text>
     </g>
     <g transform="translate(486,30)">
       <rect class="box" width="248" height="64" rx="10"/>
@@ -56,120 +56,113 @@
   </g>
 
   <line class="flow" x1="334" y1="108" x2="334" y2="132" marker-end="url(#ar)"/>
-  <text class="flowlbl" x="344" y="124">HTTP / SSE</text>
+  <text class="flowlbl" x="344" y="124">HTTP / SSE · WS</text>
   <line class="flow" x1="610" y1="108" x2="610" y2="132" marker-end="url(#ar)"/>
   <text class="flowlbl" x="620" y="124">MCP</text>
   <line class="flow" x1="893" y1="108" x2="893" y2="132" marker-end="url(#ar)"/>
   <text class="flowlbl" x="903" y="124">OAuth 2.0</text>
 
-  <!-- Layer 2 — AI and Agent Engine -->
+  <!-- ================= 层 2 — C++ 引擎内核 ================= -->
   <g class="l2">
     <rect class="band" x="16" y="136" width="1028" height="158" rx="14"/>
     <rect class="bar" x="16" y="136" width="5" height="158" rx="2.5"/>
     <text class="lnum" x="40" y="172">02</text>
-    <text class="lname" x="40" y="196">AI 与</text>
-    <text class="lname" x="40" y="214">智能体引擎</text>
+    <text class="lname" x="40" y="192">C++ 引擎</text>
+    <text class="lname" x="40" y="210">单一内核</text>
 
     <g transform="translate(210,150)">
       <rect class="box" width="384" height="130" rx="10"/>
-      <text class="h" x="18" y="26">对话服务</text>
-      <text class="s" x="18" y="43">会话 · 历史 · 流式 · 分享</text>
+      <text class="h" x="18" y="26">对话与 Agent</text>
+      <text class="s" x="18" y="43">src/chat · 会话 · 历史 · 流式</text>
       <rect class="chip" x="14" y="56" width="356" height="30" rx="7"/>
-      <text class="h" x="26" y="75" font-size="12">DeepAgent · MixAgent · BaseAgent</text>
-      <text class="h" x="18" y="108">MCP 服务器</text>
-      <text class="s" x="18" y="123">自动发现工具与资源</text>
+      <text class="h" x="26" y="75" font-size="12">单一 Agent：选 provider → 构造提示词 → 流式输出</text>
+      <text class="h" x="18" y="108">MCP 服务</text>
+      <text class="s" x="18" y="123">src/mcp · /mcp · JSON-RPC 2.0 · 自动发现工具</text>
     </g>
 
     <g transform="translate(626,150)">
       <rect class="box" width="398" height="130" rx="10"/>
       <text class="h" x="18" y="26">LLM 客户端</text>
-      <text class="s" x="18" y="43">OpenAI · Gemini · Anthropic · Volcengine · Dashscope</text>
+      <text class="s" x="18" y="43">src/llm · OpenAI · Gemini · MiroThinker · 端侧 Gemma</text>
       <line x1="14" y1="56" x2="384" y2="56" stroke="var(--boxln)"/>
-      <text class="tag" x="18" y="78">工具</text><text class="s" x="58" y="78">文件操作 · 图表 · execute</text>
-      <text class="tag" x="18" y="98">技能</text><text class="s" x="58" y="98">SKILL.md 手册，启动时自动加载</text>
-      <text class="tag" x="18" y="118">向量 · 提示词</text><text class="s" x="118" y="118">pgvector · Jinja2 上下文</text>
+      <text class="tag" x="18" y="78">MCP 工具</text><text class="s" x="86" y="78">文件 · 家庭健康 · 图表 · 记忆</text>
+      <text class="tag" x="18" y="98">实时</text><text class="s" x="86" y="98">OpenAI Realtime · Gemini Live（语音）</text>
+      <text class="tag" x="18" y="118">单一内核</text><text class="s" x="86" y="118">纯 extern "C" ABI · 独立 / 移动端</text>
     </g>
   </g>
 
-  <line class="flow" x1="401" y1="294" x2="401" y2="316" marker-end="url(#ar)"/>
-  <text class="flowlbl" x="411" y="309">解析 / 检索指标</text>
+  <line class="flow" x1="401" y1="294" x2="401" y2="316" marker-end="url(#ar)" marker-start="url(#ar)"/>
+  <text class="flowlbl" x="411" y="309">读写 FHIR 资源</text>
 
-  <!-- Layer 3 — FHIR and Standards -->
+  <!-- ================= 层 3 — FHIR R4 与术语 ================= -->
   <g class="l3">
     <rect class="band" x="16" y="320" width="1028" height="96" rx="14"/>
     <rect class="bar" x="16" y="320" width="5" height="96" rx="2.5"/>
     <text class="lnum" x="40" y="356">03</text>
-    <text class="lname" x="40" y="380">FHIR</text>
-    <text class="lname" x="40" y="398">与标准</text>
+    <text class="lname" x="40" y="376">FHIR R4</text>
+    <text class="lname" x="40" y="394">与术语</text>
 
-    <text class="tag" x="210" y="344">400+ 标准指标 · 跨词表概念图谱</text>
+    <text class="tag" x="210" y="344">src/fhir —— 内嵌 FHIR R4 端点 · 单位归一化到 UCUM · 映射到标准术语</text>
     <g transform="translate(210,352)" font-size="11">
-      <g><rect class="box" width="108" height="48" rx="9"/><text class="h" x="54" y="22" text-anchor="middle" font-size="12">FHIR</text><text class="s" x="54" y="38" text-anchor="middle">R4 / R5</text></g>
-      <g transform="translate(120,0)"><rect class="box" width="108" height="48" rx="9"/><text class="h" x="54" y="22" text-anchor="middle" font-size="12">LOINC</text><text class="s" x="54" y="38" text-anchor="middle">化验 / 体征</text></g>
-      <g transform="translate(240,0)"><rect class="box" width="116" height="48" rx="9"/><text class="h" x="58" y="22" text-anchor="middle" font-size="12">SNOMED CT</text><text class="s" x="58" y="38" text-anchor="middle">临床术语</text></g>
-      <g transform="translate(368,0)"><rect class="box" width="108" height="48" rx="9"/><text class="h" x="54" y="22" text-anchor="middle" font-size="12">RxNorm</text><text class="s" x="54" y="38" text-anchor="middle">用药</text></g>
-      <g transform="translate(488,0)"><rect class="box" width="92" height="48" rx="9"/><text class="h" x="46" y="22" text-anchor="middle" font-size="12">CVX</text><text class="s" x="46" y="38" text-anchor="middle">疫苗</text></g>
-      <g transform="translate(592,0)"><rect class="box" width="92" height="48" rx="9"/><text class="h" x="46" y="22" text-anchor="middle" font-size="12">DCM</text><text class="s" x="46" y="38" text-anchor="middle">影像</text></g>
-      <g transform="translate(696,0)"><rect class="box" width="118" height="48" rx="9"/><text class="h" x="59" y="22" text-anchor="middle" font-size="12">单位归一</text><text class="s" x="59" y="38" text-anchor="middle">UCUM · 8 语言</text></g>
+      <g><rect class="box" width="150" height="48" rx="9"/><text class="h" x="75" y="22" text-anchor="middle" font-size="12">FHIR R4</text><text class="s" x="75" y="38" text-anchor="middle">资源</text></g>
+      <g transform="translate(170,0)"><rect class="box" width="150" height="48" rx="9"/><text class="h" x="75" y="22" text-anchor="middle" font-size="12">LOINC</text><text class="s" x="75" y="38" text-anchor="middle">化验 / 生命体征</text></g>
+      <g transform="translate(340,0)"><rect class="box" width="150" height="48" rx="9"/><text class="h" x="75" y="22" text-anchor="middle" font-size="12">SNOMED CT</text><text class="s" x="75" y="38" text-anchor="middle">临床术语</text></g>
+      <g transform="translate(510,0)"><rect class="box" width="150" height="48" rx="9"/><text class="h" x="75" y="22" text-anchor="middle" font-size="12">RxNorm</text><text class="s" x="75" y="38" text-anchor="middle">药品</text></g>
+      <g transform="translate(680,0)"><rect class="box" width="150" height="48" rx="9"/><text class="h" x="75" y="22" text-anchor="middle" font-size="12">UCUM</text><text class="s" x="75" y="38" text-anchor="middle">单位</text></g>
     </g>
   </g>
 
-  <line class="flow" x1="640" y1="416" x2="640" y2="442" marker-end="url(#ar)" marker-start="url(#ar)"/>
-  <text class="flowlbl" x="650" y="433">标准化序列</text>
+  <line class="flow" x1="640" y1="416" x2="640" y2="442" marker-end="url(#ar)"/>
+  <text class="flowlbl" x="650" y="433">Observations（端侧 POST）· 解析后的文件</text>
 
-  <!-- Layer 4 — Health Data Pipeline (Pulse) -->
+  <!-- ================= 层 4 — 健康数据源（vendors） ================= -->
   <g class="l4">
     <rect class="band" x="16" y="446" width="1028" height="110" rx="14"/>
     <rect class="bar" x="16" y="446" width="5" height="110" rx="2.5"/>
     <text class="lnum" x="40" y="486">04</text>
-    <text class="lname" x="40" y="510">数据管线</text>
-    <text class="lname" x="40" y="528">(Pulse)</text>
+    <text class="lname" x="40" y="506">健康数据</text>
+    <text class="lname" x="40" y="524">vendors</text>
 
-    <g transform="translate(210,462)">
-      <rect class="box" width="210" height="78" rx="10"/>
-      <text class="h" x="16" y="24">数据源</text>
-      <text class="s" x="16" y="42">300+ 可穿戴 · EHR</text>
-      <text class="s" x="16" y="58">文件上传（PDF/CSV/音频）</text>
-      <text class="s" x="16" y="72" fill="var(--c)">基因 · Apple Health</text>
+    <text class="tag" x="210" y="462">src/health/vendor —— 每个数据源一个 vendor（授权 · 拉取 · webhook）· 上传文件（PDF / CSV / 图片）解析为 FHIR</text>
+    <g transform="translate(210,470)">
+      <rect class="box" width="195" height="70" rx="10"/>
+      <text class="h" x="16" y="24">聚合平台</text>
+      <text class="s" x="16" y="42">Terra · Validic · Human API</text>
+      <text class="s" x="16" y="58">15 家 B2B 聚合商</text>
     </g>
-    <line class="flow" x1="424" y1="501" x2="452" y2="501" marker-end="url(#ar)"/>
-    <g transform="translate(454,462)">
-      <rect class="box" width="170" height="78" rx="10"/>
-      <text class="h" x="16" y="24">解析与抽取</text>
-      <text class="s" x="16" y="42">OCR · ASR</text>
-      <text class="s" x="16" y="58">LLM 指标</text>
-      <text class="s" x="16" y="72">抽取</text>
+    <g transform="translate(423,470)">
+      <rect class="box" width="195" height="70" rx="10"/>
+      <text class="h" x="16" y="24">设备品牌</text>
+      <text class="s" x="16" y="42">Fitbit · Garmin · Withings</text>
+      <text class="s" x="16" y="58">第一方 OAuth 客户端</text>
     </g>
-    <line class="flow" x1="628" y1="501" x2="656" y2="501" marker-end="url(#ar)"/>
-    <g transform="translate(658,462)">
-      <rect class="box" width="158" height="78" rx="10"/>
-      <text class="h" x="16" y="24">聚合</text>
-      <text class="s" x="16" y="42">每日汇总</text>
-      <text class="s" x="16" y="58">衍生指标</text>
+    <g transform="translate(636,470)">
+      <rect class="box" width="195" height="70" rx="10"/>
+      <text class="h" x="16" y="24">临床 EHR</text>
+      <text class="s" x="16" y="42">SMART on FHIR</text>
+      <text class="s" x="16" y="58">Epic · Cerner · athenahealth</text>
     </g>
-    <line class="flow" x1="820" y1="501" x2="848" y2="501" marker-end="url(#ar)"/>
-    <g transform="translate(850,462)">
-      <rect class="box" width="174" height="78" rx="10"/>
-      <text class="h" x="16" y="24">洞察</text>
-      <text class="s" x="16" y="42">趋势 · 异常</text>
-      <text class="s" x="16" y="58">模式识别</text>
+    <g transform="translate(849,470)">
+      <rect class="box" width="195" height="70" rx="10"/>
+      <text class="h" x="16" y="24">端侧存储</text>
+      <text class="s" x="16" y="42">Apple Health · Health Connect</text>
+      <text class="s" x="16" y="58">端侧读取 → POST FHIR</text>
     </g>
   </g>
 
-  <!-- Layer 5 — Infrastructure -->
+  <!-- ================= 层 5 — 运行时与基础设施 ================= -->
   <g class="l5">
     <rect class="band" x="16" y="568" width="1028" height="78" rx="14"/>
     <rect class="bar" x="16" y="568" width="5" height="78" rx="2.5"/>
     <text class="lnum" x="40" y="600">05</text>
-    <text class="lname" x="40" y="620">基础设施</text>
+    <text class="lname" x="40" y="620">运行时</text>
 
     <g transform="translate(210,582)" font-size="11">
-      <g><rect class="box" width="132" height="50" rx="9"/><text class="h" x="14" y="22">Starlette ASGI</text><text class="s" x="14" y="39">JWT · 限流</text></g>
-      <g transform="translate(144,0)"><rect class="box" width="150" height="50" rx="9"/><text class="h" x="14" y="22">PostgreSQL</text><text class="s" x="14" y="39">+ pgvector</text></g>
-      <g transform="translate(306,0)"><rect class="box" width="104" height="50" rx="9"/><text class="h" x="14" y="22">Redis</text><text class="s" x="14" y="39">缓存 · 队列</text></g>
-      <g transform="translate(422,0)"><rect class="box" width="160" height="50" rx="9"/><text class="h" x="14" y="22">存储</text><text class="s" x="14" y="39">本地 · S3 · 阿里云 OSS</text></g>
-      <g transform="translate(594,0)"><rect class="box" width="124" height="50" rx="9"/><text class="h" x="14" y="22">鉴权</text><text class="s" x="14" y="39">OAuth · WebAuthn</text></g>
-      <g transform="translate(730,0)"><rect class="box" width="84" height="50" rx="9"/><text class="h" x="14" y="22">E2B</text><text class="s" x="14" y="39">沙箱</text></g>
+      <g><rect class="box" width="176" height="50" rx="9"/><text class="h" x="14" y="22">PostgreSQL / SQLite</text><text class="s" x="14" y="39">桌面 / 移动默认</text></g>
+      <g transform="translate(188,0)"><rect class="box" width="150" height="50" rx="9"/><text class="h" x="14" y="22">Redis / 内存</text><text class="s" x="14" y="39">缓存</text></g>
+      <g transform="translate(350,0)"><rect class="box" width="192" height="50" rx="9"/><text class="h" x="14" y="22">存储</text><text class="s" x="14" y="39">本地 · S3 · 阿里云 OSS · Azure</text></g>
+      <g transform="translate(554,0)"><rect class="box" width="120" height="50" rx="9"/><text class="h" x="14" y="22">OAuth 2.0</text><text class="s" x="14" y="39">OIDC · JWT</text></g>
+      <g transform="translate(686,0)"><rect class="box" width="152" height="50" rx="9"/><text class="h" x="14" y="22">三种形态</text><text class="s" x="14" y="39">二进制 · Android · iOS</text></g>
     </g>
   </g>
 </svg>

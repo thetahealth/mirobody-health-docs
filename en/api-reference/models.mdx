@@ -25,14 +25,14 @@ Each tier maps to an internal provider at runtime; bare provider names may also 
 
 <CodeGroup>
 ```bash curl
-curl https://mcp.thetahealth.cn/v1/models \
+curl https://test-mirobody-api.thetahealth.ai/v1/models \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```
@@ -40,12 +40,17 @@ for m in client.models.list().data:
 
 ## Response
 
+`GET /v1/models` currently returns the **underlying provider model id(s)** the tiers map to — not the friendly tier names. On the live test cluster it's a single entry:
+
 ```json
 {
   "object": "list",
   "data": [
-    { "id": "mirobody-flash",  "object": "model", "owned_by": "mirobody" },
-    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody" }
+    { "id": "dashscope/deepseek-v4-flash", "object": "model", "owned_by": "dashscope" }
   ]
 }
 ```
+
+<Note>
+Don't derive your `model` value from this list. Always pass one of the stable **request** tiers — `mirobody-flash` (default) or `mirobody-expert` — to [`/v1/chat/completions`](/en/api-reference/chat), regardless of what `/v1/models` reports. The listing reflects the current backend mapping and may change.
+</Note>

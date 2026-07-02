@@ -25,14 +25,14 @@ Authorization: Bearer mb_live_*
 
 <CodeGroup>
 ```bash curl
-curl https://mcp.thetahealth.cn/v1/models \
+curl https://test-mirobody-api.thetahealth.ai/v1/models \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://mcp.thetahealth.cn/v1")
+client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```
@@ -40,12 +40,17 @@ for m in client.models.list().data:
 
 ## 响应
 
+`GET /v1/models` 目前返回的是各能力档所映射到的**底层提供方模型 id**，而非友好的能力档名称。在实时测试集群上，它只有一个条目：
+
 ```json
 {
   "object": "list",
   "data": [
-    { "id": "mirobody-flash",  "object": "model", "owned_by": "mirobody" },
-    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody" }
+    { "id": "dashscope/deepseek-v4-flash", "object": "model", "owned_by": "dashscope" }
   ]
 }
 ```
+
+<Note>
+不要用这个列表来推导你的 `model` 取值。无论 `/v1/models` 返回什么，都请始终向 [`/v1/chat/completions`](/zh/api-reference/chat) 传入稳定的**请求**能力档 —— `mirobody-flash`（默认）或 `mirobody-expert`。该列表反映的是当前后端映射，可能会发生变化。
+</Note>

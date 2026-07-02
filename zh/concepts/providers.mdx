@@ -1,37 +1,178 @@
 ---
-title: "提供商系统"
-description: "深入了解 Mirobody 提供商系统架构"
+title: "Vendor 系统"
+description: "Mirobody 如何连接健康数据源：C++ vendor::Vendor 抽象、四大类别，以及 authorize / fetch / webhook 契约。"
 ---
 
-## 提供商系统概览
+## 什么是 vendor
 
-提供商（Provider）系统是 Mirobody 的核心，通过标准化接口实现与各种健康设备 API 的无缝集成。
+在 Mirobody 中，**vendor** 是针对某个健康数据源的 C++ 客户端，在 `src/health/vendor/` 下一源一文件。每个 vendor 都实现同一个抽象接口 —— [`src/health/vendor/vendor.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/vendor.hpp) 中的 `vendor::Vendor` —— 因此引擎的其余部分能通过同一套契约与可穿戴品牌、B2B 聚合器、医院 EHR 对话，并在运行时按 **id** 挑选具体客户端。
 
 <Info>
-提供商系统遵循插件化架构，可以轻松添加新的集成，而无需修改核心代码。
+这是旧版 Python "provider" 插件的 C++ 移植。不再有 `BaseThetaProvider`、`mirobody/pulse/`，也不再有每次启动时的目录发现 —— vendor 已编译进程序，并通过注册表按 id 解析。
 </Info>
 
-## 核心概念
+## 四大类别
+
+各源的客户端按四个目录归类，位于 `src/health/vendor/` 下：
 
 <CardGroup cols={2}>
-  <Card title="提供商 (Provider)" icon="plug">
-    与特定健康设备 API（如 Garmin, Whoop）集成的插件
+  <Card title="聚合平台" icon="layer-group">
+    `platform/` —— 15 家 B2B 健康数据聚合器（Terra、Validic、Human API、Junction、Metriport、Rook、Spike、Thryve、WeFitter、Vitalera、Open Wearables、Redox、Particle Health、HealthConnect、LexisNexis）
   </Card>
-  <Card title="BaseThetaProvider" icon="cube">
-    所有提供商必须继承的抽象基类
+  <Card title="设备品牌" icon="watch">
+    `device/` —— 消费级可穿戴品牌的直连客户端：**Fitbit、Garmin、Withings**
   </Card>
-  <Card title="提供商发现" icon="magnifying-glass">
-    从配置目录中自动检测并加载提供商插件
+  <Card title="临床 EHR" icon="hospital">
+    `ehr/` —— 一个**通用 SMART-on-FHIR** 客户端，覆盖所有 ONC 认证的 EHR（Epic、Oracle Health / Cerner、athenahealth 等），以各租户的 FHIR base URL 参数化
   </Card>
-  <Card title="提供商注册表" icon="list">
-    所有可用且激活的提供商的中央注册表
+  <Card title="手机健康存储" icon="mobile">
+    `phone/` —— 提供云端 API 的手机厂商健康存储。目前：**华为** Health Kit
   </Card>
 </CardGroup>
 
-## 提供商生命周期
+<Note>
+**仅设备本地的存储没有 vendor 客户端。** Apple Health、Samsung Health、Google Health Connect 以及小米 / Mi Fitness 不暴露任何服务端可调用的 API，因此它们**不是** `vendor::Vendor`。取而代之，宿主 App 在设备本地读取样本，并以 FHIR `Observation` 的形式 POST 到内嵌的 FHIR 端点。参见[数据流](/zh/concepts/data-flow)。
+</Note>
 
-<Frame>
-  <img src="/images/provider-lifecycle.svg" alt="Provider 生命周期：Discovered → Validated → Registered → Active → Linked → Syncing，含持续同步与解绑/重连" />
-</Frame>
+拥有各自 OAuth REST API 的设备*品牌*通常**通过聚合器**接入（Terra、Validic、Thryve、Rook、Spike）。只有三家拥有专属直连客户端（Fitbit、Garmin、Withings）；其余 —— Oura、Polar、Whoop 等 —— 仍只能经聚合器接入，除非有人专门添加一个客户端以刻意绕过聚合器。
 
-更多细节，请参见 [提供商概览](/zh/providers/overview)。
+## vendor 契约
+
+每个 vendor 都派生自 `VendorBase`，并只重写那些其线路契约能从该源的公开文档中确认的操作。接口（摘自 `vendor.hpp`）：
+
+```cpp
+namespace mirobody { namespace vendor {
+
+class Vendor {
+public:
+  virtual ~Vendor() = default;
+
+  // Static metadata (no network, no credentials).
+  virtual const VendorInfo& info() const = 0;
+
+  // Begin consumer-mediated consent; returns the entry point handed to the user
+  // (usually an OAuth authorize URL).
+  virtual std::string authorize_url(const std::string& redirect_uri,
+                                    const std::string& state,
+                                    const std::string& user_id,
+                                    const std::string& provider) = 0;
+
+  // The data sources a connected user can link, as the vendor's JSON.
+  virtual std::string list_providers(const std::string& user_id) = 0;
+
+  // Fetch `domain` for `user_id` over [start_iso, end_iso], as the vendor's JSON.
+  virtual std::string fetch(const std::string& user_id,
+                            DataDomain domain,
+                            const std::string& start_iso,
+                            const std::string& end_iso) = 0;
+
+  // Validate and parse an inbound webhook delivery; returns the event as JSON.
+  virtual std::string handle_webhook(const std::string& raw_headers,
+                                     const std::string& body) = 0;
+
+  // Revoke a user's authorization / disconnect them.
+  virtual void revoke(const std::string& user_id,
+                      const std::string& provider) = 0;
+};
+
+}}
+```
+
+- **`DataDomain`** 是归一化的数据类别：`Activity`、`Sleep`、`HeartRate`、`Glucose`、`Nutrition`、`BodyMetrics`、`Labs`、`Clinical`。
+- **时间边界**为 ISO-8601 字符串；为空表示"该 vendor 的默认时间窗口"。
+- **返回数据的操作会原样交回该 vendor 自己的 JSON** 字符串。（在此 JSON 之上的归一化模型是后续步骤；若干基于 FHIR 的 vendor 已直接返回 FHIR 资源。）
+
+### 诚实的桩实现
+
+`VendorBase` 将每个操作实现为一个抛出 `VendorError("... not implemented")` 的桩。具体 vendor 只重写它能忠实实现的操作；其余**刻意**保留为桩，原因记录在以下三类之一：
+
+- **受限 / 无文档** —— 契约（例如 webhook 签名方案）未公开，实现它意味着捏造一个无法验证的方案；
+- **契约不匹配** —— 有文档的端点需要一个接口未携带的参数；
+- **无此端点** —— 该平台根本没有暴露此类形态的操作。
+
+每个 `<id>.cpp` 的头部都记录了为何某处保留为桩。捏造契约被视为比诚实的"未实现"更糟。
+
+## 无需凭据的元数据
+
+每个 vendor 都携带一份 `VendorInfo`，描述其市场定位、地区、合规态势、数据域和集成方式 —— 无需任何凭据或网络调用即可查询。这让注册表能描述整个领域，用于选型与比较。
+
+```cpp
+struct VendorInfo {
+  std::string id;              // stable lowercase key, e.g. "terra"
+  std::string display_name;    // "Terra API"
+  std::string positioning;
+  std::string data_source_coverage;
+  std::string docs_url;
+  Region region;               // Global | US | EU | SelfHosted
+  bool open_source;
+  std::vector<std::string> compliance;   // "HIPAA", "GDPR", "SOC2_TYPE_II", …
+  std::vector<DataDomain>   domains;
+  std::vector<Integration>  integrations; // Rest | Sdk | Webhook | WebSocket | Fhir | Hl7 | WhiteLabel
+  // …
+};
+```
+
+## 通过注册表按 id 解析
+
+具体的 vendor 类永远不会在其自身的翻译单元之外被命名。调用方只能通过注册表访问它们（[`src/health/vendor/registry.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/registry.hpp)）：
+
+```cpp
+namespace mirobody { namespace vendor {
+
+// Every registered vendor id, in matrix order.
+std::vector<std::string> vendor_ids();
+
+// Static metadata for all vendors — no credentials, no network.
+std::vector<VendorInfo> all_vendor_info();
+
+// Construct the vendor for `id`; throws VendorError if unknown.
+std::unique_ptr<Vendor> open_vendor(const std::string& id, const VendorConfig& config);
+
+}}
+```
+
+### 配置
+
+vendor 通过一份按约定从环境变量构建的 `VendorConfig` 进行配置：
+
+```
+MIROBODY_VENDOR_<ID>_API_KEY        # bearer / API key (most REST vendors)
+MIROBODY_VENDOR_<ID>_CLIENT_ID      # OAuth client id
+MIROBODY_VENDOR_<ID>_CLIENT_SECRET  # OAuth client secret
+MIROBODY_VENDOR_<ID>_BASE_URL       # API host override; empty => vendor default
+```
+
+`<ID>` 是 vendor id 的大写形式（如 `HUMAN_API`、`FITBIT`、`EHR`）。对于主机随部署而异的 vendor（自托管或需合同授权，如通用 `ehr` 客户端），`base_url` 是**必填**的 —— 客户端会拒绝执行，而不是猜测一个主机。
+
+## 从 HTTP 到 vendor
+
+健康模块（`src/health/`）是位于这些客户端之上的 HTTP 前端。访问是**所有权门控**的：用户必须先证明其拥有该外部账号，才能读取任何数据。
+
+| 方法 | 路由 | 用途 |
+|--------|-------|---------|
+| POST | `/vendors/{id}/bind` | 将用户的外部账号 id 记录为 PENDING 关联 |
+| POST | `/vendors/{id}/bind/verify` | 通过该 vendor 的同意流程证明所有权 → VERIFIED |
+| GET | `/vendors/{id}/data?domain=&start=&end=` | 为已验证的关联在时间区间内获取数据（`Vendor::fetch`） |
+
+SMART-on-FHIR EHR 连接流程由浏览器驱动，拥有自己位于 `/health/ehr/*` 下的路由（`providers`、`authorize`、`callback`、`sync`）。每条路由都需要一个 bearer JWT，并限定在已认证用户范围内。
+
+<Warning>
+`/api/providers` 是一个**不同的**端点 —— 它为模型选择器列出聊天用的 **LLM providers**（OpenAI、Gemini、MiroThinker 等），而非健康 vendor。健康数据源即本文所述的 `vendor::Vendor` 客户端。
+</Warning>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="Provider 概览" icon="plug" href="/zh/providers/overview">
+    真实的 vendor 类别及各自支持的内容
+  </Card>
+  <Card title="使用 Provider" icon="link" href="/zh/providers/using-providers">
+    配置凭据并关联账号
+  </Card>
+  <Card title="数据流" icon="diagram-project" href="/zh/concepts/data-flow">
+    vendor 数据如何到达 FHIR 存储与 Agent
+  </Card>
+  <Card title="Provider 集成" icon="code" href="/zh/development/provider-integration">
+    实现一个新的 `vendor::Vendor`
+  </Card>
+</CardGroup>

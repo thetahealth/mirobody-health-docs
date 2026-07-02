@@ -5,18 +5,19 @@ description: "An open-source, self-hosted data engine that bridges your personal
 
 ## What is Mirobody?
 
-**Mirobody** is an open-source, self-hosted **data + agent engine** for *personal* AI — built on the belief that the next frontier of AI is not knowing more about the world, but knowing more about *you*.
+**Mirobody** is an open-source, self-hosted **health-data + AI engine** — a lightweight **C++** core that links your personal health data to LLMs and runs anywhere: standalone on a server, or **on-device** inside the Android / iOS apps so your data never has to leave the phone.
 
-- 🔌 **HTTP Remote MCP Server** — your tools instantly become callable by ChatGPT, Claude, Cursor, or any MCP client.
-- 🤖 **Native agent runtime** — a self-developed engine that reproduces Claude Code's autonomous capabilities locally, plus support for **Claude Agent Skills** (`SKILL.md`).
-- 🔄 **Pluggable data providers** — bring your own data source via the Providers API; 300+ wearables, Apple Health, Google Health, and EHR coverage for ~90% of US records are already wired up.
-- 🏥 **Health-grade standards** — 400+ health indicators normalized to **FHIR / LOINC / SNOMED CT / RxNorm** with cross-vocabulary search.
+- 🧩 **One core, three forms** — a single C++ engine ships as a standalone binary (HTTP + WebSocket), as a shared library inside the mobile host apps (JNI on Android, a C API on iOS), and via a plain `extern "C"` surface that any language can embed.
+- 🔌 **MCP server** — built-in tools are exposed over a Model Context Protocol endpoint, callable by ChatGPT, Claude, Cursor, or any MCP client.
+- 🤖 **Multi-provider chat** — one streaming interface over OpenAI, Google Gemini, and MiroThinker, plus a fully **on-device** option (Gemma via LiteRT-LM / llama.cpp) so chat can run with no server and no network.
+- 🔄 **Health-data connectors** — wearables, phone health stores, and clinical EHRs (via SMART on FHIR) flow in through pluggable vendor clients; on-device stores (Apple Health, Health Connect) are read by the host apps.
+- 🏥 **FHIR R4 native** — an embedded FHIR R4 endpoint normalizes everything (units to UCUM; indicators mapped toward SNOMED CT / LOINC / RxNorm) and serves it back as FHIR resources.
 
-> **Health, Finance & More.** Mirobody is domain-agnostic: this docs site focuses on the health vertical (the engine behind [Theta Wellness](https://www.thetahealth.ai/)), but the same architecture powers finance, legal, devops, or any vertical where personal data meets AI. Drop your own modules into `tools/` and `skills/` to start.
+> This docs site covers Mirobody's health vertical — the engine behind [Theta Wellness](https://www.thetahealth.ai/).
 
 <CardGroup cols={2}>
   <Card title="Quick Start" icon="rocket" href="/en/quickstart">
-    One-command Docker deploy in under 5 minutes
+    Build the C++ core and run it in minutes
   </Card>
   <Card title="Use Cases & Examples" icon="lightbulb" href="/en/use-cases">
     Real conversations with synthetic health data
@@ -24,90 +25,78 @@ description: "An open-source, self-hosted data engine that bridges your personal
   <Card title="Provider Integration" icon="plug" href="/en/development/provider-integration">
     Add a new device or data source in hours
   </Card>
-  <Card title="API Reference" icon="code" href="/en/api-reference/overview">
-    Pulse, Chat, and MCP protocol endpoints
+  <Card title="Managed API Platform" icon="cloud" href="/en/cloud">
+    Prefer a hosted API over self-hosting? Same engine, managed for you.
   </Card>
 </CardGroup>
 
 ## Why Mirobody?
 
 <AccordionGroup>
-  <Accordion title="Write tools once, run everywhere" icon="wrench">
-    Forget JSON schemas and manual bindings — **your Python code is the only definition required**. A function in `tools/` instantly works in ChatGPT (via Apps SDK), Claude / Cursor (via MCP), and the local web client. Mirobody runs simultaneously as an MCP **client** (to use tools) and an OAuth-enabled MCP **server** (to expose them).
+  <Accordion title="Your data stays yours" icon="lock">
+    The core runs locally end-to-end. On desktop / server it's a single binary over your own Postgres (or SQLite); on phones the same core runs **on-device**, so health data never has to leave the device unless you choose to sync it. Bring your own LLM key (OpenAI, Gemini, MiroThinker) — or run **fully offline** with on-device Gemma.
   </Accordion>
 
-  <Accordion title="Your data, never leaves your machine" icon="lock">
-    The engine runs locally end-to-end — Postgres, Redis, agent runtime, MCP server, file pipeline. Bring your own LLM via OpenRouter or first-party keys (OpenAI, Gemini, Anthropic, Azure, Volcengine, Dashscope). No third-party data hop required.
+  <Accordion title="One core, runs anywhere" icon="server">
+    A single C++ engine with a plain `extern "C"` C API. It ships as a standalone HTTP / WebSocket binary, as a shared library inside the Android / iOS host apps, and is embeddable from Java, Go, C#, Rust, Swift, or Python via that C ABI — no per-platform rewrite.
   </Accordion>
 
-  <Accordion title="Three agents for three jobs" icon="robot">
-    - **DeepAgent** — single-model tool orchestration, best for complex multi-step research
-    - **MixAgent** — two-phase fusion: a capable model orchestrates tools, a cheaper model writes the response. Cost/quality balance for high-volume workloads.
-    - **BaseAgent** — direct LLM chat with no tools, ideal for low-latency Q&A
+  <Accordion title="A lightweight, tool-using agent" icon="robot">
+    One agent: it picks an LLM client by **provider** name, builds the system prompt, and streams the turn back — calling built-in **MCP tools** (read files, render charts, family health, memory) as needed. Earlier releases exposed separate Deep / Mix / Base agents; they've converged into this one.
   </Accordion>
 
-  <Accordion title="Claude Agent Skills, natively" icon="bolt">
-    Drop a `SKILL.md` + `metadata.json` into `skills/` and the agent auto-discovers it. The full Skill body is loaded into the agent's context when activated — write detailed playbooks, examples, edge cases freely.
+  <Accordion title="MCP tools, compiled in" icon="wrench">
+    Tools are C++ files in `res/mcp_tools/` that self-register at compile time — drop a `.cpp` with the `MIROBODY_REGISTER_TOOL` macro and rebuild. They're exposed over the `/mcp` endpoint for ChatGPT / Claude / Cursor and run in-process for the built-in agent.
   </Accordion>
 
-  <Accordion title="Files, multimodally processed" icon="file">
-    PDFs, Excel, CSV, audio (WAV/MP3/AIFF/AAC/OGG/FLAC), images (PNG/JPEG/WebP/HEIC/HEIF), genetic data. LLM-powered extraction maps free text to standard indicators automatically.
+  <Accordion title="Files, parsed into health data" icon="file">
+    PDFs (PDFium), Excel / CSV (xlnt), and images (OCR via Tesseract, plus vision-model inlining) are parsed; values are normalized (UCUM) and written to the embedded FHIR store.
   </Accordion>
 
-  <Accordion title="Sandbox code execution" icon="terminal">
-    The built-in `execute` tool runs shell + Python in isolated [E2B](https://e2b.dev) cloud sandboxes for data analysis, chart generation, and computation — with PostgreSQL-backed file persistence so `write_file` in one turn is visible to `execute` in the next.
+  <Accordion title="Voice & realtime" icon="microphone">
+    Realtime audio chat over WebSocket via **OpenAI Realtime** and **Google Gemini Live**.
   </Accordion>
 
-  <Accordion title="Deploy anywhere" icon="server">
-    One-command `./deploy.sh` for Docker, `pip install -e .` for local Python dev, or `MCP_PUBLIC_URL=https://yourdomain.com` to expose your MCP server publicly for ChatGPT Apps.
+  <Accordion title="Care circles" icon="users">
+    Create a circle and invite people by email; members can share a conversation (view / edit) or their health data (per-person, off by default). The agent can then answer "how is my family doing?" reading only what members chose to share.
   </Accordion>
 </AccordionGroup>
 
 ## Architecture at a glance
 
-| Layer | Path | Notes |
+Five pieces make up the core (all C++):
+
+| Piece | Path | Notes |
 |-------|------|-------|
-| **Agent runtime** | `mirobody/pub/agents/` | DeepAgent, MixAgent, BaseAgent |
-| **LLM clients** | `mirobody/utils/llm/` | OpenAI, Gemini, Anthropic, Azure, Volcengine, Dashscope (HIPAA-compliant routing) |
-| **MCP server** | `mirobody/mcp/` | JSON-RPC 2.0, local + HTTP remote |
-| **Chat service** | `mirobody/chat/` | Sessions, history, streaming (HTTP/WebSocket), memory |
-| **Data pipeline (Pulse)** | `mirobody/pulse/` | 300+ wearables, Apple/Google Health, EHR, file parser, aggregation |
-| **Health standards** | `mirobody/indicator/`, `mirobody/pulse/core/` | 400+ indicators, FHIR/LOINC/SNOMED CT/RxNorm |
-| **Embeddings** | `mirobody/utils/embedding.py` | 1024-dim, Gemini/Qwen, pgvector |
+| **LLM clients** | `src/llm/` | One streaming client per provider — OpenAI, Google Gemini, MiroThinker, on-device Gemma (LiteRT-LM / llama.cpp), plus Realtime / Live audio |
+| **MCP tools** | `src/mcp/` + `res/mcp_tools/` | Server-side tools over a Model Context Protocol endpoint |
+| **Agent** | `src/chat/` + `res/agents/` | Picks a client by provider, builds the prompt, streams the turn |
+| **Health vendors** | `src/health/vendor/` | Wearables, phone stores, and EHRs (SMART on FHIR) behind one authorize / fetch / webhook contract |
+| **FHIR R4** | `src/fhir/` | Embedded FHIR endpoint + terminology (UCUM; SNOMED CT / LOINC / RxNorm) |
 
-**Extension points** are top-level directories — drop files in, they're auto-discovered:
+Agents and tools **self-register at compile time**: drop a `.cpp` in the matching `res/` directory and rebuild.
 
-| Directory | Purpose |
-|-----------|---------|
-| `tools/` | Python tools → auto-exposed as MCP tools |
-| `skills/` | Claude Agent Skills (`SKILL.md` + `metadata.json`) |
-| `agents/` | Custom agent implementations |
-| `providers/` | Custom data providers |
-| `prompts/` | Jinja2 prompt templates |
-| `resources/` | Static resources exposed via MCP |
+## Data sources
 
-## Supported Providers (Health Vertical)
+Health data flows in through pluggable **vendor clients**, in four buckets:
 
-<CardGroup cols={3}>
-  <Card title="Garmin" icon="watch">Activity, sleep, heart rate, HRV</Card>
-  <Card title="Whoop" icon="heart-pulse">Recovery, sleep, workouts, cycles</Card>
-  <Card title="Oura" icon="ring">Sleep, readiness, activity</Card>
-  <Card title="Renpho" icon="weight-scale">Body composition, weight</Card>
-  <Card title="Apple Health" icon="apple">iOS Health + CDA medical records</Card>
-  <Card title="Google Health" icon="google">Android health data</Card>
+<CardGroup cols={2}>
+  <Card title="Aggregator platforms" icon="layer-group">Terra, Validic, Human API, Junction, Metriport, … — 15 B2B platforms behind one contract</Card>
+  <Card title="Device brands" icon="watch">Fitbit, Garmin, Withings (first-party OAuth) — Oura / Polar / Whoop via aggregators</Card>
+  <Card title="Clinical EHRs" icon="hospital">SMART on FHIR — one generic client for ONC-certified EHRs (Epic, Oracle Health / Cerner, athenahealth, …)</Card>
+  <Card title="On-device stores" icon="mobile">Apple Health, Samsung Health, Google Health Connect, Huawei — read on-device, POSTed as FHIR</Card>
 </CardGroup>
 
-300+ devices are reachable via the Vital integration; EHR coverage spans ~90% of US records. Custom providers can be added in hours — see [Provider Integration](/en/development/provider-integration).
+Add a source by implementing a `vendor::Vendor` in `src/health/vendor/`. See [Provider Integration](/en/development/provider-integration).
 
 ## Tech Stack
 
-- **Python 3.10+** with async/await throughout
-- **FastAPI / Starlette ASGI** for the HTTP layer
-- **PostgreSQL** for primary storage + **pgvector** for semantic search
-- **Redis** for caching and session store
-- **Docker Compose** for one-command deploy
-- **E2B** for sandboxed code execution
-- **OAuth 1.0a / 2.0 / OIDC / WebAuthn / FIDO2** for auth
+- **C++11** core, built with **CMake** (+ vcpkg on Windows)
+- **libwebsockets** / **libcurl** / **OpenSSL** for HTTP + WebSocket + TLS
+- **Storage backends** selected at build time: PostgreSQL (desktop default) or SQLite (mobile), also MySQL / DuckDB / ClickHouse; files to S3 / OSS / Azure Blob / local
+- **On-device LLM**: Gemma via **LiteRT-LM** (mobile) / **llama.cpp** (Electron)
+- **Embedded FHIR R4** with UCUM / SNOMED CT / LOINC / RxNorm terminology
+- **OAuth 2.0 / OIDC** authorization server; email-code + Google / Apple / WeChat / GitHub login
 
 ## Who is this for?
 
@@ -116,7 +105,7 @@ description: "An open-source, self-hosted data engine that bridges your personal
     Anyone who wants a private, AI-powered home for their health data — without handing it over to a third party
   </Card>
   <Card title="Developers" icon="code">
-    Engineers building personal-data AI products: health, finance, legal, devops, or anywhere else `tools/` + `skills/` can take you
+    Engineers building personal-data AI products who want a private, embeddable, on-device-capable health engine instead of building the data + FHIR + MCP plumbing themselves
   </Card>
 </CardGroup>
 
@@ -204,24 +193,24 @@ Showcase conversations below use **synthetic health data** and some Theta-privat
 
 ## Theta Wellness: Mirobody in Production
 
-[**Theta Wellness**](https://www.thetahealth.ai/) is our flagship application built on Mirobody — a personal health intelligence app that demonstrates what Mirobody can do at production scale. It connects 300+ devices, Apple/Google Health, and EHR records, and supports voice, image, file, and text as inputs.
+[**Theta Wellness**](https://www.thetahealth.ai/) is our flagship application built on Mirobody — a personal health intelligence app that demonstrates what Mirobody can do at production scale. It connects wearables, phone health stores, and EHR records, and supports voice, image, file, and text as inputs.
 
-We're open-sourcing the engine because the same architecture that powers a medical-grade health agent can power your finance analyzer, legal assistant, or devops bot. Swap the files in `tools/` and you're in a new vertical.
+We're open-sourcing the engine so you can run the same private, on-device-capable health core yourself — self-hosted for the whole family, on your phone offline, or embedded in your own app via the C API.
 
 ## Next Steps
 
 <Steps>
   <Step title="Get started">
-    Follow the [Quick Start](/en/quickstart) to deploy locally with `./deploy.sh`.
+    Follow the [Quick Start](/en/quickstart) to build the core (`./build.sh`) and run it.
   </Step>
   <Step title="Configure providers">
     Set OAuth credentials for the devices you want — see [Configuration](/en/configuration).
   </Step>
   <Step title="Explore the API">
-    Read the [API Reference](/en/api-reference/overview) for Pulse, Chat, and MCP endpoints.
+    Read the [API Reference](/en/api-reference/overview) for the OpenAI-compatible `/v1` endpoints.
   </Step>
   <Step title="Add custom providers or tools">
-    Use [Provider Integration](/en/development/provider-integration) for new devices, or just drop a Python file into `tools/`.
+    Use [Provider Integration](/en/development/provider-integration) for new data sources, or add a C++ tool in `res/mcp_tools/`.
   </Step>
 </Steps>
 
