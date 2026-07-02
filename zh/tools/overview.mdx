@@ -12,7 +12,7 @@ Mirobody 运行**一个简单的 Agent** —— "Base"，定义在 [`res/agents/
 3. **把 provider 的事件直接流式返回**，让模型按需调用内置的 [MCP 工具](/zh/tools/built-in)。
 
 <Note>
-**没有 "deep agents" 特性。** 早期草稿曾描述过任务规划 / todos、任务子 Agent、虚拟文件系统、沙箱执行以及 Agent Skills 注册表。**这些在 C++ 引擎（Mirobody）中都不存在。** 也不再有单独的 Deep / Mix / Base 之分 —— 它们已合并为这一个 Agent。你选择的是一个 **provider**（一个模型），而不是 Agent *类型*。
+你选择的是一个 **模型**（`provider`），而不是 Agent *类型* —— Mirobody 运行单一 Agent。
 </Note>
 
 ### 支持的提供商
@@ -67,7 +67,7 @@ GEMMA_CHAT_MODEL: 'gemma-4-e2b'
 工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中的 C++ 文件**。每个文件声明一个 `Tool`（名称、描述、一个 `auth` 标志、一张小小的 `Param` 表以及一个 handler），并在编译时自注册。`CMakeLists.txt` 会把该目录下的每个 `.cpp` 都 glob 进构建（带 `CONFIGURE_DEPENDS`），因此**只需丢入一个新文件并重新构建即可** —— 无需手动注册，无需手写 JSON schema。
 
 <Info>
-这是一个**编译期**机制。C++ 引擎中没有 Python 工具加载器，也没有 `mirobody/pub/tools/` 目录 —— 那些是旧版 Python 服务器的一部分。
+这是**编译期**机制：工具从 `res/mcp_tools/` 编译进程序，而非从运行时目录加载。
 </Info>
 
 ### 九个内置工具

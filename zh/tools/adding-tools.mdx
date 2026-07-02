@@ -92,7 +92,7 @@ Mirobody 中的工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mir
 
 ## 触及用户数据的工具
 
-设置 `auth = true`，引擎会在分发前解析调用者（JWT 或个人 MCP secret），并把身份作为 `UserInfo` 传入。这是旧版 Python `user_info` 参数在 C++ 中的对应物。对未认证的调用及时退出：
+设置 `auth = true`，引擎会在分发前解析调用者（JWT 或个人 MCP secret），并把身份作为 `UserInfo` 传入。对未认证的调用及时退出：
 
 ```cpp
 Result my_tool(const Args& args, const UserInfo& user, const ToolContext& ctx) {

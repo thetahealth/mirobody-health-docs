@@ -8,7 +8,7 @@ description: "How Mirobody connects to health-data sources: the C++ vendor::Vend
 In Mirobody a **vendor** is a C++ client for one health-data source, living one-per-file under `src/health/vendor/`. Every vendor implements the same abstract interface — `vendor::Vendor` in [`src/health/vendor/vendor.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/vendor.hpp) — so the rest of the engine talks to a wearable brand, a B2B aggregator, and a hospital EHR through one contract, and picks the concrete client at runtime by **id**.
 
 <Info>
-This is the C++ port of the old Python "provider" plugins. There is no `BaseThetaProvider`, no `mirobody/pulse/`, and no per-boot directory discovery any more — vendors are compiled in and resolved by id through a registry.
+Each data source is a **`vendor::Vendor`**, compiled in and resolved by id through a registry.
 </Info>
 
 ## The four buckets

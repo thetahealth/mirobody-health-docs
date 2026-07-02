@@ -8,7 +8,7 @@ description: "用 vendor 调试 CLI 并针对运行中的服务器验证一个 C
 vendor 客户端调用真实的第三方 API，因此它们不属于单元套件。你以两种方式验证它们：**`vendor` 调试 CLI**（隔离演练某个客户端的操作，无需服务器）和**运行中服务器上的 HTTP 路由**（所有权门控的 bind → verify → fetch 路径）。
 
 <Info>
-这不是带 mock `aiohttp` 的 `pytest`。元数据（`VendorInfo`）无需凭据；传输操作需要针对该 vendor 的真实凭据。
+元数据（`VendorInfo`）无需凭据；传输操作需要针对该 vendor 的真实凭据。
 </Info>
 
 ## `vendor` 调试 CLI

@@ -92,7 +92,7 @@ The reference tool is [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/
 
 ## Tools that touch user data
 
-Set `auth = true` and the engine resolves the caller (JWT or personal MCP secret) before dispatch, handing the identity in as `UserInfo`. This is the C++ analog of the old Python `user_info` parameter. Bail out on an unauthenticated call:
+Set `auth = true` and the engine resolves the caller (JWT or personal MCP secret) before dispatch, handing the identity in as `UserInfo`. Bail out on an unauthenticated call:
 
 ```cpp
 Result my_tool(const Args& args, const UserInfo& user, const ToolContext& ctx) {

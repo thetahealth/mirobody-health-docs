@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 292" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" role="img" aria-label="Mirobody data flow: three sources (vendors, on-device stores, file uploads) write into the embedded FHIR R4 store, which the chat agent reads and writes through MCP tools">
+  <style>
+    :root{ --ink:#0f172a; --sub:#475569; --box:#ffffff; --boxln:#e2e8f0; --flow:#0e3880; --flowln:#93c5fd; }
+    .src{--c:#0891b2} .store{--c:#0e3880} .agent{--c:#059669}
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#e8edf5; --sub:#9aa7bd; --box:#0e1726; --boxln:#26334a; --flow:#4a7ad6; }
+      .src{--c:#22d3ee} .store{--c:#4a7ad6} .agent{--c:#34d399}
+    }
+    .box{fill:var(--box);stroke:var(--c);stroke-width:1.5}
+    .h{fill:var(--ink);font-size:14px;font-weight:700}
+    .s{fill:var(--sub);font-size:11px}
+    .flow{stroke:var(--flow);stroke-width:1.8;fill:none}
+    .flowlbl{fill:var(--flow);font-size:11px;font-weight:650}
+    .flowhead{fill:var(--flow)}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="flowhead"/>
+    </marker>
+  </defs>
+
+  <!-- three source doors -->
+  <g class="src">
+    <g transform="translate(24,18)">
+      <rect class="box" width="300" height="64" rx="10"/>
+      <text class="h" x="18" y="27">Vendors</text>
+      <text class="s" x="18" y="47">wearable · aggregator · EHR (server-to-server)</text>
+    </g>
+    <g transform="translate(24,110)">
+      <rect class="box" width="300" height="64" rx="10"/>
+      <text class="h" x="18" y="27">On-device stores</text>
+      <text class="s" x="18" y="47">Apple Health · Health Connect → FHIR</text>
+    </g>
+    <g transform="translate(24,202)">
+      <rect class="box" width="300" height="64" rx="10"/>
+      <text class="h" x="18" y="27">File uploads</text>
+      <text class="s" x="18" y="47">PDF · Excel · CSV · images</text>
+    </g>
+  </g>
+
+  <!-- merge bus: each source -> vertical bus -> one arrow into the store -->
+  <path class="flow" d="M324,50 H372"/>
+  <path class="flow" d="M324,142 H372"/>
+  <path class="flow" d="M324,234 H372"/>
+  <path class="flow" d="M372,50 V234"/>
+  <path class="flow" d="M372,142 H428" marker-end="url(#ar)"/>
+  <text class="flowlbl" x="332" y="134">write FHIR</text>
+
+  <!-- FHIR R4 store -->
+  <g class="store" transform="translate(430,102)">
+    <rect class="box" width="176" height="80" rx="10"/>
+    <text class="h" x="88" y="34" text-anchor="middle">FHIR R4 store</text>
+    <text class="s" x="88" y="56" text-anchor="middle">src/fhir · per-user</text>
+  </g>
+
+  <!-- store <-> agent, via MCP tools -->
+  <path class="flow" d="M606,142 H716" marker-end="url(#ar)" marker-start="url(#ar)"/>
+  <text class="flowlbl" x="661" y="132" text-anchor="middle">MCP tools</text>
+
+  <!-- Agent -->
+  <g class="agent" transform="translate(716,102)">
+    <rect class="box" width="180" height="80" rx="10"/>
+    <text class="h" x="90" y="34" text-anchor="middle">Agent (chat)</text>
+    <text class="s" x="90" y="56" text-anchor="middle">src/chat</text>
+  </g>
+</svg>

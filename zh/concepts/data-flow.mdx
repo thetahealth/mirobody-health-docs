@@ -7,21 +7,12 @@ description: "健康数据如何进入 Mirobody、以 FHIR R4 存储，并在聊
 
 健康数据经三扇门进入 Mirobody，汇入一个**内嵌的 FHIR R4 存储**，并在聊天回合中由 agent 通过 **MCP 工具**读回。一切都运行在单一的 C++ 内核之内 —— 既可在服务器上独立运行，也可在移动 App 内于设备本地运行。
 
-```
- ┌─ Vendors (server-to-server) ─┐
- │  wearable / aggregator / EHR │──┐
- └──────────────────────────────┘  │
- ┌─ On-device stores ───────────┐   │        ┌───────────────┐        ┌──────────────┐
- │  Apple Health / Health       │──►├──────► │  FHIR R4 store │ ◄────► │  Agent (chat)│
- │  Connect → FHIR Observations │   │        │  (src/fhir)   │  MCP   │  src/chat    │
- └──────────────────────────────┘  │        └───────────────┘  tools └──────────────┘
- ┌─ File uploads ───────────────┐   │
- │  PDF / Excel / CSV / images  │──┘
- └──────────────────────────────┘
-```
+<Frame caption="三类数据源写入内嵌的 FHIR R4 存储；对话 Agent 通过 MCP 工具读写它。">
+  <img src="/images/data-flow_cn.svg" alt="Mirobody 数据流：vendors、端侧存储、文件上传写入 FHIR R4；agent 通过 MCP 工具读取" />
+</Frame>
 
 <Info>
-这不是旧版 Python 的 `StandardPulseData` → `th_series_data` 流水线。不再有 `pull_from_vendor_api` / `format_data` 这套 provider 方法链；当前模型是：各数据源把 FHIR 资源写入内嵌存储，agent 再通过工具读取它们。
+模型很简单：每个数据源都把 **FHIR 资源**写入内嵌存储，agent 再通过工具读回 —— 无需配置额外的归一化流水线。
 </Info>
 
 ## 第一扇门 —— Vendor（服务端到服务端）

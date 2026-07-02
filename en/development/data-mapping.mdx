@@ -5,14 +5,14 @@ description: "How vendor data is categorized by DataDomain, normalized to UCUM u
 
 ## Overview
 
-In Mirobody, "data mapping" is three separate concerns, not one `format_data` step:
+In Mirobody, "data mapping" is three separate concerns:
 
 1. **Domain mapping** — a vendor maps its endpoints onto the normalized `DataDomain` enum so callers request data by category.
 2. **Unit normalization** — free-text units are folded to canonical **UCUM** (shipped).
 3. **FHIR representation** — the canonical resource shape everything converges on is **FHIR R4** (`Observation` for measurements).
 
 <Info>
-There is no `StandardPulseData` / `StandardIndicator` model any more. `fetch` returns the **vendor's own JSON** (or FHIR JSON for FHIR-native sources); the canonical store is the embedded FHIR R4 endpoint.
+`fetch` returns the **vendor's own JSON** (or FHIR JSON for FHIR-native sources); the canonical store is the embedded FHIR R4 endpoint.
 </Info>
 
 ## 1 — Domain mapping

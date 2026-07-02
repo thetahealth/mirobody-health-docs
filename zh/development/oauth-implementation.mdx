@@ -5,7 +5,7 @@ description: "C++ vendor 客户端如何处理 OAuth 2.0 授权、PKCE、webhook
 
 ## 概览
 
-大多数健康数据源以 **OAuth 2.0** 授权。在 Mirobody 中，这在每个 C++ `vendor::Vendor` 内经三个契约操作处理 —— `authorize_url`、`handle_webhook`、`revoke` —— 另外，对于浏览器驱动的 SMART-on-FHIR EHR，还有一个独立的有状态连接服务。不再有 `OAuth1Session` / `aiohttp` 的 provider 代码。
+大多数健康数据源以 **OAuth 2.0** 授权。在 Mirobody 中，这在每个 C++ `vendor::Vendor` 内经三个契约操作处理 —— `authorize_url`、`handle_webhook`、`revoke` —— 另外，对于浏览器驱动的 SMART-on-FHIR EHR，还有一个独立的有状态连接服务。
 
 <Info>
 代码库中存在两种 OAuth 角色，别把它们混淆：

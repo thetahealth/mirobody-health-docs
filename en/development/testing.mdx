@@ -8,7 +8,7 @@ description: "How Mirobody's C++ test suite is structured and how to run it."
 Mirobody's tests are **C++ unit tests written with [Catch2 v3](https://github.com/catchorg/Catch2)**, living under [`tests/`](https://github.com/thetahealth/mirobody/tree/main/tests) and compiled into a single `mirobody_tests` binary. They are built by default and discovered by CTest.
 
 <Info>
-This is a C++ suite, not `pytest`. (Some Python `.pyc` files linger in `tests/` from the old engine, but the live tests are the `*_test.cpp` files.)
+The tests are a **C++ Catch2 suite** — the `*_test.cpp` files under `tests/`.
 </Info>
 
 ## Running tests

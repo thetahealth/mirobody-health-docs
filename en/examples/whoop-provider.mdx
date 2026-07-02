@@ -12,7 +12,7 @@ description: "A full OAuth 2.0 device-brand client against the C++ vendor contra
 **Fitbit** ([`src/health/vendor/device/fitbit.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/fitbit.cpp), id `fitbit`) is the best example of a device brand with a **complete** OAuth 2.0 implementation against the vendor contract: it implements `fetch`, `authorize_url`, `revoke`, and a signed `handle_webhook`. Contrast it with the [Garmin example](/en/examples/garmin-provider), which is mostly stubs because Garmin's data API is partner-gated.
 
 <Info>
-This is a `vendor::Vendor`, not a Python provider class. See [Vendor System](/en/concepts/providers) for the interface it implements.
+This is a `vendor::Vendor`. See [Vendor System](/en/concepts/providers) for the interface it implements.
 </Info>
 
 ## `authorize_url` — build the consent URL

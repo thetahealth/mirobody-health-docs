@@ -8,7 +8,7 @@ description: "Verify a C++ vendor client with the vendor debug CLI and against a
 Vendor clients call live third-party APIs, so they aren't part of the unit suite. You verify them two ways: the **`vendor` debug CLI** (exercises one client's operations in isolation, no server) and **the HTTP routes** on a running server (the ownership-gated bind → verify → fetch path).
 
 <Info>
-This is not `pytest` with mocked `aiohttp`. Metadata (`VendorInfo`) needs no credentials; transport operations need real credentials against the vendor.
+Metadata (`VendorInfo`) needs no credentials; transport operations need real credentials against the vendor.
 </Info>
 
 ## The `vendor` debug CLI

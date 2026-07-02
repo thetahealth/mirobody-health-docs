@@ -3,7 +3,7 @@ title: "Architecture Overview"
 description: "How the Mirobody C++ engine is laid out: LLM clients, MCP tools, the agent, health vendors, and embedded FHIR R4."
 ---
 
-Mirobody is a **C++11 engine** — the C++ port of the earlier Python server. It runs standalone on desktop/server or **on-device** inside the Android / iOS apps, so health data never has to leave the phone. It builds with CMake (plus vcpkg on Windows) and is composed of five pieces you can extend independently.
+Mirobody is a **C++11 engine**. It runs standalone on desktop/server or **on-device** inside the Android / iOS apps, so health data never has to leave the phone. It builds with CMake (plus vcpkg on Windows) and is composed of five pieces you can extend independently.
 
 <Frame caption="Mirobody: one C++ core (LLM clients · MCP tools · agent · health vendors · FHIR R4) shipping as a standalone binary, an Android JNI library, or an iOS C API.">
   <img src="/images/architecture.svg" alt="Mirobody architecture overview" />
@@ -26,7 +26,7 @@ Agents and tools **self-register at compile time**: drop a `.cpp` in the matchin
 Mirobody runs **one simple agent** — [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp). It has no agent loop, no planner, and no middleware. For each turn it picks an LLM client by **provider name**, builds a fixed inline **system prompt** (current time, response language, and guidance to use the file / health tools), and **streams the provider's events straight back**, letting the model call the built-in MCP tools.
 
 <Note>
-**No "deep agents" architecture.** There is no task planning / todos, no sub-agent delegation, no virtual filesystem, no sandboxed execution, and no Agent Skills registry in the C++ engine (Mirobody). The historical Deep / Mix / Base split is gone — this single agent is all of it. You select a **provider**, not an agent type.
+The agent is deliberately lightweight: it selects a **provider**, builds a prompt, and streams a turn, invoking MCP tools as needed. You select a **model** (`provider`), not an agent type.
 </Note>
 
 ### Providers

@@ -6,7 +6,7 @@ description: "Build the Mirobody C++ core from source on each platform, or run i
 Mirobody is a single **C++11** core built with **CMake** (plus vcpkg on Windows). The same source produces several artifacts: the standalone `mirobody` binary, a shared library (`libmirobody`), a Python wheel, an Android `.so`, and an iOS static library / xcframework. This page covers building each one.
 
 <Info>
-There is no `pip install mirobody` and no Python virtualenv flow — that was the previous engine. You build the native binary with `./build.sh` (or `build.cmd` on Windows), or use Docker.
+Mirobody is a native binary you build from source: run `./build.sh` (or `build.cmd` on Windows), or use Docker.
 </Info>
 
 ## Standalone binary (desktop / server)
@@ -165,7 +165,7 @@ The same source tree builds several embeddable artifacts beyond the standalone b
   </Accordion>
 
   <Accordion title="Python wheel — built from source (not PyPI)" icon="python">
-    `mirobody._mirobody` is a CPython extension (a pybind11 module wrapping `mirobody::Server`) packaged into a `.whl` by scikit-build-core — you **build it from source**, there is no `pip install mirobody` from PyPI:
+    `mirobody._mirobody` is a CPython extension (a pybind11 module wrapping `mirobody::Server`) packaged into a `.whl` by scikit-build-core — you **build it from source**:
 
     ```bash
     ./build-python.sh          # Linux / macOS  (build-python.cmd on Windows)
@@ -280,7 +280,7 @@ mirobody/
 ```
 
 <Note>
-Agents and MCP tools **self-register at compile time**: drop a `.cpp` in `res/agents/` or `res/mcp_tools/` and rebuild. There is no runtime plugin directory and no `mirobody/pub/...` Python package.
+Agents and MCP tools **self-register at compile time**: drop a `.cpp` in `res/agents/` or `res/mcp_tools/` and rebuild — they're compiled in, not loaded from a runtime plugin directory.
 </Note>
 
 ## Verify the installation

@@ -8,7 +8,7 @@ description: "Mirobody 的 C++ 测试套件如何组织以及如何运行。"
 Mirobody 的测试是**用 [Catch2 v3](https://github.com/catchorg/Catch2) 编写的 C++ 单元测试**，位于 [`tests/`](https://github.com/thetahealth/mirobody/tree/main/tests) 下，编译进单个 `mirobody_tests` 二进制。它们默认构建，并由 CTest 发现。
 
 <Info>
-这是一套 C++ 套件，而非 `pytest`。（`tests/` 中还残留着旧引擎的一些 Python `.pyc` 文件，但活动的测试是那些 `*_test.cpp` 文件。）
+测试是一套 **C++ Catch2 套件** —— 位于 `tests/` 的 `*_test.cpp` 文件。
 </Info>
 
 ## 运行测试

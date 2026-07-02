@@ -8,7 +8,7 @@ description: "Mirobody 如何把上传的文档转成 LLM 可消费的片段：P
 Mirobody 能摄取健康文档 —— 检验报告、电子表格、扫描记录 —— 并把它们转成一次聊天回合可以携带的内容。这项工作由 `src/transcode/` 中的**文档转码器**（[`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`）完成，它是图像转码器在文档侧的对应物。其策略是**文本优先，图像（及 OCR）兜底**。
 
 <Info>
-这是 C++ 转码器，而非旧版 Python 的 `FileProcessor` / `PDFHandler` 链路。本模块中没有 `ENABLE_INDICATOR_EXTRACTION` 开关，也没有单独的音频 / 基因处理器 —— 转码器把文档分解为文本与图像片段；随后由具备视觉能力的 LLM 在聊天回合中读取它们。
+转码器把文档拆解为文本与图像片段；具备视觉能力的 LLM 在对话轮次中读取它们。
 </Info>
 
 ## 支持的格式

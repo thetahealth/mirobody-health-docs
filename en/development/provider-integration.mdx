@@ -5,7 +5,7 @@ description: "Implement a new health-data source as a C++ vendor::Vendor: the cl
 
 ## Overview
 
-Adding a health-data source to Mirobody means writing a **C++ `vendor::Vendor`** — one `.cpp` file under `src/health/vendor/`, plus one line in the registry. There is no runtime plugin directory and no `BaseThetaProvider`; vendors are **compiled in** and resolved by id.
+Adding a health-data source to Mirobody means writing a **C++ `vendor::Vendor`** — one `.cpp` file under `src/health/vendor/`, plus one line in the registry. Vendors are **compiled in** and resolved by id.
 
 <Info>
 Using existing vendors? See [Using Providers](/en/providers/using-providers). For the model behind this — the contract, honest stubs, the registry — see [Vendor System](/en/concepts/providers).

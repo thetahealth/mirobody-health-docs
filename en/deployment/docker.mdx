@@ -13,7 +13,7 @@ The repository ships a multi-stage `Dockerfile` that compiles the standalone `mi
 The image bakes `config.example.yml` as the lowest-precedence defaults layer. Real settings come from environment variables or a `config.yml` you mount at `/app/config.yml`.
 
 <Info>
-There is no `docker compose` bundle for Postgres/Redis and no `deploy.sh` — those belonged to the old Python engine. You build one image and run it against your own database (and, optionally, Redis).
+Mirobody ships as a single image you run against your own database (and, optionally, Redis) — there's no bundled `docker compose` stack to stand up.
 </Info>
 
 ## Build and run

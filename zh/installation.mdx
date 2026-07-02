@@ -6,7 +6,7 @@ description: "在各平台上从源码构建 Mirobody 的 C++ 内核，或用 Do
 Mirobody 是单个 **C++11** 内核，用 **CMake** 构建（Windows 上加 vcpkg）。同一份源码能产出多种工件：独立的 `mirobody` 二进制、一个共享库（`libmirobody`）、一个 Python wheel、一个 Android `.so`，以及一个 iOS 静态库 / xcframework。本页讲如何逐个构建。
 
 <Info>
-没有 `pip install mirobody`，也没有 Python 虚拟环境流程 —— 那是上一代引擎。你用 `./build.sh`（Windows 上用 `build.cmd`）构建原生二进制，或者用 Docker。
+Mirobody 是一个从源码构建的原生二进制：运行 `./build.sh`（Windows 用 `build.cmd`），或使用 Docker。
 </Info>
 
 ## 独立二进制（桌面 / 服务器）
@@ -165,7 +165,7 @@ docker run -p 80:80 -v $PWD/config.yml:/app/config.yml mirobody:latest
   </Accordion>
 
   <Accordion title="Python wheel —— 从源码构建（非 PyPI）" icon="python">
-    `mirobody._mirobody` 是一个 CPython 扩展（一个包装 `mirobody::Server` 的 pybind11 模块），由 scikit-build-core 打包成 `.whl` —— 你**从源码构建它**，并没有从 PyPI `pip install mirobody` 这回事：
+    `mirobody._mirobody` 是一个 CPython 扩展（一个包装 `mirobody::Server` 的 pybind11 模块），由 scikit-build-core 打包成 `.whl` —— 你**从源码构建它**：
 
     ```bash
     ./build-python.sh          # Linux / macOS  （Windows 上是 build-python.cmd）
@@ -280,7 +280,7 @@ mirobody/
 ```
 
 <Note>
-Agent 和 MCP 工具**在编译期自注册**：把一个 `.cpp` 丢进 `res/agents/` 或 `res/mcp_tools/` 再重新构建即可。没有运行时插件目录，也没有 `mirobody/pub/...` 这样的 Python 包。
+Agent 和 MCP 工具**在编译期自注册**：把一个 `.cpp` 丢进 `res/agents/` 或 `res/mcp_tools/` 再重新构建即可 —— 它们是编译进程序的，而非从运行时插件目录加载。
 </Note>
 
 ## 验证安装

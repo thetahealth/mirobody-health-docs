@@ -8,7 +8,7 @@ description: "The C++ document transcoder: formats, build gates, the Options/Par
 Document ingestion is handled by the **document transcoder** in `src/transcode/` — [`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`. It decomposes an uploaded PDF or spreadsheet into an ordered list of **LLM-consumable parts** (text and/or images), strategy **"text first, image (and OCR) fallback."** For the conceptual walkthrough see [File Processing](/en/concepts/file-processing).
 
 <Info>
-This is the C++ transcoder — no Python `FileProcessor` / `PDFHandler` / `IndicatorExtractor`, no WebSocket chunked upload protocol in this module, and no `ENABLE_INDICATOR_EXTRACTION` flag. The old WebSocket/REST upload protocol described in earlier docs was part of the Python server; treat those message schemas as historical. *(verify against the current HTTP layer.)*
+The document transcoder decomposes an uploaded document into text and image parts that a vision-capable LLM reads during the chat turn. *(verify upload wiring against the current HTTP layer.)*
 </Info>
 
 ## Supported formats & build gates

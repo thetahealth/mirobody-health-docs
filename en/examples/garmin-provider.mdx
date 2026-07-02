@@ -8,7 +8,7 @@ description: "How the Garmin device-brand client maps onto the C++ vendor contra
 Garmin is a real device-brand client — [`src/health/vendor/device/garmin.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/garmin.cpp), registered as `garmin`. It's the most instructive example of Mirobody's "implement only what's publicly confirmable, leave the rest an honest stub" rule, because Garmin's data API is **partner-gated and push-based**.
 
 <Info>
-This is a `vendor::Vendor`, not a Python `BaseThetaProvider`. It implements the shared `authorize / fetch / webhook` contract; see [Vendor System](/en/concepts/providers) for the interface.
+This is a `vendor::Vendor` implementing the shared `authorize / fetch / webhook` contract; see [Vendor System](/en/concepts/providers) for the interface.
 </Info>
 
 ## What Garmin's API shape forces

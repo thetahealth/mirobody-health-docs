@@ -12,7 +12,7 @@ Mirobody runs **one simple agent** — "Base", defined in [`res/agents/base.cpp`
 3. **Streams the provider's events straight back**, letting the model call the built-in [MCP tools](/en/tools/built-in) as needed.
 
 <Note>
-**No "deep agents" features.** Earlier drafts described planning / todos, task sub-agents, a virtual filesystem, sandboxed execution, and an Agent Skills registry. **None of that exists in the C++ engine (Mirobody).** There is also no separate Deep / Mix / Base split anymore — they've converged into this single agent. You choose a **provider** (a model), not an agent *type*.
+You choose a **model** (`provider`), not an agent *type* — Mirobody runs a single agent.
 </Note>
 
 ### Providers
@@ -67,7 +67,7 @@ Personal-health questions almost always resolve to: *read the user's records →
 Tools are **C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools)**. Each declares a `Tool` (name, description, an `auth` flag, a small `Param` table, and a handler) and self-registers at compile time. `CMakeLists.txt` globs every `.cpp` in that directory (with `CONFIGURE_DEPENDS`) into the build, so **dropping a new file and rebuilding is all it takes** — no manual registration, no hand-written JSON schema.
 
 <Info>
-This is a **compile-time** mechanism. There is no Python tool loader and no `mirobody/pub/tools/` directory in the C++ engine — those were part of the old Python server.
+This is a **compile-time** mechanism: tools are compiled in from `res/mcp_tools/`, not loaded from a runtime directory.
 </Info>
 
 ### The nine built-in tools

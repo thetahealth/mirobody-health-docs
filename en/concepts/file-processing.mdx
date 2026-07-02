@@ -8,7 +8,7 @@ description: "How Mirobody turns uploaded documents into LLM-consumable parts: P
 Mirobody can ingest health documents — lab reports, spreadsheets, scanned records — and turn them into content a chat turn can carry. The work is done by the **document transcoder** in `src/transcode/` ([`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`), the document counterpart to the image transcoder. Its strategy is **text first, image (and OCR) fallback**.
 
 <Info>
-This is the C++ transcoder, not the old Python `FileProcessor` / `PDFHandler` chain. There is no `ENABLE_INDICATOR_EXTRACTION` flag and no separate audio / genetic handler in this module — the transcoder decomposes a document into text and image parts; a vision-capable LLM then reads them during the chat turn.
+The transcoder decomposes a document into text and image parts; a vision-capable LLM then reads them during the chat turn.
 </Info>
 
 ## Supported formats

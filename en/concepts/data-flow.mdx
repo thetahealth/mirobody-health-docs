@@ -7,21 +7,12 @@ description: "How health data gets into Mirobody, is stored as FHIR R4, and reac
 
 Health data enters Mirobody through three doors, lands in one **embedded FHIR R4 store**, and is read back by the agent through **MCP tools** during a chat turn. Everything runs inside the single C++ core — standalone on a server, or on-device inside the mobile apps.
 
-```
- ┌─ Vendors (server-to-server) ─┐
- │  wearable / aggregator / EHR │──┐
- └──────────────────────────────┘  │
- ┌─ On-device stores ───────────┐   │        ┌───────────────┐        ┌──────────────┐
- │  Apple Health / Health       │──►├──────► │  FHIR R4 store │ ◄────► │  Agent (chat)│
- │  Connect → FHIR Observations │   │        │  (src/fhir)   │  MCP   │  src/chat    │
- └──────────────────────────────┘  │        └───────────────┘  tools └──────────────┘
- ┌─ File uploads ───────────────┐   │
- │  PDF / Excel / CSV / images  │──┘
- └──────────────────────────────┘
-```
+<Frame caption="Three sources write into the embedded FHIR R4 store; the chat agent reads and writes it through MCP tools.">
+  <img src="/images/data-flow.svg" alt="Mirobody data flow: vendors, on-device stores, and file uploads write FHIR R4; the agent reads via MCP tools" />
+</Frame>
 
 <Info>
-This is not the old Python `StandardPulseData` → `th_series_data` pipeline. There is no `pull_from_vendor_api` / `format_data` provider method chain; the current model is: sources write FHIR resources into the embedded store, and the agent reads them via tools.
+The model is simple: every source writes **FHIR resources** into the embedded store, and the agent reads them back through tools — no separate normalization pipeline to configure.
 </Info>
 
 ## Door 1 — Vendors (server-to-server)

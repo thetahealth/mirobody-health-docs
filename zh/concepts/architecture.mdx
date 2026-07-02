@@ -3,7 +3,7 @@ title: "架构概览"
 description: "Mirobody C++ 引擎的结构：LLM 客户端、MCP 工具、Agent、健康 vendor 与内嵌的 FHIR R4。"
 ---
 
-Mirobody 是一套 **C++11 引擎** —— 早期 Python 服务器的 C++ 移植版。它可以在桌面/服务器上独立运行，也可以在 Android / iOS 应用内**端侧**运行，因此健康数据无需离开手机。它用 CMake 构建（Windows 上外加 vcpkg），由五个可以独立扩展的部分组成。
+Mirobody 是一套 **C++11 引擎**。它可以在桌面/服务器上独立运行，也可以在 Android / iOS 应用内**端侧**运行，因此健康数据无需离开手机。它用 CMake 构建（Windows 上外加 vcpkg），由五个可以独立扩展的部分组成。
 
 <Frame caption="Mirobody：一个 C++ 核心（LLM 客户端 · MCP 工具 · Agent · 健康 vendor · FHIR R4），以独立二进制、Android JNI 库或 iOS C API 的形式交付。">
   <img src="/images/architecture_cn.svg" alt="Mirobody architecture overview" />
@@ -26,7 +26,7 @@ Agent 和工具都在**编译时自注册**：把一个 `.cpp` 丢进相应的 `
 Mirobody 运行**一个简单的 Agent** —— [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp)。它没有 Agent 循环，没有 planner，也没有中间件。每一轮它按 **provider 名称**选择一个 LLM 客户端，构建一段固定的内联 **system prompt**（当前时间、回复语言，以及使用文件 / 健康工具的引导），并把 **provider 的事件直接流式返回**，让模型调用内置的 MCP 工具。
 
 <Note>
-**没有 "deep agents" 架构。** C++ 引擎（Mirobody）中没有任务规划 / todos、没有子 Agent 委派、没有虚拟文件系统、没有沙箱执行，也没有 Agent Skills 注册表。历史上的 Deep / Mix / Base 之分已不复存在 —— 这一个 Agent 就是全部。你选择的是一个 **provider**，而不是 Agent 类型。
+该 Agent 刻意保持轻量：它选择一个 **provider**，构建提示词，流式返回一轮，并按需调用 MCP 工具。你选择的是一个 **模型**（`provider`），而不是 Agent 类型。
 </Note>
 
 ### 支持的提供商
