@@ -22,7 +22,7 @@ Content-Type:  application/json
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记 episode 的结束 —— 睡眠、运动 —— 其起点为 `time`。 |
+| `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记 episode 的结束 —— 睡眠、运动 —— 其起点为 `time`。`measured_at` / `start_time` 是 `time` 的别名 —— POST /v1/extract 返回的行（字段名为 `measured_at`）可原样转发。 |
 | `user` | string | 记录所属的 Subject（租户隔离键）。 |
 | `retention` | string | **必填 —— 没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的别名也接受）。小时粒度在写入后按时长自动删除（硬上限 ≤ 24h）。省略它 —— 或传枚举之外的任何值 —— 返回 `400`（`code: invalid_retention`）。 |
 | `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 能清除它们。 |
@@ -95,7 +95,7 @@ Authorization: Bearer mb_live_*
       "id": 1287,
       "indicator": "fasting_glucose",
       "value": "5.4 mmol/L",
-      "parsed_value": 5.4,
+      "parsed_value": "5.4",
       "parsed_unit": "mmol/L",
       "loinc_code": "1558-6",
       "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",

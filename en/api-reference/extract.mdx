@@ -65,7 +65,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
       "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
       "loinc_code": "1558-6",
       "value_raw": "5.6",
-      "parsed_value": 5.6,
+      "parsed_value": "5.6",
       "unit_raw": "mmol/L",
       "unit_ucum": "mmol/L",
       "confidence": 0.94,
@@ -76,7 +76,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
       "canonical_name": "Cholesterol in LDL [Moles/volume] in Serum or Plasma",
       "loinc_code": "22748-8",
       "value_raw": "3.1",
-      "parsed_value": 3.1,
+      "parsed_value": "3.1",
       "unit_raw": "mmol/L",
       "unit_ucum": "mmol/L",
       "confidence": 0.91,
@@ -94,7 +94,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
 | `data[]` | One row per extracted reading. |
 | `indicator_raw` / `value_raw` / `unit_raw` | Exactly what the document said. |
 | `canonical_name` / `loinc_code` | Deterministic LOINC resolution (`null` = no confident code — **never a guessed one**). |
-| `parsed_value` / `unit_ucum` | Numeric value + UCUM-normalized unit. |
+| `parsed_value` / `unit_ucum` | Parsed value (returned as a string) + UCUM-normalized unit. |
 | `confidence` | Similarity score of the LOINC match (0–1). |
 | `measured_at` | Timestamp found in the document, if any. |
 | `stored` | Whether this call wrote to the store (echoes `store`). |

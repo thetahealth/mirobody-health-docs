@@ -65,7 +65,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
       "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
       "loinc_code": "1558-6",
       "value_raw": "5.6",
-      "parsed_value": 5.6,
+      "parsed_value": "5.6",
       "unit_raw": "mmol/L",
       "unit_ucum": "mmol/L",
       "confidence": 0.94,
@@ -76,7 +76,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
       "canonical_name": "Cholesterol in LDL [Moles/volume] in Serum or Plasma",
       "loinc_code": "22748-8",
       "value_raw": "3.1",
-      "parsed_value": 3.1,
+      "parsed_value": "3.1",
       "unit_raw": "mmol/L",
       "unit_ucum": "mmol/L",
       "confidence": 0.91,
@@ -94,7 +94,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
 | `data[]` | 每条抽取到的读数一行。 |
 | `indicator_raw` / `value_raw` / `unit_raw` | 文档原文怎么写的。 |
 | `canonical_name` / `loinc_code` | 确定性 LOINC 解析（`null` = 无高置信编码 —— **绝不给猜的**）。 |
-| `parsed_value` / `unit_ucum` | 数值 + UCUM 归一化单位。 |
+| `parsed_value` / `unit_ucum` | 解析后的数值(以字符串返回)+ UCUM 归一化单位。 |
 | `confidence` | LOINC 匹配的相似度分数（0–1）。 |
 | `measured_at` | 文档中找到的时间戳（如有）。 |
 | `stored` | 本次调用是否写入了存储（回显 `store`）。 |

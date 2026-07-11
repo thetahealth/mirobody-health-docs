@@ -22,7 +22,7 @@ Content-Type:  application/json
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `records` | array | Each record `{indicator, value, unit?, time?, end_time?, source?}`. **Max 500 records per request.** `end_time` (optional, ISO time) marks the end of an episode — sleep, workouts — whose start is `time`. |
+| `records` | array | Each record `{indicator, value, unit?, time?, end_time?, source?}`. **Max 500 records per request.** `end_time` (optional, ISO time) marks the end of an episode — sleep, workouts — whose start is `time`. `measured_at` / `start_time` are accepted as aliases for `time` — rows from POST /v1/extract (which returns `measured_at`) can be forwarded as-is. |
 | `user` | string | Subject the records belong to (tenant-isolation key). |
 | `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as an alias of `permanent`). Hour grains auto-delete after that long (hard-capped ≤ 24h). Omitting it — or sending any value outside the enum — returns `400` (`code: invalid_retention`). |
 | `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) can purge them. |
@@ -95,7 +95,7 @@ The response is an OpenAI-style list, newest first. `value` is the **human-reada
       "id": 1287,
       "indicator": "fasting_glucose",
       "value": "5.4 mmol/L",
-      "parsed_value": 5.4,
+      "parsed_value": "5.4",
       "parsed_unit": "mmol/L",
       "loinc_code": "1558-6",
       "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
