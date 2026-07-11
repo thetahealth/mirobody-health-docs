@@ -1,0 +1,66 @@
+---
+title: "Streaming"
+description: "response.* SSE events on the Agent API, including the mirobody_tool_call side-channel."
+---
+
+Set `stream: true` on [`POST /v1/responses`](/en/api-reference/responses) and the reply arrives as standard **OpenAI Responses `response.*` SSE events** — every frame is `event: <type>` + `data: <json>`, with a monotonic `sequence_number`. Official SDK stream loops consume it as-is.
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+
+with client.responses.stream(
+    model="mirobody-flash",
+    input="How is my fasting glucose trending?",
+    user="alice",
+) as stream:
+    for event in stream:
+        if event.type == "response.output_text.delta":
+            print(event.delta, end="", flush=True)
+```
+
+## Event table
+
+| Event | Meaning |
+| --- | --- |
+| `response.created` | The run started — carries a response snapshot with `status: "in_progress"`. |
+| `response.in_progress` | Follows immediately (OpenAI parity). |
+| `response.output_item.added` | A new output item opened (`reasoning`, `message`, or `function_call`) — carries `output_index` + the in-progress item. |
+| `response.reasoning_summary_part.added` / `.done` | A reasoning summary part opened / closed. |
+| `response.reasoning_summary_text.delta` / `.done` | Reasoning (deep-thinking) text fragments, then the full text. |
+| `response.content_part.added` / `.done` | An answer content part opened / closed. |
+| `response.output_text.delta` / `.done` | Answer text fragments, then the full text — **the channel most clients render**. |
+| `response.function_call_arguments.delta` / `.done` | A client-tool handoff's arguments (see [Function calling](/en/api-reference/function-calling)). |
+| `response.output_item.done` | The open item completed — carries the finished item. |
+| `response.mirobody_tool_call` | **Mirobody extension, side-channel** — a built-in server tool ran. See below. |
+| `response.completed` | Terminal: carries the **full final response object** (`output`, `usage`, `tool_steps`, `health_records`, `citations`). |
+| `response.failed` | Terminal error: carries a response snapshot with `status: "failed"` and an `error` object. |
+
+Items stream strictly one at a time: reasoning first (when the tier emits it), then the message, then any `function_call` handoffs — `output_index` increments per item, and the indexes match the final `output` array on `response.completed`.
+
+## Server-tool side-channel
+
+Built-in server tools (data search, literature, …) are **not** output items — official SDKs would mis-parse unknown item types, so their trace rides a dedicated event that standard stream loops safely ignore:
+
+```text
+event: response.mirobody_tool_call
+data: {"type":"response.mirobody_tool_call","sequence_number":7,
+       "tool_step":{"id":"mtc_0","call_id":"call_1a2b...","name":"query_health_data",
+                    "arguments":"{\"query\": \"fasting glucose last 90 days\"}"}}
+```
+
+It fires when the tool is *called*; it does **not** open an output item or advance `output_index`. Full results (`tool_steps[].result`) are on the final response object in `response.completed`. Render it if you want an activity feed ("Searching your records…"); skip it and nothing breaks.
+
+## Failure shape
+
+On an upstream error the stream ends with `response.failed` (not a broken pipe):
+
+```text
+event: response.failed
+data: {"type":"response.failed","sequence_number":12,
+       "response":{"id":"resp_...","status":"failed",
+                   "error":{"type":"upstream_error","message":"..."}}}
+```
+
+For the Answers API's simpler `chat.completion.chunk` streaming, see [Answers API → Streaming](/en/api-reference/chat#streaming).

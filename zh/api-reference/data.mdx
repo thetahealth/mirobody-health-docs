@@ -1,9 +1,13 @@
 ---
 title: "数据"
-description: "POST /v1/data、GET /v1/data —— 写入并读取结构化健康记录。"
+description: "POST /v1/data、GET /v1/data、DELETE /v1/data —— 写入、读取与擦除结构化健康记录。"
 ---
 
-把结构化记录直接写入某个数据主体(Subject)的存储，并读取回来。对话智能体用其内置工具读取的正是这同一份数据。
+import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
+
+把结构化记录直接写进数据主体(Subject)的存储，并读回。每次写入都会经过平台的[标准化管线](/zh/api-reference/standardization) —— 记录读回时带有 LOINC 编码、规范名称、UCUM 归一化的值/单位与 FHIR 镜像。对话智能体用其内置工具读取的正是这同一份数据。
+
+<SubjectUserParam />
 
 ## 写入记录
 
@@ -15,10 +19,10 @@ Content-Type:  application/json
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `records` | array | 每条记录 `{indicator, value, unit, time}`。分批插入（每批 1000 条）。 |
-| `user` | string | 记录所属的数据主体(Subject)（多租户隔离键）。 |
-| `retention` | string | **必填 —— 没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的同义词也可接受）。小时粒度会在写入后约这么多小时自动删除（上限仍硬性限制为 ≤ 24 小时）。省略它会返回 `HTTP 400`（`code: invalid_retention`）。**`retention=none` 在此处同样会被拒绝并返回 `400`** —— 写入存储却要求不存储是自相矛盾的；用完即弃的数据请改为在 [`POST /v1/chat/completions`](/zh/api-reference/chat#内联-health_context) 上以 `health_context` + `retention=none` 内联附带。仅当该值**缺失**时才会被拒绝 —— 未知或超范围的值目前会被接受而不做校验。 |
-| `session_id` | string | 用于限定 `retention=session` 记录的范围。**目前不强制** —— 不带它也会被接受，但未附带 `session_id` 写入的记录无法被会话删除操作定位到。 |
+| `records` | array | 每条记录 `{indicator, value, unit?, time?, source?}`。**每次请求最多 500 条。** |
+| `user` | string | 记录所属的 Subject（租户隔离键）。 |
+| `retention` | string | **必填 —— 没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的别名也接受）。小时粒度在写入后按时长自动删除（硬上限 ≤ 24h）。省略它 —— 或传枚举之外的任何值 —— 返回 `400`（`code: invalid_retention`）。 |
+| `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 能清除它们。 |
 
 ```bash
 curl https://test-mirobody-api.thetahealth.ai/v1/data \
@@ -34,40 +38,30 @@ curl https://test-mirobody-api.thetahealth.ai/v1/data \
       }'
 ```
 
-响应：
+响应 —— `standardized` 统计写入途中成功解析到 LOINC 编码的记录数：
 
 ```json
-{ "status": "ok", "ingested": 2, "subject": "alice" }
+{ "status": "ok", "ingested": 2, "standardized": 2, "subject": "alice" }
 ```
+
+<Note>
+**每次写入都会标准化，而不只是存储。** 每条记录的值/单位会做 UCUM 解析，指标名称做确定性 LOINC 解析（curated 语料 + embedding —— 不让 LLM 猜码）。见[标准化](/zh/api-reference/standardization)。想在不写入的情况下预览这条管线，请用 [`POST /v1/extract`](/zh/api-reference/extract) 的 `store=false`。
+</Note>
 
 ## 读取记录
 
 ```http
-GET /v1/data?indicator=fasting_glucose&limit=100
+GET /v1/data?user=alice&indicator=fasting_glucose&limit=100
 Authorization: Bearer mb_live_*
 ```
 
-| 查询参数 | 说明 |
+| Query | 说明 |
 | --- | --- |
-| `user` | 要读取的数据主体(Subject)。 |
-| `indicator` | 可选，按指标名称过滤。 |
-| `limit` | `1`–`1000`。 |
-| `offset` | 分页偏移量，默认 `0`。在返回 `limit` 条之前先跳过这么多条记录。 |
+| `user` | 读取哪个 Subject。 |
+| `indicator` | 可选，按指标名过滤（子串匹配）。 |
+| `limit` | `1`–`1000`（默认 `100`）。 |
 
-读取前会先清除已过期的记录，因此你拿到的总是数据主体(Subject)当前有效的数据。
-
-```python Python
-import requests
-
-r = requests.get(
-    "https://test-mirobody-api.thetahealth.ai/v1/data",
-    headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
-    params={"user": "alice", "indicator": "fasting_glucose", "limit": 100, "offset": 0},
-)
-print(r.json())
-```
-
-响应是一个 OpenAI 风格的列表。记录位于 **`data`** 下，且每条记录的 `value` 是一个**格式化字符串**（例如 `"5.4 mmol/L"`），而非数字：
+响应为 OpenAI 风格的列表，最新在前。`value` 是**人读字符串**（如 `"5.4 mmol/L"`）；机读字段并列返回：
 
 ```json
 {
@@ -76,8 +70,11 @@ print(r.json())
     {
       "indicator": "fasting_glucose",
       "value": "5.4 mmol/L",
-      "parsed_value": null,
-      "parsed_unit": null,
+      "parsed_value": 5.4,
+      "parsed_unit": "mmol/L",
+      "loinc_code": "1558-6",
+      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "fhir_resource_id": "8f3c9a1e-...",
       "time": "2026-06-16T07:30:00+00",
       "source": "api",
       "comment": ""
@@ -90,20 +87,32 @@ print(r.json())
 
 | 字段 | 说明 |
 | --- | --- |
-| `data` | 记录数组（最多 `limit` 条）。 |
-| `has_more` | 当本页之后还有更多记录时为 `true` —— 递增 `offset` 以获取它们。 |
-| `subject` | 记录所属的数据主体(Subject)（由 `user` 解析得到）。 |
+| `data` | 记录数组（至多 `limit` 条）。 |
+| `value` | 人读读数（字符串）。 |
+| `parsed_value` / `parsed_unit` | 标准化管线产出的数值 + **UCUM** 单位（无法解析时为 `null`）。 |
+| `loinc_code` / `canonical_name` | 确定性 LOINC 解析结果及其展示名（名称未解析时为 `null`）。 |
+| `fhir_resource_id` | 该记录 FHIR Observation 镜像的 id。 |
+| `has_more` | 本页达到 `limit` 时为 `true` —— 可能还有更多记录。 |
+| `subject` | 记录所属的 Subject（由 `user` 解析）。 |
 
-<Note>
-该响应目前**不**返回 `total`、`limit` 或 `offset` 字段 —— 请通过递增 `offset` 查询参数分页，并一直读取到 `has_more` 为 `false`。
-</Note>
+## 擦除记录
 
-## 删除数据
+```http
+DELETE /v1/data?user=alice&indicator=fasting_glucose
+Authorization: Bearer mb_live_*
+```
 
-<Note>
-`/v1` 中**尚不提供**显式删除端点 —— `DELETE /v1/data`、`DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上均未实现。如今，记录通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除：有时限的粒度（`1h`–`1d`）会自动删除，`session` 数据上限为 24 小时。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/api-reference/compliance)。
-</Note>
+**硬删除**该 Subject 的记录 —— 被遗忘权语义（行被物理移除，而非打标）。`indicator` 收窄到单个指标（子串匹配，与 GET 过滤一致）；省略则擦除该 Subject 的**全部**记录。
 
-<Note>
-对于完全不应持久化的一次性数据，请将其作为 `health_context` 内联附加到对话请求中、并设 `retention="none"`，而不要写到这里 —— 详见[对话 → 内联数据](/zh/api-reference/chat#内联-health_context)。
-</Note>
+```json
+{ "status": "ok", "deleted": 2, "subject": "alice" }
+```
+
+如需擦除某个 Subject 的*一切*（记录 + 文件 + 对话 + 身份映射），使用 `DELETE /v1/subjects/{user}` —— 见[合规](/zh/api-reference/compliance)。
+
+## 用完即弃的数据
+
+**没有 `retention: "none"`** —— 写入存储却要求不存储是自相矛盾的，该值与其它非枚举值一样被拒绝。两种干净的替代模式：
+
+- **零副作用的 dry-run 分析** —— [`POST /v1/extract`](/zh/api-reference/extract) 用 `store=false`（默认）：拿到标准化结果，什么都不写。
+- **短生命周期工作数据** —— 以 `retention: "1h"` 写入，或 `retention: "session"` + 一个用完即[删](/zh/api-reference/sessions)的 `session_id`。

@@ -14,7 +14,8 @@ Authorization: Bearer <console_jwt>
 | --- | --- |
 | `days` | Window to aggregate over (e.g. `30`). |
 
-Returns request count, token totals, and cost (CNY) over the window. Billing is per **actual token usage**; the console is the source of truth for final cost. The console renders this as charts under **Usage**.
+{/* TODO(billing): settlement currency for the global cluster is not finalized — keep this wording currency-neutral until product confirms. */}
+Returns request count, token totals, and metered cost over the window. Billing is per **actual token usage**; the console is the source of truth for final cost. The console renders this as charts under **Usage**.
 
 ```bash
 curl "https://test-platform.mirobody.ai/api/console/usage?days=30" \

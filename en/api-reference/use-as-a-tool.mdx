@@ -1,0 +1,86 @@
+---
+title: "Use Answers as a Tool"
+description: "Cookbook: wrap the Answers API as one tool inside your own agent (openai-agents SDK / LangChain)."
+---
+
+The [Answers API](/en/api-reference/chat) is a **closed grounded completion** — question in, evidence-backed answer out, no knobs. That shape is exactly what an outer agent wants in a tool: your agent (running on any model, any framework) keeps orchestration, and delegates *"what do this user's real health records say?"* to Mirobody.
+
+When to prefer this over the [Agent API](/en/api-reference/responses): you already **have** an agent and just need grounded health answers as one capability inside it. When you want Mirobody to *be* the agent (and call **your** tools), use the [Agent API](/en/api-reference/function-calling) instead.
+
+## openai-agents SDK
+
+Your outer agent runs on OpenAI (or any Responses-compatible backend); the tool body calls Mirobody:
+
+```python
+from agents import Agent, Runner, function_tool
+from openai import OpenAI
+
+mirobody = OpenAI(
+    api_key="mb_live_...",
+    base_url="https://test-mirobody-api.thetahealth.ai/v1",
+)
+
+@function_tool
+def health_answers(question: str, user_id: str) -> str:
+    """Answer a question from this end user's REAL health records
+    (labs, vitals, reports). Grounded and citation-backed — use it for
+    anything about the user's own health data."""
+    resp = mirobody.chat.completions.create(
+        model="mirobody-flash",
+        messages=[{"role": "user", "content": question}],
+        user=user_id,                    # the end user's stable id (Subject)
+    )
+    return resp.choices[0].message.content
+
+coach = Agent(
+    name="Wellness coach",
+    model="gpt-4.1",                     # your model, your orchestration
+    instructions=(
+        "You are a wellness coach. For anything about the user's own labs, "
+        "vitals or reports, call health_answers with their user_id — never guess."
+    ),
+    tools=[health_answers],
+)
+
+result = Runner.run_sync(coach, "user_id=alice — Should I be worried about my recent glucose?")
+print(result.final_output)
+```
+
+The outer model decides *when* health data is needed; Mirobody's agent does the record search, trend math, and evidence citation inside a single tool call.
+
+## LangChain
+
+```python
+from langchain_core.tools import tool
+from langchain.agents import create_agent          # LangChain v1 agent API
+from openai import OpenAI
+
+mirobody = OpenAI(
+    api_key="mb_live_...",
+    base_url="https://test-mirobody-api.thetahealth.ai/v1",
+)
+
+@tool
+def health_answers(question: str, user_id: str) -> str:
+    """Answer a question from this end user's real health records
+    (labs, vitals, reports). Grounded, with traceable evidence."""
+    resp = mirobody.chat.completions.create(
+        model="mirobody-flash",
+        messages=[{"role": "user", "content": question}],
+        user=user_id,
+    )
+    return resp.choices[0].message.content
+
+agent = create_agent(model="openai:gpt-4.1", tools=[health_answers])
+out = agent.invoke({"messages": [
+    {"role": "user", "content": "user_id=alice — how did my LDL respond to the diet change?"}
+]})
+print(out["messages"][-1].content)
+```
+
+## Tips
+
+- **Thread the Subject id.** The `user` param is the isolation key — take it from your own auth context rather than letting the model free-type it, if your framework supports per-call context injection.
+- **Return evidence too.** If your outer agent should show sources, include the response's `health_records` / `citations` extensions in the tool's return value (serialize them alongside `content`).
+- **Timeouts.** A grounded answer runs a real agent turn (seconds, not milliseconds) — give the tool call a generous timeout and stream your outer agent's narration meanwhile.
+- **Cost control.** `mirobody-flash` is the right default inside a tool; reserve `mirobody-expert` for deep report interpretation. See [Models](/en/api-reference/models).

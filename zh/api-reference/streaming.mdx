@@ -1,0 +1,66 @@
+---
+title: "流式传输"
+description: "Agent API 的 response.* SSE 事件，含 mirobody_tool_call 旁路事件。"
+---
+
+在 [`POST /v1/responses`](/zh/api-reference/responses) 上设 `stream: true`，回复将以标准 **OpenAI Responses `response.*` SSE 事件**到达 —— 每帧都是 `event: <type>` + `data: <json>`，并带单调递增的 `sequence_number`。官方 SDK 的流式循环可原样消费。
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+
+with client.responses.stream(
+    model="mirobody-flash",
+    input="How is my fasting glucose trending?",
+    user="alice",
+) as stream:
+    for event in stream:
+        if event.type == "response.output_text.delta":
+            print(event.delta, end="", flush=True)
+```
+
+## 事件表
+
+| 事件 | 含义 |
+| --- | --- |
+| `response.created` | 运行开始 —— 携带 `status: "in_progress"` 的响应快照。 |
+| `response.in_progress` | 紧随其后（对齐 OpenAI）。 |
+| `response.output_item.added` | 新 output item 开启（`reasoning` / `message` / `function_call`）—— 携带 `output_index` 与进行中的 item。 |
+| `response.reasoning_summary_part.added` / `.done` | 一个推理摘要片段开启 / 结束。 |
+| `response.reasoning_summary_text.delta` / `.done` | 推理（深度思考）文本增量，随后是全文。 |
+| `response.content_part.added` / `.done` | 一个回答内容片段开启 / 结束。 |
+| `response.output_text.delta` / `.done` | 回答文本增量，随后是全文 —— **大多数客户端渲染的通道**。 |
+| `response.function_call_arguments.delta` / `.done` | 客户端工具交接的参数（见 [Function calling](/zh/api-reference/function-calling)）。 |
+| `response.output_item.done` | 当前 item 完成 —— 携带完成后的 item。 |
+| `response.mirobody_tool_call` | **Mirobody 扩展，旁路通道** —— 一个内置服务端工具运行了。见下文。 |
+| `response.completed` | 终态：携带**完整的最终响应对象**（`output`、`usage`、`tool_steps`、`health_records`、`citations`）。 |
+| `response.failed` | 终态错误：携带 `status: "failed"` 的响应快照与 `error` 对象。 |
+
+item 严格一次一个地流出：先 reasoning（当档位产出时），然后 message，最后是任何 `function_call` 交接 —— `output_index` 按 item 递增，且与 `response.completed` 里最终 `output` 数组的索引一致。
+
+## 服务端工具旁路通道
+
+内置服务端工具（数据检索、文献等）**不是** output item —— 官方 SDK 会错误解析未知 item 类型，因此其轨迹走一个标准流式循环会安全忽略的专用事件：
+
+```text
+event: response.mirobody_tool_call
+data: {"type":"response.mirobody_tool_call","sequence_number":7,
+       "tool_step":{"id":"mtc_0","call_id":"call_1a2b...","name":"query_health_data",
+                    "arguments":"{\"query\": \"fasting glucose last 90 days\"}"}}
+```
+
+它在工具被*调用*时触发；**不会**开启 output item，也不推进 `output_index`。完整结果（`tool_steps[].result`）在 `response.completed` 的最终响应对象上。想做活动信息流（"正在检索你的记录…"）就渲染它；跳过它也不影响任何功能。
+
+## 失败形状
+
+上游出错时，流以 `response.failed` 结束（而非断管）：
+
+```text
+event: response.failed
+data: {"type":"response.failed","sequence_number":12,
+       "response":{"id":"resp_...","status":"failed",
+                   "error":{"type":"upstream_error","message":"..."}}}
+```
+
+Answers API 更简单的 `chat.completion.chunk` 流式见 [Answers API → 流式传输](/zh/api-reference/chat#流式传输)。

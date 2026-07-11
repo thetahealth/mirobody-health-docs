@@ -1,0 +1,65 @@
+---
+title: "Standardization"
+description: "How every write becomes coded, unit-normalized, FHIR-mirrored data — OCR → extraction → LOINC → UCUM → FHIR."
+---
+
+Health data arrives messy — "血糖(空腹)", "FBG", "Glucose, fasting" are the same measurement in three costumes, with units to match. Mirobody's data plane standardizes **every write** so that the agent (and your queries) see one coherent, coded dataset. This page explains the pipeline; you never call it directly — it runs inside [`POST /v1/data`](/en/api-reference/data), [`POST /v1/files`](/en/api-reference/files), and [`POST /v1/extract`](/en/api-reference/extract).
+
+## The pipeline
+
+```text
+document / record
+   │
+   ├─ 1. OCR & text extraction        PDF / image → text; Excel → structured rows
+   │
+   ├─ 2. LLM reading extraction       schema-constrained: {indicator, value, unit, measured_at}
+   │                                  (documents only — structured /v1/data records skip this)
+   ├─ 3. LOINC resolution             deterministic name → code: curated corpus + embedding
+   │                                  retrieval. The LLM is NEVER asked to guess a code —
+   │                                  no confident match means loinc_code = null, not a wrong code.
+   ├─ 4. UCUM unit normalization      "mg/dl" → mg/dL, value parsed to a number
+   │
+   └─ 5. FHIR mirror                  a FHIR R4 Observation per reading (fhir_resource_id)
+```
+
+The critical design choice is step 3: **codes are resolved deterministically, not generated.** Free-text indicator names are matched against a curated LOINC corpus via embedding retrieval with a confidence threshold. LLMs are great at *reading* documents (step 2) and terrible at *reciting* code systems — a hallucinated LOINC code is worse than none, so an unconfident match returns `null` and keeps the raw name.
+
+## Before / after
+
+What you send (or what a lab PDF says) vs. what the store holds:
+
+| | Before (as written) | After (standardized) |
+| --- | --- | --- |
+| Indicator | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`, `canonical_name: "Fasting glucose [Moles/volume] in Serum or Plasma"` |
+| Value | `"5.4 mmol/L"` (one string) | `parsed_value: 5.4`, `parsed_unit: "mmol/L"` (UCUM) |
+| Unit spelling | `"mg/dl"`, `"MG/DL"`, `"mg/dL"` | `"mg/dL"` (one UCUM form) |
+| Interop | free text | FHIR R4 Observation (`fhir_resource_id`) |
+| Original | — | **kept**: `value` stays the human-readable string; raw names/units preserved |
+
+Three spellings of the same test become **one series** — trend queries, the agent's data tools, and your own analytics all see it as one indicator.
+
+## Where you see it
+
+| Surface | What surfaces |
+| --- | --- |
+| [`POST /v1/data`](/en/api-reference/data) | Response counts `standardized` alongside `ingested`. |
+| [`GET /v1/data`](/en/api-reference/data#read-records) | Every row carries `parsed_value` / `parsed_unit` / `loinc_code` / `canonical_name` / `fhir_resource_id`. |
+| [`POST /v1/extract`](/en/api-reference/extract) | The whole pipeline as a synchronous call — **dry-run by default**, so you can inspect standardization before committing a write. |
+| The agent | Grounded answers query the standardized series — which is why "how's my glucose?" finds records written as "FBG". |
+
+## Cookbook: one call, report → structured data
+
+```bash
+# Inspect first (nothing persisted) …
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf"
+
+# … then commit the same extraction
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf" \
+  -F "store=true" -F "retention=permanent"
+```
+
+See [Extract](/en/api-reference/extract) for the full row shape (`indicator_raw`, `loinc_code`, `confidence`, …).

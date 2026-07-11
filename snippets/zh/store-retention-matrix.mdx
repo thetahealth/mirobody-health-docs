@@ -1,0 +1,8 @@
+`store` 与 `retention` **正交** —— 一个管*对话*，一个管*数据面*：
+
+| 开关 | 作用于 | 取值 | 管什么 |
+| --- | --- | --- | --- |
+| `store` | [`POST /v1/responses`](/zh/api-reference/responses) | `true`（默认）/ `false` | **响应对象 + 对话线程**是否持久化：`store=true` 保留 30 天（绑定 `session_id` 则永久），从而支持 `previous_response_id` 链式续聊与 `GET /v1/responses/{id}`。`store=false` 则回复结束后什么都不留。 |
+| `retention` | [`POST /v1/data`](/zh/api-reference/data)、[`POST /v1/files`](/zh/api-reference/files)、[`POST /v1/extract`](/zh/api-reference/extract)（`store=true` 时） | `permanent`（别名 `persistent`）/ `1d` / `6h` / `2h` / `1h` / `session` | 你写入的**健康记录 / 文件**在 Subject 存储中的存活时长。时间粒度自动删除（硬上限 ≤ 24h）；`session` 把记录绑定到 `session_id`，[`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 可立即清除。 |
+
+存储的对话（`store=true`）本身**不会**持久化任何健康数据；永久健康记录也不会让对话常驻。按需组合：例如 `store=false` + `retention=1h` 得到完全短暂的一次运行；`session_id` 绑定的响应 + `retention=session` 数据则得到"对话永续、工作数据随会话销毁"的形态。

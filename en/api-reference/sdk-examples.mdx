@@ -1,6 +1,6 @@
 ---
 title: "SDK Examples"
-description: "End-to-end /v1 examples in curl / Python / Node.js."
+description: "End-to-end /v1 examples in curl / Python / Node.js — Answers, Agent (Responses), data, files."
 ---
 
 Minimum-viable, end-to-end examples against the hosted API.
@@ -11,18 +11,23 @@ Minimum-viable, end-to-end examples against the hosted API.
 BASE=https://test-mirobody-api.thetahealth.ai/v1
 KEY="mb_live_..."
 
-# 1) Basic chat
+# 1) Grounded answer (Answers API)
 curl $BASE/chat/completions \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
   -d '{"model":"mirobody-flash","messages":[{"role":"user","content":"How is my fasting glucose trending?"}],"user":"alice"}'
 
-# 2) Write a record, then ask again
+# 2) Write a record (retention is REQUIRED), then ask again
 curl $BASE/data \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"user":"alice","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
+  -d '{"user":"alice","retention":"permanent","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
 
 # 3) Upload a report (OCR/parse), then ask about it
 curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=alice" -F "file=@report.pdf"
+
+# 4) Agent API (Responses)
+curl $BASE/responses \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"model":"mirobody-flash","input":"How is my fasting glucose trending?","user":"alice"}'
 ```
 
 ## Python (OpenAI SDK)
@@ -32,7 +37,7 @@ from openai import OpenAI
 
 client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 
-# Non-streaming
+# Answers API — non-streaming
 resp = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
@@ -40,7 +45,7 @@ resp = client.chat.completions.create(
 )
 print(resp.choices[0].message.content)
 
-# Streaming
+# Answers API — streaming
 stream = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "Summarize my last checkup."}],
@@ -51,6 +56,15 @@ for chunk in stream:
     delta = chunk.choices[0].delta
     if getattr(delta, "content", None):
         print(delta.content, end="", flush=True)
+
+# Agent API (Responses) — stored by default, chainable
+r1 = client.responses.create(model="mirobody-flash",
+                             input="How is my fasting glucose trending?", user="alice")
+print(r1.output_text)
+r2 = client.responses.create(model="mirobody-flash",
+                             input="And compared with last quarter?",
+                             previous_response_id=r1.id, user="alice")
+print(r2.output_text)
 ```
 
 ```python
@@ -63,8 +77,34 @@ up = requests.post(
     data={"user": "alice"},
     files={"file": open("report.pdf", "rb")},
 )
-print(up.json())   # {file_key, filename, indicators, abstract, subject}
+print(up.json())   # {"object": "file", "id": "...", "filename": "report.pdf",
+                   #  "bytes": 20544, "status": "processed", "created_at": 1782924296,
+                   #  "subject": "alice"}
 ```
+
+## openai-agents SDK (your tools + Mirobody's agent)
+
+The [openai-agents SDK](https://github.com/openai/openai-agents-python) works against the [Agent API](/en/api-reference/responses) by changing only the base URL:
+
+```python
+from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+set_tracing_disabled(True)   # tracing would call api.openai.com
+
+@function_tool
+def book_appointment(date: str) -> str:
+    """Book a clinic appointment for the end user (ISO date)."""
+    return f"Booked: {date} 09:30, Dr. Chen"
+
+agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment])
+result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
+print(result.final_output)
+```
+
+See [Function calling](/en/api-reference/function-calling) for the handoff protocol underneath.
 
 ## Node.js (OpenAI SDK)
 
@@ -76,7 +116,7 @@ const client = new OpenAI({
   baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
 });
 
-// Non-streaming
+// Answers API — non-streaming
 const resp = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
@@ -84,7 +124,7 @@ const resp = await client.chat.completions.create({
 });
 console.log(resp.choices[0].message.content);
 
-// Streaming
+// Answers API — streaming
 const stream = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "Summarize my last checkup." }],
@@ -94,6 +134,14 @@ const stream = await client.chat.completions.create({
 for await (const chunk of stream) {
   process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
 }
+
+// Agent API (Responses)
+const r = await client.responses.create({
+  model: "mirobody-flash",
+  input: "How is my fasting glucose trending?",
+  user: "alice",
+});
+console.log(r.output_text);
 ```
 
-More: [Chat reference](/en/api-reference/chat) · [Data](/en/api-reference/data) · [Files](/en/api-reference/files).
+More: [Answers API](/en/api-reference/chat) · [Agent API](/en/api-reference/responses) · [Data](/en/api-reference/data) · [Files](/en/api-reference/files) · [Extract](/en/api-reference/extract).

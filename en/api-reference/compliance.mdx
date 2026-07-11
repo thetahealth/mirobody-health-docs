@@ -25,7 +25,7 @@ Both clusters are designed to **HIPAA-grade health-privacy** standards. The US s
     Mirobody **never** sells user health data, never uses it for advertising, never monetizes it via third parties.
   </Accordion>
   <Accordion title="User rights" icon="key">
-    Per-Subject data export via the API ([structured data](/en/api-reference/data) / [files](/en/api-reference/files)); time-bounded [retention](/en/api-reference/overview#data-retention) auto-expires data (session data capped at 24h). Explicit per-record / per-file delete endpoints are not yet available in `/v1` — for account deletion or a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai).
+    Per-Subject data export via the API ([structured data](/en/api-reference/data) / [files](/en/api-reference/files)); time-bounded [retention](/en/api-reference/overview#data-retention) auto-expires data (session data capped at 24h). Self-service erasure is built into `/v1`: `DELETE /v1/data` (records), `DELETE /v1/files/{file_key}` (files), `DELETE /v1/responses/{id}` (stored conversations), `DELETE /v1/sessions/{id}` (session-scoped data), and `DELETE /v1/subjects/{user}` — which erases **everything** for one Subject (records, files, conversations, and the identity mapping). For account deletion, contact [Mirobody Support](mailto:developer@thetahealth.ai).
   </Accordion>
 </AccordionGroup>
 

@@ -1,0 +1,45 @@
+---
+title: "Choose Your API"
+description: "Answers API vs Agent API — pick the right surface in one minute."
+---
+
+Mirobody exposes the same grounded health agent through **two surfaces**. Both answer from the Subject's real, standardized health data with a traceable tool trace — they differ in who orchestrates.
+
+<CardGroup cols={2}>
+  <Card title="Answers API" icon="comment-dots" href="/en/api-reference/chat">
+    `POST /v1/chat/completions` — a **closed grounded completion**. One shot in, one evidence-backed answer out. No client tools, no state. Perfect as a drop-in OpenAI swap — or as **one tool inside your own agent**.
+  </Card>
+  <Card title="Agent API" icon="robot" href="/en/api-reference/responses">
+    `POST /v1/responses` — the **recommended agent surface** (OpenAI Responses-compatible). Multi-turn state (`store`, `previous_response_id`, `session_id`), **your own function tools** with full handoff, standard `response.*` streaming.
+  </Card>
+</CardGroup>
+
+## Decision table
+
+| You want to… | Use |
+| --- | --- |
+| Replace an OpenAI chat call with health-grounded answers, zero new concepts | **Answers** |
+| Give your existing agent (any framework, any model) a "query this user's health records" capability | **Answers**, [wrapped as a tool](/en/api-reference/use-as-a-tool) |
+| Build a health assistant where **Mirobody is the agent** and calls **your** tools (booking, notifications, EHR writes) | **Agent** ([function calling](/en/api-reference/function-calling)) |
+| Multi-turn conversations without resending history | **Agent** (`previous_response_id` / `session_id` — [state](/en/api-reference/state-and-memory)) |
+| Use the **openai-agents SDK** as-is (just change `base_url`) | **Agent** |
+| Structured-output / JSON-mode responses | Neither — `response_format` is rejected on Answers; put shaping in your outer agent |
+
+## What's identical on both
+
+- **Grounding** — the same server-side toolset over the same standardized data ([Data Plane](/en/api-reference/data)); evidence in `health_records` / `citations`; server tool trace in the `tool_steps` extension.
+- **Models** — `mirobody-flash` / `mirobody-expert` ([Models](/en/api-reference/models)).
+- **Tenancy** — the `user` → Subject isolation model ([Overview](/en/api-reference/overview#multi-tenancy-the-user-field)).
+- **Usage accounting** — visible input tokens billed to you, platform overhead broken out as `system_tokens`.
+
+## What's different
+
+| | Answers (`/v1/chat/completions`) | Agent (`/v1/responses`) |
+| --- | --- | --- |
+| Protocol | OpenAI Chat Completions | OpenAI Responses |
+| State | Stateless — resend history | `store` (default `true`), `previous_response_id`, `session_id` |
+| Client tools | Rejected (`400 unsupported_parameter`) | `tools` with `function_call` handoff |
+| Streaming | `chat.completion.chunk` frames | `response.*` event protocol |
+| Server tool trace | `message.tool_steps` + top-level extensions | top-level `tool_steps` + `response.mirobody_tool_call` event |
+
+Still unsure? Start with the [Quickstart](/en/api-reference/quickstart) — its final step shows both in ~15 lines.

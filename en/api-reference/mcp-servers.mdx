@@ -1,51 +1,43 @@
 ---
-title: "Bring Your Own Tools (MCP)"
-description: "Attach your own remote MCP tools to the chat agent via mcp_servers."
+title: "MCP Servers (Roadmap)"
+description: "Bring your own remote MCP tools — shipping soon on the Agent API."
 ---
 
-The chat agent ships with built-in tools over the Subject's health data (`search_health_indicators`, `fetch_health_data`, `read_file`, `eval`). You can extend it with **your own remote MCP tools** by passing `mcp_servers` on a [chat request](/en/api-reference/chat).
+<Warning>
+**Shipping soon — not yet available.** MCP tool attachment is **not implemented on the current clusters**; requests carrying MCP configuration are not honored. It will land on the [Agent API](/en/api-reference/responses) using the OpenAI-standard `tools: [{"type": "mcp"}]` shape. This page describes the roadmap, not current behavior. Today, bring your own tools via [client function tools](/en/api-reference/function-calling) instead.
+</Warning>
+
+## What's coming
+
+The chat agent ships with built-in tools over the Subject's health data ([Function calling → Built-in server tools](/en/api-reference/function-calling#built-in-server-tools)). MCP attachment will let you extend it with **your own remote MCP servers**: the platform connects, lists your server's tools, and lets the agent call them alongside the built-ins during a turn.
 
 <Note>
-This is **not** "Mirobody as an MCP server." It's the reverse: you bring external MCP tools *into* the agent's data-gathering, where they run alongside the built-in tools. The platform proxies the calls.
+This is **not** "Mirobody as an MCP server." It's the reverse: you bring external MCP tools *into* the agent's data-gathering. The platform proxies the calls.
 </Note>
 
-## `mcp_servers`
+## Planned shape (subject to change)
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `name` | string | Label for the server. |
-| `url` | string | Remote MCP endpoint. |
-| `access_token` | string | Optional bearer token forwarded to your server. |
+On the **Agent API**, the OpenAI Responses `tools` shape:
 
-## Example
-
-<CodeGroup>
-```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
-  -H "Authorization: Bearer $MIROBODY_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-        "model": "mirobody-expert",
-        "messages": [{"role": "user", "content": "Cross-check my labs against our formulary."}],
-        "user": "alice",
-        "mcp_servers": [
-          {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
-        ]
-      }'
+```jsonc
+// POST /v1/responses — ROADMAP, not yet live
+{
+  "model": "mirobody-expert",
+  "input": "Cross-check my labs against our formulary.",
+  "user": "alice",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "formulary",
+      "server_url": "https://tools.example.com/mcp",
+      "authorization": "Bearer ..."
+    }
+  ]
+}
 ```
 
-```python Python (OpenAI SDK)
-client.chat.completions.create(
-    model="mirobody-expert",
-    messages=[{"role": "user", "content": "Cross-check my labs against our formulary."}],
-    user="alice",
-    extra_body={
-        "mcp_servers": [
-            {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
-        ]
-    },
-)
-```
-</CodeGroup>
+Your MCP tools' calls will surface through the same trace channels as other tools; security posture (allowed-tool filtering, approval flow) will be documented at launch.
 
-The agent decides when to call your tools while gathering data; their results feed the same `tool_steps` channel as the built-ins. See [Chat](/en/api-reference/chat) for the response shape.
+## Today's alternative
+
+Everything MCP attachment enables is achievable now with [**client function tools**](/en/api-reference/function-calling): declare the tools, execute them in your process (including by proxying to your own MCP server), and continue the run with `function_call_output` — the openai-agents SDK automates the whole loop.

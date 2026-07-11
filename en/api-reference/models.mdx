@@ -10,7 +10,7 @@ GET /v1/models
 Authorization: Bearer mb_live_*
 ```
 
-Lists the capability tiers you can pass as `model` to [`/v1/chat/completions`](/en/api-reference/chat). OpenAI-compatible shape.
+Lists the capability tiers you can pass as `model` to the [Answers API](/en/api-reference/chat) and the [Agent API](/en/api-reference/responses). OpenAI-compatible shape.
 
 ## Tiers
 
@@ -19,7 +19,8 @@ Lists the capability tiers you can pass as `model` to [`/v1/chat/completions`](/
 | `mirobody-flash` | Default — fast, low cost | Everyday health Q&A, high concurrency |
 | `mirobody-expert` | Deeper reasoning | Complex report interpretation, multi-step analysis |
 
-Billing is per **actual token usage**, settled in CNY — unit prices come from runtime config, and the console usage page is the source of truth. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
+{/* TODO(billing): settlement currency for the global cluster is not finalized — keep this wording currency-neutral until product confirms. */}
+Billing is metered per **actual token usage** — the console's [Usage](/en/api-reference/console/usage) page is the source of truth for consumption and cost. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
 
 ## Example
 

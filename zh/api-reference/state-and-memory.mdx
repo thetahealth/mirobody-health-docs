@@ -1,0 +1,64 @@
+---
+title: "状态与记忆"
+description: "store、previous_response_id、session_id 与数据留存在 Agent API 上如何组合。"
+---
+
+import StoreRetentionMatrix from '/snippets/zh/store-retention-matrix.mdx';
+
+两个相互独立的开关决定什么被持久化：
+
+<StoreRetentionMatrix />
+
+## 对话状态（`store`）
+
+`store` 默认 **`true`**（对齐 OpenAI）。一个被存储的响应持久化三样东西：响应对象（供 `GET /v1/responses/{id}`）、对话线程（供 `previous_response_id` 续接），以及该轮次在平台对话记忆中的投影。
+
+| 模式 | 方式 | 生命周期 |
+| --- | --- | --- |
+| **一次性** | `store: false` | 回复结束后什么都不留。仍可通过[无状态回放](/zh/api-reference/function-calling#路径-2--无状态全量回放)实现多轮。 |
+| **链式** | `store: true`（默认），用 `previous_response_id` 续接 | 每个响应 **30 天 TTL**；过期后 GET 返回 `404` 且无法续接。 |
+| **永续对话** | 传 `session_id` | 绑定的响应**永不自动过期**。同一 `session_id` 总能恢复同一段对话 —— "用户的常驻线程"的稳定句柄。 |
+
+```python
+# 第 1 轮 —— 默认即存储
+r1 = client.responses.create(model="mirobody-flash",
+                             input="How is my fasting glucose trending?", user="alice")
+
+# 第 2 轮 —— 服务端状态：无需重发历史
+r2 = client.responses.create(model="mirobody-flash",
+                             input="And compared with last quarter?",
+                             previous_response_id=r1.id, user="alice")
+```
+
+<Note>
+对未知、**已过期**或已删除的响应使用 `previous_response_id` 会返回 `404` —— 超过 30 天的链式对话除非绑定了 `session_id`，否则视为已消失。以客户端工具交接收尾的响应必须先用 `function_call_output` item 续跑 —— 见 [Function calling](/zh/api-reference/function-calling#续跑错误)。
+</Note>
+
+### 清理
+
+`DELETE /v1/responses/{id}` 移除一个存储的响应；当它是所在对话最后一个存活响应时，**整段对话被拆除** —— 线程状态、会话投影与对话衍生记忆。见 [Agent API → 删除](/zh/api-reference/responses#删除存储的响应)。
+
+## 跨会话记忆
+
+存储的对话会供给平台的异步记忆固化：智能体了解到的关于某个 Subject 的持久事实，可以服务同一 Subject 之后的对话。`store: false` 的轮次完全置身事外；删除响应会撤回其对话贡献的记忆。
+
+## 数据面留存（`retention`）
+
+健康记录与文件带有自己的生命周期，在**数据写入处**设置 —— [`POST /v1/data`](/zh/api-reference/data)（必填）、[`POST /v1/files`](/zh/api-reference/files)（可选）、[`POST /v1/extract`](/zh/api-reference/extract)（`store=true` 时必填）：
+
+| `retention` | 生命周期 |
+| --- | --- |
+| `permanent`（别名 `persistent`） | 直到显式删除（`DELETE /v1/data`、`DELETE /v1/files/{key}`、`DELETE /v1/subjects/{user}`） |
+| `1d` / `6h` / `2h` / `1h` | 按粒度自动删除（硬上限 ≤ 24h） |
+| `session` | 绑定 `session_id`；由 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 清除，无论如何上限 24h |
+
+**没有 `retention: "none"`** —— 写入存储却要求不存储是自相矛盾的。用完即弃的分析请用 [`POST /v1/extract`](/zh/api-reference/extract) 的 `store=false`（dry-run，零副作用），或以 `retention: "1h"` 写入。
+
+## 常用配方
+
+| 目标 | 设置 |
+| --- | --- |
+| 完全短暂的一次调用 | `store: false`；不写数据（或 `retention: "1h"`） |
+| 用户的常驻助手线程 | 每轮都传 `session_id: <稳定 id>`；数据用 `retention: "permanent"` |
+| 短生命周期的分诊对话 | 默认 `store: true` + `previous_response_id` 链式；工作数据 `retention: "session"` + 同一 `session_id`；结束时 `DELETE /v1/sessions/{id}` |
+| 被遗忘权 | `DELETE /v1/subjects/{user}`（全部），或按件：`DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |

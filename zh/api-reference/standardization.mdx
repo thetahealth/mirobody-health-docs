@@ -1,0 +1,65 @@
+---
+title: "标准化"
+description: "每次写入如何变成带编码、单位归一、FHIR 镜像的数据 —— OCR → 抽取 → LOINC → UCUM → FHIR。"
+---
+
+健康数据到达时是杂乱的 —— "血糖(空腹)"、"FBG"、"Glucose, fasting" 是同一项检测的三副面孔，单位同样五花八门。Mirobody 数据面会对**每次写入**做标准化，让智能体（以及你的查询）看到一份连贯、带编码的数据集。本页解释这条管线；你从不直接调用它 —— 它运行在 [`POST /v1/data`](/zh/api-reference/data)、[`POST /v1/files`](/zh/api-reference/files) 与 [`POST /v1/extract`](/zh/api-reference/extract) 内部。
+
+## 管线
+
+```text
+文档 / 记录
+   │
+   ├─ 1. OCR 与文本提取            PDF / 图片 → 文本；Excel → 结构化行
+   │
+   ├─ 2. LLM 读数抽取              schema 约束：{indicator, value, unit, measured_at}
+   │                               （仅文档需要 —— 结构化的 /v1/data 记录跳过此步）
+   ├─ 3. LOINC 解析                确定性的名称 → 编码：curated 语料 + embedding 检索。
+   │                               绝不让 LLM 猜码 —— 没有高置信匹配就 loinc_code = null，
+   │                               而不是一个错码。
+   ├─ 4. UCUM 单位归一             "mg/dl" → mg/dL，值解析为数字
+   │
+   └─ 5. FHIR 镜像                 每条读数一个 FHIR R4 Observation（fhir_resource_id）
+```
+
+关键设计在第 3 步：**编码是确定性解析出来的，不是生成出来的。** 自由文本指标名通过 embedding 检索匹配到一份 curated LOINC 语料，并设置置信阈值。LLM 擅长*读*文档（第 2 步），却不擅长*背*编码体系 —— 一个幻觉出来的 LOINC 码比没有更糟，所以低置信匹配返回 `null` 并保留原始名称。
+
+## Before / after
+
+你发送的（或化验 PDF 上写的） vs. 存储里保存的：
+
+| | Before（原样） | After（标准化后） |
+| --- | --- | --- |
+| 指标 | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`，`canonical_name: "Fasting glucose [Moles/volume] in Serum or Plasma"` |
+| 值 | `"5.4 mmol/L"`（一个字符串） | `parsed_value: 5.4`，`parsed_unit: "mmol/L"`（UCUM） |
+| 单位写法 | `"mg/dl"`、`"MG/DL"`、`"mg/dL"` | `"mg/dL"`（统一 UCUM 形式） |
+| 互操作 | 自由文本 | FHIR R4 Observation（`fhir_resource_id`） |
+| 原文 | — | **保留**：`value` 仍是人读字符串；原始名称/单位不丢 |
+
+同一项检测的三种写法归成**一条序列** —— 趋势查询、智能体的数据工具与你自己的分析都把它当作同一个指标。
+
+## 你在哪里看到它
+
+| 接口 | 呈现 |
+| --- | --- |
+| [`POST /v1/data`](/zh/api-reference/data) | 响应在 `ingested` 之外还统计 `standardized`。 |
+| [`GET /v1/data`](/zh/api-reference/data#读取记录) | 每行携带 `parsed_value` / `parsed_unit` / `loinc_code` / `canonical_name` / `fhir_resource_id`。 |
+| [`POST /v1/extract`](/zh/api-reference/extract) | 整条管线的同步调用形态 —— **默认 dry-run**，可先审阅标准化结果再决定写入。 |
+| 智能体 | grounded 回答查询的是标准化后的序列 —— 所以"我的血糖怎么样"能找到写成 "FBG" 的记录。 |
+
+## Cookbook：一次调用，报告 → 结构化数据
+
+```bash
+# 先审阅（什么都不持久化）……
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf"
+
+# ……再提交同一份抽取
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf" \
+  -F "store=true" -F "retention=permanent"
+```
+
+完整行形状（`indicator_raw`、`loinc_code`、`confidence` 等）见[抽取](/zh/api-reference/extract)。

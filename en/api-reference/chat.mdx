@@ -1,7 +1,10 @@
 ---
-title: "Chat Completions"
-description: "POST /v1/chat/completions — OpenAI-compatible health agent over the Subject's real data."
+title: "Answers API (Chat Completions)"
+description: "POST /v1/chat/completions — a closed, grounded completion over the Subject's real health data."
 ---
+
+import BaseUrl from '/snippets/base-url.mdx';
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
 
 ## Endpoint
 
@@ -11,7 +14,11 @@ Authorization: Bearer mb_live_*
 Content-Type:  application/json
 ```
 
-OpenAI-compatible. The agent gathers the Subject's real health data with built-in tools, then composes **one clean answer** with traceable citations. Set `stream: true` for SSE.
+The **Answers API** is a **closed, grounded completion**: one question in, one evidence-backed answer out. The platform's agent gathers the Subject's real health data with **server-side tools** (you can't add or remove them here), then composes a single clean answer with a traceable tool trace. Set `stream: true` for SSE.
+
+It is deliberately *closed* — no client tools, no response formatting, no multi-turn state. That makes it trivial to embed: call it directly, or [wrap it as one tool inside your own agent](/en/api-reference/use-as-a-tool). If you need client-side tools, stored conversations, or `previous_response_id` chaining, use the [Agent API (`POST /v1/responses`)](/en/api-reference/responses).
+
+<BaseUrl />
 
 ## Quickstart
 
@@ -30,17 +37,16 @@ curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 
 resp = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
-    user="alice",                       # tenant-isolation key (a Subject)
-    extra_body={"include_tool_steps": True},    # Mirobody extensions go in extra_body
+    user="alice",                                 # tenant-isolation key (a Subject)
 )
 print(resp.choices[0].message.content)
-# resp.choices[0].message.reasoning_content     # deep-thinking (CoT) detail (may be empty)
-# resp.choices[0].message.tool_steps            # tool-call trace: {id, name, arguments, result}
+# resp.choices[0].message.reasoning_content      # deep-thinking (CoT) detail (may be empty)
+# resp.choices[0].message.tool_steps             # server tool trace: {id, name, arguments, result}
 ```
 
 ```javascript Node.js (OpenAI SDK)
@@ -55,7 +61,6 @@ const resp = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
   user: "alice",
-  include_tool_steps: true,
 });
 console.log(resp.choices[0].message.content);
 ```
@@ -66,17 +71,27 @@ console.log(resp.choices[0].message.content);
 | Field | Type | Description |
 | --- | --- | --- |
 | `model` | string | `mirobody-flash` (default) or `mirobody-expert`. See [Models](/en/api-reference/models). |
-| `messages` | array | OpenAI `{role, content}`. A `system` message is folded into the last user turn as a caller instruction (see [System prompts](#system-prompts)). |
+| `messages` | array | OpenAI `{role, content}`. The surface is **stateless** — send the full history each call; a `system` message shapes tone/format (see [System prompts](#system-prompts)). |
 | `stream` | bool | `true` → SSE stream of `chat.completion.chunk` frames. |
 | `user` | string | Tenant-isolation key → a Subject. Pass each end-user's stable id. See [multi-tenancy](/en/api-reference/overview#multi-tenancy-the-user-field). |
-| `retention` | string | `permanent` (default) / `1h` / `2h` / `6h` / `1d` / `session` / `none` — applies to any `health_context` you attach. The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). |
-| `session_id` | string | Required when `retention=session`; also threads multi-turn context. |
-| `health_context` | array | Inline health records for this request, handled per `retention`. See [Inline data](#inline-health_context). |
-| `mcp_servers` | array | Bring-your-own remote MCP tools `{name, url, access_token?}`. See [Bring Your Own Tools](/en/api-reference/mcp-servers). |
-| `include_tool_steps` | bool | Return detailed `tool_steps` (default `false`). When `false`, `tool_steps[].result` is truncated to 2000 chars. |
+| `retention` | string | Mirobody extension, accepted for parity with the data plane. Data lifetimes are governed where data is written — see [Data](/en/api-reference/data) and the [retention model](/en/api-reference/overview#data-retention). |
+| `session_id` | string | Mirobody extension. Tags the call for [session-scoped cleanup](/en/api-reference/sessions). For real multi-turn state, use the [Agent API](/en/api-reference/responses). |
+
+<SubjectUserParam />
+
+## Unsupported parameters
+
+This surface is a closed grounded completion — tools run **server-side only**, and the answer is free-form text. Parameters that contradict that are **explicitly rejected with `400`** (`code: unsupported_parameter`, `param` names the offender) rather than silently swallowed:
+
+| Parameter | Result |
+| --- | --- |
+| `tools`, `functions` | `400 unsupported_parameter` — bring your own tools via the [Agent API](/en/api-reference/function-calling) |
+| `tool_choice`, `function_call` | `400 unsupported_parameter` |
+| `response_format` | `400 unsupported_parameter` — structured output is not available on this surface |
+| `n` > 1 | `400 unsupported_parameter` — always a single choice |
 
 <Note>
-**Sampling parameters.** For OpenAI compatibility the request accepts `max_tokens`, `n`, `temperature`, `top_p`, `stop`, and `seed`, but the agent governs its own generation, so they are effectively **not enforced**: `max_tokens` doesn't cap output, `temperature` / `top_p` / `stop` / `seed` are ignored, and `n` other than `1` does **not** error — the response still returns a single choice.
+**Sampling parameters are accepted but ignored** (industry norm for agent-backed surfaces): `max_tokens` doesn't cap output; `temperature`, `top_p`, `stop`, and `seed` have no effect. The response always contains a single choice.
 </Note>
 
 ## Response
@@ -87,7 +102,7 @@ console.log(resp.choices[0].message.content);
 {
   "id": "chatcmpl-...",
   "object": "chat.completion",
-  "created": 0,
+  "created": 1783741077,
   "model": "mirobody-flash",
   "choices": [{
     "index": 0,
@@ -95,66 +110,55 @@ console.log(resp.choices[0].message.content);
     "message": {
       "role": "assistant",
       "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
-      "reasoning_content": "",                                                     // deep-thinking (CoT); may be empty
-      "tool_steps": [                                                              // optional, ordered
-        { "id": "call_abc", "name": "search_health_indicators",
-          "arguments": { "keywords": ["fasting glucose", "glucose"] },
+      "reasoning_content": "",                                            // deep-thinking (CoT); may be empty
+      "tool_steps": [                                                     // server tool trace, ordered
+        { "id": "call_abc", "name": "query_health_data",
+          "arguments": { "query": "fasting glucose last 90 days" },
           "result": "{...}" }
       ]
     }
   }],
-  "usage": { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0 },
-  "health_records": [ { "tool": "fetch_health_data", "data": "..." } ],
-  "citations": []
+  "usage": {
+    "prompt_tokens": 12,                                                  // YOUR visible input only
+    "completion_tokens": 210,
+    "total_tokens": 222,
+    "prompt_tokens_details": { "system_tokens": 10096 },                  // platform overhead, not billed to your prompt
+    "completion_tokens_details": { "reasoning_tokens": 0 }
+  },
+  "health_records": [ { "tool": "query_health_data", "data": "..." } ],
+  "citations": [ { "tool": "search_medical_literature", "data": "..." } ]
 }
 ```
 
 | Channel | Content |
 | --- | --- |
 | `message.content` | Final answer only (the "reply" channel). |
-| `message.reasoning_content` | The model's **deep-thinking** (thinking / CoT) detail. May be an empty string when the tier doesn't emit it. |
-| `message.tool_steps[]` | The tool-call trace — each `{id, name, arguments, result}`, merged by `id`. `arguments` carries the real call inputs; there is **no `status` field** on non-stream responses. |
-| `health_records` | Traceable tool outputs the answer used — an array of `{tool, data}` pairs. This is where the explainability lives today. |
-| `citations` | Reserved for `record:N`-style refs; **currently returned empty** — rely on `health_records`. |
-| `usage` | Token accounting. On the test cluster counts are `0`, and there is no `reasoning_tokens` field. |
+| `message.reasoning_content` | The model's **deep-thinking** (CoT) detail. May be an empty string when the tier doesn't emit it. |
+| `message.tool_steps[]` | The server tool trace — each `{id, name, arguments, result}`, merged by `id`. **Always returned**; there is no opt-in flag and no truncation switch. |
+| `health_records` | Traceable health-data tool outputs the answer used — `{tool, data}` pairs. This is where the explainability lives. |
+| `citations` | Literature-tool outputs (`search_medical_literature` / `get_clinical_trials` / `get_article_by_pmcid`) — `{tool, data}` pairs; empty when no literature was consulted. |
+| `usage` | Token accounting — see below. |
 
-`reasoning_content` and `tool_steps` are optional, additive channels — clients that only read `message.content` keep working. (`message.reasoning_steps` is **not** present on non-stream responses.)
+`reasoning_content` and `tool_steps` are additive channels — clients that only read `message.content` keep working.
 
-<Note>
-`tool_steps[].arguments` carries the real tool inputs (e.g. `{"keywords": ["fasting glucose"]}`). Pass `include_tool_steps: true` to get full `result` payloads — otherwise each `result` is truncated to ~2000 chars.
-</Note>
+### Usage accounting
+
+`usage.prompt_tokens` reports the input **you actually sent** (your `messages`); the platform's own system prompt and tool schemas are broken out as `prompt_tokens_details.system_tokens` instead of being blamed on your prompt. `completion_tokens_details.reasoning_tokens` counts thinking tokens. Counts are summed across every model call of the agent turn.
 
 ## Streaming
 
-With `stream: true`, frames arrive in order — tool/thinking deltas first, then a single uninterrupted answer stream:
+With `stream: true`, frames arrive in order. The **first chunk carries `delta.role: "assistant"`** (OpenAI parity — many clients key message init off it), then tool/thinking deltas, then a single uninterrupted answer stream:
 
 ```text
-data: {"object":"chat.completion.chunk","choices":[{"delta":{"reasoning_content":"<fragment>"}}]}   // when the tier emits thinking
-data: {"object":"chat.completion.chunk","choices":[{"delta":{"tool_steps":[{"id":"call_abc","name":"search_health_indicators","arguments":{...}}]}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":""}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"reasoning_content":"<fragment>"}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"tool_steps":[{"id":"call_abc","name":"query_health_data","arguments":{...}}]}}]}
 data: {"object":"chat.completion.chunk","choices":[{"delta":{"content":"<answer fragment>"}}]}
-data: {"object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}],"health_records":[],"citations":[]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}],"health_records":[...],"citations":[...],"usage":{...}}
 data: [DONE]
 ```
 
-Frames are `chat.completion.chunk` objects. Merge `tool_steps` by `id`. The **final** frame (before `[DONE]`) carries the top-level `health_records` / `citations`; token `usage` is **not** included in the stream. Clients that only read `delta.content` keep working — the answer is one clean stream.
-
-## Inline health_context
-
-Attach data for just this turn instead of writing it to the store first:
-
-```python
-resp = client.chat.completions.create(
-    model="mirobody-flash",
-    messages=[{"role": "user", "content": "Is this reading high?"}],
-    user="alice",
-    extra_body={
-        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
-        "retention": "none",   # used this turn, then deleted
-    },
-)
-```
-
-With `retention="none"` the data is purged when the request finishes — nothing is persisted.
+Frames are `chat.completion.chunk` objects. Merge `tool_steps` by `id` (streamed steps carry `{id, name, arguments}`; full `result` payloads are available on the non-stream response). The **final** frame (before `[DONE]`) carries the top-level `health_records` / `citations` **and `usage`**. An upstream failure arrives as an SSE `{"error": ...}` frame before the stream ends. Clients that only read `delta.content` keep working.
 
 ## System prompts
 
@@ -162,19 +166,20 @@ A `system` message sets the tone, persona, format, and language of the answer. D
 
 ## Built-in tools
 
-The hosted agent is built on **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)**, so beyond plain tool-calling it can **plan** multi-step work (`write_todos`), **delegate** to sub-agents (`task`), keep a **virtual filesystem** (reading your uploaded files from `/uploads`, past uploads from `/library`, and its own **cross-session memory** under `/memories`), and **pause for input** (human-in-the-loop). You don't invoke any of this — the agent does, against the Subject's data.
+The hosted agent is built on **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)**: beyond plain tool-calling it can **plan** multi-step work (`write_todos`), **delegate** to sub-agents (`task`), run **code eval** for analysis, and keep a **virtual filesystem** (your uploads in `/uploads`, past uploads in `/library`). You don't invoke any of this — the agent does, against the Subject's data.
 
 The **public tool catalog** — what `GET /api/health` reports as `tool_names`:
 
-- `search_health_indicators`, `fetch_health_data` — find and read the Subject's records
-- `record_health_indicator` — write a new structured reading
+- `query_health_data`, `summarize_health_data` — search and aggregate the Subject's records
+- `list_clinical_records` — list clinical documents / FHIR-backed records
 - `list_family_members` — resolve care-circle members the Subject is allowed to query
-- `list_fhir_resources`, `write_fhir_observation` — read / write FHIR resources
-- `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence
+- `write_fhir_observation` — write a structured FHIR observation
+- `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence (feeds `citations`)
 - `fetch_url` — read a web page
-- `ask_user` — pause and ask a clarifying question (surfaces as an interrupt in the stream — see [Streaming](#streaming))
 
-The deep-agents **harness tools** — `write_todos`, `task`, and the filesystem tools (`ls` / `read_file` / `write_file` / `edit_file` / `glob` / `grep`) — are used internally and are **not** listed in `tool_names`. The public set can vary by cluster; call `GET /api/health` for the live `tool_names` and `agent_names`. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically. To add your own tools, attach remote MCP servers via [`mcp_servers`](/en/api-reference/mcp-servers).
+The deep-agents **harness tools** — `write_todos`, `task`, `eval`, and the filesystem tools (`ls` / `read_file` / …) — are used internally and are **not** listed in `tool_names`. `ask_user` exists for the consumer product but is **disabled on the `/v1` surfaces** (an API caller has no widget to answer it). The public set can vary by cluster; call `GET /api/health` for the live `tool_names`. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically.
+
+To add **your own** tools, use the [Agent API's function calling](/en/api-reference/function-calling) — this surface intentionally has no tool injection.
 
 ## Charts (vis-chart)
 

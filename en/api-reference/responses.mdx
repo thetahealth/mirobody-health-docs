@@ -1,0 +1,164 @@
+---
+title: "Agent API (Responses)"
+description: "POST /v1/responses — OpenAI Responses-compatible agent surface: client tools, stored conversations, previous_response_id chaining."
+---
+
+import BaseUrl from '/snippets/base-url.mdx';
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
+import StoreRetentionMatrix from '/snippets/store-retention-matrix.mdx';
+
+## Endpoint
+
+```http
+POST   /v1/responses                Create a response
+GET    /v1/responses/{response_id}  Retrieve a stored response
+DELETE /v1/responses/{response_id}  Delete a stored response (+ its conversation)
+Authorization: Bearer mb_live_*
+```
+
+The **Agent API** is Mirobody's [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses)-compatible surface — the **recommended way to build agents** on Mirobody. Everything the [Answers API](/en/api-reference/chat) does (grounded answers over the Subject's real health data, server-side tools, reasoning), plus:
+
+- **Client function tools** — inject your own tools; the model hands off via `function_call` output items ([Function calling](/en/api-reference/function-calling)).
+- **Stored conversations** — `store` defaults to `true`; chain turns with `previous_response_id` or bind a durable conversation with `session_id` ([State & memory](/en/api-reference/state-and-memory)).
+- **Standard `response.*` streaming events** ([Streaming](/en/api-reference/streaming)).
+
+Because it speaks the Responses protocol, the **[openai-agents SDK](https://github.com/openai/openai-agents-python) works against it by changing only the base URL** — verified live:
+
+```python
+from agents import Agent, Runner, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+set_tracing_disabled(True)   # tracing would call api.openai.com
+
+agent = Agent(name="Health assistant", model="mirobody-flash")
+print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output)
+```
+
+<BaseUrl />
+
+## Create a response
+
+<CodeGroup>
+```bash curl
+curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "input": "How is my fasting glucose trending?",
+        "user": "alice"
+      }'
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+
+resp = client.responses.create(
+    model="mirobody-flash",
+    input="How is my fasting glucose trending?",
+    user="alice",
+)
+print(resp.output_text)
+```
+</CodeGroup>
+
+### Request body
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `model` | string | `mirobody-flash` (default) or `mirobody-expert`. See [Models](/en/api-reference/models). |
+| `input` | string \| array | **Required.** A string (one user turn) or an array of items: `message` items (`{role, content}`), and — when continuing a tool handoff — `function_call` / `function_call_output` items. See [Function calling](/en/api-reference/function-calling). |
+| `instructions` | string | System-level instruction for this turn (prepended as a system message). |
+| `stream` | bool | `true` → SSE of standard `response.*` events. See [Streaming](/en/api-reference/streaming). |
+| `store` | bool | **Default `true`.** Persist the response + conversation: 30-day TTL, or permanent when bound to a `session_id`. Enables `previous_response_id` and `GET /v1/responses/{id}`. |
+| `previous_response_id` | string | Continue the conversation of a stored response (server-side state — no need to resend history). `404` if the id is unknown, expired, or deleted. |
+| `session_id` | string | Mirobody extension. Binds this and future turns to a **durable named conversation** (never auto-expires). |
+| `tools` | array | Client **function** tools (`{"type": "function", "name", "description", "parameters"}`; the completions-nested form is also accepted). Max 64; names must match `[a-zA-Z0-9_-]{1,64}` and may not shadow built-in tool names. See [Function calling](/en/api-reference/function-calling). |
+| `tool_choice` | string \| object | `"auto"` (default) / `"none"` / a named **client** tool. Anything else → `400 unsupported_parameter`. |
+| `user` | string | Tenant-isolation key → a Subject. |
+
+<SubjectUserParam />
+
+### Response object
+
+```jsonc
+{
+  "id": "resp_147e9b14c172429a8b19da4be9489243",
+  "object": "response",
+  "created_at": 1783741077,
+  "status": "completed",
+  "model": "mirobody-flash",
+  "output": [
+    { "type": "reasoning", "id": "rs_0", "status": "completed",
+      "summary": [{ "type": "summary_text", "text": "..." }] },
+    { "type": "message", "id": "msg_0", "status": "completed", "role": "assistant",
+      "content": [{ "type": "output_text", "text": "Your fasting glucose has trended down ..." }] }
+  ],
+  "output_text": "Your fasting glucose has trended down ...",
+  "usage": {
+    "input_tokens": 9,                                   // YOUR visible input only
+    "output_tokens": 5,
+    "total_tokens": 14,
+    "input_tokens_details": { "system_tokens": 10096, "cached_tokens": 0 },
+    "output_tokens_details": { "reasoning_tokens": 0 }
+  },
+  "tool_steps": [],                                      // Mirobody extension: server tool trace
+  "health_records": [],                                  // Mirobody extension: {tool, data} evidence
+  "citations": [],                                       // Mirobody extension: literature evidence
+  "previous_response_id": null,
+  "store": false,
+  "tools": [],
+  "error": null,
+  "metadata": {}
+}
+```
+
+The `output` array contains **only standard OpenAI item types** — `reasoning`, `message`, and (on a client-tool handoff) `function_call`. Official SDKs parse it as-is.
+
+**Server-side built-in tool runs are deliberately *not* output items.** The trace rides in the **top-level `tool_steps` extension field** (`{id, name, arguments, result}` — the same shape as the Answers API), which SDKs safely ignore. In streaming it surfaces as the side-channel event [`response.mirobody_tool_call`](/en/api-reference/streaming#server-tool-side-channel). `health_records` and `citations` carry the evidence the answer used, exactly as on the [Answers API](/en/api-reference/chat#response).
+
+### Usage accounting
+
+`usage.input_tokens` reports the input **you actually sent**; the platform's system prompt / tool-schema overhead is broken out as `input_tokens_details.system_tokens`. `output_tokens_details.reasoning_tokens` counts thinking tokens. Counts are summed across every model call of the agent turn.
+
+## Retrieve a stored response
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+Returns the stored response object. Only `store=true` responses are retrievable; expired (30-day TTL) or deleted responses return `404`.
+
+## Delete a stored response
+
+```bash
+curl -X DELETE https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+```json
+{ "id": "resp_147e9b14...", "object": "response.deleted", "deleted": true }
+```
+
+Deletes the stored response. If it was the **last** live response of its conversation, the whole conversation is torn down too — chat projection, agent thread state, and any conversation-derived memory. This is the self-service right-to-be-forgotten lever for stored conversations.
+
+## State model
+
+<StoreRetentionMatrix />
+
+Full details — TTLs, chaining semantics, stateless replay, and the cross-session memory that `store=true` feeds — in [State & memory](/en/api-reference/state-and-memory).
+
+## Errors
+
+Standard [error envelope](/en/api-reference/overview#error-format). Surface-specific cases:
+
+| HTTP | When |
+| --- | --- |
+| `400` | Missing/empty `input`; invalid `tools` (bad name, reserved name, duplicate, > 64, non-function type); unsupported `tool_choice`; malformed handoff continuation (see [Function calling](/en/api-reference/function-calling#continuation-errors)) |
+| `404` | Unknown / expired / deleted `previous_response_id` or `response_id` |
+| `502` | Upstream agent error — transient; retry with backoff |

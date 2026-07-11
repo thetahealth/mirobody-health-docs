@@ -1,9 +1,13 @@
 ---
 title: "Data"
-description: "POST /v1/data, GET /v1/data — write and read structured health records."
+description: "POST /v1/data, GET /v1/data, DELETE /v1/data — write, read, and erase structured health records."
 ---
 
-Write structured records straight into a Subject's store, and read them back. The chat agent reads this same data with its built-in tools.
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
+
+Write structured records straight into a Subject's store, and read them back. Every write runs through the platform's [standardization pipeline](/en/api-reference/standardization) — records come back with a LOINC code, canonical name, UCUM-normalized value/unit, and a FHIR mirror. The chat agent reads this same data with its built-in tools.
+
+<SubjectUserParam />
 
 ## Write records
 
@@ -15,10 +19,10 @@ Content-Type:  application/json
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `records` | array | Each record `{indicator, value, unit, time}`. Inserted in batches (1000 per batch). |
+| `records` | array | Each record `{indicator, value, unit?, time?, source?}`. **Max 500 records per request.** |
 | `user` | string | Subject the records belong to (tenant-isolation key). |
-| `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as a synonym for `permanent`). The hour grains auto-delete that many hours after write (still hard-capped at ≤ 24h). Omitting it returns HTTP `400` (`code: invalid_retention`). **`retention=none` is also rejected here with `400`** — writing to the store but asking not to store is contradictory; for use-and-forget data attach it inline as `health_context` with `retention=none` on [`POST /v1/chat/completions`](/en/api-reference/chat#inline-health_context) instead. Only a *missing* value is rejected — unknown or out-of-range values are currently accepted without validation. |
-| `session_id` | string | Scopes `retention=session` records. **Not currently enforced** — accepted without it, but records written without a `session_id` can't be targeted by a session delete. |
+| `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as an alias of `permanent`). Hour grains auto-delete after that long (hard-capped ≤ 24h). Omitting it — or sending any value outside the enum — returns `400` (`code: invalid_retention`). |
+| `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) can purge them. |
 
 ```bash
 curl https://test-mirobody-api.thetahealth.ai/v1/data \
@@ -34,40 +38,30 @@ curl https://test-mirobody-api.thetahealth.ai/v1/data \
       }'
 ```
 
-Response:
+Response — `standardized` counts the records that resolved to a LOINC code on the way in:
 
 ```json
-{ "status": "ok", "ingested": 2, "subject": "alice" }
+{ "status": "ok", "ingested": 2, "standardized": 2, "subject": "alice" }
 ```
+
+<Note>
+**Every write is standardized, not just stored.** Each record's value/unit is UCUM-parsed and its indicator name resolved to LOINC deterministically (curated corpus + embedding — no LLM guessing). See [Standardization](/en/api-reference/standardization). To preview that pipeline without writing anything, use [`POST /v1/extract`](/en/api-reference/extract) with `store=false`.
+</Note>
 
 ## Read records
 
 ```http
-GET /v1/data?indicator=fasting_glucose&limit=100
+GET /v1/data?user=alice&indicator=fasting_glucose&limit=100
 Authorization: Bearer mb_live_*
 ```
 
 | Query | Description |
 | --- | --- |
 | `user` | Subject to read from. |
-| `indicator` | Optional filter by indicator name. |
-| `limit` | `1`–`1000`. |
-| `offset` | Pagination offset (default `0`). Skip this many records before returning `limit`. |
+| `indicator` | Optional filter by indicator name (substring match). |
+| `limit` | `1`–`1000` (default `100`). |
 
-Expired records are purged before the read, so you always get the Subject's currently-valid data.
-
-```python Python
-import requests
-
-r = requests.get(
-    "https://test-mirobody-api.thetahealth.ai/v1/data",
-    headers={"Authorization": f"Bearer {MIROBODY_API_KEY}"},
-    params={"user": "alice", "indicator": "fasting_glucose", "limit": 100, "offset": 0},
-)
-print(r.json())
-```
-
-The response is an OpenAI-style list. Records are under **`data`**, and each record's `value` is a **formatted string** (e.g. `"5.4 mmol/L"`), not a number:
+The response is an OpenAI-style list, newest first. `value` is the **human-readable string** (e.g. `"5.4 mmol/L"`); the machine-readable fields ride alongside:
 
 ```json
 {
@@ -76,8 +70,11 @@ The response is an OpenAI-style list. Records are under **`data`**, and each rec
     {
       "indicator": "fasting_glucose",
       "value": "5.4 mmol/L",
-      "parsed_value": null,
-      "parsed_unit": null,
+      "parsed_value": 5.4,
+      "parsed_unit": "mmol/L",
+      "loinc_code": "1558-6",
+      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "fhir_resource_id": "8f3c9a1e-...",
       "time": "2026-06-16T07:30:00+00",
       "source": "api",
       "comment": ""
@@ -90,20 +87,32 @@ The response is an OpenAI-style list. Records are under **`data`**, and each rec
 
 | Field | Description |
 | --- | --- |
-| `data` | The array of records (up to `limit`). |
-| `has_more` | `true` when more records remain past this page — advance `offset` to fetch them. |
+| `data` | The records (up to `limit`). |
+| `value` | Human-readable reading (string). |
+| `parsed_value` / `parsed_unit` | Numeric value + **UCUM** unit from the standardization pipeline (`null` when unparseable). |
+| `loinc_code` / `canonical_name` | Deterministic LOINC resolution + its display name (`null` when the name didn't resolve). |
+| `fhir_resource_id` | Id of the record's FHIR Observation mirror. |
+| `has_more` | `true` when this page hit `limit` — more records may remain. |
 | `subject` | The Subject the records belong to (resolved from `user`). |
 
-<Note>
-The response does **not** currently return `total`, `limit`, or `offset` fields — page by advancing the `offset` query param and reading until `has_more` is `false`.
-</Note>
+## Erase records
 
-## Deleting data
+```http
+DELETE /v1/data?user=alice&indicator=fasting_glucose
+Authorization: Bearer mb_live_*
+```
 
-<Note>
-Explicit delete endpoints are **not yet available** in `/v1` — `DELETE /v1/data`, `DELETE /v1/files/{file_key}`, and `DELETE /v1/subjects/{user}` are not implemented on the current cluster. Today, records are removed by **[retention](/en/api-reference/overview#data-retention) expiry**: the time-bounded grains (`1h`–`1d`) auto-delete, and `session` data is capped at 24h. For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/api-reference/compliance).
-</Note>
+**Hard-deletes** the Subject's records — right-to-be-forgotten semantics (rows physically removed, not flagged). `indicator` narrows to one indicator (substring match, mirroring the GET filter); omit it to erase **all** of the Subject's records.
 
-<Note>
-For one-off data that should not persist at all, attach it inline to a chat request as `health_context` with `retention="none"` instead of writing it here — see [Chat → Inline data](/en/api-reference/chat#inline-health_context).
-</Note>
+```json
+{ "status": "ok", "deleted": 2, "subject": "alice" }
+```
+
+To erase *everything* about a Subject (records + files + conversations + the identity mapping), use `DELETE /v1/subjects/{user}` — see [Compliance](/en/api-reference/compliance).
+
+## Use-and-forget data
+
+There is **no `retention: "none"`** — writing to the store while asking not to store is contradictory, and the value is rejected like any other non-enum value. Two clean patterns instead:
+
+- **Dry-run analysis, zero side effects** — [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (the default): standardization results out, nothing written.
+- **Short-lived working data** — write with `retention: "1h"`, or `retention: "session"` + a `session_id` you [delete](/en/api-reference/sessions) when done.

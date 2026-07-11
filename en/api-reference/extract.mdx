@@ -1,0 +1,113 @@
+---
+title: "Extract"
+description: "POST /v1/extract — lab report in, standardized indicators out; dry-run by default."
+---
+
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
+
+```http
+POST /v1/extract
+Authorization: Bearer mb_live_*
+```
+
+**Document in, standardized indicators out — synchronously.** `/v1/extract` runs the full [standardization pipeline](/en/api-reference/standardization) on a lab report / health document and returns every reading it found: raw text → schema-constrained LLM extraction → deterministic LOINC resolution → UCUM unit normalization.
+
+By default it is a **dry-run** (`store=false`): you get the standardization result and **nothing is persisted** — zero side effects. Set `store=true` (with a `retention`) to also write the readings into the Subject's store through the same pipeline as [`POST /v1/data`](/en/api-reference/data).
+
+## Request
+
+Two input shapes:
+
+- **multipart/form-data** — a `file` (PDF / image / Excel / plain text; images and PDFs are OCR'd) plus the fields below as form fields.
+- **application/json** — `{"text": "..."}` (raw report text) **or** `{"file_key": "..."}` (a file already uploaded via [`/v1/files`](/en/api-reference/files)).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `file` / `text` / `file_key` | — | Exactly one source. `file_key` that is unknown or has no extractable text → `404`. |
+| `user` | string | Subject the extraction runs for. |
+| `store` | bool | Default **`false`** (dry-run). `true` also ingests the readings. |
+| `retention` | string | **Required when `store=true`** — same enum as [`POST /v1/data`](/en/api-reference/data) (`permanent` / `1h` / `2h` / `6h` / `1d` / `session`). |
+| `session_id` | string | Required when `retention=session`. |
+
+<SubjectUserParam />
+
+### Dry-run (default)
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" \
+  -F "file=@lab_report.pdf"
+```
+
+### Extract and store
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "text": "Fasting glucose 5.6 mmol/L (2026-07-01); LDL cholesterol 3.1 mmol/L",
+        "store": true,
+        "retention": "permanent"
+      }'
+```
+
+## Response
+
+```json
+{
+  "object": "extraction",
+  "data": [
+    {
+      "indicator_raw": "Fasting glucose",
+      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "loinc_code": "1558-6",
+      "value_raw": "5.6",
+      "parsed_value": 5.6,
+      "unit_raw": "mmol/L",
+      "unit_ucum": "mmol/L",
+      "confidence": 0.94,
+      "measured_at": "2026-07-01"
+    },
+    {
+      "indicator_raw": "LDL cholesterol",
+      "canonical_name": "Cholesterol in LDL [Moles/volume] in Serum or Plasma",
+      "loinc_code": "22748-8",
+      "value_raw": "3.1",
+      "parsed_value": 3.1,
+      "unit_raw": "mmol/L",
+      "unit_ucum": "mmol/L",
+      "confidence": 0.91,
+      "measured_at": null
+    }
+  ],
+  "stored": false,
+  "stored_count": 0,
+  "subject": "alice"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `data[]` | One row per extracted reading. |
+| `indicator_raw` / `value_raw` / `unit_raw` | Exactly what the document said. |
+| `canonical_name` / `loinc_code` | Deterministic LOINC resolution (`null` = no confident code — **never a guessed one**). |
+| `parsed_value` / `unit_ucum` | Numeric value + UCUM-normalized unit. |
+| `confidence` | Similarity score of the LOINC match (0–1). |
+| `measured_at` | Timestamp found in the document, if any. |
+| `stored` | Whether this call wrote to the store (echoes `store`). |
+| `stored_count` | Readings actually written (`0` on dry-run). |
+
+## Errors
+
+| HTTP | When |
+| --- | --- |
+| `400` | No `file` / `text` / `file_key`; `store=true` without a valid `retention`; `retention=session` without `session_id` |
+| `404` | `file_key` unknown or has no extractable text |
+| `413` | File exceeds the upload size limit |
+| `422` | Text could not be extracted from the file |
+| `502` | Extraction model unavailable — transient; retry with backoff |
+
+All failures are explicit — there is no silent partial success.

@@ -1,130 +1,142 @@
 ---
 title: "快速开始"
-description: "在控制台创建密钥，发起第一次 /v1 调用。"
+description: "三步走：接入你的数据，看它被标准化，再让 AI 在其上工作。"
 ---
 
-Mirobody 托管 API **兼容 OpenAI**：把任意 OpenAI SDK 指向 `https://test-mirobody-api.thetahealth.ai/v1`，带上 `mb_live_*` 密钥，智能体即可基于每个终端用户的真实健康数据作答。
+import BaseUrl from '/snippets/zh/base-url.mdx';
+
+Mirobody 三步走：**① 接入数据 → ② 数据以标准化形态返回 → ③ 让 AI 使用它。** 一切兼容 OpenAI —— 你需要一个 `mb_live_*` 密钥和约 10 分钟。
 
 <Note>
-账户管理——**API 密钥、用量、在线 Playground**——都在开发者控制台 [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/)。本文档是参考与指引；控制台才是你登录与管理一切的地方。
+账户管理 —— **API 密钥、用量与在线 Playground** —— 位于开发者控制台 [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/)。邮箱验证码登录，打开 **API Keys** 创建一个（密钥只显示**一次**）：
+
+```bash
+export MIROBODY_API_KEY="mb_live_..."
+```
 </Note>
 
-<Info>
-**今日可用：**面向全球 **test** 集群开发——API `https://test-mirobody-api.thetahealth.ai/v1`，控制台 [test-platform.mirobody.ai](https://test-platform.mirobody.ai/)。生产集群正在开通中；中国**测试**环境现也已上线（[区域](/zh/api-reference/regions/overview)）。控制台默认中文——用右上角的语言切换可切到英文。
-</Info>
+<BaseUrl />
 
 <Steps>
-  <Step title="登录并获取 API 密钥">
-    用**邮箱验证码**登录控制台——输入邮箱，收取 6 位验证码，即可登录。然后打开 **API Keys** 创建一个密钥；明文只显示**一次**。（需要评估账户？发邮件给 [Mirobody 支持](mailto:developer@thetahealth.ai)。）
-
-    <Card title="打开控制台 → API 密钥" icon="key" href="https://test-platform.mirobody.ai/developer/keys" horizontal>
-      登录、创建 `mb_live_*` 密钥并复制。
-    </Card>
+  <Step title="① 接入你的数据">
+    用 [`POST /v1/data`](/zh/api-reference/data) 写入结构化读数（`retention` **必填**），或用 [`POST /v1/files`](/zh/api-reference/files) 上传化验报告 —— PDF、照片、表格均可：
 
     ```bash
-    export MIROBODY_API_KEY="mb_live_..."
-    ```
-  </Step>
-
-  <Step title="发起第一次调用">
-    <CodeGroup>
-    ```bash curl
-    curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
-      -H "Authorization: Bearer $MIROBODY_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d '{
-            "model": "mirobody-flash",
-            "messages": [{"role": "user", "content": "我的空腹血糖趋势如何？"}],
-            "user": "alice"
-          }'
-    ```
-
-    ```python Python (OpenAI SDK)
-    from openai import OpenAI
-
-    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
-    resp = client.chat.completions.create(
-        model="mirobody-flash",
-        messages=[{"role": "user", "content": "我的空腹血糖趋势如何？"}],
-        user="alice",
-    )
-    print(resp.choices[0].message.content)
-    ```
-
-    ```javascript Node.js (OpenAI SDK)
-    import OpenAI from "openai";
-
-    const client = new OpenAI({
-      apiKey: process.env.MIROBODY_API_KEY,
-      baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
-    });
-    const resp = await client.chat.completions.create({
-      model: "mirobody-flash",
-      messages: [{ role: "user", content: "我的空腹血糖趋势如何？" }],
-      user: "alice",
-    });
-    console.log(resp.choices[0].message.content);
-    ```
-    </CodeGroup>
-
-    `user` 字段把每个终端用户隔离为一个 [Subject](/zh/api-reference/overview#多租户：user-字段)——传入各自稳定的 id 即可。完整说明见 [对话参考](/zh/api-reference/chat)。
-  </Step>
-
-  <Step title="给这个 Subject 写点数据">
-    新建的 Subject 没有数据，智能体会如实说明。先写一条记录（或用 [`POST /v1/files`](/zh/api-reference/files) 上传一份报告），再问一次：
-
-    ```bash
+    # 结构化记录
     curl https://test-mirobody-api.thetahealth.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
             "user": "alice",
             "retention": "permanent",
-            "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
+            "records": [
+              {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
+              {"indicator": "FBG",             "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+            ]
           }'
+
+    # 或者一份文档（自动 OCR 与解析）
+    curl https://test-mirobody-api.thetahealth.ai/v1/files \
+      -H "Authorization: Bearer $MIROBODY_API_KEY" \
+      -F "user=alice" -F "file=@lab_report.pdf"
     ```
 
-    `POST /v1/data` **必须**传 `retention`（无默认值）——省略会返回 `400`。详见 [数据](/zh/api-reference/data) 与 [文件](/zh/api-reference/files)。
+    `user` 是[租户隔离键](/zh/api-reference/overview#多租户user-字段) —— 为每个终端用户传入其稳定 id，数据绝不混淆。
+  </Step>
+
+  <Step title="② 数据以标准化形态返回">
+    注意上面的两种写法 —— `fasting_glucose` 和 `FBG`。把数据读回来，两行都带有**同一个 LOINC 编码**、规范名称、UCUM 解析后的值以及 FHIR 镜像 id：
+
+    ```bash
+    curl "https://test-mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
+      -H "Authorization: Bearer $MIROBODY_API_KEY"
+    ```
+
+    ```json
+    {
+      "object": "list",
+      "data": [
+        {
+          "indicator": "FBG",
+          "value": "5.1 mmol/L",
+          "parsed_value": 5.1,
+          "parsed_unit": "mmol/L",
+          "loinc_code": "1558-6",
+          "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+          "fhir_resource_id": "8f3c9a1e-...",
+          "time": "2026-06-17T07:25:00+00",
+          "source": "api",
+          "comment": ""
+        }
+      ],
+      "has_more": true,
+      "subject": "alice"
+    }
+    ```
+
+    这就是[标准化管线](/zh/api-reference/standardization) —— 确定性的名称→LOINC（不让 LLM 猜码）+ UCUM + FHIR，作用于**每一次**写入。想先在文档上预览、不存任何东西，试试 [`POST /v1/extract`](/zh/api-reference/extract)。
+  </Step>
+
+  <Step title="③ 让 AI 在其上工作">
+    一条有依据的回答只要三行 —— 智能体读的是标准化序列，所以问 "glucose" 能找到写成 "FBG" 的行：
+
+    ```python Answers API（3 行）
+    from openai import OpenAI
+    client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+    print(client.chat.completions.create(model="mirobody-flash", user="alice",
+        messages=[{"role": "user", "content": "How is my fasting glucose trending?"}]
+    ).choices[0].message.content)
+    ```
+
+    而一个真正的 agent —— 带**你自己的工具** —— 只要十行。[openai-agents SDK](https://github.com/openai/openai-agents-python) 只需改 base URL 即可对接 [Agent API](/zh/api-reference/responses)：
+
+    ```python openai-agents SDK（10 行）
+    from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+    from openai import AsyncOpenAI
+
+    set_default_openai_client(AsyncOpenAI(
+        base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    set_tracing_disabled(True)
+
+    @function_tool
+    def book_appointment(date: str) -> str:
+        """Book a clinic appointment for the end user (ISO date)."""
+        return f"Booked: {date} 09:30, Dr. Chen"
+
+    agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment])
+    print(Runner.run_sync(agent, "Check my recent glucose; book a follow-up if it's trending up.").final_output)
+    ```
+
+    Mirobody 的内置工具读取 alice 的真实数据；当模型决定预约时，交接给**你的**函数。底层协议见 [Function calling](/zh/api-reference/function-calling)。
   </Step>
 </Steps>
 
-## 不想敲 curl？
+## 更喜欢点击而不是 curl？
 
-控制台自带 **Playground**——在浏览器里跑对话、上传文件、查看工具步骤，无需写代码。
+控制台有 **Playground** —— 无需代码即可运行对话、上传文件、查看工具步骤。
 
 <CardGroup cols={2}>
   <Card title="Playground" icon="flask" href="https://test-platform.mirobody.ai/developer">
-    在浏览器里基于你的账户试用智能体。
+    在浏览器中对你的账户试用智能体。
   </Card>
   <Card title="用量" icon="chart-line" href="https://test-platform.mirobody.ai/developer/usage">
-    请求数、tokens、费用。
-  </Card>
-</CardGroup>
-
-## 在线体验
-
-<CardGroup cols={2}>
-  <Card title="Mirobody 应用" icon="globe" href="https://test-chat.mirobody.ai/">
-    **chat.mirobody.ai** —— 旗舰 C 端产品，与本 API 同一套引擎。
-  </Card>
-  <Card title="开发者控制台" icon="terminal" href="https://test-platform.mirobody.ai/developer">
-    创建 `mb_live_*` 密钥、查看用量、试用 Playground。
+    请求数、令牌数与费用。
   </Card>
 </CardGroup>
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="API 参考" icon="code" href="/zh/api-reference/overview">
-    鉴权、多租户、留存，以及每个 `/v1` 端点。
+  <Card title="选择你的 API" icon="signs-post" href="/zh/api-reference/choose-your-api">
+    Answers vs Agent，一分钟。
+  </Card>
+  <Card title="Agent API" icon="robot" href="/zh/api-reference/responses">
+    客户端工具、存储的对话、流式事件。
+  </Card>
+  <Card title="标准化" icon="wand-magic-sparkles" href="/zh/api-reference/standardization">
+    OCR → 抽取 → LOINC → UCUM → FHIR，一次讲透。
   </Card>
   <Card title="SDK 示例" icon="boxes-stacked" href="/zh/api-reference/sdk-examples">
-    curl / Python / Node，流式与文件上传。
-  </Card>
-  <Card title="中国区域" icon="location-dot" href="/zh/api-reference/regions/china">
-    Base URL、数据驻留、模型与限额。
-  </Card>
-  <Card title="合规" icon="shield" href="/zh/api-reference/compliance">
-    PIPL / 数据驻留；申请 DPA。
+    curl / Python / Node / openai-agents 端到端。
   </Card>
 </CardGroup>

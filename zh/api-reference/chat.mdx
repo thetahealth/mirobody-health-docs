@@ -1,7 +1,10 @@
 ---
-title: "对话补全"
-description: "POST /v1/chat/completions —— 基于数据主体(Subject)真实数据、兼容 OpenAI 的健康智能体。"
+title: "Answers API（Chat Completions）"
+description: "POST /v1/chat/completions —— 基于数据主体真实健康数据的封闭式 grounded completion。"
 ---
+
+import BaseUrl from '/snippets/zh/base-url.mdx';
+import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
 
 ## 端点
 
@@ -11,9 +14,13 @@ Authorization: Bearer mb_live_*
 Content-Type:  application/json
 ```
 
-兼容 OpenAI。智能体用内置工具采集数据主体(Subject)的真实健康数据，再组织出**一段干净的回答**，并附带可追溯的引用。设 `stream: true` 以使用 SSE。
+**Answers API** 是一个**封闭的 grounded completion**：一个问题进，一条有证据支撑的回答出。平台智能体用**服务端工具**（此处不可增删）收集数据主体(Subject)的真实健康数据，然后合成单条干净的回答并附带可追溯的工具轨迹。设 `stream: true` 走 SSE。
 
-## 快速开始
+它刻意保持*封闭* —— 没有客户端工具、没有响应格式控制、没有多轮状态。这让它极易嵌入：直接调用，或[把它包成你自己 agent 里的一个工具](/zh/api-reference/use-as-a-tool)。若你需要客户端工具、存储的对话或 `previous_response_id` 链式续聊，请使用 [Agent API（`POST /v1/responses`）](/zh/api-reference/responses)。
+
+<BaseUrl />
+
+## 快速上手
 
 <CodeGroup>
 ```bash curl
@@ -30,17 +37,16 @@ curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
 
 resp = client.chat.completions.create(
     model="mirobody-flash",
     messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
-    user="alice",                       # tenant-isolation key (a Subject)
-    extra_body={"include_tool_steps": True},    # Mirobody extensions go in extra_body
+    user="alice",                                 # 租户隔离键（一个 Subject）
 )
 print(resp.choices[0].message.content)
-# resp.choices[0].message.reasoning_content     # deep-thinking (CoT) detail (may be empty)
-# resp.choices[0].message.tool_steps            # tool-call trace: {id, name, arguments, result}
+# resp.choices[0].message.reasoning_content      # 深度思考（CoT）细节（可能为空）
+# resp.choices[0].message.tool_steps             # 服务端工具轨迹：{id, name, arguments, result}
 ```
 
 ```javascript Node.js (OpenAI SDK)
@@ -55,7 +61,6 @@ const resp = await client.chat.completions.create({
   model: "mirobody-flash",
   messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
   user: "alice",
-  include_tool_steps: true,
 });
 console.log(resp.choices[0].message.content);
 ```
@@ -66,28 +71,38 @@ console.log(resp.choices[0].message.content);
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `model` | string | `mirobody-flash`（默认）或 `mirobody-expert`。详见[模型](/zh/api-reference/models)。 |
-| `messages` | array | OpenAI `{role, content}`。`system` 消息会被折叠进最后一轮用户消息，作为调用方指令（详见[系统提示词](#系统提示词)）。 |
-| `stream` | bool | `true` → `chat.completion.chunk` 帧的 SSE 流。 |
-| `user` | string | 多租户隔离键 → 一个数据主体(Subject)。传入每个终端用户的稳定 id。详见[多租户](/zh/api-reference/overview#多租户：user-字段)。 |
-| `retention` | string | `permanent`（默认）/ `1h` / `2h` / `6h` / `1d` / `session` / `none` —— 应用于你附带的任何 `health_context`。小时级粒度表示写入后约这么多小时自动删除（上限仍硬性限制为 ≤ 24 小时）。 |
-| `session_id` | string | 当 `retention=session` 时必填；同时用于串联多轮上下文。 |
-| `health_context` | array | 本次请求的内联健康记录，按 `retention` 处理。详见[内联数据](#内联-health_context)。 |
-| `mcp_servers` | array | 自带的远程 MCP 工具 `{name, url, access_token?}`。详见[自带工具](/zh/api-reference/mcp-servers)。 |
-| `include_tool_steps` | bool | 返回详细的 `tool_steps`（默认 `false`）。当为 `false` 时，`tool_steps[].result` 会被截断为 2000 字符。 |
+| `messages` | array | OpenAI `{role, content}`。此面**无状态** —— 每次调用需发送完整历史；`system` 消息用于设定语气/格式（见[系统提示](#系统提示)）。 |
+| `stream` | bool | `true` → SSE 流式返回 `chat.completion.chunk` 帧。 |
+| `user` | string | 租户隔离键 → 一个 Subject。为每个终端用户传入其稳定 id。详见[多租户](/zh/api-reference/overview#多租户user-字段)。 |
+| `retention` | string | Mirobody 扩展，为与数据面对齐而接受。数据的生命周期在写入处治理 —— 见[数据](/zh/api-reference/data)与[留存模型](/zh/api-reference/overview#数据留存)。 |
+| `session_id` | string | Mirobody 扩展。为本次调用打上[会话级清理](/zh/api-reference/sessions)的标签。真正的多轮状态请用 [Agent API](/zh/api-reference/responses)。 |
+
+<SubjectUserParam />
+
+## 不支持的参数
+
+此面是封闭的 grounded completion —— 工具**只在服务端**运行，回答是自由文本。与此矛盾的参数会被**显式拒绝并返回 `400`**（`code: unsupported_parameter`，`param` 指出问题字段），而不是被静默吞掉：
+
+| 参数 | 结果 |
+| --- | --- |
+| `tools`、`functions` | `400 unsupported_parameter` —— 自带工具请走 [Agent API](/zh/api-reference/function-calling) |
+| `tool_choice`、`function_call` | `400 unsupported_parameter` |
+| `response_format` | `400 unsupported_parameter` —— 此面不提供结构化输出 |
+| `n` > 1 | `400 unsupported_parameter` —— 永远只有单个 choice |
 
 <Note>
-**采样参数。** 为兼容 OpenAI，请求会接受 `max_tokens`、`n`、`temperature`、`top_p`、`stop` 和 `seed`，但智能体自行掌控其生成过程，因此这些参数实际上**不强制生效**：`max_tokens` 不会限制输出长度，`temperature` / `top_p` / `stop` / `seed` 会被忽略，且 `n` 取非 `1` 的值也**不会**报错 —— 响应仍只返回单个 choice。
+**采样参数接受但忽略**（agent 型接口的业界惯例）：`max_tokens` 不限制输出；`temperature`、`top_p`、`stop`、`seed` 无效。响应始终只含一个 choice。
 </Note>
 
 ## 响应
 
-`message.content` 携带**一段干净的最终回答**。采集阶段（思考 + 工具调用）会在单独的通道中呈现，因此回答本身永远不会被工具叙述污染。
+`message.content` 只承载**一条干净的最终回答**。收集阶段（思考 + 工具调用）走独立通道，回答本身绝不被工具叙述污染。
 
 ```jsonc
 {
   "id": "chatcmpl-...",
   "object": "chat.completion",
-  "created": 0,
+  "created": 1783741077,
   "model": "mirobody-flash",
   "choices": [{
     "index": 0,
@@ -95,87 +110,77 @@ console.log(resp.choices[0].message.content);
     "message": {
       "role": "assistant",
       "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
-      "reasoning_content": "",                                                     // deep-thinking (CoT); may be empty
-      "tool_steps": [                                                              // optional, ordered
-        { "id": "call_abc", "name": "search_health_indicators",
-          "arguments": { "keywords": ["fasting glucose", "glucose"] },
+      "reasoning_content": "",                                            // 深度思考（CoT）；可能为空
+      "tool_steps": [                                                     // 服务端工具轨迹，按序
+        { "id": "call_abc", "name": "query_health_data",
+          "arguments": { "query": "fasting glucose last 90 days" },
           "result": "{...}" }
       ]
     }
   }],
-  "usage": { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0 },
-  "health_records": [ { "tool": "fetch_health_data", "data": "..." } ],
-  "citations": []
+  "usage": {
+    "prompt_tokens": 12,                                                  // 只计你可见的输入
+    "completion_tokens": 210,
+    "total_tokens": 222,
+    "prompt_tokens_details": { "system_tokens": 10096 },                  // 平台开销，不算进你的 prompt
+    "completion_tokens_details": { "reasoning_tokens": 0 }
+  },
+  "health_records": [ { "tool": "query_health_data", "data": "..." } ],
+  "citations": [ { "tool": "search_medical_literature", "data": "..." } ]
 }
 ```
 
 | 通道 | 内容 |
 | --- | --- |
-| `message.content` | 仅最终回答（"答复"通道）。 |
-| `message.reasoning_content` | 模型的**深度思考**（thinking / CoT）过程细节。当该层级不产出时，可能为空字符串。 |
-| `message.tool_steps[]` | 工具调用轨迹 —— 每项为 `{id, name, arguments, result}`，按 `id` 合并。`arguments` 携带真实的调用入参；非流式响应上**没有 `status` 字段**。 |
-| `health_records` | 回答所用到的可追溯工具输出 —— 一个 `{tool, data}` 对的数组。这里承载着当前的可解释性信息。 |
-| `citations` | 预留给 `record:N` 形式的引用；**当前返回为空** —— 请依赖 `health_records`。 |
-| `usage` | Token 计量。在测试集群上计数均为 `0`，且没有 `reasoning_tokens` 字段。 |
+| `message.content` | 只有最终回答（"回复"通道）。 |
+| `message.reasoning_content` | 模型的**深度思考**（CoT）细节。当档位不产出时可能为空字符串。 |
+| `message.tool_steps[]` | 服务端工具轨迹 —— 每条 `{id, name, arguments, result}`，按 `id` 合并。**始终返回**；没有开关参数，也没有截断开关。 |
+| `health_records` | 回答所依赖的健康数据工具输出 —— `{tool, data}` 对。可解释性就在这里。 |
+| `citations` | 文献类工具（`search_medical_literature` / `get_clinical_trials` / `get_article_by_pmcid`）的输出 —— `{tool, data}` 对；未查文献时为空。 |
+| `usage` | Token 计量 —— 见下文。 |
 
-`reasoning_content` 与 `tool_steps` 都是可选的附加通道 —— 只读取 `message.content` 的客户端仍可正常工作。（非流式响应上**不存在** `message.reasoning_steps`。）
+`reasoning_content` 和 `tool_steps` 是增量通道 —— 只读 `message.content` 的客户端不受影响。
 
-<Note>
-`tool_steps[].arguments` 携带真实的工具入参（例如 `{"keywords": ["fasting glucose"]}`）。传入 `include_tool_steps: true` 可获取完整的 `result` 负载 —— 否则每个 `result` 会被截断为约 2000 字符。
-</Note>
+### 用量口径
+
+`usage.prompt_tokens` 只报告**你实际发送的输入**（你的 `messages`）；平台自身的系统提示与工具 schema 单列在 `prompt_tokens_details.system_tokens`，不会算到你的 prompt 头上。`completion_tokens_details.reasoning_tokens` 统计思考 token。计数为该 agent 轮次内所有模型调用之和。
 
 ## 流式传输
 
-当 `stream: true` 时，帧按顺序到达 —— 先是工具 / 思考增量，再是单条不中断的回答流：
+`stream: true` 时帧按序到达。**首个 chunk 携带 `delta.role: "assistant"`**（对齐 OpenAI —— 许多客户端以它初始化消息），随后是工具/思考增量，最后是一条不间断的回答流：
 
 ```text
-data: {"object":"chat.completion.chunk","choices":[{"delta":{"reasoning_content":"<fragment>"}}]}   // when the tier emits thinking
-data: {"object":"chat.completion.chunk","choices":[{"delta":{"tool_steps":[{"id":"call_abc","name":"search_health_indicators","arguments":{...}}]}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":""}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"reasoning_content":"<fragment>"}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"tool_steps":[{"id":"call_abc","name":"query_health_data","arguments":{...}}]}}]}
 data: {"object":"chat.completion.chunk","choices":[{"delta":{"content":"<answer fragment>"}}]}
-data: {"object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}],"health_records":[],"citations":[]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}],"health_records":[...],"citations":[...],"usage":{...}}
 data: [DONE]
 ```
 
-各帧都是 `chat.completion.chunk` 对象。按 `id` 合并 `tool_steps`。**最后一帧**（在 `[DONE]` 之前）携带顶层的 `health_records` / `citations`；流中**不包含** token `usage`。只读取 `delta.content` 的客户端仍可正常工作 —— 回答是一条干净的流。
+帧均为 `chat.completion.chunk` 对象。按 `id` 合并 `tool_steps`（流式步骤携带 `{id, name, arguments}`；完整 `result` 在非流式响应上）。**最后一帧**（`[DONE]` 之前）携带顶层 `health_records` / `citations` **以及 `usage`**。上游失败会在流结束前以 SSE `{"error": ...}` 帧到达。只读 `delta.content` 的客户端不受影响。
 
-## 内联 health_context
+## 系统提示
 
-只为本轮附带数据，而不必先写入存储：
-
-```python
-resp = client.chat.completions.create(
-    model="mirobody-flash",
-    messages=[{"role": "user", "content": "Is this reading high?"}],
-    user="alice",
-    extra_body={
-        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
-        "retention": "none",   # used this turn, then deleted
-    },
-)
-```
-
-当 `retention="none"` 时，数据在请求完成时被清除 —— 不会持久化任何内容。
-
-## 系统提示词
-
-`system` 消息设定回答的语气、人设、格式与语言。数据采集由平台控制 —— 智能体始终读取该 Subject 的真实数据 —— 因此 `system` 提示词只塑造回答*如何*呈现，永远不会影响*是否*使用真实数据。
+`system` 消息设定回答的语气、人设、格式与语言。数据收集由平台控制 —— 智能体始终读取 Subject 的真实数据 —— 因此 `system` 提示塑造回答*怎么读*，从不决定*是否*使用真实数据。
 
 ## 内置工具
 
-托管智能体基于 **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)** 构建，因此除了普通的工具调用之外，它还能**规划**多步任务（`write_todos`）、**委派**给子智能体（`task`）、维护一个**虚拟文件系统**（从 `/uploads` 读取你上传的文件、从 `/library` 读取历史上传、并在 `/memories` 下保存跨会话记忆），以及**暂停等待输入**（human-in-the-loop）。这些你都不必自己调用 —— 智能体会按需针对数据主体(Subject)的数据使用它们。
+托管智能体基于 **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)** 构建：除普通工具调用外，还能**规划**多步工作（`write_todos`）、**委派**子智能体（`task`）、运行**代码 eval** 做分析，并维护**虚拟文件系统**（你的上传在 `/uploads`，历史上传在 `/library`）。这些都不由你调用 —— 智能体自己针对 Subject 的数据使用。
 
-**公开工具目录** —— 即 `GET /api/health` 返回的 `tool_names`：
+**公开工具目录** —— 即 `GET /api/health` 报告的 `tool_names`：
 
-- `search_health_indicators`、`fetch_health_data` —— 查找并读取数据主体(Subject)的记录
-- `record_health_indicator` —— 写入一条新的结构化读数
-- `list_family_members` —— 解析该数据主体(Subject)有权查询的关护圈（care-circle）成员
-- `list_fhir_resources`、`write_fhir_observation` —— 读取 / 写入 FHIR 资源
-- `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 查询医学证据
-- `fetch_url` —— 读取一个网页
-- `ask_user` —— 暂停并提出澄清问题（在流中以中断（interrupt）的形式呈现 —— 见[流式传输](#流式传输)）
+- `query_health_data`、`summarize_health_data` —— 检索并聚合 Subject 的记录
+- `list_clinical_records` —— 列出临床文档 / FHIR 支撑的记录
+- `list_family_members` —— 解析 Subject 有权查询的照护圈成员
+- `write_fhir_observation` —— 写入一条结构化 FHIR observation
+- `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 查询医学证据（供给 `citations`）
+- `fetch_url` —— 读取网页
 
-deep agents 的**框架内置工具** —— `write_todos`、`task`，以及文件系统工具（`ls` / `read_file` / `write_file` / `edit_file` / `glob` / `grep`）—— 供智能体内部使用，**不会**出现在 `tool_names` 中。公开工具集可能因集群而异；调用 `GET /api/health` 查看实时的 `tool_names` 与 `agent_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。要添加你自己的工具，请通过 [`mcp_servers`](/zh/api-reference/mcp-servers) 接入远程 MCP 服务器。
+deep agents 的**框架内置工具** —— `write_todos`、`task`、`eval` 及文件系统工具（`ls` / `read_file` / …）—— 供内部使用，**不会**出现在 `tool_names` 中。`ask_user` 存在于消费端产品，但在 **`/v1` 两个面上均已禁用**（API 调用方没有可作答的 widget）。公开工具集可能因集群而异；调用 `GET /api/health` 查看实时 `tool_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。
+
+要添加**你自己的**工具，请使用 [Agent API 的 function calling](/zh/api-reference/function-calling) —— 此面刻意不提供工具注入。
 
 ## 图表（vis-chart）
 
-当回答涉及趋势 / 对比 / 分布时，可能会嵌入一个用围栏包裹的 ` ```vis-chart ` 块，内含纯数据 JSON（`{type, title, axisXTitle, axisYTitle, data}`）。**渲染是客户端的工作** —— API 只返回数据规格。请检测这个围栏块并渲染它（折线图 / 面积图 / 柱状图 / 饼图）。
+当回答涉及趋势 / 对比 / 分布时，可能嵌入一个围栏 ` ```vis-chart ` 代码块，内容为纯数据 JSON（`{type, title, axisXTitle, axisYTitle, data}`）。**渲染是客户端的职责** —— API 只返回数据规格。检测该围栏块并渲染（折线 / 面积 / 柱状 / 饼图）。

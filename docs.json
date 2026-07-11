@@ -99,19 +99,36 @@
                 "group": "Getting Started",
                 "pages": [
                   "en/api-reference/index",
-                  "en/api-reference/quickstart"
+                  "en/api-reference/quickstart",
+                  "en/api-reference/choose-your-api",
+                  "en/api-reference/overview",
+                  "en/api-reference/models"
                 ]
               },
               {
-                "group": "API Reference",
+                "group": "Agent API",
                 "pages": [
-                  "en/api-reference/overview",
-                  "en/api-reference/models",
+                  "en/api-reference/responses",
+                  "en/api-reference/function-calling",
+                  "en/api-reference/streaming",
+                  "en/api-reference/state-and-memory"
+                ]
+              },
+              {
+                "group": "Answers API",
+                "pages": [
                   "en/api-reference/chat",
+                  "en/api-reference/use-as-a-tool"
+                ]
+              },
+              {
+                "group": "Data Plane",
+                "pages": [
                   "en/api-reference/data",
                   "en/api-reference/files",
                   "en/api-reference/sessions",
-                  "en/api-reference/mcp-servers"
+                  "en/api-reference/extract",
+                  "en/api-reference/standardization"
                 ]
               },
               {
@@ -216,19 +233,36 @@
                 "group": "开始使用",
                 "pages": [
                   "zh/api-reference/index",
-                  "zh/api-reference/quickstart"
+                  "zh/api-reference/quickstart",
+                  "zh/api-reference/choose-your-api",
+                  "zh/api-reference/overview",
+                  "zh/api-reference/models"
                 ]
               },
               {
-                "group": "API 引用",
+                "group": "Agent API",
                 "pages": [
-                  "zh/api-reference/overview",
-                  "zh/api-reference/models",
+                  "zh/api-reference/responses",
+                  "zh/api-reference/function-calling",
+                  "zh/api-reference/streaming",
+                  "zh/api-reference/state-and-memory"
+                ]
+              },
+              {
+                "group": "Answers API",
+                "pages": [
                   "zh/api-reference/chat",
+                  "zh/api-reference/use-as-a-tool"
+                ]
+              },
+              {
+                "group": "数据面",
+                "pages": [
                   "zh/api-reference/data",
                   "zh/api-reference/files",
                   "zh/api-reference/sessions",
-                  "zh/api-reference/mcp-servers"
+                  "zh/api-reference/extract",
+                  "zh/api-reference/standardization"
                 ]
               },
               {

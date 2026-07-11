@@ -1,0 +1,162 @@
+---
+title: "Function Calling"
+description: "Built-in server tools + your own client function tools on the Agent API, with both handoff continuation styles."
+---
+
+The [Agent API](/en/api-reference/responses) runs two kinds of tools:
+
+1. **Built-in server tools** — the platform's health-data tools. They run **server-side**; you never execute them. Their trace is reported, not delegated.
+2. **Client function tools** — tools **you** declare on the request. When the model wants one, the response hands off with a `function_call` output item; you execute it and continue the run.
+
+## Built-in server tools
+
+The agent always has its platform toolset over the Subject's data (same catalog as the [Answers API](/en/api-reference/chat#built-in-tools)):
+
+- `query_health_data`, `summarize_health_data` — search and aggregate the Subject's records
+- `list_clinical_records` — list clinical documents / FHIR-backed records
+- `list_family_members` — resolve care-circle members the Subject is allowed to query
+- `write_fhir_observation` — write a structured FHIR observation
+- `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — medical evidence (feeds `citations`)
+- `fetch_url` — read a web page
+
+Plus the deep-agents harness (`write_todos`, `task`, `eval`, filesystem tools) used internally. Their runs appear in the **top-level `tool_steps` extension** of the response object (never as `output` items — official SDKs would mis-parse unknown item types), and in streaming as the [`response.mirobody_tool_call` side-channel event](/en/api-reference/streaming#server-tool-side-channel).
+
+## Declaring client tools
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "input": "Check my recent glucose and book a follow-up if it is trending up.",
+  "user": "alice",
+  "tools": [
+    {
+      "type": "function",
+      "name": "book_appointment",
+      "description": "Book a clinic appointment for the end user.",
+      "parameters": {
+        "type": "object",
+        "properties": { "date": { "type": "string", "description": "ISO date" } },
+        "required": ["date"]
+      }
+    }
+  ]
+}
+```
+
+Rules (violations are explicit `400`s, never silently dropped):
+
+| Rule | Detail |
+| --- | --- |
+| Type | Only `"type": "function"` is supported today. Both the flat Responses form and the completions-nested `{"type":"function","function":{...}}` form are accepted. `{"type": "mcp"}` is on the roadmap — see [MCP servers](/en/api-reference/mcp-servers). |
+| Count | Max **64** tools per request. |
+| Names | Must match `[a-zA-Z0-9_-]{1,64}`; must be unique; must **not shadow a built-in tool name** (`query_health_data`, `read_file`, `task`, …). |
+| `parameters` | A JSON Schema object (defaults to `{"type":"object","properties":{}}`). |
+| `tool_choice` | `"auto"` (default), `"none"` (disables your tools for the turn), or a named client tool. Anything else → `400 unsupported_parameter`. |
+
+<Warning>
+**Security note:** the agent holds tools over the Subject's health data. Subject isolation already limits every call to that developer's own data, but treat your tool descriptions and results as part of the prompt surface — don't feed untrusted third-party text through them without review.
+</Warning>
+
+## The handoff
+
+When the model calls your tool, the response **completes** with a `function_call` output item (`status: "completed"` — the *response* is done; the *conversation* is waiting on you):
+
+```jsonc
+{
+  "id": "resp_abc...",
+  "object": "response",
+  "status": "completed",
+  "output": [
+    { "type": "function_call", "id": "fc_0", "call_id": "call_9f2...",
+      "status": "completed", "name": "book_appointment",
+      "arguments": "{\"date\": \"2026-07-14\"}" }
+  ],
+  "output_text": "",
+  ...
+}
+```
+
+In streaming, the same handoff arrives as a `response.output_item.added` → `response.function_call_arguments.delta` / `.done` → `response.output_item.done` event group ([Streaming](/en/api-reference/streaming)).
+
+Execute the tool, then continue the run in **either** of two ways:
+
+### Path 1 — stateful resume (`previous_response_id`)
+
+Send **only** `function_call_output` items, referencing the handoff response. The server resumes the paused agent thread — no history resend:
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "previous_response_id": "resp_abc...",
+        "input": [
+          { "type": "function_call_output", "call_id": "call_9f2...",
+            "output": "Booked: Mon 2026-07-14 09:30, Dr. Chen" }
+        ],
+        "user": "alice"
+      }'
+```
+
+Requirements: outputs must cover **exactly** the pending `call_id`s (parallel calls → one `function_call_output` each); you may not mix `message` items into a resume; a handoff can be resumed **once** (a duplicate resume fails loudly). Requires the handoff response to have been stored (`store=true`, the default).
+
+### Path 2 — stateless full replay
+
+What **openai-agents** does by default: resend the *entire* item transcript in `input` — including the `function_call` / `function_call_output` pairs — with **no** `previous_response_id`:
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "input": [
+    { "role": "user", "content": "Check my recent glucose and book a follow-up if it is trending up." },
+    { "type": "function_call", "call_id": "call_9f2...", "name": "book_appointment",
+      "arguments": "{\"date\": \"2026-07-14\"}" },
+    { "type": "function_call_output", "call_id": "call_9f2...",
+      "output": "Booked: Mon 2026-07-14 09:30, Dr. Chen" }
+  ],
+  "tools": [ ... ],
+  "user": "alice"
+}
+```
+
+The pairs are reconstructed as conversation history and the run continues as a fresh turn. Works with `store=false` end to end.
+
+## End-to-end with openai-agents
+
+The SDK handles the whole loop — declaration, handoff, execution, replay:
+
+```python
+from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+set_tracing_disabled(True)
+
+@function_tool
+def book_appointment(date: str) -> str:
+    """Book a clinic appointment for the end user (ISO date)."""
+    return f"Booked: {date} 09:30, Dr. Chen"
+
+agent = Agent(
+    name="Health assistant",
+    model="mirobody-flash",
+    instructions="Check real health data before acting.",
+    tools=[book_appointment],
+)
+result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
+print(result.final_output)
+```
+
+The model reads the Subject's real glucose data with **built-in server tools**, then hands off to **your** `book_appointment` — the SDK executes it locally and replays the transcript automatically.
+
+## Continuation errors
+
+| HTTP `400` message | Cause |
+| --- | --- |
+| `previous response has no pending function calls` | Resuming a response that wasn't a handoff (or was already resumed). |
+| `cannot mix message items with function_call_output when resuming via previous_response_id` | A resume must contain only tool outputs. |
+| `unknown call_id(s): [...]` / `missing function_call_output for call_id(s): [...]` | Outputs must match the pending calls exactly. |
+| `previous response has pending function call(s) — provide function_call_output items for: ...` | Continuing a handoff conversation without supplying the outputs. |
+| `function_call_output without matching function_call items — replay the full transcript, or resume via previous_response_id` | A stateless replay must include the `function_call` items too. |

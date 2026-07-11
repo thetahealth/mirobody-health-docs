@@ -1,47 +1,58 @@
 ---
-title: "欢迎使用 Mirobody API"
-description: "托管的、兼容 OpenAI 的健康 API —— 开源 Mirobody 引擎，由我们为你托管，附带密钥、用量与控制台。"
+title: "在标准化健康数据上构建健康 agent"
+description: "上传杂乱的健康数据，得到标准化记录，让 AI 在其上工作 —— 一个兼容 OpenAI 的 API。"
 ---
 
-**Mirobody API** 是**托管版**的 Mirobody。它就是同一套[开源引擎](/zh/index)—— 由我们替你运行，并封装成一套**兼容 OpenAI 的 `/v1` API**，附带 API 密钥、用量计量和开发者控制台。把任意 OpenAI SDK 指向 base URL、传入一个 `mb_live_*` 密钥,Agent 就会基于每位终端用户**真实、结构化的健康数据**作答,并给出可溯源的引用。
+**Mirobody API** 把杂乱的健康数据变成**标准化、AI 可用的记录** —— 并提供两个兼容 OpenAI 的接口让 agent 在其上工作。它是[开源 Mirobody 引擎](/zh/index)之上的托管层：我们托管存储、模型与密钥；你只需把 OpenAI SDK 指向 base URL 并带上 `mb_live_*` 密钥。
 
-<Note>
-**构建在开源之上。** 本平台是在[开源 Mirobody 引擎](/zh/index)之上的一层**定制化托管服务**—— 同一套内核,只是免去了基础设施。你无需构建、托管或运维任何东西:拿到密钥、调用 `/v1` 即可。托管 Agent 能做的一切,开源引擎同样能做 —— API 只是让它开箱即用。
-</Note>
+## 闭环：上传 → 标准化 → AI 使用
 
-## 使用 Mirobody 的两种方式
+<Steps>
+  <Step title="上传任何东西">
+    结构化读数走 [`POST /v1/data`](/zh/api-reference/data)，化验 PDF / 照片 / 表格走 [`POST /v1/files`](/zh/api-reference/files)（含 OCR）—— 按终端用户完全隔离的 [Subject](/zh/api-reference/overview#多租户user-字段)。
+  </Step>
+  <Step title="每次写入都会标准化">
+    名称确定性解析到 **LOINC**（不让 LLM 猜码），值归一到 **UCUM** 单位，每条读数都有 **FHIR** 镜像。`"血糖(空腹)"`、`"FBG"`、`"Glucose, fasting"` 归成一条序列。见[标准化](/zh/api-reference/standardization)。
+  </Step>
+  <Step title="让 AI 在其上工作">
+    向 [Answers API](/zh/api-reference/chat) 要一条有依据、带证据的回答 —— 或在 [Agent API](/zh/api-reference/responses) 上构建完整 agent：你自己的工具、存储的对话，openai-agents SDK 开箱即用。
+  </Step>
+</Steps>
 
-选择适合你的路径 —— 底层引擎是同一套。
+## 两个 API 接口，一套引擎
 
 <CardGroup cols={2}>
-  <Card title="托管 API —— 你在这里" icon="cloud" href="/zh/api-reference/quickstart">
-    拿一个 `mb_live_*` 密钥并调用 `/v1/chat/completions`。引擎、存储与模型都由我们托管。适合无需运维、快速上线。
+  <Card title="Agent API —— 推荐" icon="robot" href="/zh/api-reference/responses">
+    `POST /v1/responses`（兼容 OpenAI Responses）。你的 function 工具、`previous_response_id` / `session_id` 状态、`response.*` 流式。openai-agents SDK 只需改 base URL。
   </Card>
-  <Card title="自建开源版本" icon="server" href="/zh/index">
-    自己构建 C++ 引擎并运行 —— 部署在服务器或完全端侧。完全掌控;数据无需离开你的机器。
+  <Card title="Answers API" icon="comment-dots" href="/zh/api-reference/chat">
+    `POST /v1/chat/completions`。封闭的 grounded completion —— 一个问题、一条有证据的回答。任何 OpenAI SDK 直接替换，也非常适合[作为你自己 agent 里的一个工具](/zh/api-reference/use-as-a-tool)。
   </Card>
 </CardGroup>
 
-## 为什么用托管 API
+拿不准？[一分钟选对 API](/zh/api-reference/choose-your-api)。
 
-- **兼容 OpenAI** —— 复用你现有的 OpenAI SDK,只需改 base URL 和密钥。
-- **基于真实数据作答、可溯源** —— Agent 读取每位终端用户的健康记录,并展示所依据的来源。
-- **原生多租户** —— 一个密钥,每位终端用户对应一个完全隔离的 [Subject](/zh/api-reference/overview#多租户：user-字段)。
-- **零基础设施** —— 托管的密钥、存储、模型、控制台与计费,无需部署任何东西。
+## 为什么选 Mirobody
+
+- **有依据，而非听着合理** —— 回答来自 Subject 的真实记录，附 `health_records` / `citations` 证据与完整服务端工具轨迹。
+- **默认标准化** —— 每次写入都过 LOINC + UCUM + FHIR；你的分析与智能体读同一份干净序列。任何文档都可用 [`POST /v1/extract`](/zh/api-reference/extract) dry-run。
+- **双重 OpenAI 兼容** —— Chat Completions *与* Responses 两个协议；现有 SDK 与 agent 框架直接可用。
+- **天生多租户** —— 一个 key，每个终端用户一个隔离 Subject；按 Subject 的[被遗忘权删除](/zh/api-reference/overview#端点一览)。
+- **内核开放** —— 同一引擎[开源](/zh/index)；随时可以自托管。
 
 ## 从这里开始
 
 <CardGroup cols={2}>
   <Card title="快速开始" icon="rocket" href="/zh/api-reference/quickstart">
-    登录、创建密钥,几分钟内完成首次 `/v1` 调用。
+    密钥 → 数据 → 标准化记录 → 你的第一个 agent，几分钟搞定。
   </Card>
-  <Card title="API 引用" icon="code" href="/zh/api-reference/overview">
-    鉴权、多租户、留存,以及每一个 `/v1` 端点。
+  <Card title="选择你的 API" icon="signs-post" href="/zh/api-reference/choose-your-api">
+    Answers vs Agent —— 一分钟决策。
   </Card>
-  <Card title="数据区域" icon="location-dot" href="/zh/api-reference/regions/overview">
-    该用哪个集群,以及当前哪些已上线。
+  <Card title="API 概览" icon="code" href="/zh/api-reference/overview">
+    鉴权、多租户、留存、错误与全部端点。
   </Card>
-  <Card title="合规" icon="shield" href="/zh/api-reference/compliance">
-    PIPL / HIPAA / GDPR 合规态势;申请 DPA。
+  <Card title="区域" icon="location-dot" href="/zh/api-reference/regions/overview">
+    该用哪个集群、今天什么已上线。
   </Card>
 </CardGroup>

@@ -1,51 +1,43 @@
 ---
-title: "自带工具（MCP）"
-description: "通过 mcp_servers 将你自己的远程 MCP 工具接入聊天智能体。"
+title: "MCP Servers（路线图）"
+description: "自带远程 MCP 工具 —— 即将登陆 Agent API。"
 ---
 
-聊天智能体内置了针对数据主体(Subject)健康数据的工具（`search_health_indicators`、`fetch_health_data`、`read_file`、`eval`）。你可以通过在[聊天请求](/zh/api-reference/chat)中传入 `mcp_servers`，用**你自己的远程 MCP 工具**对其进行扩展。
+<Warning>
+**即将上线 —— 当前不可用。** MCP 工具接入在当前集群上**尚未实现**；携带 MCP 配置的请求不会被处理。它将以 OpenAI 标准的 `tools: [{"type": "mcp"}]` 形状登陆 [Agent API](/zh/api-reference/responses)。本页描述的是路线图，不是当前行为。今天要自带工具，请使用[客户端 function 工具](/zh/api-reference/function-calling)。
+</Warning>
+
+## 即将到来的能力
+
+对话智能体内置了针对 Subject 健康数据的工具（见 [Function calling → 内置服务端工具](/zh/api-reference/function-calling#内置服务端工具)）。MCP 接入将允许你用**自己的远程 MCP server** 扩展它：平台负责连接、列出你服务器上的工具，并让智能体在一轮中与内置工具并肩调用它们。
 
 <Note>
-这**不是**“将 Mirobody 作为 MCP 服务器”。恰恰相反：你是把外部 MCP 工具*带入*智能体的数据采集过程，让它们与内置工具一起运行。平台会代理这些调用。
+这**不是**"Mirobody 作为 MCP server"。方向相反：你把外部 MCP 工具带*进*智能体的数据收集过程。调用由平台代理。
 </Note>
 
-## `mcp_servers`
+## 规划中的形状（可能变化）
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `name` | string | 服务器的标签。 |
-| `url` | string | 远程 MCP 端点。 |
-| `access_token` | string | 可选的 bearer 令牌，会转发给你的服务器。 |
+在 **Agent API** 上，使用 OpenAI Responses 的 `tools` 形状：
 
-## 示例
-
-<CodeGroup>
-```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
-  -H "Authorization: Bearer $MIROBODY_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-        "model": "mirobody-expert",
-        "messages": [{"role": "user", "content": "Cross-check my labs against our formulary."}],
-        "user": "alice",
-        "mcp_servers": [
-          {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
-        ]
-      }'
+```jsonc
+// POST /v1/responses —— 路线图，尚未上线
+{
+  "model": "mirobody-expert",
+  "input": "Cross-check my labs against our formulary.",
+  "user": "alice",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "formulary",
+      "server_url": "https://tools.example.com/mcp",
+      "authorization": "Bearer ..."
+    }
+  ]
+}
 ```
 
-```python Python (OpenAI SDK)
-client.chat.completions.create(
-    model="mirobody-expert",
-    messages=[{"role": "user", "content": "Cross-check my labs against our formulary."}],
-    user="alice",
-    extra_body={
-        "mcp_servers": [
-            {"name": "formulary", "url": "https://tools.example.com/mcp", "access_token": "..."}
-        ]
-    },
-)
-```
-</CodeGroup>
+你的 MCP 工具调用将通过与其他工具相同的轨迹通道呈现；安全姿态（允许工具过滤、审批流程）将在发布时一并成文。
 
-智能体会在收集数据时决定何时调用你的工具；它们的结果与内置工具一样汇入相同的 `tool_steps` 通道。响应结构参见 [聊天](/zh/api-reference/chat)。
+## 今天的替代方案
+
+MCP 接入能做到的一切，现在都可以用[**客户端 function 工具**](/zh/api-reference/function-calling)实现：声明工具、在你的进程中执行（包括转发给你自己的 MCP server），再用 `function_call_output` 续跑 —— openai-agents SDK 会把整个闭环自动化。

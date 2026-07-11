@@ -1,0 +1,164 @@
+---
+title: "Agent API（Responses）"
+description: "POST /v1/responses —— 兼容 OpenAI Responses 的智能体接口：客户端工具、存储的对话、previous_response_id 链式续聊。"
+---
+
+import BaseUrl from '/snippets/zh/base-url.mdx';
+import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
+import StoreRetentionMatrix from '/snippets/zh/store-retention-matrix.mdx';
+
+## 端点
+
+```http
+POST   /v1/responses                创建响应
+GET    /v1/responses/{response_id}  获取存储的响应
+DELETE /v1/responses/{response_id}  删除存储的响应（连同其对话）
+Authorization: Bearer mb_live_*
+```
+
+**Agent API** 是 Mirobody 兼容 [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses) 的接口 —— **在 Mirobody 上构建 agent 的推荐方式**。它具备 [Answers API](/zh/api-reference/chat) 的全部能力（基于 Subject 真实健康数据的 grounded 回答、服务端工具、推理），并新增：
+
+- **客户端 function 工具** —— 注入你自己的工具；模型通过 `function_call` output item 交接（见 [Function calling](/zh/api-reference/function-calling)）。
+- **存储的对话** —— `store` 默认 `true`；用 `previous_response_id` 链式续聊，或用 `session_id` 绑定永续对话（见[状态与记忆](/zh/api-reference/state-and-memory)）。
+- **标准 `response.*` 流式事件**（见[流式传输](/zh/api-reference/streaming)）。
+
+由于它说的是 Responses 协议，**[openai-agents SDK](https://github.com/openai/openai-agents-python) 只需改 base URL 即可直接使用** —— 已实测：
+
+```python
+from agents import Agent, Runner, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+set_tracing_disabled(True)   # tracing 会请求 api.openai.com
+
+agent = Agent(name="Health assistant", model="mirobody-flash")
+print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output)
+```
+
+<BaseUrl />
+
+## 创建响应
+
+<CodeGroup>
+```bash curl
+curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "input": "How is my fasting glucose trending?",
+        "user": "alice"
+      }'
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+
+resp = client.responses.create(
+    model="mirobody-flash",
+    input="How is my fasting glucose trending?",
+    user="alice",
+)
+print(resp.output_text)
+```
+</CodeGroup>
+
+### 请求体
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `model` | string | `mirobody-flash`（默认）或 `mirobody-expert`。详见[模型](/zh/api-reference/models)。 |
+| `input` | string \| array | **必填。** 字符串（一个用户轮次）或 item 数组：`message` item（`{role, content}`），以及在续跑工具交接时的 `function_call` / `function_call_output` item。见 [Function calling](/zh/api-reference/function-calling)。 |
+| `instructions` | string | 本轮的系统级指令（作为 system 消息前置）。 |
+| `stream` | bool | `true` → 标准 `response.*` 事件的 SSE。见[流式传输](/zh/api-reference/streaming)。 |
+| `store` | bool | **默认 `true`。** 持久化响应 + 对话：30 天 TTL，绑定 `session_id` 时永久。启用 `previous_response_id` 与 `GET /v1/responses/{id}`。 |
+| `previous_response_id` | string | 续接某个已存储响应的对话（服务端状态 —— 无需重发历史）。id 未知、已过期或已删除时返回 `404`。 |
+| `session_id` | string | Mirobody 扩展。把本轮及后续轮次绑定到一个**永续命名对话**（永不自动过期）。 |
+| `tools` | array | 客户端 **function** 工具（`{"type": "function", "name", "description", "parameters"}`；completions 嵌套形式也接受）。最多 64 个；名称需匹配 `[a-zA-Z0-9_-]{1,64}` 且不得与内置工具重名。见 [Function calling](/zh/api-reference/function-calling)。 |
+| `tool_choice` | string \| object | `"auto"`（默认）/ `"none"` / 指名某个**客户端**工具。其它取值 → `400 unsupported_parameter`。 |
+| `user` | string | 租户隔离键 → 一个 Subject。 |
+
+<SubjectUserParam />
+
+### 响应对象
+
+```jsonc
+{
+  "id": "resp_147e9b14c172429a8b19da4be9489243",
+  "object": "response",
+  "created_at": 1783741077,
+  "status": "completed",
+  "model": "mirobody-flash",
+  "output": [
+    { "type": "reasoning", "id": "rs_0", "status": "completed",
+      "summary": [{ "type": "summary_text", "text": "..." }] },
+    { "type": "message", "id": "msg_0", "status": "completed", "role": "assistant",
+      "content": [{ "type": "output_text", "text": "Your fasting glucose has trended down ..." }] }
+  ],
+  "output_text": "Your fasting glucose has trended down ...",
+  "usage": {
+    "input_tokens": 9,                                   // 只计你可见的输入
+    "output_tokens": 5,
+    "total_tokens": 14,
+    "input_tokens_details": { "system_tokens": 10096, "cached_tokens": 0 },
+    "output_tokens_details": { "reasoning_tokens": 0 }
+  },
+  "tool_steps": [],                                      // Mirobody 扩展：服务端工具轨迹
+  "health_records": [],                                  // Mirobody 扩展：{tool, data} 证据
+  "citations": [],                                       // Mirobody 扩展：文献证据
+  "previous_response_id": null,
+  "store": false,
+  "tools": [],
+  "error": null,
+  "metadata": {}
+}
+```
+
+`output` 数组**只包含标准 OpenAI item 类型** —— `reasoning`、`message`，以及（客户端工具交接时的）`function_call`。官方 SDK 可原样解析。
+
+**服务端内置工具的运行刻意*不作为* output item 出现。** 其轨迹位于**顶层 `tool_steps` 扩展字段**（`{id, name, arguments, result}` —— 与 Answers API 同形），SDK 会安全地忽略它。流式下则通过旁路事件 [`response.mirobody_tool_call`](/zh/api-reference/streaming#服务端工具旁路通道) 呈现。`health_records` 与 `citations` 携带回答所用的证据，与 [Answers API](/zh/api-reference/chat#响应) 完全一致。
+
+### 用量口径
+
+`usage.input_tokens` 只报告**你实际发送的输入**；平台系统提示 / 工具 schema 的开销单列在 `input_tokens_details.system_tokens`。`output_tokens_details.reasoning_tokens` 统计思考 token。计数为该 agent 轮次内所有模型调用之和。
+
+## 获取存储的响应
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+返回存储的响应对象。仅 `store=true` 的响应可获取；已过期（30 天 TTL）或已删除的响应返回 `404`。
+
+## 删除存储的响应
+
+```bash
+curl -X DELETE https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+```json
+{ "id": "resp_147e9b14...", "object": "response.deleted", "deleted": true }
+```
+
+删除该存储的响应。若它是所在对话的**最后一个**存活响应，整段对话也会被一并拆除 —— 会话投影、agent 线程状态与对话衍生的记忆。这是存储对话的自助"被遗忘权"入口。
+
+## 状态模型
+
+<StoreRetentionMatrix />
+
+完整细节 —— TTL、链式续聊语义、无状态回放，以及 `store=true` 供给的跨会话记忆 —— 见[状态与记忆](/zh/api-reference/state-and-memory)。
+
+## 错误
+
+标准[错误信封](/zh/api-reference/overview#错误格式)。此面特有情形：
+
+| HTTP | 何时 |
+| --- | --- |
+| `400` | `input` 缺失/为空；`tools` 非法（名称非法、与内置重名、重复、超过 64、非 function 类型）；不支持的 `tool_choice`；交接续跑格式错误（见 [Function calling](/zh/api-reference/function-calling#续跑错误)） |
+| `404` | `previous_response_id` 或 `response_id` 未知 / 已过期 / 已删除 |
+| `502` | 上游 agent 错误 —— 瞬态；退避重试 |

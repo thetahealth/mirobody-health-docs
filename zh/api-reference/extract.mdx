@@ -1,0 +1,113 @@
+---
+title: "抽取"
+description: "POST /v1/extract —— 化验报告进、标准化指标出；默认 dry-run。"
+---
+
+import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
+
+```http
+POST /v1/extract
+Authorization: Bearer mb_live_*
+```
+
+**文档进，标准化指标出 —— 同步完成。** `/v1/extract` 对化验报告 / 健康文档运行完整的[标准化管线](/zh/api-reference/standardization)，返回其中找到的每条读数：原始文本 → schema 约束的 LLM 抽取 → 确定性 LOINC 解析 → UCUM 单位归一。
+
+默认是 **dry-run**（`store=false`）：你拿到标准化结果，**什么都不持久化** —— 零副作用。设 `store=true`（并给出 `retention`）则同时把读数经由与 [`POST /v1/data`](/zh/api-reference/data) 相同的管线写入 Subject 的存储。
+
+## 请求
+
+两种输入形态：
+
+- **multipart/form-data** —— 一个 `file`（PDF / 图片 / Excel / 纯文本；图片与 PDF 会 OCR），下表字段作为表单字段。
+- **application/json** —— `{"text": "..."}`（原始报告文本）**或** `{"file_key": "..."}`（已通过 [`/v1/files`](/zh/api-reference/files) 上传的文件）。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `file` / `text` / `file_key` | — | 恰好一个来源。`file_key` 未知或无可抽取文本 → `404`。 |
+| `user` | string | 抽取所针对的 Subject。 |
+| `store` | bool | 默认 **`false`**（dry-run）。`true` 时同时写入读数。 |
+| `retention` | string | **`store=true` 时必填** —— 与 [`POST /v1/data`](/zh/api-reference/data) 同一枚举（`permanent` / `1h` / `2h` / `6h` / `1d` / `session`）。 |
+| `session_id` | string | `retention=session` 时必填。 |
+
+<SubjectUserParam />
+
+### Dry-run（默认）
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" \
+  -F "file=@lab_report.pdf"
+```
+
+### 抽取并存储
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "text": "Fasting glucose 5.6 mmol/L (2026-07-01); LDL cholesterol 3.1 mmol/L",
+        "store": true,
+        "retention": "permanent"
+      }'
+```
+
+## 响应
+
+```json
+{
+  "object": "extraction",
+  "data": [
+    {
+      "indicator_raw": "Fasting glucose",
+      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "loinc_code": "1558-6",
+      "value_raw": "5.6",
+      "parsed_value": 5.6,
+      "unit_raw": "mmol/L",
+      "unit_ucum": "mmol/L",
+      "confidence": 0.94,
+      "measured_at": "2026-07-01"
+    },
+    {
+      "indicator_raw": "LDL cholesterol",
+      "canonical_name": "Cholesterol in LDL [Moles/volume] in Serum or Plasma",
+      "loinc_code": "22748-8",
+      "value_raw": "3.1",
+      "parsed_value": 3.1,
+      "unit_raw": "mmol/L",
+      "unit_ucum": "mmol/L",
+      "confidence": 0.91,
+      "measured_at": null
+    }
+  ],
+  "stored": false,
+  "stored_count": 0,
+  "subject": "alice"
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `data[]` | 每条抽取到的读数一行。 |
+| `indicator_raw` / `value_raw` / `unit_raw` | 文档原文怎么写的。 |
+| `canonical_name` / `loinc_code` | 确定性 LOINC 解析（`null` = 无高置信编码 —— **绝不给猜的**）。 |
+| `parsed_value` / `unit_ucum` | 数值 + UCUM 归一化单位。 |
+| `confidence` | LOINC 匹配的相似度分数（0–1）。 |
+| `measured_at` | 文档中找到的时间戳（如有）。 |
+| `stored` | 本次调用是否写入了存储（回显 `store`）。 |
+| `stored_count` | 实际写入的读数条数（dry-run 时为 `0`）。 |
+
+## 错误
+
+| HTTP | 何时 |
+| --- | --- |
+| `400` | 没有 `file` / `text` / `file_key`；`store=true` 但 `retention` 缺失或非法；`retention=session` 缺 `session_id` |
+| `404` | `file_key` 未知或无可抽取文本 |
+| `413` | 文件超出上传大小上限 |
+| `422` | 无法从文件抽取文本 |
+| `502` | 抽取模型不可用 —— 瞬态；退避重试 |
+
+所有失败都是显式的 —— 不存在静默的部分成功。

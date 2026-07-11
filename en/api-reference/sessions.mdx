@@ -10,7 +10,7 @@ DELETE /v1/sessions/{session_id}
 Authorization: Bearer mb_live_*
 ```
 
-Marks a session ended. **Caveat:** on the current cluster this returns `deleted: 0` and does **not** purge `retention=session` records written via [`POST /v1/data`](/en/api-reference/data) — those still expire on the 24h session cap. Don't rely on it as your only right-to-be-forgotten mechanism.
+Ends a session and cleans up what it scoped: records written with `retention=session` under this `session_id` are **hard-deleted** (rows physically removed), and any chat history threaded on it is removed from the API surface. `deleted` counts what was purged.
 
 ```bash
 curl -X DELETE "https://test-mirobody-api.thetahealth.ai/v1/sessions/sess_abc123?user=alice" \
@@ -24,38 +24,42 @@ Pass the same `user` you used when writing the session's data; omitting it targe
 Response:
 
 ```json
-{ "status": "ok", "session_id": "sess_abc123", "deleted": 0, "subject": "alice" }
+{ "status": "ok", "session_id": "sess_abc123", "deleted": 2, "subject": "alice" }
 ```
 
 | Field | Description |
 | --- | --- |
 | `status` | `"ok"` on success. |
 | `session_id` | The session that was ended. |
-| `deleted` | Count of purged records. **Currently returns `0`** for records written via `POST /v1/data` — see the caveat above. |
+| `deleted` | Count of purged items (session-scoped data records + conversation rows). `0` simply means nothing was scoped to this session. |
 | `subject` | The Subject the session belonged to. |
 
 ## How sessions work
 
-A `session_id` does two things in [`/v1/chat/completions`](/en/api-reference/chat):
+A `session_id` is a **cleanup scope with a name** — one id that ties together the working data and conversation of one interaction:
 
-1. **Threads multi-turn context** across calls that share the same `session_id`.
-2. **Scopes `retention=session` data** — records / files / inline `health_context` written with `retention=session` live only as long as the session.
+1. **Scopes `retention=session` data** — records written via [`POST /v1/data`](/en/api-reference/data) (or [`POST /v1/extract`](/en/api-reference/extract) with `store=true`) with `retention: "session"` **must** carry a `session_id`, and live only until the session is deleted (capped at **24h** regardless).
+2. **Binds durable conversations on the Agent API** — passing `session_id` to [`POST /v1/responses`](/en/api-reference/responses) makes the conversation durable and resumable under that id. See [State & memory](/en/api-reference/state-and-memory).
 
-Session data is capped at **24h** regardless. (`DELETE /v1/sessions/{id}` is intended to clear it sooner, but currently reports `deleted: 0` for `POST /v1/data` records — rely on the 24h cap.)
+```python
+import requests
 
-```python Python
-client.chat.completions.create(
-    model="mirobody-flash",
-    messages=[{"role": "user", "content": "Here are today's readings — anything off?"}],
-    user="alice",
-    extra_body={
-        "session_id": "sess_abc123",
-        "retention": "session",
-        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
-    },
-)
-# ... later, when the conversation ends:
-# DELETE /v1/sessions/sess_abc123  → marks the session ended (see caveat)
+BASE = "https://test-mirobody-api.thetahealth.ai/v1"
+H = {"Authorization": "Bearer mb_live_..."}
+
+# Write working data scoped to the session
+requests.post(f"{BASE}/data", headers=H, json={
+    "user": "alice",
+    "retention": "session",
+    "session_id": "sess_abc123",
+    "records": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg",
+                 "time": "2026-06-16T08:00:00Z"}],
+})
+
+# ... run agent turns with session_id="sess_abc123" ...
+
+# When the interaction ends, purge everything it scoped:
+requests.delete(f"{BASE}/sessions/sess_abc123", headers=H, params={"user": "alice"})
 ```
 
-See [retention](/en/api-reference/overview#data-retention) for the full model.
+See [retention](/en/api-reference/overview#data-retention) for the full lifetime model.

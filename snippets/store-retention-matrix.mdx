@@ -1,0 +1,8 @@
+`store` and `retention` are **orthogonal** — one governs the *conversation*, the other governs the *data plane*:
+
+| Knob | Applies to | Values | Governs |
+| --- | --- | --- | --- |
+| `store` | [`POST /v1/responses`](/en/api-reference/responses) | `true` (default) / `false` | Whether the **response object + conversation thread** persist: `store=true` keeps them 30 days (or permanently when bound to a `session_id`), enabling `previous_response_id` chaining and `GET /v1/responses/{id}`. `store=false` keeps nothing after the reply. |
+| `retention` | [`POST /v1/data`](/en/api-reference/data), [`POST /v1/files`](/en/api-reference/files), [`POST /v1/extract`](/en/api-reference/extract) (`store=true`) | `permanent` (alias `persistent`) / `1d` / `6h` / `2h` / `1h` / `session` | How long the **health records / files** you write live in the Subject's store. Time grains auto-delete (hard-capped ≤ 24h); `session` binds records to a `session_id` and [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) purges them. |
+
+A stored conversation (`store=true`) does **not** persist any health data by itself, and permanent health records don't keep a conversation alive. Combine them as needed: e.g. `store=false` + `retention=1h` for a fully ephemeral run, or `session_id`-bound responses + `retention=session` data for a durable conversation whose working data dies with the session.

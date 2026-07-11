@@ -1,0 +1,64 @@
+---
+title: "State & Memory"
+description: "How store, previous_response_id, session_id and data retention compose on the Agent API."
+---
+
+import StoreRetentionMatrix from '/snippets/store-retention-matrix.mdx';
+
+Two independent knobs govern what persists:
+
+<StoreRetentionMatrix />
+
+## Conversation state (`store`)
+
+`store` defaults to **`true`** (OpenAI parity). A stored response persists three things: the response object (for `GET /v1/responses/{id}`), the conversation thread (so `previous_response_id` can continue it), and the turn's projection into the platform's conversation memory.
+
+| Mode | How | Lifetime |
+| --- | --- | --- |
+| **One-shot** | `store: false` | Nothing persists after the reply. Multi-turn still possible via [stateless replay](/en/api-reference/function-calling#path-2--stateless-full-replay). |
+| **Chained** | `store: true` (default), continue with `previous_response_id` | **30-day TTL** per response; expired responses `404` on GET and can't be chained. |
+| **Durable conversation** | pass `session_id` | Bound responses **never auto-expire**. The same `session_id` always resumes the same conversation — a stable handle for "the user's ongoing thread". |
+
+```python
+# Turn 1 — stored by default
+r1 = client.responses.create(model="mirobody-flash",
+                             input="How is my fasting glucose trending?", user="alice")
+
+# Turn 2 — server-side state: no history resend
+r2 = client.responses.create(model="mirobody-flash",
+                             input="And compared with last quarter?",
+                             previous_response_id=r1.id, user="alice")
+```
+
+<Note>
+`previous_response_id` on an unknown, **expired**, or deleted response returns `404` — treat a chained conversation older than 30 days as gone unless it was `session_id`-bound. A response that ended in a client-tool handoff must be continued with `function_call_output` items first — see [Function calling](/en/api-reference/function-calling#continuation-errors).
+</Note>
+
+### Cleanup
+
+`DELETE /v1/responses/{id}` removes a stored response; when it is the last live response of its conversation, the **whole conversation is torn down** — thread state, chat projection, and conversation-derived memory. See [Agent API → Delete](/en/api-reference/responses#delete-a-stored-response).
+
+## Cross-session memory
+
+Stored conversations feed the platform's asynchronous memory consolidation: durable facts the agent learns about a Subject can inform later conversations for that same Subject. `store: false` turns keep out of it entirely; deleting a response retracts what its conversation contributed.
+
+## Data-plane retention (`retention`)
+
+Health records and files carry their own lifetime, set **where the data is written** — [`POST /v1/data`](/en/api-reference/data) (required), [`POST /v1/files`](/en/api-reference/files) (optional), [`POST /v1/extract`](/en/api-reference/extract) (required when `store=true`):
+
+| `retention` | Lifetime |
+| --- | --- |
+| `permanent` (alias `persistent`) | Until explicitly deleted (`DELETE /v1/data`, `DELETE /v1/files/{key}`, `DELETE /v1/subjects/{user}`) |
+| `1d` / `6h` / `2h` / `1h` | Auto-deleted after the grain (hard cap ≤ 24h) |
+| `session` | Bound to a `session_id`; purged by [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions), capped at 24h regardless |
+
+There is **no `retention: "none"`** — writing to the store while asking not to store is contradictory. For use-and-forget analysis, run [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (dry-run, zero side effects) or write with `retention: "1h"`.
+
+## Recipes
+
+| Goal | Settings |
+| --- | --- |
+| Fully ephemeral one-off | `store: false`; don't write data (or `retention: "1h"`) |
+| A user's ongoing assistant thread | `session_id: <stable-id>` on every turn; data `retention: "permanent"` |
+| Short-lived triage conversation | default `store: true`, chain with `previous_response_id`; working data `retention: "session"` + the same `session_id`; `DELETE /v1/sessions/{id}` when done |
+| Right to be forgotten | `DELETE /v1/subjects/{user}` (everything), or per-piece: `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |

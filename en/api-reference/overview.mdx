@@ -3,23 +3,24 @@ title: "API Overview"
 description: "OpenAI-compatible health-data API — base URL, auth, multi-tenancy, retention, errors."
 ---
 
-Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call `/v1/chat/completions` — the agent answers from each end-user's **real, structured health data**, with traceable citations. The same engine also runs **self-hosted** — build the [open-source C++ engine](/en/index) with `./build.sh` and run it yourself; the hosted API adds managed storage, keys, and billing on top.
+import BaseUrl from '/snippets/base-url.mdx';
+import AuthKey from '/snippets/auth-key.mdx';
+
+Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call the [Answers API](/en/api-reference/chat) (`/v1/chat/completions`) or the [Agent API](/en/api-reference/responses) (`/v1/responses`) — the agent answers from each end-user's **real, standardized health data**, with a traceable tool trace. Not sure which surface? See [Choose your API](/en/api-reference/choose-your-api). The same engine also runs **self-hosted** — build the [open-source C++ engine](/en/index) with `./build.sh` and run it yourself; the hosted API adds managed storage, keys, and billing on top.
 
 You create keys, watch usage, and try an interactive Playground in the [developer console](https://test-platform.mirobody.ai/). These docs are the API reference.
 
 ## Base URL
 
-Mirobody is **global-first**. The live integration environment today is the global **test** cluster — point your SDK here:
+Mirobody is **global-first**.
 
-```text
-https://test-mirobody-api.thetahealth.ai/v1
-```
+<BaseUrl />
 
-Its data is non-production and may be reset at any time, so never put real end-user data there. The global production API (`https://mirobody-api.thetahealth.ai/v1`) and the **China** production API (`https://mirobody-api.thetahealth.cn/v1`) are still provisioning — though the **China test** environment (consumer app + developer console) is now live. See [Regions](/en/api-reference/regions/overview) for the full host matrix and live status.
-
-Authenticate every call with an `mb_live_*` key — see [Authentication](#authentication).
+The global production API (`https://mirobody-api.thetahealth.ai/v1`) and the **China** production API (`https://mirobody-api.thetahealth.cn/v1`) are still provisioning — though the **China test** environment (consumer app + developer console) is now live. See [Regions](/en/api-reference/regions/overview).
 
 ## Authentication
+
+<AuthKey />
 
 | Surface | Scheme | How to get it |
 | --- | --- | --- |
@@ -34,12 +35,12 @@ Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body
 
 | | Fields |
 | --- | --- |
-| **Standard** | `model`, `messages`, `stream`, `user` |
-| **Mirobody extensions** | `retention`, `session_id`, `health_context`, `mcp_servers`, `include_tool_steps` |
-| **Response** | `choices[0].message.content` (+ `reasoning_content`, `tool_steps`), `usage`, plus top-level `health_records` / `citations` |
+| **Standard** | `model`, `messages` / `input`, `stream`, `user` — plus, on the [Agent API](/en/api-reference/responses): `instructions`, `store`, `previous_response_id`, `tools`, `tool_choice` |
+| **Mirobody extensions** | `retention` (data lifetime — see below), `session_id` (session scoping; on [`/v1/responses`](/en/api-reference/responses) it binds a durable conversation) |
+| **Response extensions** | `reasoning_content` / `reasoning` items, `tool_steps[]` (server tool trace), top-level `health_records[]` / `citations[]` |
 
 <Note>
-**Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced** — the agent controls output length. `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. `n` other than `1` is also not enforced — the response still returns a single choice.
+**Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced**; `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. On the Answers API, `tools` / `tool_choice` / `response_format` / `n>1` are **explicitly rejected with `400`** — see [Unsupported parameters](/en/api-reference/chat#unsupported-parameters).
 </Note>
 
 ## Multi-tenancy: the `user` field
@@ -48,27 +49,29 @@ Every request carries a `user` string — the **tenant-isolation key**. The back
 
 ## Data retention
 
-Anything you supply (structured records, uploaded files, inline `health_context`) carries a `retention` that decides how long it's kept:
+Anything you write to the data plane (structured records, uploaded files, stored extractions) carries a `retention` that decides how long it's kept:
 
 | `retention` | Meaning | Lifetime |
 | --- | --- | --- |
-| `permanent` | Kept until explicitly deleted (default for inline `health_context`) | Permanent |
-| `session` | Bound to `session_id`, dropped when the session ends | ≤ 24h, or `DELETE /v1/sessions/{id}` |
+| `permanent` (alias `persistent`) | Kept until explicitly deleted | Until `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/subjects/{user}` |
+| `session` | Bound to a `session_id` | Until `DELETE /v1/sessions/{id}`, capped at 24h |
 | `1d` | Auto-deleted within a day | ≤ 24h |
-| `6h` | Auto-deleted 6 hours after write | ≤ 6h |
-| `2h` | Auto-deleted 2 hours after write | ≤ 2h |
-| `1h` | Auto-deleted 1 hour after write | ≤ 1h |
-| `none` | Used for this request only, never persisted | Deleted in `finally` |
+| `6h` / `2h` / `1h` | Auto-deleted after the grain | ≤ 6h / 2h / 1h |
 
-Accepted values are `permanent` (a.k.a. `persistent`) | `1h` | `2h` | `6h` | `1d` | `session` | `none`. Any time-bounded grain is hard-capped at **≤ 24h**.
+On **[`POST /v1/data`](/en/api-reference/data) `retention` is required** — no default; omitting it (or any value outside the enum) returns `400` (`code: invalid_retention`). `retention=session` additionally requires a `session_id`. On [`POST /v1/extract`](/en/api-reference/extract) it's required when `store=true`; on [`POST /v1/files`](/en/api-reference/files) it's optional.
 
-On **`POST /v1/data` the `retention` field is required** — there is no default; omitting it returns `400` (`code: invalid_retention`). For inline `health_context` on `POST /v1/chat/completions`, it defaults to `permanent`.
+There is **no `retention: "none"`**. For use-and-forget analysis, run [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (dry-run — nothing persisted), or write with `retention: "1h"`. The agent **only ever reads the Subject's currently-unexpired data**.
 
-`none` is meant for inline `health_context` (use-and-forget). On `POST /v1/data` it is **rejected with HTTP `400`** (writing to the store but asking not to store is contradictory) — to use-and-forget structured data, attach it as `health_context` with `retention=none` on `POST /v1/chat/completions` instead. The agent **only ever reads the Subject's currently-unexpired data**.
+Conversation persistence on the Agent API is a separate knob (`store`) — see [State & memory](/en/api-reference/state-and-memory).
 
-## Citations
+## Evidence: health_records & citations
 
-Answers are **explainable and checkable** — not "sounds plausible," but "this conclusion came from that record of yours." Today the traceability is carried by **`health_records`** (a top-level array of `{tool, data}` pairs — the actual tool outputs the answer relied on). The `citations` array is reserved for `record:N`-style refs and is **currently returned empty**, so read `health_records`.
+Answers are **explainable and checkable** — not "sounds plausible," but "this conclusion came from that record of yours." Both API surfaces return two top-level evidence arrays of `{tool, data}` pairs:
+
+- **`health_records`** — outputs of the health-data tools the answer relied on (the Subject's actual records).
+- **`citations`** — outputs of the literature tools (`search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid`); empty when no external evidence was consulted.
+
+The full server tool trace (every call with arguments and results) is in the `tool_steps` extension.
 
 ## Error format
 
@@ -77,7 +80,7 @@ Errors use the OpenAI-style envelope:
 ```json
 {
   "error": {
-    "message": "`retention` is required (days int or 'persistent').",
+    "message": "`retention` is required.",
     "type": "invalid_request_error",
     "code": "invalid_retention",
     "param": "retention"
@@ -85,28 +88,34 @@ Errors use the OpenAI-style envelope:
 }
 ```
 
-`type` is consistently `invalid_request_error`; `code` and `param` identify the specific problem. Observed (status, code) pairs:
+`type` is consistently `invalid_request_error` for caller mistakes; `code` and `param` identify the specific problem. Observed (status, code) pairs:
 
 | HTTP | `code` | When |
 | --- | --- | --- |
-| `400` | `invalid_retention` (field-specific) | Malformed request / missing required field — `param` names the field |
+| `400` | `invalid_retention`, `invalid_session`, … | Malformed request / missing required field — `param` names the field |
+| `400` | `unsupported_parameter` | A parameter this surface rejects (e.g. `tools` on the Answers API) — `param` names it |
 | `401` | `null` | Missing or malformed `Authorization` header |
 | `401` | `invalid_api_key` | Bad or revoked `mb_live_*` key |
-| `404` | — | Unknown resource (e.g. `file_key` / `session_id`) |
+| `404` | — | Unknown resource (`file_key` / `response_id` / `previous_response_id` / subject) |
+| `413` | — | Upload exceeds the size limit |
+| `422` | — | File text extraction failed (`/v1/extract`) |
 | `429` | — | Rate limit — see [Rate Limits](/en/api-reference/rate-limits) |
 | `500` | `internal_error` | Unexpected server-side failure |
 | `502` | — | Upstream agent error — transient; retry with backoff |
 
-In **streaming**, an upstream failure arrives as an SSE error frame before the stream ends.
+In **streaming**, an upstream failure arrives as an SSE error frame (`{"error": ...}` on the Answers API, `response.failed` on the Agent API) before the stream ends.
 
 ## Endpoints at a glance
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | [`/v1/models`](/en/api-reference/models) | List capability tiers (`mirobody-flash` / `mirobody-expert`) |
-| `POST` | [`/v1/chat/completions`](/en/api-reference/chat) | OpenAI-compatible health chat (stream, `health_context`, `mcp_servers`) |
-| `POST` · `GET` | [`/v1/data`](/en/api-reference/data) | Write / read structured records |
-| `POST` · `GET` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch parsed text |
-| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session (see caveats — session-record purge is not yet effective) |
+| `POST` | [`/v1/chat/completions`](/en/api-reference/chat) | **Answers API** — closed grounded completion (stream, evidence) |
+| `POST`·`GET`·`DELETE` | [`/v1/responses`](/en/api-reference/responses) | **Agent API** — client tools, stored conversations, `response.*` streaming |
+| `POST` · `GET` · `DELETE` | [`/v1/data`](/en/api-reference/data) | Write / read / erase structured records (standardized on write) |
+| `POST` | [`/v1/extract`](/en/api-reference/extract) | Document → standardized indicators (dry-run by default) |
+| `POST` · `GET` · `DELETE` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch text, delete |
+| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session and purge its session-scoped data |
+| `DELETE` | `/v1/subjects/{user}` | Erase everything for one Subject (right to be forgotten) — see [Compliance](/en/api-reference/compliance) |
 | `GET`·`POST`·`DELETE` | [`/api/console/keys`](/en/api-reference/console/keys) | Manage API keys (JWT) |
-| `GET` | [`/api/console/usage`](/en/api-reference/console/usage) | Usage: requests / tokens / cost (JWT) |
+| `GET` | [`/api/console/usage`](/en/api-reference/console/usage) | Usage: requests / tokens (JWT) |

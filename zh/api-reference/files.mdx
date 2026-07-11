@@ -1,6 +1,6 @@
 ---
 title: "文件"
-description: "POST /v1/files、GET /v1/files —— 上传并解析报告、列出、获取解析后的文本。"
+description: "POST /v1/files、GET /v1/files、DELETE /v1/files/{file_key} —— 上传并解析报告、列出、获取解析后的文本、删除。"
 ---
 
 上传一份健康文档，Mirobody 会将其解析进数据主体(Subject)的存储。PDF 和图片会经过 **OCR**；Excel / CSV 会按结构解析为健康记录。对话智能体随后会在作答时自动读取已上传的文件。
@@ -18,6 +18,7 @@ Content-Type:  multipart/form-data
 | `file` | 文档（PDF / 图片 / Excel / CSV）。 |
 | `user` | 文件所属的数据主体(Subject)。**可选** —— 省略时会回退到你账户的 **`default`** 数据主体(Subject)，因此为实现按终端用户隔离，请始终传入它。 |
 | `retention` | **此处可选**（与 `POST /v1/data` 不同，那里为必填）。取值与[数据留存](/zh/api-reference/overview#数据留存)相同。 |
+| `session_id` | 可选；将 `retention=session` 的上传限定到某个[会话](/zh/api-reference/sessions)。 |
 
 ```bash
 curl https://test-mirobody-api.thetahealth.ai/v1/files \
@@ -64,14 +65,14 @@ Authorization: Bearer mb_live_*
       "filename": "checkup_2026.pdf",
       "file_type": "application/pdf",
       "bytes": 20544,
-      "created_at": 1782924296716
+      "created_at": 1782924296
     }
   ],
   "subject": "alice"
 }
 ```
 
-`data` 存放文件；`subject` 回显数据主体(Subject)。每一项都同时暴露 `id` 和 `file_key`（二者值相同）。注意**列表**中的 `created_at` 是 **epoch 毫秒** —— 而上方的上传响应用的是 epoch 秒。
+`data` 存放文件；`subject` 回显数据主体(Subject)。每一项都同时暴露 `id` 和 `file_key`（二者值相同）。`created_at` 是 **epoch 秒**，与上传响应一致。
 
 ## 获取解析后的文本
 
@@ -97,6 +98,15 @@ Authorization: Bearer mb_live_*
 
 ## 删除文件
 
-<Note>
-`/v1` 中目前**没有按文件或按数据主体(Subject)删除的端点** —— `DELETE /v1/files/{file_key}` 和 `DELETE /v1/subjects/{user}` 在当前集群上**尚不可用**。如今，有时限的上传通过 **[留存](/zh/api-reference/overview#数据留存)过期**移除（小时粒度会自动删除；`session` 数据上限为 24 小时）。如需完整的数据擦除请求，请联系 [Mirobody Support](mailto:developer@thetahealth.ai) —— 参见[合规](/zh/api-reference/compliance)。
-</Note>
+```http
+DELETE /v1/files/{file_key}?user=alice
+Authorization: Bearer mb_live_*
+```
+
+立即将该文件从 API 表面移除（若不是该 Subject 的文件或已删除则返回 `404`）：
+
+```json
+{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv", "deleted": true, "subject": "alice" }
+```
+
+有时限的上传也会通过 **[留存](/zh/api-reference/overview#数据留存)过期**自动移除。如需一次性擦除某个 Subject 的全部数据，请使用 `DELETE /v1/subjects/{user}` —— 参见[合规](/zh/api-reference/compliance)。

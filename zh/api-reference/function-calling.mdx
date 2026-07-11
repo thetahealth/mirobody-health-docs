@@ -1,0 +1,162 @@
+---
+title: "Function Calling"
+description: "Agent API 上的内置服务端工具 + 你自己的客户端 function 工具，以及两种交接续跑方式。"
+---
+
+[Agent API](/zh/api-reference/responses) 运行两类工具：
+
+1. **内置服务端工具** —— 平台的健康数据工具。它们在**服务端**运行；你从不执行它们。其轨迹是被报告的，不是被委派的。
+2. **客户端 function 工具** —— **你**在请求上声明的工具。模型想用时，响应以 `function_call` output item 交接；你执行后续跑。
+
+## 内置服务端工具
+
+智能体始终持有针对 Subject 数据的平台工具集（与 [Answers API](/zh/api-reference/chat#内置工具) 同一目录）：
+
+- `query_health_data`、`summarize_health_data` —— 检索并聚合 Subject 的记录
+- `list_clinical_records` —— 列出临床文档 / FHIR 支撑的记录
+- `list_family_members` —— 解析 Subject 有权查询的照护圈成员
+- `write_fhir_observation` —— 写入一条结构化 FHIR observation
+- `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 医学证据（供给 `citations`）
+- `fetch_url` —— 读取网页
+
+外加内部使用的 deep-agents 框架工具（`write_todos`、`task`、`eval`、文件系统工具）。它们的运行出现在响应对象的**顶层 `tool_steps` 扩展**中（绝不作为 `output` item —— 官方 SDK 会错误解析未知 item 类型），流式下则是 [`response.mirobody_tool_call` 旁路事件](/zh/api-reference/streaming#服务端工具旁路通道)。
+
+## 声明客户端工具
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "input": "Check my recent glucose and book a follow-up if it is trending up.",
+  "user": "alice",
+  "tools": [
+    {
+      "type": "function",
+      "name": "book_appointment",
+      "description": "Book a clinic appointment for the end user.",
+      "parameters": {
+        "type": "object",
+        "properties": { "date": { "type": "string", "description": "ISO date" } },
+        "required": ["date"]
+      }
+    }
+  ]
+}
+```
+
+规则（违反即显式 `400`，绝不静默丢弃）：
+
+| 规则 | 细节 |
+| --- | --- |
+| 类型 | 目前仅支持 `"type": "function"`。扁平 Responses 形式与 completions 嵌套的 `{"type":"function","function":{...}}` 形式都接受。`{"type": "mcp"}` 在路线图上 —— 见 [MCP servers](/zh/api-reference/mcp-servers)。 |
+| 数量 | 每请求最多 **64** 个工具。 |
+| 名称 | 需匹配 `[a-zA-Z0-9_-]{1,64}`；必须唯一；**不得与内置工具重名**（`query_health_data`、`read_file`、`task` 等）。 |
+| `parameters` | JSON Schema 对象（默认 `{"type":"object","properties":{}}`）。 |
+| `tool_choice` | `"auto"`（默认）、`"none"`（本轮禁用你的工具）或指名某个客户端工具。其它取值 → `400 unsupported_parameter`。 |
+
+<Warning>
+**安全提示：** 智能体持有访问 Subject 健康数据的工具。Subject 隔离已把每次调用限定在该开发者自己的数据内，但你的工具描述与结果同属提示面 —— 不要未经审查地把不可信的第三方文本灌进去。
+</Warning>
+
+## 交接
+
+模型调用你的工具时，响应以一个 `function_call` output item **完成**（`status: "completed"` —— *响应*结束了；*对话*在等你）：
+
+```jsonc
+{
+  "id": "resp_abc...",
+  "object": "response",
+  "status": "completed",
+  "output": [
+    { "type": "function_call", "id": "fc_0", "call_id": "call_9f2...",
+      "status": "completed", "name": "book_appointment",
+      "arguments": "{\"date\": \"2026-07-14\"}" }
+  ],
+  "output_text": "",
+  ...
+}
+```
+
+流式下，同一交接以 `response.output_item.added` → `response.function_call_arguments.delta` / `.done` → `response.output_item.done` 事件组到达（见[流式传输](/zh/api-reference/streaming)）。
+
+执行工具后，用**两种方式之一**续跑：
+
+### 路径 1 —— 有状态续跑（`previous_response_id`）
+
+**只**发送 `function_call_output` item，并引用交接响应。服务端恢复暂停的 agent 线程 —— 无需重发历史：
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "previous_response_id": "resp_abc...",
+        "input": [
+          { "type": "function_call_output", "call_id": "call_9f2...",
+            "output": "Booked: Mon 2026-07-14 09:30, Dr. Chen" }
+        ],
+        "user": "alice"
+      }'
+```
+
+要求：输出必须**恰好**覆盖所有待处理 `call_id`（并行调用 → 每个一条 `function_call_output`）；续跑时不得混入 `message` item；一次交接只能被续跑**一次**（重复续跑会显式失败）。要求交接响应已被存储（`store=true`，即默认值）。
+
+### 路径 2 —— 无状态全量回放
+
+**openai-agents** 的默认做法：把*完整的* item 转录重发在 `input` 中 —— 包括 `function_call` / `function_call_output` 对 —— **不带** `previous_response_id`：
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "input": [
+    { "role": "user", "content": "Check my recent glucose and book a follow-up if it is trending up." },
+    { "type": "function_call", "call_id": "call_9f2...", "name": "book_appointment",
+      "arguments": "{\"date\": \"2026-07-14\"}" },
+    { "type": "function_call_output", "call_id": "call_9f2...",
+      "output": "Booked: Mon 2026-07-14 09:30, Dr. Chen" }
+  ],
+  "tools": [ ... ],
+  "user": "alice"
+}
+```
+
+这些成对 item 会被重建为对话历史，运行按新一轮继续。全程可配 `store=false`。
+
+## openai-agents 端到端
+
+SDK 处理整个闭环 —— 声明、交接、执行、回放：
+
+```python
+from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+set_tracing_disabled(True)
+
+@function_tool
+def book_appointment(date: str) -> str:
+    """Book a clinic appointment for the end user (ISO date)."""
+    return f"Booked: {date} 09:30, Dr. Chen"
+
+agent = Agent(
+    name="Health assistant",
+    model="mirobody-flash",
+    instructions="Check real health data before acting.",
+    tools=[book_appointment],
+)
+result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
+print(result.final_output)
+```
+
+模型用**内置服务端工具**读取 Subject 的真实血糖数据，再交接给**你的** `book_appointment` —— SDK 在本地执行并自动回放转录。
+
+## 续跑错误
+
+| HTTP `400` 消息 | 原因 |
+| --- | --- |
+| `previous response has no pending function calls` | 续跑的响应并非交接（或已被续跑过）。 |
+| `cannot mix message items with function_call_output when resuming via previous_response_id` | 续跑请求只能包含工具输出。 |
+| `unknown call_id(s): [...]` / `missing function_call_output for call_id(s): [...]` | 输出必须与待处理调用严格匹配。 |
+| `previous response has pending function call(s) — provide function_call_output items for: ...` | 在未提供输出的情况下续接一个有待处理交接的对话。 |
+| `function_call_output without matching function_call items — replay the full transcript, or resume via previous_response_id` | 无状态回放必须连同 `function_call` item 一起发。 |

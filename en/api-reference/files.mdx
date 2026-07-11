@@ -1,6 +1,6 @@
 ---
 title: "Files"
-description: "POST /v1/files, GET /v1/files — upload & parse reports, list, fetch parsed text."
+description: "POST /v1/files, GET /v1/files, DELETE /v1/files/{file_key} — upload & parse reports, list, fetch parsed text, delete."
 ---
 
 Upload a health document and Mirobody parses it into the Subject's store. PDFs and images go through **OCR**; Excel / CSV are parsed structurally into health records. The chat agent then reads uploaded files automatically when it answers.
@@ -18,6 +18,7 @@ Content-Type:  multipart/form-data
 | `file` | The document (PDF / image / Excel / CSV). |
 | `user` | Subject the file belongs to. **Optional** — omitting it falls back to your account's **`default`** Subject, so always pass it for per-end-user isolation. |
 | `retention` | **Optional here** (unlike `POST /v1/data`, where it's required). Same values as [Data retention](/en/api-reference/overview#data-retention). |
+| `session_id` | Optional; scopes `retention=session` uploads to a [session](/en/api-reference/sessions). |
 
 ```bash
 curl https://test-mirobody-api.thetahealth.ai/v1/files \
@@ -64,14 +65,14 @@ Authorization: Bearer mb_live_*
       "filename": "checkup_2026.pdf",
       "file_type": "application/pdf",
       "bytes": 20544,
-      "created_at": 1782924296716
+      "created_at": 1782924296
     }
   ],
   "subject": "alice"
 }
 ```
 
-`data` holds the files; `subject` echoes the Subject. Each item exposes both `id` and `file_key` (identical values). Note `created_at` in the **list** is **epoch milliseconds** — the upload response above uses epoch seconds.
+`data` holds the files; `subject` echoes the Subject. Each item exposes both `id` and `file_key` (identical values). `created_at` is **epoch seconds**, matching the upload response.
 
 ## Fetch parsed text
 
@@ -95,8 +96,17 @@ Returns the parsed text for one file — the same content the agent reads:
 
 `abstract` may be empty (it isn't generated for every file type).
 
-## Deleting files
+## Delete a file
 
-<Note>
-There is currently **no per-file or per-Subject delete endpoint** in `/v1` — `DELETE /v1/files/{file_key}` and `DELETE /v1/subjects/{user}` are **not yet available** on the current cluster. Today, time-bounded uploads are removed by **[retention](/en/api-reference/overview#data-retention) expiry** (hour grains auto-delete; `session` data is capped at 24h). For a full data-erasure request, contact [Mirobody Support](mailto:developer@thetahealth.ai) — see [Compliance](/en/api-reference/compliance).
-</Note>
+```http
+DELETE /v1/files/{file_key}?user=alice
+Authorization: Bearer mb_live_*
+```
+
+Removes the file from the API surface immediately (`404` if it isn't the Subject's file or is already deleted):
+
+```json
+{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv", "deleted": true, "subject": "alice" }
+```
+
+Time-bounded uploads are also removed automatically by **[retention](/en/api-reference/overview#data-retention) expiry**. To erase everything about a Subject at once, use `DELETE /v1/subjects/{user}` — see [Compliance](/en/api-reference/compliance).

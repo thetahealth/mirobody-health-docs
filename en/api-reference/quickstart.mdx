@@ -1,90 +1,113 @@
 ---
 title: "Quickstart"
-description: "Create a key in the console and make your first /v1 call."
+description: "Three steps: connect your data, watch it standardize, put AI on top."
 ---
 
-Mirobody's hosted API is **OpenAI-compatible**: point any OpenAI SDK at `https://test-mirobody-api.thetahealth.ai/v1`, pass an `mb_live_*` key, and the agent answers from each end-user's real health data.
+import BaseUrl from '/snippets/base-url.mdx';
+
+Mirobody in three steps: **① connect data → ② it comes back standardized → ③ use it with AI.** Everything is OpenAI-compatible — you'll need an `mb_live_*` key and ~10 minutes.
 
 <Note>
-Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/). These docs are a reference and guide; the console is where you sign in and manage everything.
+Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/). Sign in with email code, open **API Keys**, create one (the secret is shown **once**):
+
+```bash
+export MIROBODY_API_KEY="mb_live_..."
+```
 </Note>
 
-<Info>
-**Live today:** build against the global **test** cluster — API `https://test-mirobody-api.thetahealth.ai/v1`, console [test-platform.mirobody.ai](https://test-platform.mirobody.ai/). Production is provisioning; the China **test** environment is now live too ([Regions](/en/api-reference/regions/overview)). The console defaults to Chinese — use the language switch (top-right) for English.
-</Info>
+<BaseUrl />
 
 <Steps>
-  <Step title="Sign in & get an API key">
-    Sign in to the console with **email code** — enter your email, receive a 6-digit code, and sign in. Then open **API Keys** and create one; the secret is shown **once**. (Need an evaluation account? Email [Mirobody Support](mailto:developer@thetahealth.ai).)
-
-    <Card title="Open the console → API Keys" icon="key" href="https://test-platform.mirobody.ai/developer/keys" horizontal>
-      Sign in, create an `mb_live_*` key, and copy it.
-    </Card>
+  <Step title="① Connect your data">
+    Write structured readings with [`POST /v1/data`](/en/api-reference/data) (`retention` is **required**), or upload a lab report — PDF, photo, spreadsheet — with [`POST /v1/files`](/en/api-reference/files):
 
     ```bash
-    export MIROBODY_API_KEY="mb_live_..."
-    ```
-  </Step>
-
-  <Step title="Make your first call">
-    <CodeGroup>
-    ```bash curl
-    curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
-      -H "Authorization: Bearer $MIROBODY_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d '{
-            "model": "mirobody-flash",
-            "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
-            "user": "alice"
-          }'
-    ```
-
-    ```python Python (OpenAI SDK)
-    from openai import OpenAI
-
-    client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
-    resp = client.chat.completions.create(
-        model="mirobody-flash",
-        messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
-        user="alice",
-    )
-    print(resp.choices[0].message.content)
-    ```
-
-    ```javascript Node.js (OpenAI SDK)
-    import OpenAI from "openai";
-
-    const client = new OpenAI({
-      apiKey: process.env.MIROBODY_API_KEY,
-      baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
-    });
-    const resp = await client.chat.completions.create({
-      model: "mirobody-flash",
-      messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
-      user: "alice",
-    });
-    console.log(resp.choices[0].message.content);
-    ```
-    </CodeGroup>
-
-    The `user` field isolates each end-user as a [Subject](/en/api-reference/overview#multi-tenancy-the-user-field) — pass each of your users' stable ids. See the full [Chat reference](/en/api-reference/chat).
-  </Step>
-
-  <Step title="Give the Subject some data">
-    A fresh Subject has no data, so the agent will say so. Write a record (or upload a report with [`POST /v1/files`](/en/api-reference/files)) and ask again:
-
-    ```bash
+    # Structured records
     curl https://test-mirobody-api.thetahealth.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
             "user": "alice",
             "retention": "permanent",
-            "records": [{"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"}]
+            "records": [
+              {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
+              {"indicator": "FBG",             "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+            ]
           }'
+
+    # Or a document (OCR'd and parsed automatically)
+    curl https://test-mirobody-api.thetahealth.ai/v1/files \
+      -H "Authorization: Bearer $MIROBODY_API_KEY" \
+      -F "user=alice" -F "file=@lab_report.pdf"
     ```
 
-    `retention` is **required** on `POST /v1/data` (no default) — omitting it returns `400`. See [Data](/en/api-reference/data) and [Files](/en/api-reference/files).
+    `user` is the [tenant-isolation key](/en/api-reference/overview#multi-tenancy-the-user-field) — pass each end-user's stable id and their data never mixes.
+  </Step>
+
+  <Step title="② It comes back standardized">
+    Note the two spellings above — `fasting_glucose` and `FBG`. Read the data back and both rows carry the **same LOINC code**, a canonical name, UCUM-parsed values, and a FHIR mirror id:
+
+    ```bash
+    curl "https://test-mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
+      -H "Authorization: Bearer $MIROBODY_API_KEY"
+    ```
+
+    ```json
+    {
+      "object": "list",
+      "data": [
+        {
+          "indicator": "FBG",
+          "value": "5.1 mmol/L",
+          "parsed_value": 5.1,
+          "parsed_unit": "mmol/L",
+          "loinc_code": "1558-6",
+          "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+          "fhir_resource_id": "8f3c9a1e-...",
+          "time": "2026-06-17T07:25:00+00",
+          "source": "api",
+          "comment": ""
+        }
+      ],
+      "has_more": true,
+      "subject": "alice"
+    }
+    ```
+
+    That's the [standardization pipeline](/en/api-reference/standardization) — deterministic name→LOINC (no LLM code-guessing) + UCUM + FHIR, on **every** write. To preview it on a document without storing anything, try [`POST /v1/extract`](/en/api-reference/extract).
+  </Step>
+
+  <Step title="③ Put AI on top">
+    A grounded answer is three lines — the agent reads the standardized series, so "glucose" finds the rows written as "FBG":
+
+    ```python Answers API (3 lines)
+    from openai import OpenAI
+    client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+    print(client.chat.completions.create(model="mirobody-flash", user="alice",
+        messages=[{"role": "user", "content": "How is my fasting glucose trending?"}]
+    ).choices[0].message.content)
+    ```
+
+    And a real agent — with **your own tool** — is ten. The [openai-agents SDK](https://github.com/openai/openai-agents-python) works against the [Agent API](/en/api-reference/responses) by changing only the base URL:
+
+    ```python openai-agents SDK (10 lines)
+    from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+    from openai import AsyncOpenAI
+
+    set_default_openai_client(AsyncOpenAI(
+        base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    set_tracing_disabled(True)
+
+    @function_tool
+    def book_appointment(date: str) -> str:
+        """Book a clinic appointment for the end user (ISO date)."""
+        return f"Booked: {date} 09:30, Dr. Chen"
+
+    agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment])
+    print(Runner.run_sync(agent, "Check my recent glucose; book a follow-up if it's trending up.").final_output)
+    ```
+
+    Mirobody's built-in tools read alice's real data; when the model decides to book, it hands off to **your** function. See [Function calling](/en/api-reference/function-calling) for the protocol underneath.
   </Step>
 </Steps>
 
@@ -101,30 +124,19 @@ The console has a **Playground** — run chats, upload files, and inspect tool s
   </Card>
 </CardGroup>
 
-## See it live
-
-<CardGroup cols={2}>
-  <Card title="Mirobody app" icon="globe" href="https://test-chat.mirobody.ai/">
-    **chat.mirobody.ai** — the flagship consumer product, the same engine behind this API.
-  </Card>
-  <Card title="Developer console" icon="terminal" href="https://test-platform.mirobody.ai/developer">
-    Create `mb_live_*` keys, view usage, and try the Playground.
-  </Card>
-</CardGroup>
-
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/en/api-reference/overview">
-    Auth, multi-tenancy, retention, and every `/v1` endpoint.
+  <Card title="Choose your API" icon="signs-post" href="/en/api-reference/choose-your-api">
+    Answers vs Agent in one minute.
+  </Card>
+  <Card title="Agent API" icon="robot" href="/en/api-reference/responses">
+    Client tools, stored conversations, streaming events.
+  </Card>
+  <Card title="Standardization" icon="wand-magic-sparkles" href="/en/api-reference/standardization">
+    OCR → extraction → LOINC → UCUM → FHIR, explained.
   </Card>
   <Card title="SDK Examples" icon="boxes-stacked" href="/en/api-reference/sdk-examples">
-    curl / Python / Node, streaming and file upload.
-  </Card>
-  <Card title="China Region" icon="location-dot" href="/en/api-reference/regions/china">
-    Base URLs, storage residency, models, and limits.
-  </Card>
-  <Card title="Compliance" icon="shield" href="/en/api-reference/compliance">
-    PIPL / data residency; request a DPA.
+    curl / Python / Node / openai-agents, end to end.
   </Card>
 </CardGroup>

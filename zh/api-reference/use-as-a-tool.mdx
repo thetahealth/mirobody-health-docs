@@ -1,0 +1,86 @@
+---
+title: "把 Answers 用作工具"
+description: "Cookbook：把 Answers API 包成你自己 agent 里的一个工具（openai-agents SDK / LangChain）。"
+---
+
+[Answers API](/zh/api-reference/chat) 是一个**封闭的 grounded completion** —— 问题进、有证据的回答出，没有旋钮。这个形状恰好就是外层 agent 想要的工具：你的 agent（跑在任何模型、任何框架上）保有编排权，把*"这位用户的真实健康记录说明了什么？"*委托给 Mirobody。
+
+何时优先于 [Agent API](/zh/api-reference/responses)：你**已经有**一个 agent，只需要把"有依据的健康回答"作为其中一项能力。若你想让 Mirobody *就是*那个 agent（并调用**你的**工具），请改用 [Agent API](/zh/api-reference/function-calling)。
+
+## openai-agents SDK
+
+外层 agent 跑在 OpenAI（或任何兼容 Responses 的后端）上；工具体内调用 Mirobody：
+
+```python
+from agents import Agent, Runner, function_tool
+from openai import OpenAI
+
+mirobody = OpenAI(
+    api_key="mb_live_...",
+    base_url="https://test-mirobody-api.thetahealth.ai/v1",
+)
+
+@function_tool
+def health_answers(question: str, user_id: str) -> str:
+    """Answer a question from this end user's REAL health records
+    (labs, vitals, reports). Grounded and citation-backed — use it for
+    anything about the user's own health data."""
+    resp = mirobody.chat.completions.create(
+        model="mirobody-flash",
+        messages=[{"role": "user", "content": question}],
+        user=user_id,                    # 终端用户的稳定 id（Subject）
+    )
+    return resp.choices[0].message.content
+
+coach = Agent(
+    name="Wellness coach",
+    model="gpt-4.1",                     # 你的模型、你的编排
+    instructions=(
+        "You are a wellness coach. For anything about the user's own labs, "
+        "vitals or reports, call health_answers with their user_id — never guess."
+    ),
+    tools=[health_answers],
+)
+
+result = Runner.run_sync(coach, "user_id=alice — Should I be worried about my recent glucose?")
+print(result.final_output)
+```
+
+外层模型决定*何时*需要健康数据；Mirobody 的智能体在一次工具调用内完成记录检索、趋势计算与证据引用。
+
+## LangChain
+
+```python
+from langchain_core.tools import tool
+from langchain.agents import create_agent          # LangChain v1 agent API
+from openai import OpenAI
+
+mirobody = OpenAI(
+    api_key="mb_live_...",
+    base_url="https://test-mirobody-api.thetahealth.ai/v1",
+)
+
+@tool
+def health_answers(question: str, user_id: str) -> str:
+    """Answer a question from this end user's real health records
+    (labs, vitals, reports). Grounded, with traceable evidence."""
+    resp = mirobody.chat.completions.create(
+        model="mirobody-flash",
+        messages=[{"role": "user", "content": question}],
+        user=user_id,
+    )
+    return resp.choices[0].message.content
+
+agent = create_agent(model="openai:gpt-4.1", tools=[health_answers])
+out = agent.invoke({"messages": [
+    {"role": "user", "content": "user_id=alice — how did my LDL respond to the diet change?"}
+]})
+print(out["messages"][-1].content)
+```
+
+## 实践建议
+
+- **串好 Subject id。** `user` 参数是隔离键 —— 若框架支持按调用注入上下文，请从你自己的鉴权上下文取值，而不是让模型自由填写。
+- **把证据也带回去。** 若外层 agent 需要展示来源，把响应的 `health_records` / `citations` 扩展与 `content` 一起序列化进工具返回值。
+- **超时。** 一次 grounded 回答是真实的 agent 轮次（秒级而非毫秒级）—— 给工具调用留出充裕超时，同时让外层 agent 流式播报进展。
+- **成本控制。** 工具内默认用 `mirobody-flash`；深度报告解读再用 `mirobody-expert`。见[模型](/zh/api-reference/models)。

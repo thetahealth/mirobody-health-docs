@@ -1,0 +1,7 @@
+Authenticate every `/v1` call with an API key:
+
+```http
+Authorization: Bearer mb_live_*
+```
+
+Create keys in the [developer console](https://test-platform.mirobody.ai/developer/keys) → **API Keys** — the secret is shown **once**. Keys are long-lived and scoped to your account; never ship them in client-side code.

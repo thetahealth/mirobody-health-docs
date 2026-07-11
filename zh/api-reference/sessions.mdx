@@ -10,7 +10,7 @@ DELETE /v1/sessions/{session_id}
 Authorization: Bearer mb_live_*
 ```
 
-将会话标记为已结束。**注意：** 在当前集群上，该调用返回 `deleted: 0`，且**不会**清除通过 [`POST /v1/data`](/zh/api-reference/data) 以 `retention=session` 写入的记录 —— 那些记录仍会在 24 小时会话上限时过期。不要把它当作你唯一的被遗忘权机制。
+结束一个会话并清理其范围内的内容：以此 `session_id` 写入、`retention=session` 的记录会被**硬删除**（行被物理移除），线程在此会话上的聊天历史也会从 API 表面移除。`deleted` 统计清除的数量。
 
 ```bash
 curl -X DELETE "https://test-mirobody-api.thetahealth.ai/v1/sessions/sess_abc123?user=alice" \
@@ -18,44 +18,48 @@ curl -X DELETE "https://test-mirobody-api.thetahealth.ai/v1/sessions/sess_abc123
 ```
 
 <Note>
-删除会话时请带上写入该会话数据时所用的**同一个** `user`；省略则指向账号的默认 Subject。
+传入与写入该会话数据时相同的 `user`；省略则指向你账户的默认 Subject。
 </Note>
 
 响应：
 
 ```json
-{ "status": "ok", "session_id": "sess_abc123", "deleted": 0, "subject": "alice" }
+{ "status": "ok", "session_id": "sess_abc123", "deleted": 2, "subject": "alice" }
 ```
 
 | 字段 | 说明 |
 | --- | --- |
 | `status` | 成功时为 `"ok"`。 |
-| `session_id` | 被结束的会话 id。 |
-| `deleted` | 被清除的记录条数。对于通过 `POST /v1/data` 写入的记录，**目前返回 `0`** —— 见上方注意事项。 |
-| `subject` | 该会话所属的数据主体(Subject)。 |
+| `session_id` | 被结束的会话。 |
+| `deleted` | 清除条目计数（会话范围的数据记录 + 对话行）。`0` 只表示没有内容限定在此会话。 |
+| `subject` | 会话所属的 Subject。 |
 
 ## 会话如何工作
 
-在 [`/v1/chat/completions`](/zh/api-reference/chat) 中，`session_id` 有两个作用：
+`session_id` 是一个**有名字的清理范围** —— 用一个 id 把一次交互的工作数据与对话绑在一起：
 
-1. **串联多轮上下文**——在共享同一 `session_id` 的多次调用之间贯穿上下文。
-2. **限定 `retention=session` 数据的范围**——以 `retention=session` 写入的记录 / 文件 / 内联 `health_context`，其存续时间仅与会话相同。
+1. **限定 `retention=session` 数据** —— 通过 [`POST /v1/data`](/zh/api-reference/data)（或 [`POST /v1/extract`](/zh/api-reference/extract) 的 `store=true`）以 `retention: "session"` 写入的记录**必须**携带 `session_id`，且只存活到会话被删除为止（无论如何上限 **24 小时**）。
+2. **在 Agent API 上绑定永续对话** —— 给 [`POST /v1/responses`](/zh/api-reference/responses) 传 `session_id` 会让对话在该 id 下永续、可恢复。见[状态与记忆](/zh/api-reference/state-and-memory)。
 
-无论如何，会话数据的上限为 **24 小时**。（`DELETE /v1/sessions/{id}` 旨在更早将其清除，但目前对 `POST /v1/data` 写入的记录报告 `deleted: 0` —— 请依赖 24 小时上限。）
+```python
+import requests
 
-```python Python
-client.chat.completions.create(
-    model="mirobody-flash",
-    messages=[{"role": "user", "content": "Here are today's readings — anything off?"}],
-    user="alice",
-    extra_body={
-        "session_id": "sess_abc123",
-        "retention": "session",
-        "health_context": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg", "time": "2026-06-16T08:00:00Z"}],
-    },
-)
-# ... later, when the conversation ends:
-# DELETE /v1/sessions/sess_abc123  → marks the session ended (see caveat)
+BASE = "https://test-mirobody-api.thetahealth.ai/v1"
+H = {"Authorization": "Bearer mb_live_..."}
+
+# 写入限定在会话内的工作数据
+requests.post(f"{BASE}/data", headers=H, json={
+    "user": "alice",
+    "retention": "session",
+    "session_id": "sess_abc123",
+    "records": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg",
+                 "time": "2026-06-16T08:00:00Z"}],
+})
+
+# ... 用 session_id="sess_abc123" 运行 agent 轮次 ...
+
+# 交互结束时，清除其范围内的一切：
+requests.delete(f"{BASE}/sessions/sess_abc123", headers=H, params={"user": "alice"})
 ```
 
-完整模型参见 [留存](/zh/api-reference/overview#数据留存)。
+完整生命周期模型见[留存](/zh/api-reference/overview#数据留存)。
