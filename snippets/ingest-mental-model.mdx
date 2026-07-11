@@ -1,0 +1,9 @@
+Health data arrives in three shapes — each has exactly one door in:
+
+| Data shape | Typical source | How it goes in | Endpoint |
+| --- | --- | --- | --- |
+| **Structured readings** | Devices / wearables (**you integrate them**, write daily aggregates), manual entries | Structured records | [`POST /v1/data`](/en/api-reference/data) — pre-aggregate high-frequency samples; episodes (sleep, workouts) carry `time` + `end_time`. See the [device-data cookbook](/en/api-reference/device-data). |
+| **Files / photos** | Lab reports, checkup PDFs, phone photos | File upload | [`POST /v1/files`](/en/api-reference/files) — OCR + parsing included; [`POST /v1/extract`](/en/api-reference/extract) when you want the parsed readings back synchronously |
+| **Narrative notes** | "dizzy and a headache", dictated notes | Narrative text | [`POST /v1/extract`](/en/api-reference/extract) — quantifiable readings are extracted; pure narrative returns `data: []` plus a `note` (a journal endpoint is on the roadmap) |
+
+Mirobody hosts, standardizes and serves the data to AI — collecting it (device OAuth, app capture) is your side of the line.

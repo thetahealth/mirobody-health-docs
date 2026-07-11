@@ -4,6 +4,7 @@ description: "Three steps: connect your data, watch it standardize, put AI on to
 ---
 
 import BaseUrl from '/snippets/base-url.mdx';
+import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
 
 Mirobody in three steps: **① connect data → ② it comes back standardized → ③ use it with AI.** Everything is OpenAI-compatible — you'll need an `mb_live_*` key and ~10 minutes.
 
@@ -19,6 +20,8 @@ export MIROBODY_API_KEY="mb_live_..."
 
 <Steps>
   <Step title="① Connect your data">
+    <IngestMentalModel />
+
     Write structured readings with [`POST /v1/data`](/en/api-reference/data) (`retention` is **required**), or upload a lab report — PDF, photo, spreadsheet — with [`POST /v1/files`](/en/api-reference/files):
 
     ```bash

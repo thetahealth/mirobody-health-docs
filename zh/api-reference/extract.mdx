@@ -99,6 +99,24 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
 | `measured_at` | 文档中找到的时间戳（如有）。 |
 | `stored` | 本次调用是否写入了存储（回显 `store`）。 |
 | `stored_count` | 实际写入的读数条数（dry-run 时为 `0`）。 |
+| `note` | **仅当 `data` 为空时出现** —— 说明未找到可量化读数（见下）。 |
+
+## 未找到可量化读数 —— 叙事文本
+
+`/v1/extract` 抽取的是**可量化读数**。纯叙事文本 —— *「整个下午头晕头疼」* —— 是明确声明的边界，不是错误：调用成功（`200`），返回空的 `data` 数组加一个 `note`：
+
+```json
+{
+  "object": "extraction",
+  "data": [],
+  "stored": false,
+  "stored_count": 0,
+  "subject": "alice",
+  "note": "no quantifiable readings found in the text; subjective/narrative entries (journal) are not supported yet"
+}
+```
+
+混合文本按预期工作 —— *「头疼了一天，体温 38.2 °C」* 会抽出体温读数、丢弃叙事部分。面向主观/叙事记录的专用 journal 端点在规划中。
 
 ## 错误
 

@@ -1,0 +1,94 @@
+---
+title: "设备数据"
+description: "Cookbook：把穿戴/设备数据写入 Mirobody —— 日聚合、批量 POST /v1/data、带 end_time 的 episode。"
+---
+
+import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
+
+你已经接好了穿戴设备 —— 通过 Terra、Junction 或厂商 API —— 样本正流进你的后端。本页是把它们写入 Mirobody 的配方：写入之后，[标准化管线](/zh/api-reference/standardization)和智能体会像对待任何健康记录一样处理它们。
+
+<Note>
+**Mirobody 不托管设备 OAuth** —— 没有 Terra 式的 connect 组件。Mirobody 负责托管、标准化并把数据供给 AI；采集数据（设备 OAuth、App 侧获取）在你那一侧。
+</Note>
+
+## 配方
+
+<Steps>
+  <Step title="接收">
+    你的厂商集成送来样本 —— webhook 推送或周期性拉取，厂商提供什么就用什么。
+  </Step>
+  <Step title="聚合到日级">
+    高频序列在写入前先自聚合为**每天一条记录**。Mirobody 内部的设备链路也是同样做法 —— 高频样本归成日级桶，日汇总 1:1 落库，episode 保留时段。
+  </Step>
+  <Step title="用 POST /v1/data 写入">
+    每次请求最多 **500 条**，`retention` 必填 —— 与任何其它[结构化写入](/zh/api-reference/data)同一契约。
+  </Step>
+</Steps>
+
+## 1. 写入前先聚合
+
+[`POST /v1/data`](/zh/api-reference/data) 是记录存储，不是原始样本收集器。一行应当是一条有意义的读数：
+
+- **日累计**（步数、卡路里、距离）—— 每天一条记录。
+- **连续序列**（每隔几分钟采样的心率、SpO₂）—— 先聚合成日级值（如静息/日均心率）；需要 min/max 就作为独立指标各写一条。
+- **Episode 型**（睡眠、运动）—— 每个 episode 一条记录，用 `time` + `end_time` 携带时段（见下）。
+
+## 2. 批量写入日级记录
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "steps",              "value": 12450,             "time": "2026-07-10T00:00:00Z", "source": "garmin"},
+          {"indicator": "resting_heart_rate", "value": 58, "unit": "/min", "time": "2026-07-10T00:00:00Z", "source": "garmin"}
+        ]
+      }'
+```
+
+每次请求最多 **500 条** —— 把一个 Subject 一整天（或一段回填窗口）的数据装进一次调用。`source` 是自由文本，读回时会带上，用它标记厂商来源。
+
+<SubjectUserParam />
+
+## 3. Episode：用 `end_time` 携带时段
+
+睡眠和运动不是时间点读数 —— 它们跨越一个时段。起点放 `time`，终点放可选的 `end_time`（均为 ISO 时间戳）：
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "sleep_duration", "value": 7.5, "unit": "h",
+           "time": "2026-07-09T23:10:00Z", "end_time": "2026-07-10T06:40:00Z",
+           "source": "garmin"}
+        ]
+      }'
+```
+
+[`GET /v1/data`](/zh/api-reference/data#读取记录) 每行都会把 `end_time` 返回来（时间点读数为 `null`），你的应用可以按时段渲染这个 episode。
+
+## 4. 标准化自动发生
+
+每次写入都走与手动录入、文件上传相同的[标准化管线](/zh/api-reference/standardization)：指标名称确定性解析到 **LOINC**，值归一到 **UCUM** 单位，每条记录都有 **FHIR** 镜像。用 [`GET /v1/data`](/zh/api-reference/data#读取记录) 读回干净的序列 —— 智能体回答时读的也是同一份。
+
+## Mirobody 刻意不做什么
+
+托管设备 OAuth。连接设备 —— 厂商授权页、token 刷新、webhook 管道 —— 留在你的产品里；每家厂商的流程都不一样，它属于你的 UX。而数据进来*之后*的一切 —— 存储、标准化、留存、删除、AI —— 是 Mirobody 的职责。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="数据" icon="database" href="/zh/api-reference/data">
+    POST / GET / DELETE /v1/data 的完整契约。
+  </Card>
+  <Card title="标准化" icon="wand-magic-sparkles" href="/zh/api-reference/standardization">
+    每次写入都发生的 LOINC / UCUM / FHIR。
+  </Card>
+</CardGroup>

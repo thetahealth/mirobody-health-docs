@@ -125,6 +125,7 @@
                 "group": "Data Plane",
                 "pages": [
                   "en/api-reference/data",
+                  "en/api-reference/device-data",
                   "en/api-reference/files",
                   "en/api-reference/sessions",
                   "en/api-reference/extract",
@@ -259,6 +260,7 @@
                 "group": "数据面",
                 "pages": [
                   "zh/api-reference/data",
+                  "zh/api-reference/device-data",
                   "zh/api-reference/files",
                   "zh/api-reference/sessions",
                   "zh/api-reference/extract",

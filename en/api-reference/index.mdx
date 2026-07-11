@@ -3,6 +3,8 @@ title: "Build health agents on standardized health data"
 description: "Upload messy health data, get standardized records, and put AI to work on them — one OpenAI-compatible API."
 ---
 
+import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
+
 **Mirobody API** turns messy health data into **standardized, AI-ready records** — and gives you two OpenAI-compatible surfaces to put agents to work on them. It's the managed layer over the [open-source Mirobody engine](/en/index): we host storage, models, and keys; you point an OpenAI SDK at the base URL with an `mb_live_*` key.
 
 ## The loop: upload → standardize → use with AI
@@ -18,6 +20,10 @@ description: "Upload messy health data, get standardized records, and put AI to 
     Ask the [Answers API](/en/api-reference/chat) for a grounded, evidence-cited answer — or build a full agent on the [Agent API](/en/api-reference/responses) with your own tools, stored conversations, and the openai-agents SDK working out of the box.
   </Step>
 </Steps>
+
+## Three shapes of data, one door each
+
+<IngestMentalModel />
 
 ## Two API surfaces, one engine
 
@@ -39,6 +45,12 @@ Not sure? [Choose your API](/en/api-reference/choose-your-api) in one minute.
 - **OpenAI-compatible twice over** — Chat Completions *and* Responses protocols; existing SDKs and agent frameworks just work.
 - **Multi-tenant by design** — one key, an isolated Subject per end-user; per-Subject [right-to-be-forgotten deletes](/en/api-reference/overview#endpoints-at-a-glance).
 - **Open at the core** — the same engine is [open source](/en/index); self-host it whenever you want.
+
+## Three ways to run Mirobody
+
+- **Hosted API** (this platform) — an `mb_live_*` key against our managed clusters; storage, models, and keys are run for you. Start with the [Quickstart](/en/api-reference/quickstart).
+- **Self-host the SDK** — `pip install mirobody` and run the engine inside your own infrastructure, bringing your own PostgreSQL + Redis.
+- **Open source** — `git clone` the [Mirobody engine](/en/index) and stand up the full stack yourself with `deploy.sh`.
 
 ## Start here
 

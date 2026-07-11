@@ -4,8 +4,11 @@ description: "POST /v1/data、GET /v1/data、DELETE /v1/data —— 写入、读
 ---
 
 import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
+import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 
 把结构化记录直接写进数据主体(Subject)的存储，并读回。每次写入都会经过平台的[标准化管线](/zh/api-reference/standardization) —— 记录读回时带有 LOINC 编码、规范名称、UCUM 归一化的值/单位与 FHIR 镜像。对话智能体用其内置工具读取的正是这同一份数据。
+
+<IngestMentalModel />
 
 <SubjectUserParam />
 
@@ -19,7 +22,7 @@ Content-Type:  application/json
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `records` | array | 每条记录 `{indicator, value, unit?, time?, source?}`。**每次请求最多 500 条。** |
+| `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记 episode 的结束 —— 睡眠、运动 —— 其起点为 `time`。 |
 | `user` | string | 记录所属的 Subject（租户隔离键）。 |
 | `retention` | string | **必填 —— 没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的别名也接受）。小时粒度在写入后按时长自动删除（硬上限 ≤ 24h）。省略它 —— 或传枚举之外的任何值 —— 返回 `400`（`code: invalid_retention`）。 |
 | `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 能清除它们。 |
@@ -48,6 +51,27 @@ curl https://test-mirobody-api.thetahealth.ai/v1/data \
 **每次写入都会标准化，而不只是存储。** 每条记录的值/单位会做 UCUM 解析，指标名称做确定性 LOINC 解析（curated 语料 + embedding —— 不让 LLM 猜码）。见[标准化](/zh/api-reference/standardization)。想在不写入的情况下预览这条管线，请用 [`POST /v1/extract`](/zh/api-reference/extract) 的 `store=false`。
 </Note>
 
+### Episode 型（睡眠、运动）
+
+Episode 型记录跨越一个时段而非时间点 —— 起点放 `time`，终点放可选的 `end_time`：
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "sleep_duration", "value": 7.5, "unit": "h",
+           "time": "2026-07-09T23:10:00Z", "end_time": "2026-07-10T06:40:00Z",
+           "source": "garmin"}
+        ]
+      }'
+```
+
+规模化写入设备数据（日聚合、批量、厂商接入）？见[设备数据 cookbook](/zh/api-reference/device-data)。
+
 ## 读取记录
 
 ```http
@@ -68,6 +92,7 @@ Authorization: Bearer mb_live_*
   "object": "list",
   "data": [
     {
+      "id": 1287,
       "indicator": "fasting_glucose",
       "value": "5.4 mmol/L",
       "parsed_value": 5.4,
@@ -76,6 +101,7 @@ Authorization: Bearer mb_live_*
       "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
       "fhir_resource_id": "8f3c9a1e-...",
       "time": "2026-06-16T07:30:00+00",
+      "end_time": null,
       "source": "api",
       "comment": ""
     }
@@ -88,10 +114,12 @@ Authorization: Bearer mb_live_*
 | 字段 | 说明 |
 | --- | --- |
 | `data` | 记录数组（至多 `limit` 条）。 |
+| `id` | 行 id（整数）—— 传给 `DELETE /v1/data?id=` 做行级删除。 |
 | `value` | 人读读数（字符串）。 |
 | `parsed_value` / `parsed_unit` | 标准化管线产出的数值 + **UCUM** 单位（无法解析时为 `null`）。 |
 | `loinc_code` / `canonical_name` | 确定性 LOINC 解析结果及其展示名（名称未解析时为 `null`）。 |
 | `fhir_resource_id` | 该记录 FHIR Observation 镜像的 id。 |
+| `end_time` | Episode 型记录（睡眠、运动）时段的结束时间；时间点读数为 `null`。 |
 | `has_more` | 本页达到 `limit` 时为 `true` —— 可能还有更多记录。 |
 | `subject` | 记录所属的 Subject（由 `user` 解析）。 |
 
@@ -102,10 +130,20 @@ DELETE /v1/data?user=alice&indicator=fasting_glucose
 Authorization: Bearer mb_live_*
 ```
 
-**硬删除**该 Subject 的记录 —— 被遗忘权语义（行被物理移除，而非打标）。`indicator` 收窄到单个指标（子串匹配，与 GET 过滤一致）；省略则擦除该 Subject 的**全部**记录。
+**硬删除**该 Subject 的记录 —— 被遗忘权语义（行被物理移除，而非打标）。三种范围，由窄到宽：
+
+| Query | 范围 |
+| --- | --- |
+| `id` | 恰好**一行** —— 即 `GET /v1/data` 返回的整数 id。优先于 `indicator`。 |
+| `indicator` | 单个指标（子串匹配，与 GET 过滤一致）。 |
+| *（都不传）* | 该 Subject 的**全部**记录。 |
+
+```http
+DELETE /v1/data?user=alice&id=1287
+```
 
 ```json
-{ "status": "ok", "deleted": 2, "subject": "alice" }
+{ "status": "ok", "deleted": 1, "subject": "alice" }
 ```
 
 如需擦除某个 Subject 的*一切*（记录 + 文件 + 对话 + 身份映射），使用 `DELETE /v1/subjects/{user}` —— 见[合规](/zh/api-reference/compliance)。

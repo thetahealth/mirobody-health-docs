@@ -1,0 +1,94 @@
+---
+title: "Device data"
+description: "Cookbook: write wearable and device data into Mirobody — daily aggregation, batched POST /v1/data, episodes with end_time."
+---
+
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
+
+You've already integrated a wearable — through Terra, Junction, or a vendor API — and samples are flowing into your backend. This page is the recipe for getting them into Mirobody, so the [standardization pipeline](/en/api-reference/standardization) and the agent work on them like on any other health record.
+
+<Note>
+**Mirobody does not host device OAuth** — there is no Terra-style connect widget. Mirobody hosts, standardizes and serves the data to AI; collecting it (device OAuth, app capture) is your side of the line.
+</Note>
+
+## The recipe
+
+<Steps>
+  <Step title="Receive">
+    Your vendor integration delivers samples — a webhook push or a periodic pull, whatever the vendor offers.
+  </Step>
+  <Step title="Aggregate to daily">
+    Roll high-frequency series up to **one record per day** before writing. Mirobody's own internal device pipeline works the same way — high-frequency samples become daily buckets, daily summaries map 1:1, episodes keep their period.
+  </Step>
+  <Step title="Write with POST /v1/data">
+    Batches of up to **500 records** per request, `retention` required — same contract as any other [structured write](/en/api-reference/data).
+  </Step>
+</Steps>
+
+## 1. Aggregate before you write
+
+[`POST /v1/data`](/en/api-reference/data) is a record store, not a raw-sample sink. One row should be one meaningful reading:
+
+- **Daily totals** (steps, calories, distance) — one record per day.
+- **Continuous series** (heart rate, SpO₂ sampled every few minutes) — aggregate to a daily value first (e.g. resting/mean heart rate); write min/max as their own indicators if you need them.
+- **Episodes** (sleep, workouts) — one record per episode, carrying its period via `time` + `end_time` (below).
+
+## 2. Write daily records in batches
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "steps",              "value": 12450,             "time": "2026-07-10T00:00:00Z", "source": "garmin"},
+          {"indicator": "resting_heart_rate", "value": 58, "unit": "/min", "time": "2026-07-10T00:00:00Z", "source": "garmin"}
+        ]
+      }'
+```
+
+Up to **500 records per request** — batch a full day (or a backfill window) per Subject into one call. `source` is free text and rides along on reads, so tag the vendor.
+
+<SubjectUserParam />
+
+## 3. Episodes: carry the period with `end_time`
+
+Sleep and workouts are not point-in-time readings — they span a period. Put the start in `time` and the end in the optional `end_time` (both ISO timestamps):
+
+```bash
+curl https://test-mirobody-api.thetahealth.ai/v1/data \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "sleep_duration", "value": 7.5, "unit": "h",
+           "time": "2026-07-09T23:10:00Z", "end_time": "2026-07-10T06:40:00Z",
+           "source": "garmin"}
+        ]
+      }'
+```
+
+[`GET /v1/data`](/en/api-reference/data#read-records) returns `end_time` back on every row (`null` for point-in-time readings), so your app can render the episode as a span.
+
+## 4. Standardization is automatic
+
+Every write runs the same [standardization pipeline](/en/api-reference/standardization) as manual entries and file uploads: indicator names resolve to **LOINC** deterministically, values normalize to **UCUM** units, and each record gets a **FHIR** mirror. Read the clean series back with [`GET /v1/data`](/en/api-reference/data#read-records) — and the agent reads the same series when it answers.
+
+## What Mirobody deliberately doesn't do
+
+Hosted device OAuth. Connecting devices — vendor consent screens, token refresh, webhook plumbing — stays in your product; every vendor's flow is different and it belongs next to your UX. What happens *after* the data is in — storage, standardization, retention, deletes, AI — is Mirobody's job.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Data" icon="database" href="/en/api-reference/data">
+    The full POST / GET / DELETE /v1/data contract.
+  </Card>
+  <Card title="Standardization" icon="wand-magic-sparkles" href="/en/api-reference/standardization">
+    What LOINC / UCUM / FHIR happen on every write.
+  </Card>
+</CardGroup>

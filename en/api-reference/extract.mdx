@@ -99,6 +99,24 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
 | `measured_at` | Timestamp found in the document, if any. |
 | `stored` | Whether this call wrote to the store (echoes `store`). |
 | `stored_count` | Readings actually written (`0` on dry-run). |
+| `note` | Present **only when `data` is empty** — explains that no quantifiable readings were found (see below). |
+
+## No quantifiable readings — narrative text
+
+`/v1/extract` extracts **quantifiable readings**. Purely narrative text — *"dizzy and a headache all afternoon"* — is a documented boundary, not an error: the call succeeds (`200`) with an empty `data` array plus a `note`:
+
+```json
+{
+  "object": "extraction",
+  "data": [],
+  "stored": false,
+  "stored_count": 0,
+  "subject": "alice",
+  "note": "no quantifiable readings found in the text; subjective/narrative entries (journal) are not supported yet"
+}
+```
+
+Mixed text works as you'd expect — *"headache all day, temperature was 38.2 °C"* yields the temperature reading and drops the narrative. A dedicated journal endpoint for subjective/narrative entries is on the roadmap.
 
 ## Errors
 
