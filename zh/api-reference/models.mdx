@@ -7,10 +7,13 @@ description: "GET /v1/models —— 列出可用的能力档。"
 
 ```http
 GET /v1/models
-Authorization: Bearer mb_live_*
 ```
 
 列出你可以作为 `model` 传给 [Answers API](/zh/api-reference/chat) 与 [Agent API](/zh/api-reference/responses) 的能力档。形状兼容 OpenAI。
+
+<Note>
+**公开** —— 模型目录是静态能力列表（无租户数据），本端点**无需 API key**。若发送了 `Authorization` 头（OpenAI SDK 总会带上），会被直接忽略。其它所有 `/v1` 端点都需要 `Authorization: Bearer mb_live_*`。
+</Note>
 
 ## 能力档
 
@@ -26,16 +29,15 @@ Authorization: Bearer mb_live_*
 
 <CodeGroup>
 ```bash curl
-curl https://mirobody-api.thetahealth.ai/v1/models \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
+# 无需 API key
+curl https://mirobody-api.thetahealth.ai/v1/models
 ```
 
 ```python Python (OpenAI SDK)
-import os
-
 from openai import OpenAI
 
-client = OpenAI(api_key=os.environ["MIROBODY_API_KEY"], base_url="https://mirobody-api.thetahealth.ai/v1")
+# /v1/models 不使用 api_key，但 SDK 要求该字段有值
+client = OpenAI(api_key="unused", base_url="https://mirobody-api.thetahealth.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```

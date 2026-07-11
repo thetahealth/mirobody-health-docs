@@ -1,3 +1,3 @@
 <Note>
-**The `user` field is the tenant-isolation key.** The backend maps `(your account, user)` to an internal **Subject**; each `user` you pass is fully isolated from the others. Pass each end-user's stable id and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are invisible to the Mirobody consumer app and to other developers.
+**The `user` field is the tenant-isolation key.** The backend maps `(your account, user)` to an internal **Subject**; each `user` you pass is fully isolated from the others. Pass each end-user's stable id and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are invisible to the Mirobody web app and to other developers. The `user` value is normalized (trimmed + lowercased) before mapping, so `Alice` and `alice` resolve to the SAME Subject — pass a stable, canonical id.
 </Note>

@@ -7,10 +7,13 @@ description: "GET /v1/models — list the available capability tiers."
 
 ```http
 GET /v1/models
-Authorization: Bearer mb_live_*
 ```
 
 Lists the capability tiers you can pass as `model` to the [Answers API](/en/api-reference/chat) and the [Agent API](/en/api-reference/responses). OpenAI-compatible shape.
+
+<Note>
+**Public** — the model catalog is a static capability list (no tenant data), so this endpoint needs **no API key**. An `Authorization` header, if sent (the OpenAI SDKs always attach one), is simply ignored. Every other `/v1` endpoint requires `Authorization: Bearer mb_live_*`.
+</Note>
 
 ## Tiers
 
@@ -26,16 +29,15 @@ Billing is metered per **actual token usage** — the console's [Usage](/en/api-
 
 <CodeGroup>
 ```bash curl
-curl https://mirobody-api.thetahealth.ai/v1/models \
-  -H "Authorization: Bearer $MIROBODY_API_KEY"
+# no API key needed
+curl https://mirobody-api.thetahealth.ai/v1/models
 ```
 
 ```python Python (OpenAI SDK)
-import os
-
 from openai import OpenAI
 
-client = OpenAI(api_key=os.environ["MIROBODY_API_KEY"], base_url="https://mirobody-api.thetahealth.ai/v1")
+# api_key is unused by /v1/models but the SDK requires the field to be set
+client = OpenAI(api_key="unused", base_url="https://mirobody-api.thetahealth.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```
