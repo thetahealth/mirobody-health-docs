@@ -28,7 +28,7 @@ Content-Type:  application/json
 | `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) can purge them. |
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/data \
+curl https://mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -56,7 +56,7 @@ Response — `standardized` counts the records that resolved to a LOINC code on 
 Episode-type records span a period rather than a point in time — put the start in `time` and the end in the optional `end_time`:
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/data \
+curl https://mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -84,6 +84,7 @@ Authorization: Bearer mb_live_*
 | `user` | Subject to read from. |
 | `indicator` | Optional filter by indicator name (substring match). |
 | `limit` | `1`–`1000` (default `100`). |
+| `offset` | Skip N records for paging (ordering is stable: newest first). `has_more: true` → request the next page with `offset += limit`. |
 
 The response is an OpenAI-style list, newest first. `value` is the **human-readable string** (e.g. `"5.4 mmol/L"`); the machine-readable fields ride alongside:
 
@@ -98,7 +99,7 @@ The response is an OpenAI-style list, newest first. `value` is the **human-reada
       "parsed_value": "5.4",
       "parsed_unit": "mmol/L",
       "loinc_code": "1558-6",
-      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
       "fhir_resource_id": "8f3c9a1e-...",
       "time": "2026-06-16T07:30:00+00",
       "end_time": null,
@@ -120,7 +121,8 @@ The response is an OpenAI-style list, newest first. `value` is the **human-reada
 | `loinc_code` / `canonical_name` | Deterministic LOINC resolution + its display name (`null` when the name didn't resolve). |
 | `fhir_resource_id` | Id of the record's FHIR Observation mirror. |
 | `end_time` | End of the period for episode records (sleep, workouts); `null` for point-in-time readings. |
-| `has_more` | `true` when this page hit `limit` — more records may remain. |
+| `source` / `comment` | `source` reports the WRITE CHANNEL (`api`, `extract`); your free-text origin tag from the record's `source` field is returned in `comment`. |
+| `has_more` | `true` when this page hit `limit` — fetch the next page with `offset += limit`. |
 | `subject` | The Subject the records belong to (resolved from `user`). |
 
 ## Erase records

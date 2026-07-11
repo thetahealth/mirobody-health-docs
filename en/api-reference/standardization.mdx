@@ -30,8 +30,8 @@ What you send (or what a lab PDF says) vs. what the store holds:
 
 | | Before (as written) | After (standardized) |
 | --- | --- | --- |
-| Indicator | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`, `canonical_name: "Fasting glucose [Moles/volume] in Serum or Plasma"` |
-| Value | `"5.4 mmol/L"` (one string) | `parsed_value: 5.4`, `parsed_unit: "mmol/L"` (UCUM) |
+| Indicator | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`, `canonical_name: "Fasting glucose [Mass/volume] in Serum or Plasma"` |
+| Value | `"5.4 mmol/L"` (one string) | `parsed_value: "5.4"`, `parsed_unit: "mmol/L"` (UCUM) |
 | Unit spelling | `"mg/dl"`, `"MG/DL"`, `"mg/dL"` | `"mg/dL"` (one UCUM form) |
 | Interop | free text | FHIR R4 Observation (`fhir_resource_id`) |
 | Original | — | **kept**: `value` stays the human-readable string; raw names/units preserved |
@@ -51,12 +51,12 @@ Three spellings of the same test become **one series** — trend queries, the ag
 
 ```bash
 # Inspect first (nothing persisted) …
-curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+curl https://mirobody-api.thetahealth.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" -F "file=@lab_report.pdf"
 
 # … then commit the same extraction
-curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+curl https://mirobody-api.thetahealth.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" -F "file=@lab_report.pdf" \
   -F "store=true" -F "retention=permanent"

@@ -28,7 +28,7 @@ Content-Type:  application/json
 | `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 能清除它们。 |
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/data \
+curl https://mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -56,7 +56,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/data \
 Episode 型记录跨越一个时段而非时间点 —— 起点放 `time`，终点放可选的 `end_time`：
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/data \
+curl https://mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -84,6 +84,7 @@ Authorization: Bearer mb_live_*
 | `user` | 读取哪个 Subject。 |
 | `indicator` | 可选，按指标名过滤（子串匹配）。 |
 | `limit` | `1`–`1000`（默认 `100`）。 |
+| `offset` | 跳过 N 条用于翻页(排序稳定:最新在前)。`has_more: true` 时用 `offset += limit` 取下一页。 |
 
 响应为 OpenAI 风格的列表，最新在前。`value` 是**人读字符串**（如 `"5.4 mmol/L"`）；机读字段并列返回：
 
@@ -98,7 +99,7 @@ Authorization: Bearer mb_live_*
       "parsed_value": "5.4",
       "parsed_unit": "mmol/L",
       "loinc_code": "1558-6",
-      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
       "fhir_resource_id": "8f3c9a1e-...",
       "time": "2026-06-16T07:30:00+00",
       "end_time": null,
@@ -120,7 +121,8 @@ Authorization: Bearer mb_live_*
 | `loinc_code` / `canonical_name` | 确定性 LOINC 解析结果及其展示名（名称未解析时为 `null`）。 |
 | `fhir_resource_id` | 该记录 FHIR Observation 镜像的 id。 |
 | `end_time` | Episode 型记录（睡眠、运动）时段的结束时间；时间点读数为 `null`。 |
-| `has_more` | 本页达到 `limit` 时为 `true` —— 可能还有更多记录。 |
+| `source` / `comment` | `source` 表示**写入通道**(`api`、`extract`);你在记录里传的 `source` 自由文本标签会在 `comment` 中返回。 |
+| `has_more` | 本页打满 `limit` 时为 `true`——用 `offset += limit` 取下一页。 |
 | `subject` | 记录所属的 Subject（由 `user` 解析）。 |
 
 ## 擦除记录

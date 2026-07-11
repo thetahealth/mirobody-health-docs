@@ -24,7 +24,7 @@ It is deliberately *closed* — no client tools, no response formatting, no mult
 
 <CodeGroup>
 ```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
+curl https://mirobody-api.thetahealth.ai/v1/chat/completions \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -37,7 +37,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
 
 resp = client.chat.completions.create(
     model="mirobody-flash",
@@ -54,7 +54,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
+  baseURL: "https://mirobody-api.thetahealth.ai/v1",
 });
 
 const resp = await client.chat.completions.create({
@@ -166,7 +166,7 @@ A `system` message sets the tone, persona, format, and language of the answer. D
 
 ## Built-in tools
 
-The hosted agent is built on **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)**: beyond plain tool-calling it can **plan** multi-step work (`write_todos`), **delegate** to sub-agents (`task`), run **code eval** for analysis, and keep a **virtual filesystem** (your uploads in `/uploads`, past uploads in `/library`). You don't invoke any of this — the agent does, against the Subject's data.
+Beyond plain tool-calling, the hosted agent can **plan** multi-step work, **delegate** subtasks, run **sandboxed code** for numeric analysis (trends, correlations), and read the Subject's uploaded files. You don't invoke any of this — the agent does, against the Subject's data.
 
 The **public tool catalog** — what `GET /api/health` reports as `tool_names`:
 
@@ -177,7 +177,7 @@ The **public tool catalog** — what `GET /api/health` reports as `tool_names`:
 - `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence (feeds `citations`)
 - `fetch_url` — read a web page
 
-The deep-agents **harness tools** — `write_todos`, `task`, `eval`, and the filesystem tools (`ls` / `read_file` / …) — are used internally and are **not** listed in `tool_names`. `ask_user` exists for the consumer product but is **disabled on the `/v1` surfaces** (an API caller has no widget to answer it). The public set can vary by cluster; call `GET /api/health` for the live `tool_names`. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically.
+Planning / delegation / code-analysis tools are internal plumbing and not part of the API contract. `ask_user` appears in `GET /api/health`'s `tool_names` (it serves the web app) but is **disabled on the `/v1` surfaces** — an API caller has no widget to answer it. The public set can vary by cluster; `GET /api/health` reports the live `tool_names`. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically.
 
 To add **your own** tools, use the [Agent API's function calling](/en/api-reference/function-calling) — this surface intentionally has no tool injection.
 

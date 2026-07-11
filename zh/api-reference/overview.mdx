@@ -8,7 +8,7 @@ import AuthKey from '/snippets/zh/auth-key.mdx';
 
 Mirobody 的托管 API **兼容 OpenAI**。把任意 OpenAI SDK 指向下方 base URL、传入 `mb_live_*` 密钥，调用 [Answers API](/zh/api-reference/chat)（`/v1/chat/completions`）或 [Agent API](/zh/api-reference/responses)（`/v1/responses`）—— 智能体基于每个终端用户**真实、标准化的健康数据**作答，并附带可追溯的工具轨迹。不确定选哪个？见[选择你的 API](/zh/api-reference/choose-your-api)。同一引擎也可**自托管** —— 用 `./build.sh` 构建[开源 C++ 引擎](/zh/index)自己运行；托管 API 在其上叠加托管存储、密钥与计费。
 
-你在[开发者控制台](https://test-platform.mirobody.ai/)创建密钥、查看用量并试用交互式 Playground。这些文档是 API 参考。
+你在[开发者控制台](https://platform.mirobody.ai/)创建密钥、查看用量并试用交互式 Playground。这些文档是 API 参考。
 
 ## Base URL
 
@@ -16,7 +16,7 @@ Mirobody 是**全球优先**的。
 
 <BaseUrl />
 
-全球生产 API（`https://mirobody-api.thetahealth.ai/v1`）与**中国**生产 API（`https://mirobody-api.thetahealth.cn/v1`）仍在筹备 —— 但**中国测试**环境（C 端应用 + 开发者控制台）已上线。见[区域](/zh/api-reference/regions/overview)。
+两个集群、同一契约：全球 API（`https://mirobody-api.thetahealth.ai/v1`）与**中国** API（`https://mirobody-api.thetahealth.cn/v1`）。见[区域](/zh/api-reference/regions/overview)。
 
 ## 鉴权
 
@@ -24,7 +24,7 @@ Mirobody 是**全球优先**的。
 
 | 界面 | 方案 | 获取方式 |
 | --- | --- | --- |
-| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://test-platform.mirobody.ai/developer/keys) → **API Keys** 创建。密钥只显示**一次**。 |
+| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://platform.mirobody.ai/developer/keys) → **API Keys** 创建。密钥只显示**一次**。 |
 | `/api/console/*`（控制台） | 会话 **JWT**（登录） | 控制台邮箱验证码或微信登录。 |
 
 `/v1` 密钥**不是** JWT —— 它们是作用域为你账户的长期 API key。切勿放进客户端代码。
@@ -45,7 +45,7 @@ Mirobody 是**全球优先**的。
 
 ## 多租户：`user` 字段
 
-每个请求都携带一个 `user` 字符串 —— **租户隔离键**。后端把 `(你的账户, user)` 映射为内部**数据主体(Subject)**；你传入的每个 `user` 彼此完全隔离。为每个终端用户传入其稳定 id，数据就绝不会串。省略时回落到你账户的默认 Subject。Subject 不是消费者账户 —— 它们对 Mirobody 应用和其他开发者均不可见。
+每个请求都携带一个 `user` 字符串 —— **租户隔离键**。后端把 `(你的账户, user)` 映射为内部**数据主体(Subject)**；你传入的每个 `user` 彼此完全隔离。为每个终端用户传入其稳定 id，数据就绝不会串。省略时回落到你账户的默认 Subject。Subject 不是网页应用账户 —— 它们对 Mirobody 应用和其他开发者均不可见。
 
 ## 数据留存
 

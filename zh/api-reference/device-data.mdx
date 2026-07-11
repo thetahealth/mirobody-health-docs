@@ -36,7 +36,7 @@ import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
 ## 2. 批量写入日级记录
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/data \
+curl https://mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -49,7 +49,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/data \
       }'
 ```
 
-每次请求最多 **500 条** —— 把一个 Subject 一整天（或一段回填窗口）的数据装进一次调用。`source` 是自由文本，读回时会带上，用它标记厂商来源。
+每次请求最多 **500 条** —— 把一个 Subject 一整天（或一段回填窗口）的数据装进一次调用。用 `source` 标记厂商来源——读取时它会出现在 `comment` 字段（`source` 列表示写入通道，即 `api`）。
 
 <SubjectUserParam />
 
@@ -58,7 +58,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/data \
 睡眠和运动不是时间点读数 —— 它们跨越一个时段。起点放 `time`，终点放可选的 `end_time`（均为 ISO 时间戳）：
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/data \
+curl https://mirobody-api.thetahealth.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

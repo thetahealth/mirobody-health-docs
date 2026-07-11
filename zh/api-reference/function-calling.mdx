@@ -47,7 +47,7 @@ description: "Agent API 上的内置服务端工具 + 你自己的客户端 func
 
 | 规则 | 细节 |
 | --- | --- |
-| 类型 | 目前仅支持 `"type": "function"`。扁平 Responses 形式与 completions 嵌套的 `{"type":"function","function":{...}}` 形式都接受。`{"type": "mcp"}` 在路线图上 —— 见 [MCP servers](/zh/api-reference/mcp-servers)。 |
+| 类型 | 支持 `"type": "function"`(客户端交接)与 `"type": "mcp"`(服务端远程工具)。扁平 Responses 形式与 completions 嵌套的 `{"type":"function","function":{...}}` 形式都接受。`{"type": "mcp"}` 接入你的远程 MCP server(服务端执行、无交接)—— 见 [MCP servers](/zh/api-reference/mcp-servers)。 |
 | 数量 | 每请求最多 **64** 个工具。 |
 | 名称 | 需匹配 `[a-zA-Z0-9_-]{1,64}`；必须唯一；**不得与内置工具重名**（`query_health_data`、`read_file`、`task` 等）。 |
 | `parameters` | JSON Schema 对象（默认 `{"type":"object","properties":{}}`）。 |
@@ -85,7 +85,7 @@ description: "Agent API 上的内置服务端工具 + 你自己的客户端 func
 **只**发送 `function_call_output` item，并引用交接响应。服务端恢复暂停的 agent 线程 —— 无需重发历史：
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+curl https://mirobody-api.thetahealth.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -127,11 +127,11 @@ curl https://test-mirobody-api.thetahealth.ai/v1/responses \
 SDK 处理整个闭环 —— 声明、交接、执行、回放：
 
 ```python
-from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)
 
 @function_tool
@@ -144,10 +144,15 @@ agent = Agent(
     model="mirobody-flash",
     instructions="Check real health data before acting.",
     tools=[book_appointment],
+    model_settings=ModelSettings(extra_body={"user": "alice"}),  # 租户隔离——必传
 )
 result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
 print(result.final_output)
 ```
+
+<Warning>
+所有会触达 Mirobody 工具的 agents-SDK agent,必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时,这次运行读到的是**账号默认 Subject**,而不是你想要的那个用户。
+</Warning>
 
 模型用**内置服务端工具**读取 Subject 的真实血糖数据，再交接给**你的** `book_appointment` —— SDK 在本地执行并自动回放转录。
 

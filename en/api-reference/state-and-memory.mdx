@@ -36,7 +36,7 @@ r2 = client.responses.create(model="mirobody-flash",
 
 ### Cleanup
 
-`DELETE /v1/responses/{id}` removes a stored response; when it is the last live response of its conversation, the **whole conversation is torn down** — thread state, chat projection, and conversation-derived memory. See [Agent API → Delete](/en/api-reference/responses#delete-a-stored-response).
+`DELETE /v1/responses/{id}` removes a stored response; when it is the last live response of its conversation, the **whole conversation is torn down** — its history and any conversation-derived memory. See [Agent API → Delete](/en/api-reference/responses#delete-a-stored-response).
 
 ## Cross-session memory
 

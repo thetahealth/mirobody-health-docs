@@ -24,7 +24,7 @@ Content-Type:  application/json
 
 <CodeGroup>
 ```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
+curl https://mirobody-api.thetahealth.ai/v1/chat/completions \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -37,7 +37,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/chat/completions \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
 
 resp = client.chat.completions.create(
     model="mirobody-flash",
@@ -54,7 +54,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
+  baseURL: "https://mirobody-api.thetahealth.ai/v1",
 });
 
 const resp = await client.chat.completions.create({
@@ -166,7 +166,7 @@ data: [DONE]
 
 ## 内置工具
 
-托管智能体基于 **LangChain [deep agents](https://docs.langchain.com/oss/python/deepagents/overview)** 构建：除普通工具调用外，还能**规划**多步工作（`write_todos`）、**委派**子智能体（`task`）、运行**代码 eval** 做分析，并维护**虚拟文件系统**（你的上传在 `/uploads`，历史上传在 `/library`）。这些都不由你调用 —— 智能体自己针对 Subject 的数据使用。
+除了普通的工具调用,托管智能体还能**规划**多步工作、**分派**子任务、运行**沙箱代码**做数值分析(趋势、相关性),并读取 Subject 上传的文件。这些都不需要你调用——智能体自己会,基于该 Subject 的数据。
 
 **公开工具目录** —— 即 `GET /api/health` 报告的 `tool_names`：
 
@@ -177,7 +177,7 @@ data: [DONE]
 - `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 查询医学证据（供给 `citations`）
 - `fetch_url` —— 读取网页
 
-deep agents 的**框架内置工具** —— `write_todos`、`task`、`eval` 及文件系统工具（`ls` / `read_file` / …）—— 供内部使用，**不会**出现在 `tool_names` 中。`ask_user` 存在于消费端产品，但在 **`/v1` 两个面上均已禁用**（API 调用方没有可作答的 widget）。公开工具集可能因集群而异；调用 `GET /api/health` 查看实时 `tool_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。
+deep agents 的**框架内置工具** —— `write_todos`、`task`、`eval` 及文件系统工具（`ls` / `read_file` / …）—— 供内部使用，**不会**出现在 `tool_names` 中。`ask_user` 存在于网页应用产品，但在 **`/v1` 两个面上均已禁用**（API 调用方没有可作答的 widget）。公开工具集可能因集群而异；调用 `GET /api/health` 查看实时 `tool_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。
 
 要添加**你自己的**工具，请使用 [Agent API 的 function calling](/zh/api-reference/function-calling) —— 此面刻意不提供工具注入。
 

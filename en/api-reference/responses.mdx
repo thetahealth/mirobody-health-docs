@@ -25,14 +25,15 @@ The **Agent API** is Mirobody's [OpenAI Responses API](https://platform.openai.c
 Because it speaks the Responses protocol, the **[openai-agents SDK](https://github.com/openai/openai-agents-python) works against it by changing only the base URL** — verified live:
 
 ```python
-from agents import Agent, Runner, set_default_openai_client, set_tracing_disabled
+from agents import Agent, ModelSettings, Runner, set_default_openai_client, set_tracing_disabled
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)   # tracing would call api.openai.com
 
-agent = Agent(name="Health assistant", model="mirobody-flash")
+agent = Agent(name="Health assistant", model="mirobody-flash",
+              model_settings=ModelSettings(extra_body={"user": "alice"}))
 print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output)
 ```
 
@@ -42,7 +43,7 @@ print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output
 
 <CodeGroup>
 ```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+curl https://mirobody-api.thetahealth.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -55,7 +56,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/responses \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
 
 resp = client.responses.create(
     model="mirobody-flash",
@@ -77,7 +78,7 @@ print(resp.output_text)
 | `store` | bool | **Default `true`.** Persist the response + conversation: 30-day TTL, or permanent when bound to a `session_id`. Enables `previous_response_id` and `GET /v1/responses/{id}`. |
 | `previous_response_id` | string | Continue the conversation of a stored response (server-side state — no need to resend history). `404` if the id is unknown, expired, or deleted. |
 | `session_id` | string | Mirobody extension. Binds this and future turns to a **durable named conversation** (never auto-expires). |
-| `tools` | array | Client **function** tools (`{"type": "function", "name", "description", "parameters"}`; the completions-nested form is also accepted). Max 64; names must match `[a-zA-Z0-9_-]{1,64}` and may not shadow built-in tool names. See [Function calling](/en/api-reference/function-calling). |
+| `tools` | array | Client **function** tools (`{"type": "function", "name", "description", "parameters"}`; the completions-nested form is also accepted) and/or remote **MCP** servers (`{"type": "mcp", "server_label", "server_url", …}` — executed server-side). Max 64; names must match `[a-zA-Z0-9_-]{1,64}` and may not shadow built-in tool names. See [Function calling](/en/api-reference/function-calling) · [MCP servers](/en/api-reference/mcp-servers). |
 | `tool_choice` | string \| object | `"auto"` (default) / `"none"` / a named **client** tool. Anything else → `400 unsupported_parameter`. |
 | `user` | string | Tenant-isolation key → a Subject. |
 
@@ -128,7 +129,7 @@ The `output` array contains **only standard OpenAI item types** — `reasoning`,
 ## Retrieve a stored response
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -137,7 +138,7 @@ Returns the stored response object. Only `store=true` responses are retrievable;
 ## Delete a stored response
 
 ```bash
-curl -X DELETE https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl -X DELETE https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -145,7 +146,7 @@ curl -X DELETE https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b
 { "id": "resp_147e9b14...", "object": "response.deleted", "deleted": true }
 ```
 
-Deletes the stored response. If it was the **last** live response of its conversation, the whole conversation is torn down too — chat projection, agent thread state, and any conversation-derived memory. This is the self-service right-to-be-forgotten lever for stored conversations.
+Deletes the stored response. If it was the **last** live response of its conversation, the whole conversation is torn down too — its history and any conversation-derived memory. This is the self-service right-to-be-forgotten lever for stored conversations.
 
 ## State model
 
@@ -159,6 +160,6 @@ Standard [error envelope](/en/api-reference/overview#error-format). Surface-spec
 
 | HTTP | When |
 | --- | --- |
-| `400` | Missing/empty `input`; invalid `tools` (bad name, reserved name, duplicate, > 64, non-function type); unsupported `tool_choice`; malformed handoff continuation (see [Function calling](/en/api-reference/function-calling#continuation-errors)) |
+| `400` | Missing/empty `input`; invalid `tools` (bad name, reserved name, duplicate, > 64, unsupported type, unreachable MCP server); unsupported `tool_choice`; malformed handoff continuation (see [Function calling](/en/api-reference/function-calling#continuation-errors)) |
 | `404` | Unknown / expired / deleted `previous_response_id` or `response_id` |
 | `502` | Upstream agent error — transient; retry with backoff |

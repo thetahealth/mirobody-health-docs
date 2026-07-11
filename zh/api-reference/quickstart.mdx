@@ -1,4 +1,8 @@
 ---
+
+<Warning>
+所有会触达 Mirobody 工具的 agents-SDK agent,必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时,这次运行读到的是**账号默认 Subject**,而不是你想要的那个用户。
+</Warning>
 title: "快速开始"
 description: "三步走：接入你的数据，看它被标准化，再让 AI 在其上工作。"
 ---
@@ -9,7 +13,7 @@ import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 Mirobody 三步走：**① 接入数据 → ② 数据以标准化形态返回 → ③ 让 AI 使用它。** 一切兼容 OpenAI —— 你需要一个 `mb_live_*` 密钥和约 10 分钟。
 
 <Note>
-账户管理 —— **API 密钥、用量与在线 Playground** —— 位于开发者控制台 [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/)。邮箱验证码登录，打开 **API Keys** 创建一个（密钥只显示**一次**）：
+账户管理 —— **API 密钥、用量与在线 Playground** —— 位于开发者控制台 [**platform.mirobody.ai**](https://platform.mirobody.ai/)。邮箱验证码登录，打开 **API Keys** 创建一个（密钥只显示**一次**）：
 
 ```bash
 export MIROBODY_API_KEY="mb_live_..."
@@ -26,7 +30,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
     ```bash
     # 结构化记录
-    curl https://test-mirobody-api.thetahealth.ai/v1/data \
+    curl https://mirobody-api.thetahealth.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -39,7 +43,7 @@ export MIROBODY_API_KEY="mb_live_..."
           }'
 
     # 或者一份文档（自动 OCR 与解析）
-    curl https://test-mirobody-api.thetahealth.ai/v1/files \
+    curl https://mirobody-api.thetahealth.ai/v1/files \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -F "user=alice" -F "file=@lab_report.pdf"
     ```
@@ -50,8 +54,11 @@ export MIROBODY_API_KEY="mb_live_..."
   <Step title="② 数据以标准化形态返回">
     注意上面的两种写法 —— `fasting_glucose` 和 `FBG`。把数据读回来，两行都带有**同一个 LOINC 编码**、规范名称、UCUM 解析后的值以及 FHIR 镜像 id：
 
+    实验完了？`DELETE /v1/subjects/alice` 一次调用即可擦除本快速开始写入的一切（记录、文件、会话）。
+
+
     ```bash
-    curl "https://test-mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
+    curl "https://mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
       -H "Authorization: Bearer $MIROBODY_API_KEY"
     ```
 
@@ -65,7 +72,7 @@ export MIROBODY_API_KEY="mb_live_..."
           "parsed_value": "5.1",
           "parsed_unit": "mmol/L",
           "loinc_code": "1558-6",
-          "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+          "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
           "fhir_resource_id": "8f3c9a1e-...",
           "time": "2026-06-17T07:25:00+00",
           "source": "api",
@@ -85,7 +92,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
     ```python Answers API（3 行）
     from openai import OpenAI
-    client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+    client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
     print(client.chat.completions.create(model="mirobody-flash", user="alice",
         messages=[{"role": "user", "content": "How is my fasting glucose trending?"}]
     ).choices[0].message.content)
@@ -94,11 +101,11 @@ export MIROBODY_API_KEY="mb_live_..."
     而一个真正的 agent —— 带**你自己的工具** —— 只要十行。[openai-agents SDK](https://github.com/openai/openai-agents-python) 只需改 base URL 即可对接 [Agent API](/zh/api-reference/responses)：
 
     ```python openai-agents SDK（10 行）
-    from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+    from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
     from openai import AsyncOpenAI
 
     set_default_openai_client(AsyncOpenAI(
-        base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+        base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
     set_tracing_disabled(True)
 
     @function_tool
@@ -106,7 +113,8 @@ export MIROBODY_API_KEY="mb_live_..."
         """Book a clinic appointment for the end user (ISO date)."""
         return f"Booked: {date} 09:30, Dr. Chen"
 
-    agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment])
+    agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment],
+              model_settings=ModelSettings(extra_body={"user": "alice"}))
     print(Runner.run_sync(agent, "Check my recent glucose; book a follow-up if it's trending up.").final_output)
     ```
 
@@ -119,10 +127,10 @@ export MIROBODY_API_KEY="mb_live_..."
 控制台有 **Playground** —— 无需代码即可运行对话、上传文件、查看工具步骤。
 
 <CardGroup cols={2}>
-  <Card title="Playground" icon="flask" href="https://test-platform.mirobody.ai/developer">
+  <Card title="Playground" icon="flask" href="https://platform.mirobody.ai/developer">
     在浏览器中对你的账户试用智能体。
   </Card>
-  <Card title="用量" icon="chart-line" href="https://test-platform.mirobody.ai/developer/usage">
+  <Card title="用量" icon="chart-line" href="https://platform.mirobody.ai/developer/usage">
     请求数、令牌数与费用。
   </Card>
 </CardGroup>

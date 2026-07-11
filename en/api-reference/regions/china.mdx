@@ -1,38 +1,34 @@
 ---
 title: "China Cluster"
-description: "mirobody-api.thetahealth.cn — China-region cluster (test live, production provisioning)."
+description: "mirobody-api.thetahealth.cn — China-region cluster."
 ---
 
-The China cluster keeps 100% of data within mainland China, with no cross-border replication. Its **test environment is now live** — the consumer app and developer console both serve from the CN test cluster against a live backend. The **production** API base is still provisioning; for turnkey live API integration today, use the CN test cluster or the [global test cluster](/en/api-reference/regions/global).
+The China cluster keeps 100% of data within mainland China, with no cross-border replication.
 
 ## Hosts
 
-| Surface | Production | Test |
-| --- | --- | --- |
-| **Consumer app** | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) — ✅ live | [test-mirobody.thetahealth.cn](https://test-mirobody.thetahealth.cn/) — ✅ live |
-| **Developer console** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) — ✅ live | [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/) — ✅ live |
-| **API** (`base_url`) | `https://mirobody-api.thetahealth.cn/v1` — 🚧 provisioning | `https://test-mirobody-api.thetahealth.cn/v1` — 🚧 provisioning |
+| Surface | URL |
+| --- | --- |
+| **API** (`base_url`) | `https://mirobody-api.thetahealth.cn/v1` |
+| **Developer console** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) |
+| **Web app** | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) |
 
-<Note>
-The CN **test API is already serving** — currently on the transitional host `https://test-mcp.thetahealth.cn/v1`, while `test-mirobody-api.thetahealth.cn` finishes provisioning. The older `mcp.thetahealth.cn` name is being retired in favour of `mirobody-api.*`, so point anything long-lived at `mirobody-api.*`.
-</Note>
-
-The console is where you create `mb_live_*` keys, view usage, and try the Playground. The Mirobody app is the flagship consumer product — the same engine behind this API.
+The console is where you create `mb_live_*` keys, view usage, and try the Playground. The Mirobody web app is the flagship product — the same engine behind this API.
 
 ## Capabilities (`/v1`)
 
 <CardGroup cols={2}>
-  <Card title="Chat" icon="comments" href="/en/api-reference/chat">
-    `POST /v1/chat/completions` — OpenAI-compatible, streaming, citations
+  <Card title="Agent API" icon="rocket" href="/en/api-reference/responses">
+    `POST /v1/responses` — OpenAI Responses-compatible: sessions, your tools, MCP
+  </Card>
+  <Card title="Answers API" icon="comments" href="/en/api-reference/chat">
+    `POST /v1/chat/completions` — grounded one-shot Q&A, streaming, citations
   </Card>
   <Card title="Data" icon="database" href="/en/api-reference/data">
-    `POST/GET /v1/data` — structured records per Subject
+    `POST/GET /v1/data` + `POST /v1/extract` — standardized records per Subject
   </Card>
   <Card title="Files" icon="file" href="/en/api-reference/files">
-    `POST/GET /v1/files` — OCR / Excel parsing
-  </Card>
-  <Card title="Sessions" icon="timer" href="/en/api-reference/sessions">
-    `DELETE /v1/sessions/{id}` — purge session data
+    `POST/GET /v1/files` — OCR / Excel parsing, WebSocket streaming
   </Card>
 </CardGroup>
 

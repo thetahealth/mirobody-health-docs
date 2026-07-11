@@ -1,27 +1,27 @@
 ---
 title: "Rate Limits"
-description: "Quota mechanism + client pacing."
+description: "Current enforcement status + client pacing."
 ---
 
-Mirobody counts requests per **account × path × minute**. On overflow you get HTTP `429` with a `Retry-After` header (seconds).
+**No hard per-request rate limit is enforced today.** Production plans will introduce per-account quotas; when they do, overflow will return HTTP `429` with a `Retry-After` header (seconds), and this page will carry the exact numbers.
 
 ```text
 HTTP/1.1 429 Too Many Requests
 Retry-After: 47
 ```
 
+<Note>
+Even without hard limits, sustained abusive traffic can be throttled at the platform edge. Build your client with `429` + `Retry-After` handling now — it costs one `if` statement today and saves an incident later.
+</Note>
+
 ## Recommended pacing
 
 | Path | Suggested RPM | Notes |
 | --- | --- | --- |
 | `POST /v1/chat/completions` | ≤ 60 | Streaming calls count too; wait for one to finish before the next |
-| `POST /v1/files` | ≤ 30 | Batch where possible; OCR is compute-heavy |
-| `POST /v1/data` | ≤ 120 | Batch records into one request (up to 1000/batch) |
+| `POST /v1/files` | ≤ 30 | Uploads are capped at **100 MB** per file; OCR is compute-heavy |
+| `POST /v1/data` | ≤ 120 | Batch records into one request (up to 500/batch) |
 | `GET` reads (`/v1/data`, `/v1/files`, `/v1/models`) | ≤ 120 | — |
-
-<Note>
-Exact thresholds are injected per deployment. **Email [Mirobody Support](mailto:developer@thetahealth.ai) to confirm the limits for your account before going live.**
-</Note>
 
 ## Client backoff
 

@@ -106,10 +106,22 @@
                 ]
               },
               {
+                "group": "Data Plane",
+                "pages": [
+                  "en/api-reference/data",
+                  "en/api-reference/device-data",
+                  "en/api-reference/files",
+                  "en/api-reference/sessions",
+                  "en/api-reference/extract",
+                  "en/api-reference/standardization"
+                ]
+              },
+              {
                 "group": "Agent API",
                 "pages": [
                   "en/api-reference/responses",
                   "en/api-reference/function-calling",
+                  "en/api-reference/mcp-servers",
                   "en/api-reference/streaming",
                   "en/api-reference/state-and-memory"
                 ]
@@ -119,17 +131,6 @@
                 "pages": [
                   "en/api-reference/chat",
                   "en/api-reference/use-as-a-tool"
-                ]
-              },
-              {
-                "group": "Data Plane",
-                "pages": [
-                  "en/api-reference/data",
-                  "en/api-reference/device-data",
-                  "en/api-reference/files",
-                  "en/api-reference/sessions",
-                  "en/api-reference/extract",
-                  "en/api-reference/standardization"
                 ]
               },
               {
@@ -241,10 +242,22 @@
                 ]
               },
               {
+                "group": "数据面",
+                "pages": [
+                  "zh/api-reference/data",
+                  "zh/api-reference/device-data",
+                  "zh/api-reference/files",
+                  "zh/api-reference/sessions",
+                  "zh/api-reference/extract",
+                  "zh/api-reference/standardization"
+                ]
+              },
+              {
                 "group": "Agent API",
                 "pages": [
                   "zh/api-reference/responses",
                   "zh/api-reference/function-calling",
+                  "zh/api-reference/mcp-servers",
                   "zh/api-reference/streaming",
                   "zh/api-reference/state-and-memory"
                 ]
@@ -254,17 +267,6 @@
                 "pages": [
                   "zh/api-reference/chat",
                   "zh/api-reference/use-as-a-tool"
-                ]
-              },
-              {
-                "group": "数据面",
-                "pages": [
-                  "zh/api-reference/data",
-                  "zh/api-reference/device-data",
-                  "zh/api-reference/files",
-                  "zh/api-reference/sessions",
-                  "zh/api-reference/extract",
-                  "zh/api-reference/standardization"
                 ]
               },
               {

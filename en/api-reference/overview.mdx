@@ -8,7 +8,7 @@ import AuthKey from '/snippets/auth-key.mdx';
 
 Mirobody's hosted API is **OpenAI-compatible**. Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call the [Answers API](/en/api-reference/chat) (`/v1/chat/completions`) or the [Agent API](/en/api-reference/responses) (`/v1/responses`) — the agent answers from each end-user's **real, standardized health data**, with a traceable tool trace. Not sure which surface? See [Choose your API](/en/api-reference/choose-your-api). The same engine also runs **self-hosted** — build the [open-source C++ engine](/en/index) with `./build.sh` and run it yourself; the hosted API adds managed storage, keys, and billing on top.
 
-You create keys, watch usage, and try an interactive Playground in the [developer console](https://test-platform.mirobody.ai/). These docs are the API reference.
+You create keys, watch usage, and try an interactive Playground in the [developer console](https://platform.mirobody.ai/). These docs are the API reference.
 
 ## Base URL
 
@@ -16,7 +16,7 @@ Mirobody is **global-first**.
 
 <BaseUrl />
 
-The global production API (`https://mirobody-api.thetahealth.ai/v1`) and the **China** production API (`https://mirobody-api.thetahealth.cn/v1`) are still provisioning — though the **China test** environment (consumer app + developer console) is now live. See [Regions](/en/api-reference/regions/overview).
+Two clusters, one contract: the global API (`https://mirobody-api.thetahealth.ai/v1`) and the **China** API (`https://mirobody-api.thetahealth.cn/v1`). See [Regions](/en/api-reference/regions/overview).
 
 ## Authentication
 
@@ -24,7 +24,7 @@ The global production API (`https://mirobody-api.thetahealth.ai/v1`) and the **C
 
 | Surface | Scheme | How to get it |
 | --- | --- | --- |
-| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://test-platform.mirobody.ai/developer/keys) → **API Keys**. The secret is shown **once**. |
+| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://platform.mirobody.ai/developer/keys) → **API Keys**. The secret is shown **once**. |
 | `/api/console/*` (console) | Session **JWT** (login) | Email-code or WeChat login in the console. |
 
 `/v1` keys are **not** JWTs — they're long-lived API keys scoped to your account. Never ship them in client-side code.
@@ -45,7 +45,7 @@ Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body
 
 ## Multi-tenancy: the `user` field
 
-Every request carries a `user` string — the **tenant-isolation key**. The backend maps `(your account, user)` to an internal **Subject**; each `user` you pass is fully isolated from the others. Pass each end-user's stable id as `user` and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are not consumer accounts — they're invisible to the Mirobody app and to other developers.
+Every request carries a `user` string — the **tenant-isolation key**. The backend maps `(your account, user)` to an internal **Subject**; each `user` you pass is fully isolated from the others. Pass each end-user's stable id as `user` and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are not web-app accounts — they're invisible to the Mirobody app and to other developers.
 
 ## Data retention
 

@@ -25,14 +25,15 @@ Authorization: Bearer mb_live_*
 由于它说的是 Responses 协议，**[openai-agents SDK](https://github.com/openai/openai-agents-python) 只需改 base URL 即可直接使用** —— 已实测：
 
 ```python
-from agents import Agent, Runner, set_default_openai_client, set_tracing_disabled
+from agents import Agent, ModelSettings, Runner, set_default_openai_client, set_tracing_disabled
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)   # tracing 会请求 api.openai.com
 
-agent = Agent(name="Health assistant", model="mirobody-flash")
+agent = Agent(name="Health assistant", model="mirobody-flash",
+              model_settings=ModelSettings(extra_body={"user": "alice"}))
 print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output)
 ```
 
@@ -42,7 +43,7 @@ print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output
 
 <CodeGroup>
 ```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+curl https://mirobody-api.thetahealth.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -55,7 +56,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/responses \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
 
 resp = client.responses.create(
     model="mirobody-flash",
@@ -77,7 +78,7 @@ print(resp.output_text)
 | `store` | bool | **默认 `true`。** 持久化响应 + 对话：30 天 TTL，绑定 `session_id` 时永久。启用 `previous_response_id` 与 `GET /v1/responses/{id}`。 |
 | `previous_response_id` | string | 续接某个已存储响应的对话（服务端状态 —— 无需重发历史）。id 未知、已过期或已删除时返回 `404`。 |
 | `session_id` | string | Mirobody 扩展。把本轮及后续轮次绑定到一个**永续命名对话**（永不自动过期）。 |
-| `tools` | array | 客户端 **function** 工具（`{"type": "function", "name", "description", "parameters"}`；completions 嵌套形式也接受）。最多 64 个；名称需匹配 `[a-zA-Z0-9_-]{1,64}` 且不得与内置工具重名。见 [Function calling](/zh/api-reference/function-calling)。 |
+| `tools` | array | 客户端 **function** 工具(`{"type": "function", "name", "description", "parameters"}`,也接受 completions 嵌套形式)以及/或远程 **MCP** server(`{"type": "mcp", "server_label", "server_url", …}`——服务端执行)。最多 64 个;名称须匹配 `[a-zA-Z0-9_-]{1,64}` 且不得与内置工具重名。见 [Function calling](/zh/api-reference/function-calling) · [MCP servers](/zh/api-reference/mcp-servers)。 |
 | `tool_choice` | string \| object | `"auto"`（默认）/ `"none"` / 指名某个**客户端**工具。其它取值 → `400 unsupported_parameter`。 |
 | `user` | string | 租户隔离键 → 一个 Subject。 |
 
@@ -128,7 +129,7 @@ print(resp.output_text)
 ## 获取存储的响应
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -137,7 +138,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
 ## 删除存储的响应
 
 ```bash
-curl -X DELETE https://test-mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl -X DELETE https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 

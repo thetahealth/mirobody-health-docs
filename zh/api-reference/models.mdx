@@ -26,14 +26,16 @@ Authorization: Bearer mb_live_*
 
 <CodeGroup>
 ```bash curl
-curl https://test-mirobody-api.thetahealth.ai/v1/models \
+curl https://mirobody-api.thetahealth.ai/v1/models \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
 ```python Python (OpenAI SDK)
+import os
+
 from openai import OpenAI
 
-client = OpenAI(api_key="$MIROBODY_API_KEY", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key=os.environ["MIROBODY_API_KEY"], base_url="https://mirobody-api.thetahealth.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```

@@ -9,7 +9,7 @@ import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
 Mirobody in three steps: **① connect data → ② it comes back standardized → ③ use it with AI.** Everything is OpenAI-compatible — you'll need an `mb_live_*` key and ~10 minutes.
 
 <Note>
-Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**test-platform.mirobody.ai**](https://test-platform.mirobody.ai/). Sign in with email code, open **API Keys**, create one (the secret is shown **once**):
+Account management — **API keys, usage, and a live Playground** — lives in the developer console at [**platform.mirobody.ai**](https://platform.mirobody.ai/). Sign in with email code, open **API Keys**, create one (the secret is shown **once**):
 
 ```bash
 export MIROBODY_API_KEY="mb_live_..."
@@ -26,7 +26,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
     ```bash
     # Structured records
-    curl https://test-mirobody-api.thetahealth.ai/v1/data \
+    curl https://mirobody-api.thetahealth.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -39,7 +39,7 @@ export MIROBODY_API_KEY="mb_live_..."
           }'
 
     # Or a document (OCR'd and parsed automatically)
-    curl https://test-mirobody-api.thetahealth.ai/v1/files \
+    curl https://mirobody-api.thetahealth.ai/v1/files \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -F "user=alice" -F "file=@lab_report.pdf"
     ```
@@ -50,8 +50,11 @@ export MIROBODY_API_KEY="mb_live_..."
   <Step title="② It comes back standardized">
     Note the two spellings above — `fasting_glucose` and `FBG`. Read the data back and both rows carry the **same LOINC code**, a canonical name, UCUM-parsed values, and a FHIR mirror id:
 
+    Done experimenting? `DELETE /v1/subjects/alice` erases everything this quickstart wrote (records, files, conversations) in one call.
+
+
     ```bash
-    curl "https://test-mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
+    curl "https://mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
       -H "Authorization: Bearer $MIROBODY_API_KEY"
     ```
 
@@ -65,7 +68,7 @@ export MIROBODY_API_KEY="mb_live_..."
           "parsed_value": "5.1",
           "parsed_unit": "mmol/L",
           "loinc_code": "1558-6",
-          "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+          "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
           "fhir_resource_id": "8f3c9a1e-...",
           "time": "2026-06-17T07:25:00+00",
           "source": "api",
@@ -85,7 +88,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
     ```python Answers API (3 lines)
     from openai import OpenAI
-    client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+    client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
     print(client.chat.completions.create(model="mirobody-flash", user="alice",
         messages=[{"role": "user", "content": "How is my fasting glucose trending?"}]
     ).choices[0].message.content)
@@ -94,11 +97,11 @@ export MIROBODY_API_KEY="mb_live_..."
     And a real agent — with **your own tool** — is ten. The [openai-agents SDK](https://github.com/openai/openai-agents-python) works against the [Agent API](/en/api-reference/responses) by changing only the base URL:
 
     ```python openai-agents SDK (10 lines)
-    from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+    from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
     from openai import AsyncOpenAI
 
     set_default_openai_client(AsyncOpenAI(
-        base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+        base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
     set_tracing_disabled(True)
 
     @function_tool
@@ -106,11 +109,17 @@ export MIROBODY_API_KEY="mb_live_..."
         """Book a clinic appointment for the end user (ISO date)."""
         return f"Booked: {date} 09:30, Dr. Chen"
 
-    agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment])
+    agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment],
+              model_settings=ModelSettings(extra_body={"user": "alice"}))
     print(Runner.run_sync(agent, "Check my recent glucose; book a follow-up if it's trending up.").final_output)
     ```
 
-    Mirobody's built-in tools read alice's real data; when the model decides to book, it hands off to **your** function. See [Function calling](/en/api-reference/function-calling) for the protocol underneath.
+    
+<Warning>
+Every agents-SDK agent that touches Mirobody tools must pass the Subject via `model_settings=ModelSettings(extra_body={"user": ...})`. Without it, the run reads the **account-default Subject**, not the user you meant.
+</Warning>
+
+Mirobody's built-in tools read alice's real data; when the model decides to book, it hands off to **your** function. See [Function calling](/en/api-reference/function-calling) for the protocol underneath.
   </Step>
 </Steps>
 
@@ -119,10 +128,10 @@ export MIROBODY_API_KEY="mb_live_..."
 The console has a **Playground** — run chats, upload files, and inspect tool steps with no code.
 
 <CardGroup cols={2}>
-  <Card title="Playground" icon="flask" href="https://test-platform.mirobody.ai/developer">
+  <Card title="Playground" icon="flask" href="https://platform.mirobody.ai/developer">
     Try the agent in the browser against your account.
   </Card>
-  <Card title="Usage" icon="chart-line" href="https://test-platform.mirobody.ai/developer/usage">
+  <Card title="Usage" icon="chart-line" href="https://platform.mirobody.ai/developer/usage">
     Requests, tokens, and cost.
   </Card>
 </CardGroup>

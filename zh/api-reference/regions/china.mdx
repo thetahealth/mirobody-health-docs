@@ -1,50 +1,46 @@
 ---
 title: "中国集群"
-description: "mirobody-api.thetahealth.cn —— 中国区集群（测试已上线，生产筹备中）。"
+description: "mirobody-api.thetahealth.cn —— 中国区集群。"
 ---
 
-中国集群将 100% 的数据留存于中国大陆境内，无跨境复制。其**测试环境现已上线** —— C 端应用与开发者控制台均由中国区测试集群提供服务，且已接入可用的后端。**生产**环境的 API 地址仍在筹备中；如需今天就进行开箱即用的线上集成，请使用中国区测试集群或[全球测试集群](/zh/api-reference/regions/global)。
+中国集群将 100% 的数据留存于中国大陆境内，无跨境复制。
 
 ## 主机地址
 
-| 界面 | 生产 | 测试 |
-| --- | --- | --- |
-| **C 端应用** | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) —— ✅ 已上线 | [test-mirobody.thetahealth.cn](https://test-mirobody.thetahealth.cn/) —— ✅ 已上线 |
-| **开发者控制台** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) —— ✅ 已上线 | [test-cdm.thetahealth.cn](https://test-cdm.thetahealth.cn/) —— ✅ 已上线 |
-| **API**（`base_url`） | `https://mirobody-api.thetahealth.cn/v1` —— 🚧 筹备中 | `https://test-mirobody-api.thetahealth.cn/v1` —— 🚧 筹备中 |
+| 界面 | 地址 |
+| --- | --- |
+| **API**（`base_url`） | `https://mirobody-api.thetahealth.cn/v1` |
+| **开发者控制台** | [cdm.thetahealth.cn](https://cdm.thetahealth.cn/) |
+| **网页应用** | [mirobody.thetahealth.cn](https://mirobody.thetahealth.cn/) |
 
-<Note>
-中国区**测试 API 已在提供服务** —— 当前位于过渡主机 `https://test-mcp.thetahealth.cn/v1`，`test-mirobody-api.thetahealth.cn` 仍在完成筹备。旧主机名 `mcp.thetahealth.cn` 正被 `mirobody-api.*` 取代并逐步退役，因此长期集成请指向 `mirobody-api.*`。
-</Note>
-
-控制台是你创建 `mb_live_*` 密钥、查看用量并试用 Playground 的地方。Mirobody 应用是旗舰级 C 端产品——与本 API 背后是同一套引擎。
+控制台是你创建 `mb_live_*` 密钥、查看用量并试用 Playground 的地方。Mirobody 网页应用是旗舰产品——与本 API 背后是同一套引擎。
 
 ## 能力 (`/v1`)
 
 <CardGroup cols={2}>
-  <Card title="Chat" icon="comments" href="/zh/api-reference/chat">
-    `POST /v1/chat/completions`——兼容 OpenAI，支持流式传输、引用
+  <Card title="Agent API" icon="rocket" href="/zh/api-reference/responses">
+    `POST /v1/responses` —— OpenAI Responses 兼容：会话、自带工具、MCP
+  </Card>
+  <Card title="Answers API" icon="comments" href="/zh/api-reference/chat">
+    `POST /v1/chat/completions` —— grounded 一站式问答，流式、引用
   </Card>
   <Card title="Data" icon="database" href="/zh/api-reference/data">
-    `POST/GET /v1/data`——按数据主体组织的结构化记录
+    `POST/GET /v1/data` + `POST /v1/extract` —— 按 Subject 的标准化记录
   </Card>
   <Card title="Files" icon="file" href="/zh/api-reference/files">
-    `POST/GET /v1/files`——OCR / Excel 解析
-  </Card>
-  <Card title="Sessions" icon="timer" href="/zh/api-reference/sessions">
-    `DELETE /v1/sessions/{id}`——清除会话数据
+    `POST/GET /v1/files` —— OCR / Excel 解析，WebSocket 流式上传
   </Card>
 </CardGroup>
 
 ## 模型
 
-由 Mirobody 托管——无需你自带 LLM 密钥：`mirobody-flash`（默认）/ `mirobody-expert`。详见 [Models](/zh/api-reference/models)。
+由 Mirobody 托管——无需你自带 LLM 密钥：`mirobody-flash`（默认）/ `mirobody-expert`。见[模型](/zh/api-reference/models)。
 
-## 存储与数据驻留
+## 存储与驻留
 
-- 文件存储于**阿里云 OSS（杭州区域）**。
-- 100% 的数据存储于中国大陆境内；无跨境复制。
+- 文件存储于**阿里云 OSS（杭州地域）**。
+- 100% 数据留存中国大陆境内；无跨境复制。
 
 ## 合规
 
-遵循 PIPL / 数据安全法 / 网络安全法——详见[合规](/zh/api-reference/compliance)。限流相关请参阅[限流](/zh/api-reference/rate-limits)。
+对齐 PIPL / 数据安全法 / 网络安全法——见[合规](/zh/api-reference/compliance)。限流见[限流](/zh/api-reference/rate-limits)。

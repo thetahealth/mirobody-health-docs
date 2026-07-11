@@ -8,7 +8,7 @@ description: "curl / Python / Node.js 的端到端 /v1 示例 —— Answers、A
 ## curl
 
 ```bash
-BASE=https://test-mirobody-api.thetahealth.ai/v1
+BASE=https://mirobody-api.thetahealth.ai/v1
 KEY="mb_live_..."
 
 # 1) grounded 回答（Answers API）
@@ -35,7 +35,7 @@ curl $BASE/responses \
 ```python
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
 
 # Answers API —— 非流式
 resp = client.chat.completions.create(
@@ -72,7 +72,7 @@ print(r2.output_text)
 import requests
 
 up = requests.post(
-    "https://test-mirobody-api.thetahealth.ai/v1/files",
+    "https://mirobody-api.thetahealth.ai/v1/files",
     headers={"Authorization": "Bearer mb_live_..."},
     data={"user": "alice"},
     files={"file": open("report.pdf", "rb")},
@@ -87,11 +87,11 @@ print(up.json())   # {"object": "file", "id": "...", "filename": "report.pdf",
 [openai-agents SDK](https://github.com/openai/openai-agents-python) 只需改 base URL 即可对接 [Agent API](/zh/api-reference/responses)：
 
 ```python
-from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)   # tracing 会请求 api.openai.com
 
 @function_tool
@@ -99,7 +99,8 @@ def book_appointment(date: str) -> str:
     """Book a clinic appointment for the end user (ISO date)."""
     return f"Booked: {date} 09:30, Dr. Chen"
 
-agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment])
+agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment],
+              model_settings=ModelSettings(extra_body={"user": "alice"}))
 result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
 print(result.final_output)
 ```
@@ -113,7 +114,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://test-mirobody-api.thetahealth.ai/v1",
+  baseURL: "https://mirobody-api.thetahealth.ai/v1",
 });
 
 // Answers API —— 非流式

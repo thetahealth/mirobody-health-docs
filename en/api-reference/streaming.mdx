@@ -8,7 +8,7 @@ Set `stream: true` on [`POST /v1/responses`](/en/api-reference/responses) and th
 ```python
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://test-mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
 
 with client.responses.stream(
     model="mirobody-flash",

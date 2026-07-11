@@ -1,35 +1,22 @@
 ---
 title: "Global Cluster"
-description: "mirobody-api.thetahealth.ai — the primary cluster; test environment live now."
+description: "mirobody-api.thetahealth.ai — the primary cluster."
 ---
 
-The **global cluster on `mirobody.ai`** is Mirobody's primary environment. Its **test stack is live now** — console, consumer app, and API are all reachable for integration today.
+The **global cluster on `mirobody.ai`** is Mirobody's primary environment.
 
 ## Hosts
 
-| Role | URL | Status |
-| --- | --- | --- |
-| **API** (`base_url`) | `https://mirobody-api.thetahealth.ai/v1` | 🚧 Provisioning |
-| **API — test** | `https://test-mirobody-api.thetahealth.ai/v1` | ✅ Live |
-| **Developer console** | [platform.mirobody.ai](https://platform.mirobody.ai/) · test [test-platform.mirobody.ai](https://test-platform.mirobody.ai/) | ✅ Live (test) |
-| **Consumer app** | [chat.mirobody.ai](https://chat.mirobody.ai/) · test [test-chat.mirobody.ai](https://test-chat.mirobody.ai/) | ✅ Live (test) |
+| Role | URL |
+| --- | --- |
+| **API** (`base_url`) | `https://mirobody-api.thetahealth.ai/v1` |
+| **Developer console** | [platform.mirobody.ai](https://platform.mirobody.ai/) |
+| **Web app** | [chat.mirobody.ai](https://chat.mirobody.ai/) |
 
-<Note>
-Production hosts (`mirobody-api.thetahealth.ai`, `platform.mirobody.ai`, `chat.mirobody.ai`) are being brought online. Until then, build against the **test** hosts above — that's what every code sample in these docs uses.
-</Note>
 
 ## Cluster info
 
 - **LLM providers**: managed by Mirobody (`mirobody-flash` / `mirobody-expert`) — no LLM key of your own needed.
 - **Data residency**: United States, no cross-border replication.
-- **Compliance**: HIPAA + GDPR (planned) — see [Compliance](/en/api-reference/compliance).
+- **Compliance**: HIPAA — see [Compliance](/en/api-reference/compliance).
 
-## European Union (EU) — coming soon
-
-A dedicated **EU / European deployment** is also planned, for partners who need data to stay within the EU. Like every Mirobody cluster, it's built for **in-region, compliant deployment**:
-
-- **EU data residency** — no cross-border transfer; **GDPR**-aligned.
-- **Localized deployment** — Mirobody can run in-region (Mirobody-managed or partner-hosted) so health data never leaves the jurisdiction.
-- Same OpenAI-compatible `/v1` contract as every other cluster.
-
-For go-live timing, or to register interest in an EU / localized deployment, watch the Mirobody announcements or email [Mirobody Support](mailto:developer@thetahealth.ai).

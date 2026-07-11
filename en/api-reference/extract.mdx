@@ -34,7 +34,7 @@ Two input shapes:
 ### Dry-run (default)
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+curl https://mirobody-api.thetahealth.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" \
   -F "file=@lab_report.pdf"
@@ -43,7 +43,7 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
 ### Extract and store
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/extract \
+curl https://mirobody-api.thetahealth.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -62,24 +62,24 @@ curl https://test-mirobody-api.thetahealth.ai/v1/extract \
   "data": [
     {
       "indicator_raw": "Fasting glucose",
-      "canonical_name": "Fasting glucose [Moles/volume] in Serum or Plasma",
+      "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
       "loinc_code": "1558-6",
       "value_raw": "5.6",
       "parsed_value": "5.6",
       "unit_raw": "mmol/L",
       "unit_ucum": "mmol/L",
-      "confidence": 0.94,
+      "confidence": 0.82,
       "measured_at": "2026-07-01"
     },
     {
       "indicator_raw": "LDL cholesterol",
-      "canonical_name": "Cholesterol in LDL [Moles/volume] in Serum or Plasma",
-      "loinc_code": "22748-8",
+      "canonical_name": "Cholesterol in LDL [Mass/volume] in Serum or Plasma",
+      "loinc_code": "2089-1",
       "value_raw": "3.1",
       "parsed_value": "3.1",
       "unit_raw": "mmol/L",
       "unit_ucum": "mmol/L",
-      "confidence": 0.91,
+      "confidence": 0.79,
       "measured_at": null
     }
   ],

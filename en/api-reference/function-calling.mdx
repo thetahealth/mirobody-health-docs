@@ -47,7 +47,7 @@ Rules (violations are explicit `400`s, never silently dropped):
 
 | Rule | Detail |
 | --- | --- |
-| Type | Only `"type": "function"` is supported today. Both the flat Responses form and the completions-nested `{"type":"function","function":{...}}` form are accepted. `{"type": "mcp"}` is on the roadmap — see [MCP servers](/en/api-reference/mcp-servers). |
+| Type | `"type": "function"` (client handoff) and `"type": "mcp"` (server-side remote tools) are supported. Both the flat Responses form and the completions-nested `{"type":"function","function":{...}}` form are accepted. `{"type": "mcp"}` attaches your remote MCP servers (server-side execution, no handoff) — see [MCP servers](/en/api-reference/mcp-servers). |
 | Count | Max **64** tools per request. |
 | Names | Must match `[a-zA-Z0-9_-]{1,64}`; must be unique; must **not shadow a built-in tool name** (`query_health_data`, `read_file`, `task`, …). |
 | `parameters` | A JSON Schema object (defaults to `{"type":"object","properties":{}}`). |
@@ -85,7 +85,7 @@ Execute the tool, then continue the run in **either** of two ways:
 Send **only** `function_call_output` items, referencing the handoff response. The server resumes the paused agent thread — no history resend:
 
 ```bash
-curl https://test-mirobody-api.thetahealth.ai/v1/responses \
+curl https://mirobody-api.thetahealth.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -127,11 +127,11 @@ The pairs are reconstructed as conversation history and the run continues as a f
 The SDK handles the whole loop — declaration, handoff, execution, replay:
 
 ```python
-from agents import Agent, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://test-mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)
 
 @function_tool
@@ -144,10 +144,16 @@ agent = Agent(
     model="mirobody-flash",
     instructions="Check real health data before acting.",
     tools=[book_appointment],
+    model_settings=ModelSettings(extra_body={"user": "alice"}),  # tenant isolation — REQUIRED
 )
 result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
 print(result.final_output)
 ```
+
+
+<Warning>
+Every agents-SDK agent that touches Mirobody tools must pass the Subject via `model_settings=ModelSettings(extra_body={"user": ...})`. Without it, the run reads the **account-default Subject**, not the user you meant.
+</Warning>
 
 The model reads the Subject's real glucose data with **built-in server tools**, then hands off to **your** `book_appointment` — the SDK executes it locally and replays the transcript automatically.
 

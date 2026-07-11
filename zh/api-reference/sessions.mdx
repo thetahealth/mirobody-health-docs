@@ -13,7 +13,7 @@ Authorization: Bearer mb_live_*
 结束一个会话并清理其范围内的内容：以此 `session_id` 写入、`retention=session` 的记录会被**硬删除**（行被物理移除），线程在此会话上的聊天历史也会从 API 表面移除。`deleted` 统计清除的数量。
 
 ```bash
-curl -X DELETE "https://test-mirobody-api.thetahealth.ai/v1/sessions/sess_abc123?user=alice" \
+curl -X DELETE "https://mirobody-api.thetahealth.ai/v1/sessions/sess_abc123?user=alice" \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -44,7 +44,7 @@ curl -X DELETE "https://test-mirobody-api.thetahealth.ai/v1/sessions/sess_abc123
 ```python
 import requests
 
-BASE = "https://test-mirobody-api.thetahealth.ai/v1"
+BASE = "https://mirobody-api.thetahealth.ai/v1"
 H = {"Authorization": "Bearer mb_live_..."}
 
 # 写入限定在会话内的工作数据
