@@ -1,0 +1,97 @@
+---
+title: "Structured Output"
+description: "text.format — constrain the model to JSON (json_object) or a JSON Schema (json_schema) in backbone mode."
+---
+
+Use `text.format` on [`POST /v1/responses`](/en/api-reference/responses) to force the model's output into JSON. It follows the [OpenAI Responses `text.format` spec](https://platform.openai.com/docs/api-reference/responses/create#responses-create-text) and is available **only in [backbone mode](/en/api-reference/backbone-mode) (`mode:"model"`)**.
+
+<Warning>
+`text.format` requires `mode:"model"`. On the default agent mode it returns `400 unsupported_parameter` (`param: "text"`) — free-text that explodes downstream is more expensive than an interface error. The Answers API (`/v1/chat/completions`) likewise rejects `response_format` with `400`.
+</Warning>
+
+## `json_object`
+
+Constrains the output to a syntactically valid JSON object (no schema):
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "mode": "model",
+  "input": "Reply with a JSON object having keys a and b.",
+  "text": { "format": { "type": "json_object" } }
+}
+```
+
+The message text is a JSON string you parse yourself:
+
+```jsonc
+{ "output_text": "{\"a\":1,\"b\":2}", "status": "completed", ... }
+```
+
+## `json_schema`
+
+Constrains the output to a schema you supply. Set `strict: true` for exact schema adherence:
+
+<CodeGroup>
+```bash curl
+curl https://mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "mode": "model",
+        "input": "Give me a manifest for apples with count 3.",
+        "text": {
+          "format": {
+            "type": "json_schema",
+            "name": "manifest",
+            "strict": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "item":  { "type": "string" },
+                "count": { "type": "integer" }
+              },
+              "required": ["item", "count"],
+              "additionalProperties": false
+            }
+          }
+        }
+      }'
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
+
+resp = client.responses.create(
+    model="mirobody-flash",
+    extra_body={"mode": "model"},
+    input="Give me a manifest for apples with count 3.",
+    text={
+        "format": {
+            "type": "json_schema",
+            "name": "manifest",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {"item": {"type": "string"}, "count": {"type": "integer"}},
+                "required": ["item", "count"],
+                "additionalProperties": False,
+            },
+        }
+    },
+)
+print(resp.output_text)   # {"item":"apples","count":3}
+```
+</CodeGroup>
+
+## Provider fallback
+
+`text.format` passes through to the underlying model. When the backing provider has **no** native `json_schema` support, Mirobody automatically retries **once** as `json_object` with the schema injected into the system prompt. The retry is transparent — you still get schema-shaped JSON back — so treat structured output as reliable without knowing which provider backs a tier.
+
+## See also
+
+- [Backbone mode](/en/api-reference/backbone-mode) — `mode:"model"`, the prerequisite for `text.format`.
+- [Function calling](/en/api-reference/function-calling) — for tool-argument shaping, pair `text.format` with `tool_choice:"required"`.

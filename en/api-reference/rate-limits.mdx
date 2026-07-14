@@ -1,30 +1,61 @@
 ---
-title: "Rate Limits"
-description: "Current enforcement status + client pacing."
+title: "Rate Limits & Quota"
+description: "Per-key request rate limiting and the per-account usage quota."
 ---
 
-**No hard per-request rate limit is enforced today.** Production plans will introduce per-account quotas; when they do, overflow will return HTTP `429` with a `Retry-After` header (seconds), and this page will carry the exact numbers.
+Two independent controls protect the platform and your spend. Both return an
+OpenAI-compatible error envelope so the standard SDKs surface them cleanly.
+
+## Request rate limit (per key)
+
+Each API key is limited to a number of **requests per minute** (default 60).
+On overflow you get HTTP `429` with `Retry-After` plus `X-RateLimit-*` headers:
 
 ```text
 HTTP/1.1 429 Too Many Requests
-Retry-After: 47
+Retry-After: 12
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 12
 ```
 
-<Note>
-Even without hard limits, sustained abusive traffic can be throttled at the platform edge. Build your client with `429` + `Retry-After` handling now — it costs one `if` statement today and saves an incident later.
-</Note>
+```json
+{"error": {"message": "Rate limit exceeded: this API key allows 60 requests per minute. Retry after 12s.",
+           "type": "rate_limit_error", "code": "rate_limit_exceeded"}}
+```
 
-## Recommended pacing
+The window is counted per serving replica, so the advertised per-key number is a
+floor, not an exact global ceiling. Contact [Mirobody Support](mailto:developer@thetahealth.ai)
+to raise a key's limit.
+
+## Usage quota (per account, monthly)
+
+Each account has a **monthly usage cap** (USD of billed model usage). When the
+current month's usage reaches the cap, `/v1` requests are refused with HTTP `429`
+`insufficient_quota` until the next month, when it resets:
+
+```json
+{"error": {"message": "You have reached your $5 monthly API usage limit (billed $5.00 this month). It resets next month; contact support to raise it.",
+           "type": "insufficient_quota", "code": "insufficient_quota"}}
+```
+
+The cap covers **all keys under the account together**. Cost is metered on
+provider-true (billed) tokens at the [model tier's rate](/en/api-reference/models),
+with prompt-cache hits billed at the reduced cache rate (see `usage.billed_tokens`
+on every response). To raise or lift your cap, contact
+[Mirobody Support](mailto:developer@thetahealth.ai).
+
+## Client pacing
 
 | Path | Suggested RPM | Notes |
 | --- | --- | --- |
-| `POST /v1/chat/completions` | ≤ 60 | Streaming calls count too; wait for one to finish before the next |
-| `POST /v1/files` | ≤ 30 | Uploads are capped at **100 MB** per file; OCR is compute-heavy |
+| `POST /v1/chat/completions` | ≤ 60 | Streaming calls count too |
+| `POST /v1/responses` | ≤ 60 | Concurrent streams are supported |
+| `POST /v1/files` | ≤ 30 | Uploads capped at **100 MB** per file; OCR is compute-heavy |
 | `POST /v1/data` | ≤ 120 | Batch records into one request (up to 500/batch) |
-| `GET` reads (`/v1/data`, `/v1/files`, `/v1/models`) | ≤ 120 | — |
+| `GET` reads | ≤ 120 | — |
 
 ## Client backoff
 
-- On `429`, **respect `Retry-After`** — never retry immediately.
-- Double the backoff after two consecutive `429`s, up to 5 minutes.
-- Don't fire chat calls in parallel; let each stream complete first.
+- On `429 rate_limit_exceeded`, **respect `Retry-After`** — never retry immediately; double the backoff after two consecutive hits, up to 5 minutes.
+- On `429 insufficient_quota`, do **not** retry — the cap resets monthly or on a support change; surface it to the operator.

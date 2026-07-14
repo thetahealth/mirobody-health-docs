@@ -79,7 +79,11 @@ print(resp.output_text)
 | `previous_response_id` | string | 续接某个已存储响应的对话（服务端状态 —— 无需重发历史）。id 未知、已过期或已删除时返回 `404`。 |
 | `session_id` | string | Mirobody 扩展。把本轮及后续轮次绑定到一个**永续命名对话**（永不自动过期）。 |
 | `tools` | array | 客户端 **function** 工具(`{"type": "function", "name", "description", "parameters"}`,也接受 completions 嵌套形式)以及/或远程 **MCP** server(`{"type": "mcp", "server_label", "server_url", …}`——服务端执行)。最多 64 个;名称须匹配 `[a-zA-Z0-9_-]{1,64}` 且不得与内置工具重名。见 [Function calling](/zh/api-reference/function-calling) · [MCP servers](/zh/api-reference/mcp-servers)。 |
-| `tool_choice` | string \| object | `"auto"`（默认）/ `"none"` / 指名某个**客户端**工具。其它取值 → `400 unsupported_parameter`。 |
+| `tool_choice` | string \| object | `"auto"`（默认）/ `"none"` / `"required"` / 指名某个**客户端**工具。`"required"` 与命名的保证适用于 [backbone 模式](/zh/api-reference/backbone-mode)；完整契约（含 `400` 情形）在那里。 |
+| `mode` | string | `"agent"`（默认，完整服务端 agent）或 `"model"`（[backbone 模式](/zh/api-reference/backbone-mode) —— 裸推理，无服务端工具/状态）。 |
+| `builtin_tools` | string \| array | `"auto"`（默认）/ `"none"` / 内置工具名白名单数组。裁剪服务端领域工具 —— 见 [backbone 模式](/zh/api-reference/backbone-mode)。 |
+| `text.format` | object | 结构化输出（`json_object` / `json_schema`）。**仅 backbone 模式** —— agent 模式返回 `400`。见[结构化输出](/zh/api-reference/structured-output)。 |
+| `strict` | bool | 为 `true`（或头 `X-Mirobody-Strict: 1`）时，未知顶层参数以 `400 unsupported_parameter` 拒绝而非忽略。见[严格校验](#严格校验)。 |
 | `user` | string | 租户隔离键 → 一个 Subject。 |
 
 <SubjectUserParam />
@@ -105,7 +109,8 @@ print(resp.output_text)
     "output_tokens": 5,
     "total_tokens": 14,
     "input_tokens_details": { "system_tokens": 10096, "cached_tokens": 0 },
-    "output_tokens_details": { "reasoning_tokens": 0 }
+    "output_tokens_details": { "reasoning_tokens": 0 },
+    "billed_tokens": { "input": 20391, "output": 841, "total": 21232 }   // provider-true，实际计量口径
   },
   "tool_steps": [],                                      // Mirobody 扩展：服务端工具轨迹
   "health_records": [],                                  // Mirobody 扩展：{tool, data} 证据
@@ -125,6 +130,8 @@ print(resp.output_text)
 ### 用量口径
 
 `usage.input_tokens` 只报告**你实际发送的输入**；平台系统提示 / 工具 schema 的开销单列在 `input_tokens_details.system_tokens`。`output_tokens_details.reasoning_tokens` 统计思考 token。计数为该 agent 轮次内所有模型调用之和。
+
+`usage.billed_tokens`（`{input, output, total}`）是 **provider-true** 汇总 —— 平台实际计量（`api_usage_record`）并计价的数字。成本核算用它即可，不必再自己把 visible + system 相加。Agent API 与 [Answers API](/zh/api-reference/chat) 两面都有。成本 = `billed_tokens` × [档位单价](/zh/api-reference/models)。
 
 ## 获取存储的响应
 
@@ -154,12 +161,30 @@ curl -X DELETE https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14...
 
 完整细节 —— TTL、链式续聊语义、无状态回放，以及 `store=true` 供给的跨会话记忆 —— 见[状态与记忆](/zh/api-reference/state-and-memory)。
 
+## 严格校验
+
+默认接口是**宽松**的（兼容优先）—— 未知顶层参数被忽略。在 body 里设 `strict: true` **或**发送头 `X-Mirobody-Strict: 1`，未知顶层参数即变成硬 `400 unsupported_parameter`，`param` 指向第一个出问题的键。两个接口（`/v1/responses` 与 `/v1/chat/completions`）都遵守它。集成联调期建议打开，尽早发现拼写错误与放错位置的字段。
+
+```bash
+curl https://mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Mirobody-Strict: 1" \
+  -d '{"model":"mirobody-flash","input":"hi","bogus_param":1,"user":"alice"}'
+# → 400 {"error":{"code":"unsupported_parameter","param":"bogus_param", ...}}
+```
+
+<Note>
+`reasoning`（如 `{"effort": "high"}`）与采样参数一样列入 accepted-and-ignored 清单，因此严格模式**不会**拒绝它 —— 它是被识别、但 agent 当前忽略的参数。
+</Note>
+
 ## 错误
 
 标准[错误信封](/zh/api-reference/overview#错误格式)。此面特有情形：
 
 | HTTP | 何时 |
 | --- | --- |
-| `400` | `input` 缺失/为空；`tools` 非法（名称非法、与内置重名、重复、超过 64、非 function 类型）；不支持的 `tool_choice`；交接续跑格式错误（见 [Function calling](/zh/api-reference/function-calling#续跑错误)） |
+| `400` | `input` 缺失/为空；`tools` 非法（名称非法、与内置重名、重复、超过 64、非法类型、MCP server 不可达）；不支持的 `tool_choice`（见[契约](/zh/api-reference/backbone-mode)）；agent 模式下的 `text.format`；`mode:"model"` 携带 `previous_response_id`/`session_id`/MCP 工具；未知的 `builtin_tools` 名字；`strict` 下的未知顶层参数；交接续跑格式错误（见 [Function calling](/zh/api-reference/function-calling#续跑错误)） |
 | `404` | `previous_response_id` 或 `response_id` 未知 / 已过期 / 已删除 |
-| `502` | 上游 agent 错误 —— 瞬态；退避重试 |
+| `429` | `rate_limit_exceeded`（按 key 限流）或 `insufficient_quota`（按账户月度上限）—— 见[限流与配额](/zh/api-reference/rate-limits) |
+| `502` | 上游 agent 错误 —— 瞬态；退避重试。[backbone 模式](/zh/api-reference/backbone-mode)下 provider 错误会被分类（400 / 429 / 502），而非统一 502。 |

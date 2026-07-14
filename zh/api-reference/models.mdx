@@ -22,8 +22,17 @@ GET /v1/models
 | `mirobody-flash` | 默认 —— 快速、低成本 | 日常健康问答、高并发 |
 | `mirobody-expert` | 更深入的推理 | 复杂报告解读、多步分析 |
 
-{/* TODO(billing): 全球集群的结算币种尚未定 —— 在产品确认前保持币种中性的表述。 */}
-计费按**实际 token 用量**计量 —— 控制台的[用量](/zh/api-reference/console/usage)页是消耗与费用的权威来源。自托管（SDK / 开源）是免费软件；你只需为自己的基础设施和 LLM 密钥付费。
+计费按**实际（provider-true）token 用量**计量 —— 控制台的[用量](/zh/api-reference/console/usage)页与每次响应的 `usage.billed_tokens` 是消耗与费用的权威来源。自托管（SDK / 开源）是免费软件；你只需为自己的基础设施和 LLM 密钥付费。
+
+## 每档元数据
+
+每个条目携带一个保守的容量预算与该档单价：
+
+| 字段 | 含义 |
+| --- | --- |
+| `context_window` | 一次请求可用的总 token 数（输入 + 输出）。是**保守下限** —— 按它预算永远安全。 |
+| `max_output_tokens` | 单次响应生成 token 的上界。同样是保守下限。 |
+| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}` —— 每 **1M tokens** 的单价，作用于 `usage.billed_tokens`。只暴露数字；背后的 provider/model id 不暴露。 |
 
 ## 示例
 
@@ -45,4 +54,24 @@ for m in client.models.list().data:
 
 ## 响应
 
-一个 OpenAI 风格的 `{ "object": "list", "data": [ … ] }`。你的 `model` 取值请始终传入稳定的能力档 —— `mirobody-flash`（默认）或 `mirobody-expert`。
+一个 OpenAI 风格的 `{ "object": "list", "data": [ … ] }` —— 每个档位在标准 model 对象上扩展 `context_window`、`max_output_tokens` 与 `pricing`：
+
+```jsonc
+{
+  "object": "list",
+  "data": [
+    { "id": "mirobody-flash", "object": "model", "owned_by": "mirobody",
+      "context_window": 65536, "max_output_tokens": 8192,
+      "pricing": { "input_per_1m_tokens": 0.75, "output_per_1m_tokens": 4.50, "currency": "USD" } },
+    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody",
+      "context_window": 65536, "max_output_tokens": 8192,
+      "pricing": { "input_per_1m_tokens": 5.0, "output_per_1m_tokens": 25.0, "currency": "USD" } }
+  ]
+}
+```
+
+<Note>
+以上取值来自**全球**集群（`mirobody-api.thetahealth.ai`）。**中国**集群（`mirobody-api.thetahealth.cn`）暴露相同字段，但其档位定价不同 —— 请始终从你调用的集群读取 `pricing`，不要写死数字。
+</Note>
+
+你的 `model` 取值请始终传入稳定的能力档 —— `mirobody-flash`（默认）或 `mirobody-expert`。

@@ -22,8 +22,17 @@ Lists the capability tiers you can pass as `model` to the [Answers API](/en/api-
 | `mirobody-flash` | Default — fast, low cost | Everyday health Q&A, high concurrency |
 | `mirobody-expert` | Deeper reasoning | Complex report interpretation, multi-step analysis |
 
-{/* TODO(billing): settlement currency for the global cluster is not finalized — keep this wording currency-neutral until product confirms. */}
-Billing is metered per **actual token usage** — the console's [Usage](/en/api-reference/console/usage) page is the source of truth for consumption and cost. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
+Billing is metered per **actual (provider-true) token usage** — the console's [Usage](/en/api-reference/console/usage) page and each response's `usage.billed_tokens` are the source of truth for consumption and cost. Self-hosting (SDK / open source) is free software; you pay only for your own infrastructure and LLM keys.
+
+## Per-tier metadata
+
+Each entry carries a conservative capacity budget and the per-tier price:
+
+| Field | Meaning |
+| --- | --- |
+| `context_window` | Total tokens (input + output) a request may use. A **conservative lower bound** — budget against it and you're always safe. |
+| `max_output_tokens` | Upper bound on generated tokens per response. Also a conservative floor. |
+| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}` — price per **1M tokens**, applied to `usage.billed_tokens`. Numbers only; the backing provider/model id is not exposed. |
 
 ## Example
 
@@ -45,4 +54,24 @@ for m in client.models.list().data:
 
 ## Response
 
-An OpenAI-style `{ "object": "list", "data": [ … ] }`. For your `model` value, always pass a stable tier — `mirobody-flash` (default) or `mirobody-expert`.
+An OpenAI-style `{ "object": "list", "data": [ … ] }` — each tier extends the standard model object with `context_window`, `max_output_tokens`, and `pricing`:
+
+```jsonc
+{
+  "object": "list",
+  "data": [
+    { "id": "mirobody-flash", "object": "model", "owned_by": "mirobody",
+      "context_window": 65536, "max_output_tokens": 8192,
+      "pricing": { "input_per_1m_tokens": 0.75, "output_per_1m_tokens": 4.50, "currency": "USD" } },
+    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody",
+      "context_window": 65536, "max_output_tokens": 8192,
+      "pricing": { "input_per_1m_tokens": 5.0, "output_per_1m_tokens": 25.0, "currency": "USD" } }
+  ]
+}
+```
+
+<Note>
+The values above are from the **global** cluster (`mirobody-api.thetahealth.ai`). The **China** cluster (`mirobody-api.thetahealth.cn`) exposes the same fields, but its tiers are priced differently — always read `pricing` from the cluster you call rather than hard-coding numbers.
+</Note>
+
+For your `model` value, always pass a stable tier — `mirobody-flash` (default) or `mirobody-expert`.

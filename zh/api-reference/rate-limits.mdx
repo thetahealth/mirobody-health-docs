@@ -1,30 +1,51 @@
 ---
-title: "限流"
-description: "当前限流状态 + 客户端节流。"
+title: "限流与配额"
+description: "按 key 的请求限流,以及按账户的用量配额。"
 ---
 
-**当前不强制执行每请求的硬性限流。** 生产套餐将引入按账户的配额;届时超额会返回 HTTP `429` 并附带 `Retry-After` 响应头(单位:秒),本页也会同步给出确切数字。
+两道相互独立的控制,保护平台与你的花费。二者都返回 OpenAI 兼容的错误信封,标准 SDK 能直接识别。
+
+## 请求限流(按 key)
+
+每把 API key 限制**每分钟请求数**(默认 60)。超额返回 HTTP `429`,带 `Retry-After` 与 `X-RateLimit-*` 头:
 
 ```text
 HTTP/1.1 429 Too Many Requests
-Retry-After: 47
+Retry-After: 12
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 12
 ```
 
-<Note>
-即使没有硬性限流,持续的滥用流量也可能在平台边缘被节流。现在就为客户端加上 `429` + `Retry-After` 处理——今天只是一个 `if`,以后能省一次事故。
-</Note>
+```json
+{"error": {"message": "Rate limit exceeded: this API key allows 60 requests per minute. Retry after 12s.",
+           "type": "rate_limit_error", "code": "rate_limit_exceeded"}}
+```
 
-## 推荐节流
+窗口按服务副本计数,故公布的 per-key 数值是下限而非精确全局上限。需要提高某 key 的限额,联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
+
+## 用量配额(按账户,月度)
+
+每个账户有**月度用量上限**(以 billed 模型用量的 USD 计)。当**当月**用量达到上限时,`/v1` 请求被拒,返回 HTTP `429` `insufficient_quota`,**次月自动重置**:
+
+```json
+{"error": {"message": "You have reached your $5 monthly API usage limit (billed $5.00 this month). It resets next month; contact support to raise it.",
+           "type": "insufficient_quota", "code": "insufficient_quota"}}
+```
+
+该上限覆盖**账户名下所有 key 的合计**。成本按 provider-true(billed)token 乘[档位单价](/zh/api-reference/models)计量,命中提示词缓存的部分按更低的缓存价计(每次响应的 `usage.billed_tokens` 可见)。提高或解除上限,联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
+
+## 客户端节流
 
 | 路径 | 建议 RPM | 说明 |
 | --- | --- | --- |
-| `POST /v1/chat/completions` | ≤ 60 | 流式调用同样计数;请等一次调用结束后再发起下一次 |
-| `POST /v1/files` | ≤ 30 | 单文件上限 **100 MB**;OCR 计算开销较大 |
-| `POST /v1/data` | ≤ 120 | 将记录批量合并到一次请求中(每批最多 500 条) |
-| `GET` 读取(`/v1/data`、`/v1/files`、`/v1/models`) | ≤ 120 | — |
+| `POST /v1/chat/completions` | ≤ 60 | 流式调用同样计数 |
+| `POST /v1/responses` | ≤ 60 | 支持并发流式 |
+| `POST /v1/files` | ≤ 30 | 单文件上限 **100 MB**;OCR 计算开销大 |
+| `POST /v1/data` | ≤ 120 | 批量合并到一次请求(每批 ≤ 500 条) |
+| `GET` 读取 | ≤ 120 | — |
 
 ## 客户端退避
 
-- 收到 `429` 时,**遵守 `Retry-After`**——切勿立即重试。
-- 连续两次 `429` 后将退避时长翻倍,上限为 5 分钟。
-- 不要并行发起 chat 调用;先让每个流式调用完成。
+- 收到 `429 rate_limit_exceeded`,**遵守 `Retry-After`**——切勿立即重试;连续两次后退避翻倍,上限 5 分钟。
+- 收到 `429 insufficient_quota`,**不要重试**——配额按月重置或经支持调整;把它反馈给操作方。

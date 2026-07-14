@@ -1,0 +1,117 @@
+---
+title: "Backbone 模式"
+description: "把 Agent API 当作裸 LLM 后端使用：mode:\"model\"、builtin_tools 白名单，以及完整的 tool_choice 契约。"
+---
+
+import BaseUrl from '/snippets/zh/base-url.mdx';
+
+**Backbone 模式**把 [`POST /v1/responses`](/zh/api-reference/responses) 变成一个*裸推理后端* —— 一个兼容 OpenAI、带客户端 function 工具的 LLM，但**没有**服务端 agent 运行时、工具、规划或存储状态。当编排由你自己的 agent 框架（LangChain、openai-agents、自定义循环）负责、Mirobody 只当"模型"用时，用它。
+
+默认（`mode: "agent"`）是完整的 Mirobody agent：服务端 deep-agents 运行时、内置健康数据工具、规划与存储的对话。
+
+<Note>
+只有当编排由你掌控时才用 backbone 模式。如果你想要基于 Subject 真实健康数据的 grounded 回答，请留在默认的 agent 模式 —— [内置工具](/zh/api-reference/function-calling#内置服务端工具)在那里。
+</Note>
+
+<BaseUrl />
+
+## `mode`
+
+```jsonc
+{ "mode": "agent" | "model" }   // 默认 "agent"
+```
+
+| | `mode:"agent"`（默认） | `mode:"model"`（backbone） |
+| --- | --- | --- |
+| 运行时 | deep-agents（规划 / 文件系统 / 子代理 / eval） | 单次裸模型推理 |
+| 服务端工具 | 内置领域工具（可用 `builtin_tools` 裁剪） | **无** |
+| 系统提示 | 完整 agent 基座（约 10k tokens） | 最小安全底座（<100 tokens） |
+| 状态 | `previous_response_id` / `session_id` 线程 | **无状态**（两者均 → `400`） |
+| 续跑 | 有状态 resume **或** 无状态全量重放 | 仅无状态全量重放 |
+| 客户端工具 | interrupt 交接（服务端铸 `call_id`） | 直接绑定模型（**保留 provider 原生 `call_id`**） |
+| MCP 工具 | 支持（服务端执行） | `400`（无服务端工具循环） |
+| Checkpointer | 有（`store=false` 时请求结束即删） | 无 |
+| [`text.format`](/zh/api-reference/structured-output) | `400`（不支持） | **支持** |
+
+`store=true` 时，model 模式仍持久化响应对象（`GET /v1/responses/{id}` 可取），但对话被标记为 model 模式：后续对它发 `previous_response_id` 会得到明确的 `400`（"重放 transcript 续跑"），而非静默 resume 一个空线程。
+
+```bash
+curl https://mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "mode": "model",
+        "builtin_tools": "none",
+        "input": "Summarize the attached lab panel.",
+        "user": "alice"
+      }'
+```
+
+<Note>
+Model 模式是**无状态**的。续跑要在 `input` 里重发完整的 item transcript（[无状态全量回放路径](/zh/api-reference/function-calling) —— 也是 openai-agents 的默认做法）。`previous_response_id`、`session_id` 与 MCP 工具都会返回 `400`。
+</Note>
+
+## `builtin_tools`
+
+```jsonc
+{ "builtin_tools": "auto" | "none" | ["query_health_data", ...] }   // 默认 "auto"
+```
+
+控制服务端**领域工具族** —— 八个健康 / FHIR / 文献 / 网页工具：
+
+`query_health_data` · `list_clinical_records` · `list_family_members` · `write_fhir_observation` · `search_medical_literature` · `get_clinical_trials` · `get_article_by_pmcid` · `fetch_url`
+
+| 取值 | 效果 |
+| --- | --- |
+| `"auto"`（默认） | 全部领域工具可用 —— 现状行为。 |
+| `"none"` | 领域工具全部隐藏。**当 backbone 调用方自带数据或工具时必选** —— 否则模型会优先查（为空的）Mirobody Subject 而跳过你的客户端工具。 |
+| `["name", ...]` | 白名单。未知名字返回 `400 invalid_value` 并列出可用集合。 |
+
+deep-agents 的编排原语（`write_todos`、文件系统、`task`、`eval`）属于 agent 模式本体，**不在**本参数作用域内 —— 仍可能出现在 `tool_steps` 中。要**零**服务端工具轨迹，请用 `mode:"model"`。
+
+## `tool_choice`
+
+`tool_choice` 遵循 OpenAI 语义，model 模式在此之上提供 agent 运行时无法给出的硬保证：
+
+| `tool_choice` | `mode:"model"` | `mode:"agent"`（默认） |
+| --- | --- | --- |
+| 缺省 / `"auto"` | 模型自主决定 | 模型自主决定 |
+| `"none"` | 纯文本（自动降入 model 模式） | 同左（无状态时）；带 `previous_response_id`/`session_id` → `400` |
+| `"required"` | **保证** output 至少含一个客户端 `function_call` | `400 unsupported_parameter`（agent 运行时无法强制客户端工具调用） |
+| `{"type":"function","name":X}` | **保证**只调用 `X`（杂调剪除） | 接受但 best-effort（不强制） |
+| `required` / 命名 + 空 `tools` | `400 invalid_value`，`param="tool_choice"` | 同左 |
+
+<Note>
+**`tool_choice:"none"` 禁用*一切*工具**（含内置，OpenAI 语义），内部降级为 model 模式纯文本生成。旧行为 —— 只清空客户端工具、内置工具反而独占 —— 已废除。
+</Note>
+
+### 强制工具调用是真保证
+
+部分 OpenAI 兼容 provider 在 thinking 模式下拒绝 `required` / 命名 `tool_choice`。当你强制工具时，Mirobody 依次透明尝试：
+
+1. 原生透传你的 `tool_choice`。
+2. 原生 `tool_choice` **+ `enable_thinking:false`**。
+3. 无 `tool_choice` + MUST-call 指令 + **服务端结果校验**（一次受控重试）。
+
+因此 `required` / 命名是真保证，而非 prompt 建议。极罕见地全部失败时，你会得到带明确报错的 `502` —— 绝不静默降级。流式下，强制调用会被合成为标准事件序列（`response.output_item.added` → `response.function_call_arguments.delta`/`.done` → `response.output_item.done`），与非流式行为一致。
+
+这已针对 LangChain `create_agent` 的 `ToolStrategy(...)`（自动发 `tool_choice:"required"`）与 `ProviderStrategy(...)` 两者做过实测。
+
+## Provider 错误分类（model 模式）
+
+model 模式下，provider 异常按可重试性分类，不再统一 `502`：
+
+| Provider 侧 | 对外 | 含义 |
+| --- | --- | --- |
+| `400` / `404` / `413` / `422`（参数、超长等） | **`400`** `invalid_request_error` | 透传 provider 的可操作 message（截断）。**不应重试。** |
+| `429` | **`429`** `rate_limit_error` | 透传或合成 `Retry-After`。 |
+| `401` / `403`（平台侧凭据 / 额度） | **`502`** `upstream_error` | 平台故障，非你的请求问题 —— 不泄漏内部细节。 |
+| `5xx` / 超时 / 传输错误 | **`502`** `upstream_error` | 仅异常类型；全文带 `X-Request-Id` 入日志。 |
+
+## 另见
+
+- [结构化输出](/zh/api-reference/structured-output) —— `text.format`（仅 model 模式）。
+- [Function calling](/zh/api-reference/function-calling) —— 声明客户端工具与两种续跑路径。
+- [流式传输](/zh/api-reference/streaming) —— `response.*` 事件，含服务端工具旁路通道。
+- [限流与配额](/zh/api-reference/rate-limits) —— 按 key 限流与按账户的月度配额。

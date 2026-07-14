@@ -1,0 +1,117 @@
+---
+title: "Backbone Mode"
+description: "Run the Agent API as a bare LLM backend: mode:\"model\", the builtin_tools allowlist, and the full tool_choice contract."
+---
+
+import BaseUrl from '/snippets/base-url.mdx';
+
+**Backbone mode** turns [`POST /v1/responses`](/en/api-reference/responses) into a *bare inference backend* — an OpenAI-compatible LLM with client function tools, but **no** server-side agent runtime, tools, planning, or stored state. Use it when your own agent framework (LangChain, openai-agents, a custom loop) is the orchestrator and Mirobody is just "the model."
+
+The default (`mode: "agent"`) is the full Mirobody agent: server-side deep-agents runtime, built-in health-data tools, planning, and stored conversations.
+
+<Note>
+Reach for backbone mode only when you own the orchestration. If you want grounded answers over the Subject's real health data, stay on the default agent mode — that's where the [built-in tools](/en/api-reference/function-calling#built-in-server-tools) live.
+</Note>
+
+<BaseUrl />
+
+## `mode`
+
+```jsonc
+{ "mode": "agent" | "model" }   // default "agent"
+```
+
+| | `mode:"agent"` (default) | `mode:"model"` (backbone) |
+| --- | --- | --- |
+| Runtime | deep-agents (planning / filesystem / sub-agents / eval) | single bare-model inference |
+| Server tools | built-in domain tools (trim with `builtin_tools`) | **none** |
+| System prompt | full agent base (~10k tokens) | minimal safety base (<100 tokens) |
+| State | `previous_response_id` / `session_id` threads | **stateless** (both → `400`) |
+| Continuation | stateful resume **or** stateless full replay | stateless full replay only |
+| Client tools | interrupt handoff (server-minted `call_id`) | bound directly to the model (**native provider `call_id` preserved**) |
+| MCP tools | supported (server-executed) | `400` (no server tool loop) |
+| Checkpointer | yes (deleted at request end when `store=false`) | none |
+| [`text.format`](/en/api-reference/structured-output) | `400` (not supported) | **supported** |
+
+With `store=true`, model mode still persists the response object (`GET /v1/responses/{id}` works), but the conversation is tagged as model-mode: a later `previous_response_id` against it returns an explicit `400` ("replay the transcript to continue") rather than silently resuming an empty thread.
+
+```bash
+curl https://mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "mode": "model",
+        "builtin_tools": "none",
+        "input": "Summarize the attached lab panel.",
+        "user": "alice"
+      }'
+```
+
+<Note>
+Model mode is **stateless**. Continue a run by resending the full item transcript in `input` (the [stateless full-replay path](/en/api-reference/function-calling) — what openai-agents does by default). `previous_response_id`, `session_id`, and MCP tools each return `400`.
+</Note>
+
+## `builtin_tools`
+
+```jsonc
+{ "builtin_tools": "auto" | "none" | ["query_health_data", ...] }   // default "auto"
+```
+
+Controls the server-side **domain-tool family** — the eight health / FHIR / literature / web tools:
+
+`query_health_data` · `list_clinical_records` · `list_family_members` · `write_fhir_observation` · `search_medical_literature` · `get_clinical_trials` · `get_article_by_pmcid` · `fetch_url`
+
+| Value | Effect |
+| --- | --- |
+| `"auto"` (default) | All domain tools available — current behavior. |
+| `"none"` | Domain tools all hidden. **Required when your backbone caller brings its own data or tools** — otherwise the model prefers to query the (empty) Mirobody Subject and skips your client tool. |
+| `["name", ...]` | Allowlist. An unknown name returns `400 invalid_value` and lists the available set. |
+
+The deep-agents orchestration primitives (`write_todos`, filesystem, `task`, `eval`) belong to agent mode itself and are **not** in this parameter's scope — they may still appear in `tool_steps`. For a **zero** server-tool trace, use `mode:"model"`.
+
+## `tool_choice`
+
+`tool_choice` follows OpenAI semantics, with model mode adding hard guarantees the agent runtime cannot make:
+
+| `tool_choice` | `mode:"model"` | `mode:"agent"` (default) |
+| --- | --- | --- |
+| omitted / `"auto"` | Model decides | Model decides |
+| `"none"` | Plain text (auto-drops into model mode) | Same, when stateless; with `previous_response_id`/`session_id` → `400` |
+| `"required"` | **Guarantees** the output has at least one client `function_call` | `400 unsupported_parameter` (the agent runtime can't force a client-tool call) |
+| `{"type":"function","name":X}` | **Guarantees** only `X` is called (stray calls pruned) | Accepted but best-effort (not forced) |
+| `required` / named + empty `tools` | `400 invalid_value`, `param="tool_choice"` | Same |
+
+<Note>
+**`tool_choice:"none"` disables *all* tools**, including the built-in ones (OpenAI semantics), and internally degrades to model-mode plain-text generation. The old behavior — clearing only client tools while the built-ins ran on — is gone.
+</Note>
+
+### Forced tool calls are a true guarantee
+
+Some OpenAI-compatible providers reject `required` / named `tool_choice` in thinking mode. When you force a tool, Mirobody transparently tries, in order:
+
+1. Native pass-through of your `tool_choice`.
+2. Native `tool_choice` **+ `enable_thinking:false`**.
+3. No `tool_choice` + a MUST-call instruction + **server-side result validation** (one controlled retry).
+
+So `required` / named is a real guarantee, not a prompt hint. In the rare case all rungs fail, you get a `502` with a clear error — never a silent downgrade. In streaming, a forced call is synthesized into the standard event sequence (`response.output_item.added` → `response.function_call_arguments.delta`/`.done` → `response.output_item.done`), identical to the non-streaming behavior.
+
+This is verified against LangChain `create_agent` with both `ToolStrategy(...)` (which auto-sends `tool_choice:"required"`) and `ProviderStrategy(...)`.
+
+## Provider error classification (model mode)
+
+In model mode, provider exceptions are classified by retryability instead of a blanket `502`:
+
+| Provider side | Returned | Meaning |
+| --- | --- | --- |
+| `400` / `404` / `413` / `422` (params, over-length) | **`400`** `invalid_request_error` | The provider's actionable message is passed through (truncated). **Do not retry.** |
+| `429` | **`429`** `rate_limit_error` | `Retry-After` passed through or synthesized. |
+| `401` / `403` (platform-side credentials / quota) | **`502`** `upstream_error` | A platform fault, not your request — no internal detail leaked. |
+| `5xx` / timeout / transport | **`502`** `upstream_error` | Error type only; full text is logged with an `X-Request-Id`. |
+
+## See also
+
+- [Structured output](/en/api-reference/structured-output) — `text.format` (model mode only).
+- [Function calling](/en/api-reference/function-calling) — declaring client tools and the two continuation paths.
+- [Streaming](/en/api-reference/streaming) — `response.*` events, including the server-tool side-channel.
+- [Rate Limits & Quota](/en/api-reference/rate-limits) — per-key rate limit and the monthly account quota.

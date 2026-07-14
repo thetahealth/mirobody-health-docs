@@ -120,7 +120,9 @@
                 "group": "Agent API",
                 "pages": [
                   "en/api-reference/responses",
+                  "en/api-reference/backbone-mode",
                   "en/api-reference/function-calling",
+                  "en/api-reference/structured-output",
                   "en/api-reference/mcp-servers",
                   "en/api-reference/streaming",
                   "en/api-reference/state-and-memory"
@@ -256,7 +258,9 @@
                 "group": "Agent API",
                 "pages": [
                   "zh/api-reference/responses",
+                  "zh/api-reference/backbone-mode",
                   "zh/api-reference/function-calling",
+                  "zh/api-reference/structured-output",
                   "zh/api-reference/mcp-servers",
                   "zh/api-reference/streaming",
                   "zh/api-reference/state-and-memory"

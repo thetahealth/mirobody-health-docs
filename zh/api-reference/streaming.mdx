@@ -33,7 +33,8 @@ with client.responses.stream(
 | `response.output_text.delta` / `.done` | 回答文本增量，随后是全文 —— **大多数客户端渲染的通道**。 |
 | `response.function_call_arguments.delta` / `.done` | 客户端工具交接的参数（见 [Function calling](/zh/api-reference/function-calling)）。 |
 | `response.output_item.done` | 当前 item 完成 —— 携带完成后的 item。 |
-| `response.mirobody_tool_call` | **Mirobody 扩展，旁路通道** —— 一个内置服务端工具运行了。见下文。 |
+| `response.mirobody_tool_call` | **Mirobody 扩展，旁路通道** —— 一个内置服务端工具被*调用*。见下文。 |
+| `response.mirobody_tool_result` | **Mirobody 扩展，旁路通道** —— 一个内置服务端工具的*结果*落地。见下文。 |
 | `response.completed` | 终态：携带**完整的最终响应对象**（`output`、`usage`、`tool_steps`、`health_records`、`citations`）。 |
 | `response.failed` | 终态错误：携带 `status: "failed"` 的响应快照与 `error` 对象。 |
 
@@ -50,7 +51,18 @@ data: {"type":"response.mirobody_tool_call","sequence_number":7,
                     "arguments":"{\"query\": \"fasting glucose last 90 days\"}"}}
 ```
 
-它在工具被*调用*时触发；**不会**开启 output item，也不推进 `output_index`。完整结果（`tool_steps[].result`）在 `response.completed` 的最终响应对象上。想做活动信息流（"正在检索你的记录…"）就渲染它；跳过它也不影响任何功能。
+它在工具被*调用*时触发；**不会**开启 output item，也不推进 `output_index`。想做活动信息流（"正在检索你的记录…"）就渲染它；跳过它也不影响任何功能。
+
+与它成对的是 `response.mirobody_tool_result`，在该工具的**结果**落地时推送 —— 旁路通道的另一半，同样可安全忽略：
+
+```text
+event: response.mirobody_tool_result
+data: {"type":"response.mirobody_tool_result","sequence_number":9,
+       "tool_step":{"id":"mtc_0","call_id":"call_1a2b...","name":"query_health_data",
+                    "result":"...","truncated":false}}
+```
+
+用 `id` / `call_id` 把结果匹配到它的调用。流式的 `result` **截断到 4096 字符**（被截断时 `truncated: true`）；完整值始终在 `response.completed` 最终响应对象的 `tool_steps[].result` 上。
 
 ## 失败形状
 

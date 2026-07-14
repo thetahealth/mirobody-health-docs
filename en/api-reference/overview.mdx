@@ -35,9 +35,9 @@ Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body
 
 | | Fields |
 | --- | --- |
-| **Standard** | `model`, `messages` / `input`, `stream`, `user` — plus, on the [Agent API](/en/api-reference/responses): `instructions`, `store`, `previous_response_id`, `tools`, `tool_choice` |
-| **Mirobody extensions** | `retention` (data lifetime — see below), `session_id` (session scoping; on [`/v1/responses`](/en/api-reference/responses) it binds a durable conversation) |
-| **Response extensions** | `reasoning_content` / `reasoning` items, `tool_steps[]` (server tool trace), top-level `health_records[]` / `citations[]` |
+| **Standard** | `model`, `messages` / `input`, `stream`, `user` — plus, on the [Agent API](/en/api-reference/responses): `instructions`, `store`, `previous_response_id`, `tools`, `tool_choice`, `text.format` |
+| **Mirobody extensions** | `retention` (data lifetime — see below), `session_id` (session scoping; on [`/v1/responses`](/en/api-reference/responses) it binds a durable conversation), `mode` + `builtin_tools` ([backbone mode](/en/api-reference/backbone-mode)), `strict` (strict validation) |
+| **Response extensions** | `reasoning_content` / `reasoning` items, `tool_steps[]` (server tool trace), top-level `health_records[]` / `citations[]`, `usage.billed_tokens` (provider-true metering) |
 
 <Note>
 **Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced**; `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. On the Answers API, `tools` / `tool_choice` / `response_format` / `n>1` are **explicitly rejected with `400`** — see [Unsupported parameters](/en/api-reference/chat#unsupported-parameters).
@@ -93,13 +93,14 @@ Errors use the OpenAI-style envelope:
 | HTTP | `code` | When |
 | --- | --- | --- |
 | `400` | `invalid_retention`, `invalid_session`, … | Malformed request / missing required field — `param` names the field |
-| `400` | `unsupported_parameter` | A parameter this surface rejects (e.g. `tools` on the Answers API) — `param` names it |
+| `400` | `unsupported_parameter` | A parameter this surface rejects (e.g. `tools` on the Answers API, `text.format` on agent mode, an unknown top-level param under `strict`) — `param` names it |
 | `401` | `null` | Missing or malformed `Authorization` header |
 | `401` | `invalid_api_key` | Bad or revoked `mb_live_*` key |
 | `404` | — | Unknown resource (`file_key` / `response_id` / `previous_response_id` / subject) |
 | `413` | — | Upload exceeds the size limit |
 | `422` | — | File text extraction failed (`/v1/extract`) |
-| `429` | — | Rate limit — see [Rate Limits](/en/api-reference/rate-limits) |
+| `429` | `rate_limit_exceeded` | Per-key request rate limit exceeded — carries `Retry-After` + `X-RateLimit-*`. See [Rate Limits & Quota](/en/api-reference/rate-limits) |
+| `429` | `insufficient_quota` | Monthly account usage cap reached — resets next month. See [Rate Limits & Quota](/en/api-reference/rate-limits) |
 | `500` | `internal_error` | Unexpected server-side failure |
 | `502` | — | Upstream agent error — transient; retry with backoff |
 

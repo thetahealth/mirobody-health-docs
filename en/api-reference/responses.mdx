@@ -79,7 +79,11 @@ print(resp.output_text)
 | `previous_response_id` | string | Continue the conversation of a stored response (server-side state — no need to resend history). `404` if the id is unknown, expired, or deleted. |
 | `session_id` | string | Mirobody extension. Binds this and future turns to a **durable named conversation** (never auto-expires). |
 | `tools` | array | Client **function** tools (`{"type": "function", "name", "description", "parameters"}`; the completions-nested form is also accepted) and/or remote **MCP** servers (`{"type": "mcp", "server_label", "server_url", …}` — executed server-side). Max 64; names must match `[a-zA-Z0-9_-]{1,64}` and may not shadow built-in tool names. See [Function calling](/en/api-reference/function-calling) · [MCP servers](/en/api-reference/mcp-servers). |
-| `tool_choice` | string \| object | `"auto"` (default) / `"none"` / a named **client** tool. Anything else → `400 unsupported_parameter`. |
+| `tool_choice` | string \| object | `"auto"` (default) / `"none"` / `"required"` / a named **client** tool. `"required"` and named guarantees apply in [backbone mode](/en/api-reference/backbone-mode); the full contract (incl. the `400` cases) is there. |
+| `mode` | string | `"agent"` (default, full server-side agent) or `"model"` ([backbone mode](/en/api-reference/backbone-mode) — bare inference, no server tools/state). |
+| `builtin_tools` | string \| array | `"auto"` (default) / `"none"` / an allowlist of built-in tool names. Trims the server-side domain tools — see [backbone mode](/en/api-reference/backbone-mode). |
+| `text.format` | object | Structured output (`json_object` / `json_schema`). **Backbone mode only** — agent mode returns `400`. See [Structured output](/en/api-reference/structured-output). |
+| `strict` | bool | When `true` (or header `X-Mirobody-Strict: 1`), an unknown top-level parameter is rejected with `400 unsupported_parameter` instead of being ignored. See [Strict validation](#strict-validation). |
 | `user` | string | Tenant-isolation key → a Subject. |
 
 <SubjectUserParam />
@@ -105,7 +109,8 @@ print(resp.output_text)
     "output_tokens": 5,
     "total_tokens": 14,
     "input_tokens_details": { "system_tokens": 10096, "cached_tokens": 0 },
-    "output_tokens_details": { "reasoning_tokens": 0 }
+    "output_tokens_details": { "reasoning_tokens": 0 },
+    "billed_tokens": { "input": 20391, "output": 841, "total": 21232 }   // provider-true, what you're metered on
   },
   "tool_steps": [],                                      // Mirobody extension: server tool trace
   "health_records": [],                                  // Mirobody extension: {tool, data} evidence
@@ -125,6 +130,8 @@ The `output` array contains **only standard OpenAI item types** — `reasoning`,
 ### Usage accounting
 
 `usage.input_tokens` reports the input **you actually sent**; the platform's system prompt / tool-schema overhead is broken out as `input_tokens_details.system_tokens`. `output_tokens_details.reasoning_tokens` counts thinking tokens. Counts are summed across every model call of the agent turn.
+
+`usage.billed_tokens` (`{input, output, total}`) is the **provider-true** total — the number the platform actually meters (`api_usage_record`) and prices. Use it for cost accounting; you no longer need to add visible + system tokens yourself. It's present on both the Agent API and the [Answers API](/en/api-reference/chat). Cost = `billed_tokens` × the [model tier's rate](/en/api-reference/models).
 
 ## Retrieve a stored response
 
@@ -154,12 +161,30 @@ Deletes the stored response. If it was the **last** live response of its convers
 
 Full details — TTLs, chaining semantics, stateless replay, and the cross-session memory that `store=true` feeds — in [State & memory](/en/api-reference/state-and-memory).
 
+## Strict validation
+
+By default the surface is **lenient** (compatibility-first) — an unknown top-level parameter is ignored. Set `strict: true` in the body **or** send the header `X-Mirobody-Strict: 1` to make an unknown top-level parameter a hard `400 unsupported_parameter`, with `param` pointing at the first offending key. Both surfaces (`/v1/responses` and `/v1/chat/completions`) honor it. Turn it on while integrating to catch typos and misplaced fields early.
+
+```bash
+curl https://mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Mirobody-Strict: 1" \
+  -d '{"model":"mirobody-flash","input":"hi","bogus_param":1,"user":"alice"}'
+# → 400 {"error":{"code":"unsupported_parameter","param":"bogus_param", ...}}
+```
+
+<Note>
+`reasoning` (e.g. `{"effort": "high"}`) is on the accepted-and-ignored list alongside the sampling parameters, so strict mode does **not** reject it — it's a recognized parameter that the agent currently ignores.
+</Note>
+
 ## Errors
 
 Standard [error envelope](/en/api-reference/overview#error-format). Surface-specific cases:
 
 | HTTP | When |
 | --- | --- |
-| `400` | Missing/empty `input`; invalid `tools` (bad name, reserved name, duplicate, > 64, unsupported type, unreachable MCP server); unsupported `tool_choice`; malformed handoff continuation (see [Function calling](/en/api-reference/function-calling#continuation-errors)) |
+| `400` | Missing/empty `input`; invalid `tools` (bad name, reserved name, duplicate, > 64, unsupported type, unreachable MCP server); unsupported `tool_choice` (see the [contract](/en/api-reference/backbone-mode)); `text.format` on agent mode; `mode:"model"` with `previous_response_id`/`session_id`/MCP tools; unknown `builtin_tools` name; unknown top-level param under `strict`; malformed handoff continuation (see [Function calling](/en/api-reference/function-calling#continuation-errors)) |
 | `404` | Unknown / expired / deleted `previous_response_id` or `response_id` |
-| `502` | Upstream agent error — transient; retry with backoff |
+| `429` | `rate_limit_exceeded` (per-key rate limit) or `insufficient_quota` (monthly account cap) — see [Rate Limits & Quota](/en/api-reference/rate-limits) |
+| `502` | Upstream agent error — transient; retry with backoff. In [backbone mode](/en/api-reference/backbone-mode) provider errors are classified (400 / 429 / 502) rather than a blanket 502. |
