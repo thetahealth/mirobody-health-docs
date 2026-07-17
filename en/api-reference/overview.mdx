@@ -62,7 +62,7 @@ On **[`POST /v1/data`](/en/api-reference/data) `retention` is required** — no 
 
 There is **no `retention: "none"`**. For use-and-forget analysis, run [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (dry-run — nothing persisted), or write with `retention: "1h"`. The agent **only ever reads the Subject's currently-unexpired data**.
 
-Conversation persistence on the Agent API is a separate knob (`store`) — see [State & memory](/en/api-reference/state-and-memory).
+Conversation persistence on the Agent API is a separate knob (`store`) — see [State & memory](/en/api-reference/state-and-memory). For purely subjective entries (journaling), ingest them as stored single-turn agent calls — see the [Journaling recipe](/en/api-reference/state-and-memory#journaling).
 
 ## Evidence: health_records & citations
 
@@ -117,6 +117,6 @@ In **streaming**, an upstream failure arrives as an SSE error frame (`{"error": 
 | `POST` | [`/v1/extract`](/en/api-reference/extract) | Document → standardized indicators (dry-run by default) |
 | `POST` · `GET` · `DELETE` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch text, delete |
 | `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session and purge its session-scoped data |
-| `DELETE` | `/v1/subjects/{user}` | Erase everything for one Subject (right to be forgotten) — see [Compliance](/en/api-reference/compliance) |
+| `DELETE` | [`/v1/subjects/{user}`](/en/api-reference/subjects) | Erase everything for one Subject (right to be forgotten) — see [Compliance](/en/api-reference/compliance) |
 | `GET`·`POST`·`DELETE` | [`/api/console/keys`](/en/api-reference/console/keys) | Manage API keys (JWT) |
 | `GET` | [`/api/console/usage`](/en/api-reference/console/usage) | Usage: requests / tokens (JWT) |

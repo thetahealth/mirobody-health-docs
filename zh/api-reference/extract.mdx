@@ -112,11 +112,13 @@ curl https://mirobody-api.thetahealth.ai/v1/extract \
   "stored": false,
   "stored_count": 0,
   "subject": "alice",
-  "note": "no quantifiable readings found in the text; subjective/narrative entries (journal) are not supported yet"
+  "note": "no quantifiable readings found in the text; for subjective/journal entries, send a single-turn POST /v1/responses with store:true instead"
 }
 ```
 
-混合文本按预期工作 —— *「头疼了一天，体温 38.2 °C」* 会抽出体温读数、丢弃叙事部分。面向主观/叙事记录的专用 journal 端点在规划中。
+混合文本按预期工作 —— *「头疼了一天，体温 38.2 °C」* 会抽出体温读数、丢弃叙事部分。
+
+**纯主观记录（journal）有官方配方 —— 不需要专用端点。** 把这条记录作为单轮 [`POST /v1/responses`](/zh/api-reference/responses) 发送，带 `store: true`（外加自管的 `session_id` 如 `journal-{user}`、`builtin_tools: "none"`，以及要求单句确认的 `instructions`）。平台的后台固化（consolidation）随后会抽出其中的**可量化指标**（可经 [`GET /v1/data`](/zh/api-reference/data) 查询）与**持久记忆**（为该 Subject 之后的回答提供上下文）；`DELETE /v1/responses/{id}` 会移除这条记录**并**回撤其沉淀的记忆。完整配方见[写日记（Journaling）](/zh/api-reference/state-and-memory#写日记journaling)。`/v1/extract` 本身保持定量定位 —— 读数进、标准化指标出。
 
 ## 错误
 

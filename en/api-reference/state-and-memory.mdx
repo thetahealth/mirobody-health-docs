@@ -42,6 +42,29 @@ r2 = client.responses.create(model="mirobody-flash",
 
 Stored conversations feed the platform's asynchronous memory consolidation: durable facts the agent learns about a Subject can inform later conversations for that same Subject. `store: false` turns keep out of it entirely; deleting a response retracts what its conversation contributed.
 
+## Journaling
+
+A subjective journal entry — *"headache all afternoon, eased after two coffees"* — is **a single-turn `POST /v1/responses` with `store: true`**. No dedicated endpoint: the knobs on this page already compose into the recipe. Bind entries to your own `session_id` (e.g. `journal-{user}`) so they never hit the 30-day TTL; `builtin_tools: "none"` plus a short-acknowledgement `instructions` keeps the reply — which you don't consume — as cheap as possible:
+
+```bash
+curl -s https://mirobody-api.thetahealth.ai/v1/responses \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" -d '{
+  "input": "Headache all afternoon; eased after two cups of coffee",
+  "user": "patient-42",
+  "session_id": "journal-patient-42",
+  "store": true,
+  "builtin_tools": "none",
+  "instructions": "The user is journaling, not asking a question. Reply with a single short acknowledgement."
+}'
+```
+
+Everything after that is the existing machinery:
+
+- **Consolidation extracts what matters.** The background consolidation pass reads the stored turn and pulls out any **quantifiable indicators** — written to the same pool as [`POST /v1/data`](/en/api-reference/data), so they show up in `GET /v1/data` — and **durable memories**, which ground the Subject's later agent answers automatically. Extraction happens asynchronously; it doesn't depend on the reply's length or content.
+- **Read back a single entry** with `GET /v1/responses/{id}`. There is **no list endpoint** (OpenAI parity) — keep your own `(entry → response_id)` index on your side. The platform is the data/intelligence layer, not a note-taking app.
+- **Three deletion levers**: `DELETE /v1/responses/{id}` removes one entry **and retracts the memory its conversation contributed**; [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) tears down the whole journal session; [`DELETE /v1/subjects/{user}`](/en/api-reference/subjects) erases everything for the Subject.
+- **One nuance**: readings that consolidation has already extracted into the data plane are ordinary records — deleting the journal entry retracts memories but leaves those readings; remove them with [`DELETE /v1/data`](/en/api-reference/data) (by `id` or `indicator`) or the Subject-level wipe.
+
 ## Data-plane retention (`retention`)
 
 Health records and files carry their own lifetime, set **where the data is written** — [`POST /v1/data`](/en/api-reference/data) (required), [`POST /v1/files`](/en/api-reference/files) (optional), [`POST /v1/extract`](/en/api-reference/extract) (required when `store=true`):
@@ -60,5 +83,6 @@ There is **no `retention: "none"`** — writing to the store while asking not to
 | --- | --- |
 | Fully ephemeral one-off | `store: false`; don't write data (or `retention: "1h"`) |
 | A user's ongoing assistant thread | `session_id: <stable-id>` on every turn; data `retention: "permanent"` |
+| A user's journal | Single-turn `store: true` + `session_id: journal-{user}` per entry — see [Journaling](#journaling) |
 | Short-lived triage conversation | default `store: true`, chain with `previous_response_id`; working data `retention: "session"` + the same `session_id`; `DELETE /v1/sessions/{id}` when done |
 | Right to be forgotten | `DELETE /v1/subjects/{user}` (everything), or per-piece: `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |

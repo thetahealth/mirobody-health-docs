@@ -112,11 +112,13 @@ curl https://mirobody-api.thetahealth.ai/v1/extract \
   "stored": false,
   "stored_count": 0,
   "subject": "alice",
-  "note": "no quantifiable readings found in the text; subjective/narrative entries (journal) are not supported yet"
+  "note": "no quantifiable readings found in the text; for subjective/journal entries, send a single-turn POST /v1/responses with store:true instead"
 }
 ```
 
-Mixed text works as you'd expect — *"headache all day, temperature was 38.2 °C"* yields the temperature reading and drops the narrative. A dedicated journal endpoint for subjective/narrative entries is on the roadmap.
+Mixed text works as you'd expect — *"headache all day, temperature was 38.2 °C"* yields the temperature reading and drops the narrative.
+
+**Purely subjective entries (journaling) have an official recipe — no dedicated endpoint needed.** Send the entry as a single-turn [`POST /v1/responses`](/en/api-reference/responses) with `store: true` (plus your own `session_id` such as `journal-{user}`, `builtin_tools: "none"`, and a short-acknowledgement `instructions`). The platform's background consolidation pass then extracts any **quantifiable indicators** (queryable via [`GET /v1/data`](/en/api-reference/data)) and **durable memories** that ground the Subject's later answers; `DELETE /v1/responses/{id}` removes the entry **and** retracts its consolidated memory. See the full [Journaling recipe](/en/api-reference/state-and-memory#journaling). `/v1/extract` itself stays quantitative — readings in, standardized indicators out.
 
 ## Errors
 

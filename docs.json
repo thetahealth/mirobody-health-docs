@@ -112,6 +112,7 @@
                   "en/api-reference/device-data",
                   "en/api-reference/files",
                   "en/api-reference/sessions",
+                  "en/api-reference/subjects",
                   "en/api-reference/extract",
                   "en/api-reference/standardization"
                 ]
@@ -250,6 +251,7 @@
                   "zh/api-reference/device-data",
                   "zh/api-reference/files",
                   "zh/api-reference/sessions",
+                  "zh/api-reference/subjects",
                   "zh/api-reference/extract",
                   "zh/api-reference/standardization"
                 ]

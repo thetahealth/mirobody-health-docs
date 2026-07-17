@@ -25,7 +25,7 @@ Reach for backbone mode only when you own the orchestration. If you want grounde
 | --- | --- | --- |
 | Runtime | deep-agents (planning / filesystem / sub-agents / eval) | single bare-model inference |
 | Server tools | built-in domain tools (trim with `builtin_tools`) | **none** |
-| System prompt | full agent base (~10k tokens) | minimal safety base (<100 tokens) |
+| System prompt | full agent base (~10k tokens) | minimal safety base (&lt;100 tokens) |
 | State | `previous_response_id` / `session_id` threads | **stateless** (both → `400`) |
 | Continuation | stateful resume **or** stateless full replay | stateless full replay only |
 | Client tools | interrupt handoff (server-minted `call_id`) | bound directly to the model (**native provider `call_id` preserved**) |

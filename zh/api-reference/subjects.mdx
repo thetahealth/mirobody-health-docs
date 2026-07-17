@@ -1,0 +1,52 @@
+---
+title: "Subjects"
+description: "DELETE /v1/subjects/{user} —— 擦除单个 Subject 的一切（被遗忘权）。"
+---
+
+## 端点
+
+```http
+DELETE /v1/subjects/{user}
+Authorization: Bearer mb_live_*
+```
+
+擦除你的账户为某个 Subject 保存的**一切** —— 一次调用即完成完整的被遗忘权：其健康记录被**硬删除**（行被物理移除），其文件与对话被**软删除**（从 API 表面消失），并且 `(你的账户, user)` → Subject 的映射被丢弃，该身份从此不可达。
+
+```bash
+curl -X DELETE "https://mirobody-api.thetahealth.ai/v1/subjects/alice" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+<Note>
+擦除绝不会创建它正要擦除的那个 Subject：解析只查找已有映射。传入一个你的账户从未用过的 `user` 会返回 `404` —— 不会铸造任何新 Subject。
+</Note>
+
+响应：
+
+```json
+{ "status": "ok", "subject": "alice", "deleted": { "records": 12, "files": 3 } }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `status` | 成功时为 `"ok"`。 |
+| `subject` | 被擦除的 `user`。 |
+| `deleted.records` | 硬删除的结构化健康记录条数。 |
+| `deleted.files` | 软删除的文件数。 |
+
+## 擦除的范围
+
+一次调用覆盖该 Subject 在整个 `/v1` 表面的数据：
+
+1. **结构化记录** —— 经 [`POST /v1/data`](/zh/api-reference/data) 写入、或经 [`POST /v1/extract`](/zh/api-reference/extract) 的 `store=true` 存储的一切，无论 `retention` 为何。
+2. **文件** —— 经 [`POST /v1/files`](/zh/api-reference/files) 上传的一切。
+3. **对话** —— [Agent API](/zh/api-reference/responses) 上存储的响应与会话。
+4. **身份映射** —— Subject 本身变得不可达。之后传入同一 `user` 的请求会[铸造一个全新的空 Subject](/zh/api-reference/overview#多租户user-字段)，与被擦除的那个毫无关联。
+
+需要**更细粒度**的删除时，改用按件的删除层级：`DELETE /v1/data`（记录）、`DELETE /v1/files/{key}`（单个文件）、`DELETE /v1/responses/{id}`（单条存储的对话）、[`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions)（单个会话的范围）。完整的用户权利图景见[合规](/zh/api-reference/compliance)。
+
+## 错误
+
+| HTTP | 何时 |
+| --- | --- |
+| `404` | 你的账户没有此 `user` 对应的 Subject —— 包括已被擦除的 |
