@@ -85,7 +85,7 @@
               {
                 "group": "Getting Started",
                 "pages": [
-                  "en/index",
+                  "en/welcome",
                   "en/use-cases",
                   "en/quickstart",
                   "en/installation",
@@ -217,7 +217,7 @@
               {
                 "group": "快速开始",
                 "pages": [
-                  "zh/index",
+                  "zh/welcome",
                   "zh/use-cases",
                   "zh/quickstart",
                   "zh/installation",
