@@ -23,6 +23,70 @@
         "language": "en",
         "tabs": [
           {
+            "tab": "API Platform",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "en/api-reference/index",
+                  "en/api-reference/quickstart",
+                  "en/api-reference/choose-your-api",
+                  "en/api-reference/overview",
+                  "en/api-reference/models"
+                ]
+              },
+              {
+                "group": "Data Plane",
+                "pages": [
+                  "en/api-reference/data",
+                  "en/api-reference/device-data",
+                  "en/api-reference/files",
+                  "en/api-reference/sessions",
+                  "en/api-reference/subjects",
+                  "en/api-reference/extract",
+                  "en/api-reference/standardization"
+                ]
+              },
+              {
+                "group": "Agent API",
+                "pages": [
+                  "en/api-reference/responses",
+                  "en/api-reference/backbone-mode",
+                  "en/api-reference/function-calling",
+                  "en/api-reference/structured-output",
+                  "en/api-reference/mcp-servers",
+                  "en/api-reference/streaming",
+                  "en/api-reference/state-and-memory"
+                ]
+              },
+              {
+                "group": "Answers API",
+                "pages": [
+                  "en/api-reference/chat",
+                  "en/api-reference/use-as-a-tool"
+                ]
+              },
+              {
+                "group": "Console (JWT)",
+                "pages": [
+                  "en/api-reference/console/keys",
+                  "en/api-reference/console/usage"
+                ]
+              },
+              {
+                "group": "Regions & Integration",
+                "pages": [
+                  "en/api-reference/regions/overview",
+                  "en/api-reference/regions/china",
+                  "en/api-reference/regions/global",
+                  "en/api-reference/sdk-examples",
+                  "en/api-reference/rate-limits",
+                  "en/api-reference/compliance"
+                ]
+              }
+            ]
+          },
+          {
             "tab": "Open Source",
             "groups": [
               {
@@ -91,76 +155,76 @@
                 ]
               }
             ]
-          },
-          {
-            "tab": "API Platform",
-            "groups": [
-              {
-                "group": "Getting Started",
-                "pages": [
-                  "en/api-reference/index",
-                  "en/api-reference/quickstart",
-                  "en/api-reference/choose-your-api",
-                  "en/api-reference/overview",
-                  "en/api-reference/models"
-                ]
-              },
-              {
-                "group": "Data Plane",
-                "pages": [
-                  "en/api-reference/data",
-                  "en/api-reference/device-data",
-                  "en/api-reference/files",
-                  "en/api-reference/sessions",
-                  "en/api-reference/subjects",
-                  "en/api-reference/extract",
-                  "en/api-reference/standardization"
-                ]
-              },
-              {
-                "group": "Agent API",
-                "pages": [
-                  "en/api-reference/responses",
-                  "en/api-reference/backbone-mode",
-                  "en/api-reference/function-calling",
-                  "en/api-reference/structured-output",
-                  "en/api-reference/mcp-servers",
-                  "en/api-reference/streaming",
-                  "en/api-reference/state-and-memory"
-                ]
-              },
-              {
-                "group": "Answers API",
-                "pages": [
-                  "en/api-reference/chat",
-                  "en/api-reference/use-as-a-tool"
-                ]
-              },
-              {
-                "group": "Console (JWT)",
-                "pages": [
-                  "en/api-reference/console/keys",
-                  "en/api-reference/console/usage"
-                ]
-              },
-              {
-                "group": "Regions & Integration",
-                "pages": [
-                  "en/api-reference/regions/overview",
-                  "en/api-reference/regions/china",
-                  "en/api-reference/regions/global",
-                  "en/api-reference/sdk-examples",
-                  "en/api-reference/rate-limits",
-                  "en/api-reference/compliance"
-                ]
-              }
-            ]
           }
         ]
       },
       {
         "language": "zh",
         "tabs": [
+          {
+            "tab": "API 平台",
+            "groups": [
+              {
+                "group": "开始使用",
+                "pages": [
+                  "zh/api-reference/index",
+                  "zh/api-reference/quickstart",
+                  "zh/api-reference/choose-your-api",
+                  "zh/api-reference/overview",
+                  "zh/api-reference/models"
+                ]
+              },
+              {
+                "group": "数据面",
+                "pages": [
+                  "zh/api-reference/data",
+                  "zh/api-reference/device-data",
+                  "zh/api-reference/files",
+                  "zh/api-reference/sessions",
+                  "zh/api-reference/subjects",
+                  "zh/api-reference/extract",
+                  "zh/api-reference/standardization"
+                ]
+              },
+              {
+                "group": "Agent API",
+                "pages": [
+                  "zh/api-reference/responses",
+                  "zh/api-reference/backbone-mode",
+                  "zh/api-reference/function-calling",
+                  "zh/api-reference/structured-output",
+                  "zh/api-reference/mcp-servers",
+                  "zh/api-reference/streaming",
+                  "zh/api-reference/state-and-memory"
+                ]
+              },
+              {
+                "group": "Answers API",
+                "pages": [
+                  "zh/api-reference/chat",
+                  "zh/api-reference/use-as-a-tool"
+                ]
+              },
+              {
+                "group": "控制台 (JWT)",
+                "pages": [
+                  "zh/api-reference/console/keys",
+                  "zh/api-reference/console/usage"
+                ]
+              },
+              {
+                "group": "区域与接入",
+                "pages": [
+                  "zh/api-reference/regions/overview",
+                  "zh/api-reference/regions/china",
+                  "zh/api-reference/regions/global",
+                  "zh/api-reference/sdk-examples",
+                  "zh/api-reference/rate-limits",
+                  "zh/api-reference/compliance"
+                ]
+              }
+            ]
+          },
           {
             "tab": "开源部署",
             "groups": [
@@ -230,70 +294,6 @@
                 ]
               }
             ]
-          },
-          {
-            "tab": "API 平台",
-            "groups": [
-              {
-                "group": "开始使用",
-                "pages": [
-                  "zh/api-reference/index",
-                  "zh/api-reference/quickstart",
-                  "zh/api-reference/choose-your-api",
-                  "zh/api-reference/overview",
-                  "zh/api-reference/models"
-                ]
-              },
-              {
-                "group": "数据面",
-                "pages": [
-                  "zh/api-reference/data",
-                  "zh/api-reference/device-data",
-                  "zh/api-reference/files",
-                  "zh/api-reference/sessions",
-                  "zh/api-reference/subjects",
-                  "zh/api-reference/extract",
-                  "zh/api-reference/standardization"
-                ]
-              },
-              {
-                "group": "Agent API",
-                "pages": [
-                  "zh/api-reference/responses",
-                  "zh/api-reference/backbone-mode",
-                  "zh/api-reference/function-calling",
-                  "zh/api-reference/structured-output",
-                  "zh/api-reference/mcp-servers",
-                  "zh/api-reference/streaming",
-                  "zh/api-reference/state-and-memory"
-                ]
-              },
-              {
-                "group": "Answers API",
-                "pages": [
-                  "zh/api-reference/chat",
-                  "zh/api-reference/use-as-a-tool"
-                ]
-              },
-              {
-                "group": "控制台 (JWT)",
-                "pages": [
-                  "zh/api-reference/console/keys",
-                  "zh/api-reference/console/usage"
-                ]
-              },
-              {
-                "group": "区域与接入",
-                "pages": [
-                  "zh/api-reference/regions/overview",
-                  "zh/api-reference/regions/china",
-                  "zh/api-reference/regions/global",
-                  "zh/api-reference/sdk-examples",
-                  "zh/api-reference/rate-limits",
-                  "zh/api-reference/compliance"
-                ]
-              }
-            ]
           }
         ]
       }
@@ -330,14 +330,18 @@
   "navbar": {
     "links": [
       {
+        "label": "Get Started",
+        "href": "/en/api-reference"
+      },
+      {
         "label": "Support",
         "href": "https://github.com/thetahealth/mirobody/issues"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Get Started",
-      "href": "/en/api-reference"
+      "label": "Platform",
+      "href": "/en/api-reference/regions/overview"
     }
   },
   "contextual": {
