@@ -28,7 +28,7 @@ Content-Type:  application/json
 | `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) can purge them. |
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -56,7 +56,7 @@ Response — `standardized` counts the records that resolved to a LOINC code on 
 Episode-type records span a period rather than a point in time — put the start in `time` and the end in the optional `end_time`:
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

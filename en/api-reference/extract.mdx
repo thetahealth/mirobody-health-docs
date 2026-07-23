@@ -34,7 +34,7 @@ Two input shapes:
 ### Dry-run (default)
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/extract \
+curl https://api.mirobody.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" \
   -F "file=@lab_report.pdf"
@@ -43,7 +43,7 @@ curl https://mirobody-api.thetahealth.ai/v1/extract \
 ### Extract and store
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/extract \
+curl https://api.mirobody.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

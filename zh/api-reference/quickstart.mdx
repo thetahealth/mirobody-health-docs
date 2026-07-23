@@ -30,7 +30,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
     ```bash
     # 结构化记录
-    curl https://mirobody-api.thetahealth.ai/v1/data \
+    curl https://api.mirobody.ai/v1/data \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -43,7 +43,7 @@ export MIROBODY_API_KEY="mb_live_..."
           }'
 
     # 或者一份文档（自动 OCR 与解析）
-    curl https://mirobody-api.thetahealth.ai/v1/files \
+    curl https://api.mirobody.ai/v1/files \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -F "user=alice" -F "file=@lab_report.pdf"
     ```
@@ -58,7 +58,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
 
     ```bash
-    curl "https://mirobody-api.thetahealth.ai/v1/data?user=alice&limit=10" \
+    curl "https://api.mirobody.ai/v1/data?user=alice&limit=10" \
       -H "Authorization: Bearer $MIROBODY_API_KEY"
     ```
 
@@ -92,7 +92,7 @@ export MIROBODY_API_KEY="mb_live_..."
 
     ```python Answers API（3 行）
     from openai import OpenAI
-    client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
+    client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
     print(client.chat.completions.create(model="mirobody-flash", user="alice",
         messages=[{"role": "user", "content": "How is my fasting glucose trending?"}]
     ).choices[0].message.content)
@@ -105,7 +105,7 @@ export MIROBODY_API_KEY="mb_live_..."
     from openai import AsyncOpenAI
 
     set_default_openai_client(AsyncOpenAI(
-        base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+        base_url="https://api.mirobody.ai/v1", api_key="mb_live_..."))
     set_tracing_disabled(True)
 
     @function_tool

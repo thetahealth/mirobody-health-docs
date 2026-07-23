@@ -8,7 +8,7 @@ description: "curl / Python / Node.js 的端到端 /v1 示例 —— Answers、A
 ## curl
 
 ```bash
-BASE=https://mirobody-api.thetahealth.ai/v1
+BASE=https://api.mirobody.ai/v1
 KEY="mb_live_..."
 
 # 1) grounded 回答（Answers API）
@@ -35,7 +35,7 @@ curl $BASE/responses \
 ```python
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
 
 # Answers API —— 非流式
 resp = client.chat.completions.create(
@@ -72,7 +72,7 @@ print(r2.output_text)
 import requests
 
 up = requests.post(
-    "https://mirobody-api.thetahealth.ai/v1/files",
+    "https://api.mirobody.ai/v1/files",
     headers={"Authorization": "Bearer mb_live_..."},
     data={"user": "alice"},
     files={"file": open("report.pdf", "rb")},
@@ -91,7 +91,7 @@ from agents import Agent, ModelSettings, Runner, function_tool, set_default_open
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://api.mirobody.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)   # tracing 会请求 api.openai.com
 
 @function_tool
@@ -114,7 +114,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://mirobody-api.thetahealth.ai/v1",
+  baseURL: "https://api.mirobody.ai/v1",
 });
 
 // Answers API —— 非流式

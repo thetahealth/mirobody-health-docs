@@ -29,7 +29,7 @@ from agents import Agent, ModelSettings, Runner, set_default_openai_client, set_
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://api.mirobody.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)   # tracing would call api.openai.com
 
 agent = Agent(name="Health assistant", model="mirobody-flash",
@@ -43,7 +43,7 @@ print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output
 
 <CodeGroup>
 ```bash curl
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -56,7 +56,7 @@ curl https://mirobody-api.thetahealth.ai/v1/responses \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
 
 resp = client.responses.create(
     model="mirobody-flash",
@@ -136,7 +136,7 @@ The `output` array contains **only standard OpenAI item types** — `reasoning`,
 ## Retrieve a stored response
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl https://api.mirobody.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -145,7 +145,7 @@ Returns the stored response object. Only `store=true` responses are retrievable;
 ## Delete a stored response
 
 ```bash
-curl -X DELETE https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl -X DELETE https://api.mirobody.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -166,7 +166,7 @@ Full details — TTLs, chaining semantics, stateless replay, and the cross-sessi
 By default the surface is **lenient** (compatibility-first) — an unknown top-level parameter is ignored. Set `strict: true` in the body **or** send the header `X-Mirobody-Strict: 1` to make an unknown top-level parameter a hard `400 unsupported_parameter`, with `param` pointing at the first offending key. Both surfaces (`/v1/responses` and `/v1/chat/completions`) honor it. Turn it on while integrating to catch typos and misplaced fields early.
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -H "X-Mirobody-Strict: 1" \

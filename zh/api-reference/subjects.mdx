@@ -13,7 +13,7 @@ Authorization: Bearer mb_live_*
 擦除你的账户为某个 Subject 保存的**一切** —— 一次调用即完成完整的被遗忘权：其健康记录被**硬删除**（行被物理移除），其文件与对话被**软删除**（从 API 表面消失），并且 `(你的账户, user)` → Subject 的映射被丢弃，该身份从此不可达。
 
 ```bash
-curl -X DELETE "https://mirobody-api.thetahealth.ai/v1/subjects/alice" \
+curl -X DELETE "https://api.mirobody.ai/v1/subjects/alice" \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 

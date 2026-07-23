@@ -47,7 +47,7 @@ Stored conversations feed the platform's asynchronous memory consolidation: dura
 A subjective journal entry — *"headache all afternoon, eased after two coffees"* — is **a single-turn `POST /v1/responses` with `store: true`**. No dedicated endpoint: the knobs on this page already compose into the recipe. Bind entries to your own `session_id` (e.g. `journal-{user}`) so they never hit the 30-day TTL; `builtin_tools: "none"` plus a short-acknowledgement `instructions` keeps the reply — which you don't consume — as cheap as possible:
 
 ```bash
-curl -s https://mirobody-api.thetahealth.ai/v1/responses \
+curl -s https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" -d '{
   "input": "Headache all afternoon; eased after two cups of coffee",
   "user": "patient-42",

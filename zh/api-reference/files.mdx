@@ -25,7 +25,7 @@ Content-Type:  multipart/form-data
 | `session_id` | 可选；将 `retention=session` 的上传限定到某个[会话](/zh/api-reference/sessions)。 |
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/files \
+curl https://api.mirobody.ai/v1/files \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" \
   -F "file=@checkup_2026.pdf"
@@ -105,7 +105,7 @@ Authorization: Bearer mb_live_*
 大导出或实时采集可走 `wss://…/v1/files/stream`:单连接分块上传、带进度。鉴权走查询串(浏览器无法给 WebSocket 设 header):
 
 ```text
-wss://mirobody-api.thetahealth.cn/v1/files/stream?key=mb_live_...&user=alice&retention=permanent
+wss://api.mirobody.cn/v1/files/stream?key=mb_live_...&user=alice&retention=permanent
 ```
 
 帧序列(均为 JSON 文本帧):

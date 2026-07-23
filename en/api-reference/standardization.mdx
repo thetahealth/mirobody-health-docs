@@ -51,12 +51,12 @@ Three spellings of the same test become **one series** — trend queries, the ag
 
 ```bash
 # Inspect first (nothing persisted) …
-curl https://mirobody-api.thetahealth.ai/v1/extract \
+curl https://api.mirobody.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" -F "file=@lab_report.pdf"
 
 # … then commit the same extraction
-curl https://mirobody-api.thetahealth.ai/v1/extract \
+curl https://api.mirobody.ai/v1/extract \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -F "user=alice" -F "file=@lab_report.pdf" \
   -F "store=true" -F "retention=permanent"

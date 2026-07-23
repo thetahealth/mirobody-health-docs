@@ -39,14 +39,14 @@ Each entry carries a conservative capacity budget and the per-tier price:
 <CodeGroup>
 ```bash curl
 # no API key needed
-curl https://mirobody-api.thetahealth.ai/v1/models
+curl https://api.mirobody.ai/v1/models
 ```
 
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
 # api_key is unused by /v1/models but the SDK requires the field to be set
-client = OpenAI(api_key="unused", base_url="https://mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="unused", base_url="https://api.mirobody.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```
@@ -71,7 +71,7 @@ An OpenAI-style `{ "object": "list", "data": [ … ] }` — each tier extends th
 ```
 
 <Note>
-The values above are from the **global** cluster (`mirobody-api.thetahealth.ai`). The **China** cluster (`mirobody-api.thetahealth.cn`) exposes the same fields, but its tiers are priced differently — always read `pricing` from the cluster you call rather than hard-coding numbers.
+The values above are from the **global** cluster (`api.mirobody.ai`). The **China** cluster (`api.mirobody.cn`) exposes the same fields, but its tiers are priced differently — always read `pricing` from the cluster you call rather than hard-coding numbers.
 </Note>
 
 For your `model` value, always pass a stable tier — `mirobody-flash` (default) or `mirobody-expert`.

@@ -13,7 +13,7 @@ Authorization: Bearer mb_live_*
 Erases **everything** your account holds for one Subject — the full right to be forgotten in a single call: their health records are **hard-deleted** (rows physically removed), their files and conversations are **soft-deleted** (gone from the API surface), and the `(your account, user)` → Subject mapping is dropped so the identity becomes unreachable.
 
 ```bash
-curl -X DELETE "https://mirobody-api.thetahealth.ai/v1/subjects/alice" \
+curl -X DELETE "https://api.mirobody.ai/v1/subjects/alice" \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 

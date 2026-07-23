@@ -36,7 +36,7 @@ import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
 ## 2. 批量写入日级记录
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -58,7 +58,7 @@ curl https://mirobody-api.thetahealth.ai/v1/data \
 睡眠和运动不是时间点读数 —— 它们跨越一个时段。起点放 `time`，终点放可选的 `end_time`（均为 ISO 时间戳）：
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

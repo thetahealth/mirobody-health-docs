@@ -36,7 +36,7 @@ Reach for backbone mode only when you own the orchestration. If you want grounde
 With `store=true`, model mode still persists the response object (`GET /v1/responses/{id}` works), but the conversation is tagged as model-mode: a later `previous_response_id` against it returns an explicit `400` ("replay the transcript to continue") rather than silently resuming an empty thread.
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

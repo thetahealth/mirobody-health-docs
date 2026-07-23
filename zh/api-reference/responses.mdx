@@ -29,7 +29,7 @@ from agents import Agent, ModelSettings, Runner, set_default_openai_client, set_
 from openai import AsyncOpenAI
 
 set_default_openai_client(AsyncOpenAI(
-    base_url="https://mirobody-api.thetahealth.ai/v1", api_key="mb_live_..."))
+    base_url="https://api.mirobody.ai/v1", api_key="mb_live_..."))
 set_tracing_disabled(True)   # tracing 会请求 api.openai.com
 
 agent = Agent(name="Health assistant", model="mirobody-flash",
@@ -43,7 +43,7 @@ print(Runner.run_sync(agent, "How is my fasting glucose trending?").final_output
 
 <CodeGroup>
 ```bash curl
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -56,7 +56,7 @@ curl https://mirobody-api.thetahealth.ai/v1/responses \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
 
 resp = client.responses.create(
     model="mirobody-flash",
@@ -136,7 +136,7 @@ print(resp.output_text)
 ## 获取存储的响应
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl https://api.mirobody.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -145,7 +145,7 @@ curl https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
 ## 删除存储的响应
 
 ```bash
-curl -X DELETE https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14... \
+curl -X DELETE https://api.mirobody.ai/v1/responses/resp_147e9b14... \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -166,7 +166,7 @@ curl -X DELETE https://mirobody-api.thetahealth.ai/v1/responses/resp_147e9b14...
 默认接口是**宽松**的（兼容优先）—— 未知顶层参数被忽略。在 body 里设 `strict: true` **或**发送头 `X-Mirobody-Strict: 1`，未知顶层参数即变成硬 `400 unsupported_parameter`，`param` 指向第一个出问题的键。两个接口（`/v1/responses` 与 `/v1/chat/completions`）都遵守它。集成联调期建议打开，尽早发现拼写错误与放错位置的字段。
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -H "X-Mirobody-Strict: 1" \

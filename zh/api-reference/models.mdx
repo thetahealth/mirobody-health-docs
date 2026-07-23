@@ -39,14 +39,14 @@ GET /v1/models
 <CodeGroup>
 ```bash curl
 # 无需 API key
-curl https://mirobody-api.thetahealth.ai/v1/models
+curl https://api.mirobody.ai/v1/models
 ```
 
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
 # /v1/models 不使用 api_key，但 SDK 要求该字段有值
-client = OpenAI(api_key="unused", base_url="https://mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="unused", base_url="https://api.mirobody.ai/v1")
 for m in client.models.list().data:
     print(m.id)
 ```
@@ -71,7 +71,7 @@ for m in client.models.list().data:
 ```
 
 <Note>
-以上取值来自**全球**集群（`mirobody-api.thetahealth.ai`）。**中国**集群（`mirobody-api.thetahealth.cn`）暴露相同字段，但其档位定价不同 —— 请始终从你调用的集群读取 `pricing`，不要写死数字。
+以上取值来自**全球**集群（`api.mirobody.ai`）。**中国**集群（`api.mirobody.cn`）暴露相同字段，但其档位定价不同 —— 请始终从你调用的集群读取 `pricing`，不要写死数字。
 </Note>
 
 你的 `model` 取值请始终传入稳定的能力档 —— `mirobody-flash`（默认）或 `mirobody-expert`。

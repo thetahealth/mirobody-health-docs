@@ -28,7 +28,7 @@ Content-Type:  application/json
 | `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 能清除它们。 |
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -56,7 +56,7 @@ curl https://mirobody-api.thetahealth.ai/v1/data \
 Episode 型记录跨越一个时段而非时间点 —— 起点放 `time`，终点放可选的 `end_time`：
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

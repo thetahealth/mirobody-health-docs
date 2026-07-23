@@ -34,7 +34,7 @@ description: "text.format —— 在 backbone 模式下把模型输出约束为 
 
 <CodeGroup>
 ```bash curl
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -63,7 +63,7 @@ curl https://mirobody-api.thetahealth.ai/v1/responses \
 ```python Python (OpenAI SDK)
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://mirobody-api.thetahealth.ai/v1")
+client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
 
 resp = client.responses.create(
     model="mirobody-flash",

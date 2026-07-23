@@ -36,7 +36,7 @@ import BaseUrl from '/snippets/zh/base-url.mdx';
 `store=true` 时，model 模式仍持久化响应对象（`GET /v1/responses/{id}` 可取），但对话被标记为 model 模式：后续对它发 `previous_response_id` 会得到明确的 `400`（"重放 transcript 续跑"），而非静默 resume 一个空线程。
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

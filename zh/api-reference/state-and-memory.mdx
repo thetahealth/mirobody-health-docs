@@ -47,7 +47,7 @@ r2 = client.responses.create(model="mirobody-flash",
 一条主观日记 —— *「头疼一下午，喝了两杯咖啡后缓解」* —— 就是**一次单轮 `POST /v1/responses`，带 `store: true`**。不需要专用端点：本页讲的这些开关组合起来就是配方。把记录绑到自管的 `session_id`（如 `journal-{user}`），它们就不受 30 天 TTL 约束；`builtin_tools: "none"` 加上要求单句确认的 `instructions`，把你并不消费的回复成本压到最低：
 
 ```bash
-curl -s https://mirobody-api.thetahealth.ai/v1/responses \
+curl -s https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" -d '{
   "input": "头疼一下午，喝了两杯咖啡后缓解",
   "user": "patient-42",

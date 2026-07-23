@@ -13,7 +13,7 @@ Authorization: Bearer mb_live_*
 Ends a session and cleans up what it scoped: records written with `retention=session` under this `session_id` are **hard-deleted** (rows physically removed), and any chat history threaded on it is removed from the API surface. `deleted` counts what was purged.
 
 ```bash
-curl -X DELETE "https://mirobody-api.thetahealth.ai/v1/sessions/sess_abc123?user=alice" \
+curl -X DELETE "https://api.mirobody.ai/v1/sessions/sess_abc123?user=alice" \
   -H "Authorization: Bearer $MIROBODY_API_KEY"
 ```
 
@@ -44,7 +44,7 @@ A `session_id` is a **cleanup scope with a name** — one id that ties together 
 ```python
 import requests
 
-BASE = "https://mirobody-api.thetahealth.ai/v1"
+BASE = "https://api.mirobody.ai/v1"
 H = {"Authorization": "Bearer mb_live_..."}
 
 # Write working data scoped to the session

@@ -36,7 +36,7 @@ You've already integrated a wearable — through Terra, Junction, or a vendor AP
 ## 2. Write daily records in batches
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -58,7 +58,7 @@ Up to **500 records per request** — batch a full day (or a backfill window) pe
 Sleep and workouts are not point-in-time readings — they span a period. Put the start in `time` and the end in the optional `end_time` (both ISO timestamps):
 
 ```bash
-curl https://mirobody-api.thetahealth.ai/v1/data \
+curl https://api.mirobody.ai/v1/data \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
