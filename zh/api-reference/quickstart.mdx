@@ -1,8 +1,4 @@
 ---
-
-<Warning>
-所有会触达 Mirobody 工具的 agents-SDK agent,必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时,这次运行读到的是**账号默认 Subject**,而不是你想要的那个用户。
-</Warning>
 title: "快速开始"
 description: "三步走：接入你的数据，看它被标准化，再让 AI 在其上工作。"
 ---
@@ -11,6 +7,10 @@ import BaseUrl from '/snippets/zh/base-url.mdx';
 import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 
 Mirobody 三步走：**① 接入数据 → ② 数据以标准化形态返回 → ③ 让 AI 使用它。** 一切兼容 OpenAI —— 你需要一个 `mb_live_*` 密钥和约 10 分钟。
+
+<Warning>
+所有会触达 Mirobody 工具的 agents-SDK agent,必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时,这次运行读到的是**账号默认 Subject**,而不是你想要的那个用户。
+</Warning>
 
 <Note>
 账户管理 —— **API 密钥、用量与在线 Playground** —— 位于开发者控制台 [**platform.mirobody.ai**](https://platform.mirobody.ai/)。邮箱验证码登录，打开 **API Keys** 创建一个（密钥只显示**一次**）：

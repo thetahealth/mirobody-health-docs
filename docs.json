@@ -67,13 +67,6 @@
                 ]
               },
               {
-                "group": "Console (JWT)",
-                "pages": [
-                  "en/api-reference/console/keys",
-                  "en/api-reference/console/usage"
-                ]
-              },
-              {
                 "group": "Regions & Integration",
                 "pages": [
                   "en/api-reference/regions/overview",
@@ -203,13 +196,6 @@
                 "pages": [
                   "zh/api-reference/chat",
                   "zh/api-reference/use-as-a-tool"
-                ]
-              },
-              {
-                "group": "控制台 (JWT)",
-                "pages": [
-                  "zh/api-reference/console/keys",
-                  "zh/api-reference/console/usage"
                 ]
               },
               {
