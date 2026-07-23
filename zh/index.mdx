@@ -5,15 +5,9 @@ description: "一个开源、可自托管的数据引擎，把你的个人数据
 
 ## Mirobody 是什么？
 
-**Mirobody** 是一个开源、可自托管的**健康数据 + AI 引擎** —— 一个轻量的 **C++** 内核，把你的个人健康数据接入 LLM，并可以在任何地方运行：作为独立服务跑在服务器上，或**在设备本地**跑在 Android / iOS 应用里，让数据永远无需离开手机。
+**Mirobody** 是一个开源、可自托管的**健康数据 + AI 引擎** —— 一个轻量的 C++ 内核，把你的个人健康数据接入 LLM，并可以在任何地方运行，包括完全**在设备本地**运行，让数据永远无需离开手机。
 
-- 🧩 **一个内核，三种形态** —— 同一个 C++ 引擎，既作为独立二进制（HTTP + WebSocket）分发，也作为共享库嵌入移动端宿主应用（Android 走 JNI、iOS 走 C API），还通过一个纯 `extern "C"` 接口让任何语言都能嵌入。
-- 🔌 **MCP 服务器** —— 内置工具通过 Model Context Protocol 端点暴露，可被 ChatGPT、Claude、Cursor 或任何 MCP 客户端调用。
-- 🤖 **多提供商对话** —— 一套流式接口覆盖 OpenAI、Google Gemini、MiroThinker，另有完全**在设备本地**运行的选项（Gemma，经 LiteRT-LM / llama.cpp），让对话无需服务器、无需网络也能跑。
-- 🔄 **健康数据连接器** —— 可穿戴设备、手机健康存储、临床 EHR（经 SMART on FHIR）都通过可插拔的 vendor 客户端接入；设备本地存储（Apple Health、Health Connect）由宿主应用读取。
-- 🏥 **原生 FHIR R4** —— 内嵌的 FHIR R4 端点把一切归一化（单位对齐到 UCUM；指标向 SNOMED CT / LOINC / RxNorm 映射），再以 FHIR 资源的形式返回。
-
-> 本文档站覆盖 Mirobody 的健康垂直 —— 即 [Theta Wellness](https://www.thetahealth.ai/) 背后的引擎。
+完整的架构、功能列表与技术栈，见 [**GitHub README**](https://github.com/thetahealth/mirobody/blob/main-v2/README.md)——本文档站要解决的是如何真正把它跑起来、配置好、并做二次开发。
 
 <CardGroup cols={2}>
   <Card title="快速开始" icon="rocket" href="/zh/quickstart">
@@ -29,74 +23,6 @@ description: "一个开源、可自托管的数据引擎，把你的个人数据
     比起自建，更想要托管 API？同一套引擎，由我们托管。
   </Card>
 </CardGroup>
-
-## 为什么选 Mirobody？
-
-<AccordionGroup>
-  <Accordion title="数据始终属于你" icon="lock">
-    内核端到端在本地运行。在桌面 / 服务器上，它是一个单独的二进制，跑在你自己的 Postgres（或 SQLite）之上；在手机上，同一个内核**在设备本地**运行，健康数据无需离开设备，除非你主动选择同步。自带 LLM 密钥（OpenAI、Gemini、MiroThinker）—— 或用设备本地的 Gemma **完全离线**运行。
-  </Accordion>
-
-  <Accordion title="一个内核，随处运行" icon="server">
-    单个 C++ 引擎，带一个纯 `extern "C"` 的 C API。它作为独立的 HTTP / WebSocket 二进制分发，作为共享库嵌入 Android / iOS 宿主应用，也可经该 C ABI 从 Java、Go、C#、Rust、Swift 或 Python 嵌入 —— 无需为每个平台重写。
-  </Accordion>
-
-  <Accordion title="一个轻量、会用工具的 Agent" icon="robot">
-    只有一个 Agent：它按**提供商**名挑一个 LLM 客户端，构建系统提示词，把这一轮流式返回 —— 并按需调用内置的 **MCP 工具**（读文件、渲染图表、家庭健康、记忆）。
-  </Accordion>
-
-  <Accordion title="MCP 工具，编译进内核" icon="wrench">
-    工具是 `res/mcp_tools/` 下的 C++ 文件，在编译期自注册 —— 丢一个带 `MIROBODY_REGISTER_TOOL` 宏的 `.cpp` 进去再重新构建即可。它们通过 `/mcp` 端点暴露给 ChatGPT / Claude / Cursor，并为内置 Agent 在进程内运行。
-  </Accordion>
-
-  <Accordion title="文件，解析为健康数据" icon="file">
-    PDF（PDFium）、Excel / CSV（xlnt）、图像（经 Tesseract OCR，外加视觉模型内联）都会被解析；数值经归一化（UCUM）后写入内嵌的 FHIR 存储。
-  </Accordion>
-
-  <Accordion title="语音与实时" icon="microphone">
-    经 **OpenAI Realtime** 与 **Google Gemini Live**，在 WebSocket 上做实时语音对话。
-  </Accordion>
-
-  <Accordion title="健康圈（Care circles）" icon="users">
-    创建一个圈子并按邮箱邀请他人；成员可以分享一段对话（查看 / 编辑）或自己的健康数据（按人设置，默认关闭）。之后 Agent 就能回答"我家人最近怎么样？"，且只读取成员选择分享的内容。
-  </Accordion>
-</AccordionGroup>
-
-## 架构一览
-
-内核由五个部分组成（全部是 C++）：
-
-| 部分 | 路径 | 说明 |
-|-------|------|------|
-| **LLM 客户端** | `src/llm/` | 每个提供商一个流式客户端 —— OpenAI、Google Gemini、MiroThinker、设备本地 Gemma（LiteRT-LM / llama.cpp），外加 Realtime / Live 语音 |
-| **MCP 工具** | `src/mcp/` + `res/mcp_tools/` | 通过 Model Context Protocol 端点暴露的服务端工具 |
-| **Agent** | `src/chat/` + `res/agents/` | 按提供商挑客户端，构建提示词，流式返回这一轮 |
-| **健康 vendor** | `src/health/vendor/` | 可穿戴、手机存储、EHR（SMART on FHIR），统一到一套 authorize / fetch / webhook 契约之后 |
-| **FHIR R4** | `src/fhir/` | 内嵌 FHIR 端点 + 术语（UCUM；SNOMED CT / LOINC / RxNorm） |
-
-Agent 与工具**在编译期自注册**：把一个 `.cpp` 丢进对应的 `res/` 目录再重新构建即可。
-
-## 数据源
-
-健康数据通过可插拔的 **vendor 客户端**接入，分四类：
-
-<CardGroup cols={2}>
-  <Card title="聚合平台" icon="layer-group">Terra、Validic、Human API、Junction、Metriport… —— 15 家 B2B 平台，统一到一套契约之后</Card>
-  <Card title="设备品牌" icon="watch">Fitbit、Garmin、Withings（第一方 OAuth）—— Oura / Polar / Whoop 经聚合平台接入</Card>
-  <Card title="临床 EHR" icon="hospital">SMART on FHIR —— 一个通用客户端对接 ONC 认证的 EHR（Epic、Oracle Health / Cerner、athenahealth…）</Card>
-  <Card title="设备本地存储" icon="mobile">Apple Health、Samsung Health、Google Health Connect、华为 —— 在设备本地读取，以 FHIR 形式 POST 上来</Card>
-</CardGroup>
-
-在 `src/health/vendor/` 里实现一个 `vendor::Vendor` 即可新增数据源。参见 [Provider 集成](/zh/development/provider-integration)。
-
-## 技术栈
-
-- **C++11** 内核，用 **CMake** 构建（Windows 上加 vcpkg）
-- **libwebsockets** / **libcurl** / **OpenSSL** 提供 HTTP + WebSocket + TLS
-- **存储后端**在构建期选定：PostgreSQL（桌面默认）或 SQLite（移动端），也支持 MySQL / DuckDB / ClickHouse；文件走 S3 / OSS / Azure Blob / 本地
-- **设备本地 LLM**：Gemma，经 **LiteRT-LM**（移动端）/ **llama.cpp**（Electron）
-- **内嵌 FHIR R4**，带 UCUM / SNOMED CT / LOINC / RxNorm 术语
-- **OAuth 2.0 / OIDC** 授权服务器；邮箱验证码 + Google / Apple / WeChat / GitHub 登录
 
 ## 适用人群
 
