@@ -3,34 +3,16 @@ title: "选择你的 API"
 description: "Answers API vs Agent API —— 一分钟选对接口。"
 ---
 
-Mirobody 通过**两个接口**暴露同一个 grounded 健康智能体。二者都基于 Subject 真实、标准化的健康数据作答并附带可追溯的工具轨迹 —— 区别在于由谁编排。
+Mirobody 通过**两个接口**暴露同一个 grounded 健康智能体，二者都基于 Subject 真实、标准化的健康数据作答，并附带可追溯的工具轨迹。
 
 <CardGroup cols={2}>
   <Card title="Answers API" icon="comment-dots" href="/zh/api-reference/chat">
-    `POST /v1/chat/completions` —— **封闭的 grounded completion**。一发进、一条有证据的回答出。无客户端工具、无状态。适合 OpenAI 直接替换 —— 或作为**你自己 agent 里的一个工具**。
+    `POST /v1/chat/completions` —— 封闭、一发一答、有证据支撑。无客户端工具、无状态。可直接替换 OpenAI 调用。
   </Card>
   <Card title="Agent API" icon="robot" href="/zh/api-reference/responses">
-    `POST /v1/responses` —— **推荐的 agent 接口**（兼容 OpenAI Responses）。多轮状态（`store` / `previous_response_id` / `session_id`）、**你自己的 function 工具**与完整交接、标准 `response.*` 流式。
+    `POST /v1/responses` —— 兼容 OpenAI Responses。多轮状态、自带 function 工具、`response.*` 流式。
   </Card>
 </CardGroup>
-
-## 决策表
-
-| 你想要… | 用 |
-| --- | --- |
-| 把某个 OpenAI chat 调用替换为有健康数据依据的回答，零新概念 | **Answers** |
-| 给你现有的 agent（任意框架、任意模型）加一项"查询该用户健康记录"的能力 | **Answers**，[包成工具](/zh/api-reference/use-as-a-tool) |
-| 构建以 **Mirobody 为 agent**、调用**你的**工具（预约、通知、EHR 写入）的健康助手 | **Agent**（[function calling](/zh/api-reference/function-calling)） |
-| 多轮对话且无需重发历史 | **Agent**（`previous_response_id` / `session_id` —— [状态](/zh/api-reference/state-and-memory)） |
-| 原样使用 **openai-agents SDK**（只改 `base_url`） | **Agent** |
-| 结构化输出 / JSON 模式 | 都不行 —— Answers 会拒绝 `response_format`；请在你的外层 agent 里做格式化 |
-
-## 两面完全相同的部分
-
-- **数据依据** —— 同一套服务端工具、同一份标准化数据（[数据面](/zh/api-reference/data)）；证据在 `health_records` / `citations`；服务端工具轨迹在 `tool_steps` 扩展。
-- **模型** —— `mirobody-flash` / `mirobody-expert`（[模型](/zh/api-reference/models)）。
-- **租户模型** —— `user` → Subject 隔离（[概览](/zh/api-reference/overview#多租户user-字段)）。
-- **用量口径** —— 只对你可见的输入 token 计入 prompt，平台开销单列 `system_tokens`。
 
 ## 两面不同的部分
 
@@ -42,4 +24,6 @@ Mirobody 通过**两个接口**暴露同一个 grounded 健康智能体。二者
 | 流式 | `chat.completion.chunk` 帧 | `response.*` 事件协议 |
 | 服务端工具轨迹 | `message.tool_steps` + 顶层扩展 | 顶层 `tool_steps` + `response.mirobody_tool_call` 事件 |
 
-还拿不准？从[快速开始](/zh/api-reference/quickstart)入手 —— 其最后一步用约 15 行代码同时展示两面。
+## 两面相同的部分
+
+数据依据（[数据面](/zh/api-reference/data)）、模型（`mirobody-flash` / `mirobody-expert`）、`user` → Subject 租户隔离、用量口径，两面完全一致。
