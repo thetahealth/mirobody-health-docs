@@ -22,7 +22,7 @@ Content-Type:  multipart/form-data
 | `file` | 文档（PDF / 图片 / Excel / CSV）。 |
 | `user` | 文件所属的数据主体(Subject)。**可选** —— 省略时会回退到你账户的 **`default`** 数据主体(Subject)，因此为实现按终端用户隔离，请始终传入它。 |
 | `retention` | **此处可选**（与 `POST /v1/data` 不同，那里为必填）。取值与[数据留存](/zh/api-reference/overview#数据留存)相同。 |
-| `session_id` | 可选；将 `retention=session` 的上传限定到某个[会话](/zh/api-reference/sessions)。 |
+| `session_id` | 可选；将 `retention=session` 的上传限定到某个[会话](/zh/api-reference/lifecycle#会话)。 |
 
 ```bash
 curl https://api.mirobody.ai/v1/files \
@@ -130,4 +130,4 @@ Authorization: Bearer mb_live_*
 { "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv", "deleted": true, "subject": "alice" }
 ```
 
-有时限的上传也会通过 **[留存](/zh/api-reference/overview#数据留存)过期**自动移除。如需一次性擦除某个 Subject 的全部数据，请使用 `DELETE /v1/subjects/{user}` —— 参见[合规](/zh/api-reference/compliance)。
+有时限的上传也会通过[留存](/zh/api-reference/overview#数据留存)过期自动移除 —— 过期文件立即从所有 `GET /v1/files*` 读取中消失，随后由后台任务清理。如需一次性擦除某个 Subject 的一切，请使用 `DELETE /v1/subjects/{user}` —— 参见[合规](/zh/api-reference/compliance)。

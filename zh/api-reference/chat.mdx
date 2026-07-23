@@ -75,7 +75,7 @@ console.log(resp.choices[0].message.content);
 | `stream` | bool | `true` → SSE 流式返回 `chat.completion.chunk` 帧。 |
 | `user` | string | 租户隔离键 → 一个 Subject。为每个终端用户传入其稳定 id。详见[多租户](/zh/api-reference/overview#多租户user-字段)。 |
 | `retention` | string | Mirobody 扩展，为与数据面对齐而接受。数据的生命周期在写入处治理 —— 见[数据](/zh/api-reference/data)与[留存模型](/zh/api-reference/overview#数据留存)。 |
-| `session_id` | string | Mirobody 扩展。为本次调用打上[会话级清理](/zh/api-reference/sessions)的标签。真正的多轮状态请用 [Agent API](/zh/api-reference/responses)。 |
+| `session_id` | string | Mirobody 扩展。为本次调用打上[会话级清理](/zh/api-reference/lifecycle#会话)的标签。真正的多轮状态请用 [Agent API](/zh/api-reference/responses)。 |
 
 <SubjectUserParam />
 
@@ -168,16 +168,16 @@ data: [DONE]
 
 除了普通的工具调用,托管智能体还能**规划**多步工作、**分派**子任务、运行**沙箱代码**做数值分析(趋势、相关性),并读取 Subject 上传的文件。这些都不需要你调用——智能体自己会,基于该 Subject 的数据。
 
-**公开工具目录** —— 即 `GET /api/health` 报告的 `tool_names`：
+托管智能体可调用的**内置工具**：
 
-- `query_health_data`、`summarize_health_data` —— 检索并聚合 Subject 的记录
+- `query_health_data` —— 检索并聚合 Subject 的记录
 - `list_clinical_records` —— 列出临床文档 / FHIR 支撑的记录
 - `list_family_members` —— 解析 Subject 有权查询的照护圈成员
 - `write_fhir_observation` —— 写入一条结构化 FHIR observation
 - `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 查询医学证据（供给 `citations`）
 - `fetch_url` —— 读取网页
 
-deep agents 的**框架内置工具** —— `write_todos`、`task`、`eval` 及文件系统工具（`ls` / `read_file` / …）—— 供内部使用，**不会**出现在 `tool_names` 中。`ask_user` 存在于网页应用产品，但在 **`/v1` 两个面上均已禁用**（API 调用方没有可作答的 widget）。公开工具集可能因集群而异；调用 `GET /api/health` 查看实时 `tool_names`。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。
+规划 / 分派 / 代码分析类工具属于内部管线，不算 API 契约的一部分。`ask_user` 也在同一套内置工具里（服务于网页应用），但在 **`/v1` 面上已禁用**（API 调用方没有可作答的 widget）。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。
 
 要添加**你自己的**工具，请使用 [Agent API 的 function calling](/zh/api-reference/function-calling) —— 此面刻意不提供工具注入。
 

@@ -62,7 +62,7 @@ Everything after that is the existing machinery:
 
 - **Consolidation extracts what matters.** The background consolidation pass reads the stored turn and pulls out any **quantifiable indicators** — written to the same pool as [`POST /v1/data`](/en/api-reference/data), so they show up in `GET /v1/data` — and **durable memories**, which ground the Subject's later agent answers automatically. Extraction happens asynchronously; it doesn't depend on the reply's length or content.
 - **Read back a single entry** with `GET /v1/responses/{id}`. There is **no list endpoint** (OpenAI parity) — keep your own `(entry → response_id)` index on your side. The platform is the data/intelligence layer, not a note-taking app.
-- **Three deletion levers**: `DELETE /v1/responses/{id}` removes one entry **and retracts the memory its conversation contributed**; [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions) tears down the whole journal session; [`DELETE /v1/subjects/{user}`](/en/api-reference/subjects) erases everything for the Subject.
+- **Three deletion levers**: `DELETE /v1/responses/{id}` removes one entry **and retracts the memory its conversation contributed**; [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) tears down the whole journal session; [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) erases everything for the Subject.
 - **One nuance**: readings that consolidation has already extracted into the data plane are ordinary records — deleting the journal entry retracts memories but leaves those readings; remove them with [`DELETE /v1/data`](/en/api-reference/data) (by `id` or `indicator`) or the Subject-level wipe.
 
 ## Data-plane retention (`retention`)
@@ -72,17 +72,17 @@ Health records and files carry their own lifetime, set **where the data is writt
 | `retention` | Lifetime |
 | --- | --- |
 | `permanent` (alias `persistent`) | Until explicitly deleted (`DELETE /v1/data`, `DELETE /v1/files/{key}`, `DELETE /v1/subjects/{user}`) |
-| `1d` / `6h` / `2h` / `1h` | Auto-deleted after the grain (hard cap ≤ 24h) |
-| `session` | Bound to a `session_id`; purged by [`DELETE /v1/sessions/{id}`](/en/api-reference/sessions), capped at 24h regardless |
+| `1d` / `6h` / `2h` / `1h` | **Auto-expires after the grain** — expired records disappear from reads immediately and are [purged by a background job](/en/api-reference/overview#data-retention) |
+| `session` | Bound to a `session_id`; purged by [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) |
 
-There is **no `retention: "none"`** — writing to the store while asking not to store is contradictory. For use-and-forget analysis, run [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (dry-run, zero side effects) or write with `retention: "1h"`.
+There is **no `retention: "none"`** — writing to the store while asking not to store is contradictory. For use-and-forget analysis, run [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (dry-run, zero side effects), write with `retention: "1h"` (auto-expires), or use `retention: "session"` and delete the session when done.
 
 ## Recipes
 
 | Goal | Settings |
 | --- | --- |
-| Fully ephemeral one-off | `store: false`; don't write data (or `retention: "1h"`) |
+| Fully ephemeral one-off | `store: false`; don't write data (or write with `retention: "1h"`, or `retention: "session"` and delete the session after) |
 | A user's ongoing assistant thread | `session_id: <stable-id>` on every turn; data `retention: "permanent"` |
 | A user's journal | Single-turn `store: true` + `session_id: journal-{user}` per entry — see [Journaling](#journaling) |
 | Short-lived triage conversation | default `store: true`, chain with `previous_response_id`; working data `retention: "session"` + the same `session_id`; `DELETE /v1/sessions/{id}` when done |
-| Right to be forgotten | `DELETE /v1/subjects/{user}` (everything), or per-piece: `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |
+| Right to be forgotten | [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) — everything, including stored conversations; or per-piece: `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |

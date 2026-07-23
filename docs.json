@@ -41,10 +41,9 @@
                   "en/api-reference/data",
                   "en/api-reference/device-data",
                   "en/api-reference/files",
-                  "en/api-reference/sessions",
-                  "en/api-reference/subjects",
                   "en/api-reference/extract",
-                  "en/api-reference/standardization"
+                  "en/api-reference/standardization",
+                  "en/api-reference/lifecycle"
                 ]
               },
               {
@@ -120,10 +119,8 @@
                   "en/tools/overview",
                   "en/tools/built-in",
                   "en/tools/adding-tools",
-                  "en/tools/skills-guide",
                   "en/tools/mcp-integration",
-                  "en/tools/adding-mcps",
-                  "en/tools/chatgpt-apps"
+                  "en/tools/adding-mcps"
                 ]
               },
               {
@@ -172,10 +169,9 @@
                   "zh/api-reference/data",
                   "zh/api-reference/device-data",
                   "zh/api-reference/files",
-                  "zh/api-reference/sessions",
-                  "zh/api-reference/subjects",
                   "zh/api-reference/extract",
-                  "zh/api-reference/standardization"
+                  "zh/api-reference/standardization",
+                  "zh/api-reference/lifecycle"
                 ]
               },
               {
@@ -251,10 +247,8 @@
                   "zh/tools/overview",
                   "zh/tools/built-in",
                   "zh/tools/adding-tools",
-                  "zh/tools/skills-guide",
                   "zh/tools/mcp-integration",
-                  "zh/tools/adding-mcps",
-                  "zh/tools/chatgpt-apps"
+                  "zh/tools/adding-mcps"
                 ]
               },
               {

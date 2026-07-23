@@ -54,11 +54,10 @@ Anything you write to the data plane (structured records, uploaded files, stored
 | `retention` | Meaning | Lifetime |
 | --- | --- | --- |
 | `permanent` (alias `persistent`) | Kept until explicitly deleted | Until `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/subjects/{user}` |
-| `session` | Bound to a `session_id` | Until `DELETE /v1/sessions/{id}`, capped at 24h |
-| `1d` | Auto-deleted within a day | ≤ 24h |
-| `6h` / `2h` / `1h` | Auto-deleted after the grain | ≤ 6h / 2h / 1h |
+| `session` | Bound to a `session_id` | Until `DELETE /v1/sessions/{id}` |
+| `1d` / `6h` / `2h` / `1h` | Auto-expires after the grain | Hidden from reads at expiry; purged (with FHIR mirrors) by a background job |
 
-On **[`POST /v1/data`](/en/api-reference/data) `retention` is required** — no default; omitting it (or any value outside the enum) returns `400` (`code: invalid_retention`). `retention=session` additionally requires a `session_id`. On [`POST /v1/extract`](/en/api-reference/extract) it's required when `store=true`; on [`POST /v1/files`](/en/api-reference/files) it's optional.
+On **[`POST /v1/data`](/en/api-reference/data) `retention` is required** — no default; omitting it (or any value outside the enum) returns `400` (`code: invalid_retention`). `retention=session` additionally requires a `session_id`. On [`POST /v1/extract`](/en/api-reference/extract) it's required when `store=true`; on [`POST /v1/files`](/en/api-reference/files) it's optional (defaults to `permanent`).
 
 There is **no `retention: "none"`**. For use-and-forget analysis, run [`POST /v1/extract`](/en/api-reference/extract) with `store=false` (dry-run — nothing persisted), or write with `retention: "1h"`. The agent **only ever reads the Subject's currently-unexpired data**.
 
@@ -116,5 +115,5 @@ In **streaming**, an upstream failure arrives as an SSE error frame (`{"error": 
 | `POST` · `GET` · `DELETE` | [`/v1/data`](/en/api-reference/data) | Write / read / erase structured records (standardized on write) |
 | `POST` | [`/v1/extract`](/en/api-reference/extract) | Document → standardized indicators (dry-run by default) |
 | `POST` · `GET` · `DELETE` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch text, delete |
-| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/sessions) | End a session and purge its session-scoped data |
-| `DELETE` | [`/v1/subjects/{user}`](/en/api-reference/subjects) | Erase everything for one Subject (right to be forgotten) — see [Compliance](/en/api-reference/compliance) |
+| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) | End a session and purge its session-scoped data |
+| `DELETE` | [`/v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) | Erase everything for one Subject (right to be forgotten) — see [Compliance](/en/api-reference/compliance) |

@@ -22,7 +22,7 @@ Content-Type:  multipart/form-data
 | `file` | The document (PDF / image / Excel / CSV). |
 | `user` | Subject the file belongs to. **Optional** — omitting it falls back to your account's **`default`** Subject, so always pass it for per-end-user isolation. |
 | `retention` | **Optional here** (unlike `POST /v1/data`, where it's required). Same values as [Data retention](/en/api-reference/overview#data-retention). |
-| `session_id` | Optional; scopes `retention=session` uploads to a [session](/en/api-reference/sessions). |
+| `session_id` | Optional; scopes `retention=session` uploads to a [session](/en/api-reference/lifecycle#sessions). |
 
 ```bash
 curl https://api.mirobody.ai/v1/files \
@@ -130,4 +130,4 @@ Removes the file from the API surface immediately (`404` if it isn't the Subject
 { "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv", "deleted": true, "subject": "alice" }
 ```
 
-Time-bounded uploads are also removed automatically by **[retention](/en/api-reference/overview#data-retention) expiry**. To erase everything about a Subject at once, use `DELETE /v1/subjects/{user}` — see [Compliance](/en/api-reference/compliance).
+Time-bounded uploads are also removed automatically by **[retention](/en/api-reference/overview#data-retention) expiry** — an expired file disappears from every `GET /v1/files*` read immediately and is cleaned up by a background job. To erase everything about a Subject at once, use `DELETE /v1/subjects/{user}` — see [Compliance](/en/api-reference/compliance).

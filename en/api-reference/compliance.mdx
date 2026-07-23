@@ -15,8 +15,8 @@ Both clusters are designed to **HIPAA-grade health-privacy** standards. The US s
   <Accordion title="Health-record privacy by design" icon="user-shield">
     Strict minimum-necessary principle. Health indicators / files / journals are user-scoped; analytics surface only the necessary fields; sensitive fields are encrypted at rest; service operators do not have access to plaintext PHI.
   </Accordion>
-  <Accordion title="No mid-process retention" icon="ghost">
-    Upstream LLM intermediate inference and tool-call traces are not persisted; only the user-visible chat content stays in the user's own session history. LLM provider credentials are managed by Mirobody and never exposed in any user-accessible API.
+  <Accordion title="Full reasoning trace, kept for traceability" icon="list-check">
+    When `store` is on (the default on the Agent API), the complete reasoning trace — every tool call, its arguments, and the evidence it returned — is retained alongside the response, so a clinician or auditor can see exactly how an answer was derived from the Subject's records. That trace lives in your own stored conversation (`GET /v1/responses/{id}`), never with a third party; turn it off per-request with `store:false` if you don't want it kept. LLM provider credentials are managed by Mirobody and never exposed in any user-accessible API.
   </Accordion>
   <Accordion title="Encryption" icon="lock">
     TLS 1.2+ enforced for HTTPS and WSS in transit. Industry-standard encryption at rest. Sensitive fields receive an additional layer of field-level encryption before write.
@@ -25,7 +25,7 @@ Both clusters are designed to **HIPAA-grade health-privacy** standards. The US s
     Mirobody **never** sells user health data, never uses it for advertising, never monetizes it via third parties.
   </Accordion>
   <Accordion title="User rights" icon="key">
-    Per-Subject data export via the API ([structured data](/en/api-reference/data) / [files](/en/api-reference/files)); time-bounded [retention](/en/api-reference/overview#data-retention) auto-expires data (session data capped at 24h). Self-service erasure is built into `/v1`: `DELETE /v1/data` (records), `DELETE /v1/files/{file_key}` (files), `DELETE /v1/responses/{id}` (stored conversations), `DELETE /v1/sessions/{id}` (session-scoped data), and `DELETE /v1/subjects/{user}` — which erases **everything** for one Subject (records, files, conversations, and the identity mapping). For account deletion, contact [Mirobody Support](mailto:developer@thetahealth.ai).
+    Per-Subject data export via the API ([structured data](/en/api-reference/data) / [files](/en/api-reference/files)). Self-service erasure is built into `/v1`: `DELETE /v1/data` (records), `DELETE /v1/files/{file_key}` (files), `DELETE /v1/responses/{id}` (a specific stored conversation), `DELETE /v1/sessions/{id}` (session-scoped data), and [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) — which erases **everything** for one Subject in a single call: records, files, stored Agent API conversations, and the identity mapping. Session-scoped data (`retention: "session"`) is cleared when you call `DELETE /v1/sessions/{id}`; time-bounded tiers (`1h` / `2h` / `6h` / `1d`) auto-expire on their own; `permanent` data is held until explicitly deleted. For account deletion, contact [Mirobody Support](mailto:developer@thetahealth.ai).
   </Accordion>
 </AccordionGroup>
 

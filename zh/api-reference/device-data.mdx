@@ -17,20 +17,20 @@ import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
   <Step title="接收">
     你的厂商集成送来样本 —— webhook 推送或周期性拉取，厂商提供什么就用什么。
   </Step>
-  <Step title="聚合到日级">
-    高频序列在写入前先自聚合为**每天一条记录**。Mirobody 内部的设备链路也是同样做法 —— 高频样本归成日级桶，日汇总 1:1 落库，episode 保留时段。
+  <Step title="聚合到日级（建议）">
+    建议高频序列在写入前先聚合为**每天一条记录** —— 既省成本，序列也更清晰。Episode 保留自己的时段。
   </Step>
   <Step title="用 POST /v1/data 写入">
     每次请求最多 **500 条**，`retention` 必填 —— 与任何其它[结构化写入](/zh/api-reference/data)同一契约。
   </Step>
 </Steps>
 
-## 1. 写入前先聚合
+## 1. 写入前先聚合（建议）
 
-[`POST /v1/data`](/zh/api-reference/data) 是记录存储，不是原始样本收集器。一行应当是一条有意义的读数：
+[`POST /v1/data`](/zh/api-reference/data) 接受任何粒度，但对多数产品我们建议一行对应一条有意义的读数 —— 写入量（和成本）更低，序列也更好理解：
 
 - **日累计**（步数、卡路里、距离）—— 每天一条记录。
-- **连续序列**（每隔几分钟采样的心率、SpO₂）—— 先聚合成日级值（如静息/日均心率）；需要 min/max 就作为独立指标各写一条。
+- **连续序列**（每隔几分钟采样的心率、SpO₂）—— 通常先聚合成日级值更好（如静息/日均心率）；需要 min/max 就作为独立指标各写一条。若你的产品确实需要更细的粒度，也可以直接写入。
 - **Episode 型**（睡眠、运动）—— 每个 episode 一条记录，用 `time` + `end_time` 携带时段（见下）。
 
 ## 2. 批量写入日级记录

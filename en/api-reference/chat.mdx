@@ -75,7 +75,7 @@ console.log(resp.choices[0].message.content);
 | `stream` | bool | `true` → SSE stream of `chat.completion.chunk` frames. |
 | `user` | string | Tenant-isolation key → a Subject. Pass each end-user's stable id. See [multi-tenancy](/en/api-reference/overview#multi-tenancy-the-user-field). |
 | `retention` | string | Mirobody extension, accepted for parity with the data plane. Data lifetimes are governed where data is written — see [Data](/en/api-reference/data) and the [retention model](/en/api-reference/overview#data-retention). |
-| `session_id` | string | Mirobody extension. Tags the call for [session-scoped cleanup](/en/api-reference/sessions). For real multi-turn state, use the [Agent API](/en/api-reference/responses). |
+| `session_id` | string | Mirobody extension. Tags the call for [session-scoped cleanup](/en/api-reference/lifecycle#sessions). For real multi-turn state, use the [Agent API](/en/api-reference/responses). |
 
 <SubjectUserParam />
 
@@ -168,16 +168,16 @@ A `system` message sets the tone, persona, format, and language of the answer. D
 
 Beyond plain tool-calling, the hosted agent can **plan** multi-step work, **delegate** subtasks, run **sandboxed code** for numeric analysis (trends, correlations), and read the Subject's uploaded files. You don't invoke any of this — the agent does, against the Subject's data.
 
-The **public tool catalog** — what `GET /api/health` reports as `tool_names`:
+The built-in tools the hosted agent can call:
 
-- `query_health_data`, `summarize_health_data` — search and aggregate the Subject's records
+- `query_health_data` — search and aggregate the Subject's records
 - `list_clinical_records` — list clinical documents / FHIR-backed records
 - `list_family_members` — resolve care-circle members the Subject is allowed to query
 - `write_fhir_observation` — write a structured FHIR observation
 - `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence (feeds `citations`)
 - `fetch_url` — read a web page
 
-Planning / delegation / code-analysis tools are internal plumbing and not part of the API contract. `ask_user` appears in `GET /api/health`'s `tool_names` (it serves the web app) but is **disabled on the `/v1` surfaces** — an API caller has no widget to answer it. The public set can vary by cluster; `GET /api/health` reports the live `tool_names`. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically.
+Planning / delegation / code-analysis tools are internal plumbing and not part of the API contract. `ask_user` is part of the same built-in set (it serves the web app) but is **disabled on the `/v1` surfaces** — an API caller has no widget to answer it. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically.
 
 To add **your own** tools, use the [Agent API's function calling](/en/api-reference/function-calling) — this surface intentionally has no tool injection.
 

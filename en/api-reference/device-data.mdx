@@ -17,20 +17,20 @@ You've already integrated a wearable — through Terra, Junction, or a vendor AP
   <Step title="Receive">
     Your vendor integration delivers samples — a webhook push or a periodic pull, whatever the vendor offers.
   </Step>
-  <Step title="Aggregate to daily">
-    Roll high-frequency series up to **one record per day** before writing. Mirobody's own internal device pipeline works the same way — high-frequency samples become daily buckets, daily summaries map 1:1, episodes keep their period.
+  <Step title="Aggregate to daily (recommended)">
+    Consider rolling high-frequency series up to **one record per day** before writing — it keeps costs down and the series legible. Episodes keep their period.
   </Step>
   <Step title="Write with POST /v1/data">
     Batches of up to **500 records** per request, `retention` required — same contract as any other [structured write](/en/api-reference/data).
   </Step>
 </Steps>
 
-## 1. Aggregate before you write
+## 1. Aggregate before you write (recommended)
 
-[`POST /v1/data`](/en/api-reference/data) is a record store, not a raw-sample sink. One row should be one meaningful reading:
+[`POST /v1/data`](/en/api-reference/data) accepts any granularity, but for most products we recommend one row per meaningful reading — it keeps write volume (and cost) down and the series easy to reason about:
 
 - **Daily totals** (steps, calories, distance) — one record per day.
-- **Continuous series** (heart rate, SpO₂ sampled every few minutes) — aggregate to a daily value first (e.g. resting/mean heart rate); write min/max as their own indicators if you need them.
+- **Continuous series** (heart rate, SpO₂ sampled every few minutes) — usually best aggregated to a daily value first (e.g. resting/mean heart rate); write min/max as their own indicators if you need them. Write finer granularity if your product genuinely needs it.
 - **Episodes** (sleep, workouts) — one record per episode, carrying its period via `time` + `end_time` (below).
 
 ## 2. Write daily records in batches

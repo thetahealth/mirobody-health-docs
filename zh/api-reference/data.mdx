@@ -25,7 +25,7 @@ Content-Type:  application/json
 | `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记 episode 的结束 —— 睡眠、运动 —— 其起点为 `time`。`measured_at` / `start_time` 是 `time` 的别名 —— POST /v1/extract 返回的行（字段名为 `measured_at`）可原样转发。 |
 | `user` | string | 记录所属的 Subject（租户隔离键）。 |
 | `retention` | string | **必填 —— 没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的别名也接受）。小时粒度在写入后按时长自动删除（硬上限 ≤ 24h）。省略它 —— 或传枚举之外的任何值 —— 返回 `400`（`code: invalid_retention`）。 |
-| `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/sessions) 能清除它们。 |
+| `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。为记录打上标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 能清除它们。 |
 
 ```bash
 curl https://api.mirobody.ai/v1/data \
@@ -121,6 +121,7 @@ Authorization: Bearer mb_live_*
 | `loinc_code` / `canonical_name` | 确定性 LOINC 解析结果及其展示名（名称未解析时为 `null`）。 |
 | `fhir_resource_id` | 该记录 FHIR Observation 镜像的 id。 |
 | `end_time` | Episode 型记录（睡眠、运动）时段的结束时间；时间点读数为 `null`。 |
+| `reference_low` / `reference_high` / `reference_text` / `abnormal` | 参考范围与异常标记，来源（如化验单）携带时返回；否则为 `null`。 |
 | `source` / `comment` | `source` 表示**写入通道**(`api`、`extract`);你在记录里传的 `source` 自由文本标签会在 `comment` 中返回。 |
 | `has_more` | 本页打满 `limit` 时为 `true`——用 `offset += limit` 取下一页。 |
 | `subject` | 记录所属的 Subject（由 `user` 解析）。 |
@@ -148,11 +149,11 @@ DELETE /v1/data?user=alice&id=1287
 { "status": "ok", "deleted": 1, "subject": "alice" }
 ```
 
-如需擦除某个 Subject 的*一切*（记录 + 文件 + 对话 + 身份映射），使用 `DELETE /v1/subjects/{user}` —— 见[合规](/zh/api-reference/compliance)。
+如需一次性擦除某个 Subject 的*一切*（记录 + 文件 + 对话 + 身份映射），使用 [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) —— 见[合规](/zh/api-reference/compliance)。
 
 ## 用完即弃的数据
 
 **没有 `retention: "none"`** —— 写入存储却要求不存储是自相矛盾的，该值与其它非枚举值一样被拒绝。两种干净的替代模式：
 
 - **零副作用的 dry-run 分析** —— [`POST /v1/extract`](/zh/api-reference/extract) 用 `store=false`（默认）：拿到标准化结果，什么都不写。
-- **短生命周期工作数据** —— 以 `retention: "1h"` 写入，或 `retention: "session"` + 一个用完即[删](/zh/api-reference/sessions)的 `session_id`。
+- **短生命周期工作数据** —— 以 `retention: "1h"` 写入（一小时后[自动过期](/zh/api-reference/overview#数据留存)），或以 `retention: "session"` + 一个用完即[删](/zh/api-reference/lifecycle#会话)的 `session_id` 写入。
