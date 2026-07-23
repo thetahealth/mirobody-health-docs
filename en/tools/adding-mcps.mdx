@@ -9,21 +9,16 @@ The Model Context Protocol (MCP) is an open standard that lets AI applications c
 
 Mirobody's primary role is as an **MCP server**: it exposes its [built-in tools](/en/tools/built-in) over the [`/mcp` endpoint](/en/tools/mcp-integration), and external clients — Claude Desktop, Cursor, ChatGPT, or any MCP client — connect *to* it.
 
-<CardGroup cols={2}>
-  <Card title="Connect a client to Mirobody" icon="plug" href="/en/tools/mcp-integration">
-    Point Claude, Cursor, or a custom client at the `/mcp` endpoint.
-  </Card>
-  <Card title="ChatGPT Apps" icon="robot" href="/en/tools/chatgpt-apps">
-    Expose Mirobody to ChatGPT as a remote MCP server.
-  </Card>
-</CardGroup>
+<Card title="Connect a client to Mirobody" icon="plug" href="/en/tools/mcp-integration">
+  Point Claude, Cursor, or a custom client at the `/mcp` endpoint.
+</Card>
 
 To extend what Mirobody's own agent can do, add a **built-in tool** in C++ — see [Adding Custom Tools](/en/tools/adding-tools).
 
 ## Connecting an external MCP server
 
 <Warning>
-**Not verified in the current C++ engine (Mirobody).** The screenshots below describe adding a *third-party* MCP server through the web UI so its tools become available to the agent. This outbound-connection capability could **not be confirmed** against the open-source engine at the time of writing — the confirmed MCP surface is Mirobody acting as an MCP *server* (the `/mcp` endpoint) that clients connect to, and MiroThinker reaching that endpoint via `MCP_PUBLIC_URL`. Treat this section as *(verify)* and check the running build's web UI before relying on it.
+**Not verified in the current C++ engine (Mirobody).** The screenshots below describe adding a *third-party* MCP server through the web UI so its tools become available to the agent. This outbound-connection capability could **not be confirmed** against the open-source engine at the time of writing — the confirmed MCP surface is Mirobody acting as an MCP *server* (the `/mcp` endpoint) that clients connect to. Treat this section as *(verify)* and check the running build's web UI before relying on it.
 </Warning>
 
 If your build's web UI exposes MCP management, the flow is:

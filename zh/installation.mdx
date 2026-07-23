@@ -246,7 +246,7 @@ mirobody/
 │   ├── main.cpp            # 独立服务器入口
 │   ├── server/             # HTTP + WebSocket 路由（libwebsockets）
 │   ├── chat/               # agent：提供商选择、系统提示词、流式返回
-│   ├── llm/                # 流式 LLM 客户端（OpenAI、Gemini、MiroThinker；chat / realtime / embeddings）
+│   ├── llm/                # 流式 LLM 客户端（OpenAI、Gemini；chat / realtime / embeddings）
 │   ├── mcp/                # MCP JSON-RPC 端点 + 编译期工具注册表
 │   ├── memory/             # 长期记忆（本地 embeddings 或 Mem0 / Zep / EverOS）
 │   ├── fhir/               # RESTful FHIR R4 端点 + 单位归一化 + 术语
@@ -261,7 +261,7 @@ mirobody/
 │   ├── transcode/          # 上传转码器：图像 + 文档（PDF/Excel/CSV）
 │   └── platform/           # 日志 + JNI / C-ABI / pybind11 入口
 ├── res/                    # 由二进制编译/托管的内置资源
-│   ├── agents/base.cpp     # 唯一的 agent，编译期自注册
+│   ├── agents/baseline.cpp     # 唯一的 agent，编译期自注册
 │   ├── mcp_tools/*.cpp     # MCP 工具，编译期自注册
 │   ├── mcp_resources/      # MCP 资源
 │   ├── sql/                # 各方言 SQL schema（pg、sqlite、mysql…）
@@ -303,15 +303,15 @@ Agent 和 MCP 工具**在编译期自注册**：把一个 `.cpp` 丢进 `res/age
   </Step>
 
   <Step title="日志">
-    二进制默认把日志打到 stdout；在 `config.yml` 里设置 `LOG_DIR` 可写入文件。Docker 下用 `docker logs <container>`。
+    二进制把日志打到 stderr；用进程管理器捕获。Docker 下用 `docker logs <container>`。
   </Step>
 </Steps>
 
 ## 故障排查
 
 <AccordionGroup>
-  <Accordion title="libwebsockets 太旧 / websocket_client.cpp 编译失败" icon="circle-exclamation">
-    代码需要 libwebsockets ≥ 4.1。Ubuntu 24.04 自带 4.3；更老的发行版（以及 Debian bookworm）可能太旧 —— 安装一个更新的构建，或用 Docker 镜像（它基于 Ubuntu 24.04）。
+  <Accordion title="响应未压缩 / libwebsockets 版本" icon="circle-exclamation">
+    发行版的 `libwebsockets-dev` 包在编译时**没有**开启 `LWS_WITH_HTTP_STREAM_COMPRESSION`，所以所有响应都不压缩。对带宽敏感的部署，请从源码构建 libwebsockets 并开启 `-DLWS_WITH_HTTP_STREAM_COMPRESSION=ON -DLWS_WITH_ZLIB=ON`，版本须 **≥ 4.3.4**（CVE-2025-1866 是该压缩路径中的越界缺陷，4.3.4 已修复）—— Docker 镜像正是这么做的，锁定在 `v4.3.10`。参见 `docs/BUILDING.md`。
   </Accordion>
 
   <Accordion title="find_package 找不到某个依赖" icon="magnifying-glass">

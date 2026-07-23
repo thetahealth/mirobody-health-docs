@@ -49,11 +49,23 @@ Direct clients for consumer wearable brands, for deployments that want to talk t
   <Card title="Garmin" icon="watch">
     `garmin` — Garmin Health API. Partner-gated and **push-based**; only `revoke` is wired. See the [Garmin example](/en/examples/garmin-provider).
   </Card>
+  <Card title="Dexcom" icon="droplet">
+    `dexcom` — Dexcom API, OAuth 2.0. `fetch` (v3 `egvs` glucose, retrospective) and `authorize_url` (v2 `/oauth2/login`); defaults to the sandbox host.
+  </Card>
+  <Card title="Oura" icon="ring">
+    `oura` — Oura API v2, OAuth 2.0. `fetch` (`daily_activity` / `daily_sleep` / `heartrate`) and `authorize_url` implemented.
+  </Card>
+  <Card title="Whoop" icon="watch">
+    `whoop` — WHOOP Developer Platform v2, OAuth 2.0. `fetch` (`activity/sleep`, `recovery` [HR/HRV], `cycle`) and `authorize_url` implemented.
+  </Card>
+  <Card title="Polar" icon="watch">
+    `polar` — Polar Open AccessLink v3, OAuth 2.0. `fetch` (sleep — training/activity uses a transaction model), `authorize_url`, `revoke` implemented.
+  </Card>
 </CardGroup>
 
-<Warning>
-**Fitbit, Garmin, and Withings are the only device brands with a first-party client.** Other brands — **Oura, Polar, Whoop, Dexcom, …** — are reached **through an aggregator** (Terra, Validic, Thryve, Rook, Spike); they have no dedicated client unless one is added to deliberately bypass the aggregator.
-</Warning>
+<Note>
+**All seven device brands ship a real first-party client** with OAuth and `fetch` against the brand's public API; the OAuth brands also implement the token lifecycle (`exchange_code` / `refresh`) via the shared `oauth2.hpp` helper. The aggregators (Terra, Validic, Thryve, Rook, Spike) remain an alternative — for brands with no direct client, or to consolidate many brands behind one integration.
+</Note>
 
 ## Clinical EHRs (`ehr/`) — SMART on FHIR
 

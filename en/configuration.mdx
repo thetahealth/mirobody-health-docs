@@ -26,7 +26,7 @@ Config is merged per key from layered sources, higher overriding lower:
 
 ### Encrypted secrets
 
-Any string value beginning with `gAAAA` is treated as a Fernet token and decrypted on load when `CONFIG_ENCRYPTION_KEY` is set (applies to both `config.yml` and the remote pull). Conversely, values whose **key name** contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` are auto-encrypted with that same `CONFIG_ENCRYPTION_KEY` — so plaintext secrets you drop in get rewritten to `gAAAA…` at rest.
+Any string value beginning with `gAAAA` is treated as a Fernet token and decrypted on load when `CONFIG_ENCRYPTION_KEY` is set (applies to both `config.yml` and the remote pull). Encryption is the operator's job: nothing rewrites plaintext at rest — encrypt each secret with the `fernet` CLI (`cli/fernet.cpp`: `fernet genkey` / `fernet encrypt`) and paste the `gAAAA…` token into the config. Values whose **key name** contains `_KEY`, `_PASSWORD`, `_SECRET`, `_TOKEN` (and similar) are additionally masked in the config summary dump.
 
 ```bash
 # Generate a key
@@ -37,7 +37,7 @@ export CONFIG_ENCRYPTION_KEY="<your-key>"
 ```
 
 <Note>
-`PG_ENCRYPTION_KEY` is intentionally **not** auto-encrypted (no `_KEY` suffix handling) — it is the key that encrypts data columns, so it must stay readable to bootstrap the database. Keep it in the environment or a secrets manager in production.
+`PG_ENCRYPTION_KEY` is the key that encrypts data columns, so it must stay readable to bootstrap the database. Keep it in the environment or a secrets manager in production rather than in `config.yml`.
 </Note>
 
 ## HTTP server
@@ -64,13 +64,13 @@ Auth is a bearer token in the `Authorization` header (not cookies), so `Access-C
 
 ```yaml config.yml
 LOG_LEVEL: 'INFO'     # debug | info | warning | error | critical (case-insensitive)
-LOG_NAME: 'mirobody'
-LOG_DIR: ''           # empty => stdout; set a path to write log files
 ```
+
+Logs always go to **stderr** — there is no log-file option; capture them with your process manager (`docker logs`, journald, a systemd unit, …).
 
 ## LLM providers
 
-Set **at least one** provider key to enable chat. The agent picks a client by **provider** name at request time; the default provider fallback is `gemini-2.5-flash`. Tool execution differs per provider: OpenAI and Gemini run the built-in MCP tools **locally in-process**, while MiroThinker executes tools **provider-side** (so it needs a public `MCP_PUBLIC_URL`).
+Set **at least one** provider key to enable chat. The agent picks a client by **provider** name at request time; the default provider fallback is `gemini-2.5-flash`. OpenAI and Gemini run the built-in MCP tools **locally in-process**.
 
 ### Google Gemini
 
@@ -103,18 +103,6 @@ AZURE_OPENAI_DEPLOYMENT: 'gpt-4o-mini'
 AZURE_OPENAI_API_VERSION: '2024-10-21'
 AZURE_OPENAI_API_KEY: ''     # or AZURE_OPENAI_KEY
 ```
-
-### MiroThinker
-
-```yaml config.yml
-MIROTHINKER_API_KEY: '...'   # required for the MiroThinker provider
-# MIROTHINKER_BASE_URL: '...'   # endpoint override *(verify)*
-# MIROTHINKER_MODEL: '...'      # model name *(verify)*
-```
-
-<Warning>
-MiroThinker runs tools provider-side: MiroMind's endpoint calls back into **this** server's `/mcp` over the public internet, so you must also set a publicly reachable [`MCP_PUBLIC_URL`](#mcp-public-url). A localhost or private address won't work.
-</Warning>
 
 ### On-device Gemma (optional)
 
@@ -275,13 +263,9 @@ Mirobody embeds an OAuth 2.0 authorization server (authorization-code + PKCE) so
 
 Discovery documents are served at `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration`, and `/.well-known/jwks.json`.
 
-## MCP public URL
+## Remote MCP access
 
-```yaml config.yml
-# MCP_PUBLIC_URL: 'https://yourdomain.com'
-```
-
-`MCP_PUBLIC_URL` is the externally reachable base for your MCP endpoint (`<MCP_PUBLIC_URL>/mcp`). It is **required** for the MiroThinker provider (tools run provider-side) and for exposing the MCP server to ChatGPT Apps, remote Claude Desktop, and other MCP clients. For local development without a public domain, tunnel it:
+Remote MCP clients need no extra configuration on this server: point them at your public HTTPS base URL plus `/mcp`, and the MCP/OAuth services derive their advertised URLs from each request's `Host` header. For local development without a public domain, tunnel it:
 
 <Steps>
   <Step title="Install and run ngrok">
@@ -289,14 +273,10 @@ Discovery documents are served at `/.well-known/oauth-authorization-server`, `/.
     ngrok http 8080
     ```
   </Step>
-  <Step title="Set the tunnel URL">
-    ```yaml config.yml
-    MCP_PUBLIC_URL: 'https://abc123.ngrok-free.app'
-    ```
+  <Step title="Point the client at the tunnel">
+    Give the client `https://abc123.ngrok-free.app/mcp` as the server URL.
   </Step>
 </Steps>
-
-See [ChatGPT Apps](/en/tools/chatgpt-apps).
 
 ## Care circles
 

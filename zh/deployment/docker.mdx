@@ -115,7 +115,7 @@ docker run -p 80:80 \
 ## 管理
 
 ```bash
-# 日志（二进制把日志打到 stdout）
+# 日志（二进制把日志打到 stderr；docker logs 能捕获）
 docker logs -f <container>
 
 # 停止（SIGTERM 触发优雅关停）

@@ -25,7 +25,7 @@ vendor <id> webhook   --file payload.json            # body from --file/--data/s
 vendor <id> revoke    --user U [--provider slug]
 ```
 
-Credentials come from the same `MIROBODY_VENDOR_<ID>_*` env vars the server uses.
+The standalone CLI reads its credentials from the legacy `MIROBODY_VENDOR_<ID>_*` env vars (its own `from_env()` convention); the server itself is configured with the clean `<ID>_*` keys (`FITBIT_CLIENT_ID`, …) — see [Using Providers](/en/providers/using-providers).
 
 <Steps>
   <Step title="Metadata (no credentials)">
@@ -96,7 +96,7 @@ For an EHR (SMART on FHIR), walk the browser flow: `/health/ehr/providers` → `
 Many vendors reject non-HTTPS redirect URIs, so a plain `http://localhost:8080` callback won't work for a real consent flow. Options for local development:
 
 - A local reverse proxy on port 443 terminating TLS (nginx / Caddy) with a trusted cert from **`mkcert`**, forwarding to `localhost:8080`, and a hosts-file entry mapping your production callback domain to `127.0.0.1` — so the **same** redirect URI works locally and in production.
-- A tunneling service such as **ngrok** (also handy for inbound **webhooks** and for `MCP_PUBLIC_URL` during local testing).
+- A tunneling service such as **ngrok** (also handy for inbound **webhooks** during local testing).
 
 The point is to present the vendor with the exact HTTPS callback URL it expects without deploying for every change.
 
@@ -105,6 +105,9 @@ The point is to present the vendor with the exact HTTPS callback URL it expects 
 <AccordionGroup>
   <Accordion title="Happy path" icon="check">
     Valid credentials → `auth-url` builds, `fetch` returns documented JSON for each supported domain, signed `webhook` verifies, `revoke` succeeds.
+  </Accordion>
+  <Accordion title="Token lifecycle (exchange_code / refresh)" icon="key">
+    With a fresh authorization code, `exchange_code(code, redirect_uri)` returns a `TokenSet` (access token, refresh token where the vendor issues one, `expires_in`); `refresh(refresh_token)` returns a fresh set. A bad or replayed code → a clear `VendorError` with the vendor's error body. Vendors without a refresh grant (Polar — its tokens don't expire) should throw their documented reason. End-to-end, this pair is exercised by `POST /vendors/{id}/bind/verify` (exchanges the code and stores the user's tokens encrypted) and by `fetch` refreshing an expired token.
   </Accordion>
   <Accordion title="Missing / wrong config" icon="triangle-exclamation">
     Empty `api_key` / `client_id` → a clear `VendorError` naming the missing env var. Required `base_url` (self-hosted / EHR) empty → refusal, not a guessed host.

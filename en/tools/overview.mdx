@@ -5,7 +5,7 @@ description: "Understanding the agent, MCP tools, and the /mcp endpoint in the M
 
 ## The agent
 
-Mirobody runs **one simple agent** — "Base", defined in [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp). It is deliberately minimal: there is no agent loop, no planner, no middleware. For each turn it:
+Mirobody runs **one simple agent** — "Baseline", defined in [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/baseline.cpp). It is deliberately minimal: there is no agent loop, no planner, no middleware. For each turn it:
 
 1. **Picks an LLM client by provider name** (the requested `provider`, else the default).
 2. **Builds a system prompt** — a fixed inline string with the current time, the response language, and guidance to fetch uploads (`list_files` / `read_file`) and health records (`family_health`).
@@ -17,19 +17,18 @@ You choose a **model** (`provider`), not an agent *type* — Mirobody runs a sin
 
 ### Providers
 
-The agent registers up to four provider clients (each keyed by the model name the `/api/providers` selector shows). The first three are always registered so they appear in the selector; one whose credentials aren't set simply errors at call time.
+The agent registers up to three provider clients (each keyed by the model name the `/api/providers` selector shows). The first two are always registered so they appear in the selector; one whose credentials aren't set simply errors at call time.
 
 | Provider key | Model | Client | Tool execution |
 |--------------|-------|--------|----------------|
 | `gemini-2.5-flash` | Google Gemini 2.5 Flash (**default**) | `GeminiClient` | Local, in-process |
 | `gpt-5-nano` | OpenAI GPT-5 nano | `OpenAIChatClient` | Local, in-process |
-| `mirothinker-1.7` | MiroThinker (MiroMind) | `MiroThinkerClient` | Provider-native MCP via `MCP_PUBLIC_URL` |
 | `gemma-4-e2b` | On-device Gemma 4 E2B | `OpenAIChatClient` (local endpoint) | Depends on serving stack |
 
 The native apps also run **Gemma 4 E2B on-device** (LiteRT-LM on Android/iOS, llama.cpp on Electron) — offline, no key. `gemma-4-e2b` above is the same model served over a local OpenAI-compatible endpoint (Ollama / llama.cpp / vLLM), registered only when a base URL is configured.
 
 <Info>
-**How tools run differs by provider.** OpenAI and Gemini receive the tools as function-call descriptors and the engine executes each call **locally in-process** as the authenticated user. MiroThinker runs tools **provider-side** — MiroMind reaches back to your `/mcp` endpoint over the public internet at `MCP_PUBLIC_URL`.
+**How tools run.** OpenAI and Gemini receive the tools as function-call descriptors and the engine executes each call **locally in-process** as the authenticated user.
 </Info>
 
 ### Configuration
@@ -43,12 +42,6 @@ OPENAI_BASE_URL: 'https://api.openai.com'   # client appends /v1/chat/completion
 
 # Google Gemini (gemini-2.5-flash, the default provider)
 GOOGLE_API_KEY: 'your_google_key'
-
-# MiroThinker (mirothinker-1.7) — provider-native MCP
-MIROTHINKER_API_KEY: 'your_mirothinker_key'
-MIROTHINKER_BASE_URL: ''      # optional override
-MIROTHINKER_MODEL: ''         # optional override
-MCP_PUBLIC_URL: 'https://your-domain.com/mcp'   # where MiroMind reaches your MCP
 
 # On-device Gemma served over a local OpenAI-compatible endpoint (optional)
 GEMMA_CHAT_BASE_URL: 'http://localhost:11434/v1'   # or OLLAMA_BASE_URL
@@ -131,7 +124,7 @@ http://localhost:8080/mcp                 # authenticates via bearer JWT
 http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
 ```
 
-Supported methods include `tools/list` and `tools/call`. For local development, tunnel the port (e.g. `ngrok http 8080`) and set `MCP_PUBLIC_URL` so remote clients — and MiroThinker's provider-native MCP — can reach it. See [MCP Integration](/en/tools/mcp-integration) to connect Claude, Cursor, and ChatGPT.
+Supported methods include `tools/list` and `tools/call`. For local development, tunnel the port (e.g. `ngrok http 8080`) so remote clients can reach `/mcp` — they connect to the public URL directly, and the MCP / OAuth services derive their advertised URLs from each request's `Host` header. See [MCP Integration](/en/tools/mcp-integration) to connect Claude, Cursor, and ChatGPT.
 
 ```bash
 curl -X POST http://localhost:8080/mcp \

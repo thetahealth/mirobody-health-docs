@@ -20,7 +20,7 @@ The per-vendor clients are sorted into four directories under `src/health/vendor
     `platform/` — 15 B2B health-data aggregators (Terra, Validic, Human API, Junction, Metriport, Rook, Spike, Thryve, WeFitter, Vitalera, Open Wearables, Redox, Particle Health, HealthConnect, LexisNexis)
   </Card>
   <Card title="Device brands" icon="watch">
-    `device/` — direct clients for consumer wearable brands: **Fitbit, Garmin, Withings**
+    `device/` — direct clients for consumer wearable brands: **Fitbit, Withings, Garmin, Dexcom, Oura, Whoop, Polar**
   </Card>
   <Card title="Clinical EHRs" icon="hospital">
     `ehr/` — one **generic SMART-on-FHIR** client that covers every ONC-certified EHR (Epic, Oracle Health / Cerner, athenahealth, …), parameterized by the tenant's FHIR base URL
@@ -34,7 +34,7 @@ The per-vendor clients are sorted into four directories under `src/health/vendor
 **On-device-only stores have no vendor client.** Apple Health, Samsung Health, Google Health Connect, and Xiaomi / Mi Fitness expose no server-callable API, so they are **not** `vendor::Vendor`s. Instead the host app reads samples on-device and POSTs them as FHIR `Observation`s to the embedded FHIR endpoint. See [Data Flow](/en/concepts/data-flow).
 </Note>
 
-Device *brands* with their own OAuth REST APIs are normally reached **through an aggregator** (Terra, Validic, Thryve, Rook, Spike). Only three have a dedicated direct client (Fitbit, Garmin, Withings); others — Oura, Polar, Whoop, … — stay aggregator-only unless someone adds a client to deliberately bypass the aggregator.
+Device *brands* with their own OAuth REST APIs can be reached two ways: **through an aggregator** (Terra, Validic, Thryve, Rook, Spike), or via a dedicated **first-party client**. Seven brands ship a direct client — **Fitbit, Withings, Garmin, Dexcom, Oura, Whoop, Polar** — each with a real OAuth flow and `fetch` against the brand's public API, for deployments that want the brand's data without an aggregator. Brands without a client stay aggregator-only unless someone adds one.
 
 ## The vendor contract
 
@@ -73,12 +73,21 @@ public:
   // Revoke a user's authorization / disconnect them.
   virtual void revoke(const std::string& user_id,
                       const std::string& provider) = 0;
+
+  // Exchange an OAuth2 authorization code (from authorize_url's redirect)
+  // for a TokenSet at the vendor's token endpoint.
+  virtual TokenSet exchange_code(const std::string& code,
+                                 const std::string& redirect_uri) = 0;
+
+  // Exchange a refresh_token for a fresh TokenSet.
+  virtual TokenSet refresh(const std::string& refresh_token) = 0;
 };
 
 }}
 ```
 
 - **`DataDomain`** is the normalized data category: `Activity`, `Sleep`, `HeartRate`, `Glucose`, `Nutrition`, `BodyMetrics`, `Labs`, `Clinical`.
+- **`TokenSet`** carries `access_token` / `refresh_token` / `expires_in` from an OAuth2 token-endpoint call. The OAuth device brands implement `exchange_code` / `refresh` via a shared helper, `oauth2_token_request(...)` in [`src/health/vendor/oauth2.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.hpp) (Withings uses its own envelope; Polar's tokens don't expire, so its `refresh` throws).
 - **Time bounds** are ISO-8601 strings; empty means "the vendor's default window".
 - **Data-returning operations hand back the vendor's own JSON** as a string. (A normalized model over that JSON is a later step; several FHIR-based vendors already return FHIR resources.)
 
@@ -133,16 +142,16 @@ std::unique_ptr<Vendor> open_vendor(const std::string& id, const VendorConfig& c
 
 ### Configuration
 
-A vendor is configured with a `VendorConfig` built by convention from environment variables:
+A vendor is configured with a `VendorConfig` the server fills from the central config, using clean per-vendor keys — settable in `config.yml` or as the same-named environment variables (see `config.example.yml`):
 
 ```
-MIROBODY_VENDOR_<ID>_API_KEY        # bearer / API key (most REST vendors)
-MIROBODY_VENDOR_<ID>_CLIENT_ID      # OAuth client id
-MIROBODY_VENDOR_<ID>_CLIENT_SECRET  # OAuth client secret
-MIROBODY_VENDOR_<ID>_BASE_URL       # API host override; empty => vendor default
+<ID>_API_KEY        # bearer / API key (most REST vendors)
+<ID>_CLIENT_ID      # OAuth client id
+<ID>_CLIENT_SECRET  # OAuth client secret
+<ID>_BASE_URL       # API host override; empty => vendor default
 ```
 
-`<ID>` is the vendor id upper-cased (e.g. `HUMAN_API`, `FITBIT`, `EHR`). For vendors whose host is per-deployment (self-hosted or contract-gated, like the generic `ehr` client), `base_url` is **required** — the client refuses rather than guess a host.
+`<ID>` is the vendor id upper-cased (e.g. `HUMAN_API`, `FITBIT`, `OURA`). For vendors whose host is per-deployment (self-hosted or contract-gated, like the generic `ehr` client), `base_url` is **required** — the client refuses rather than guess a host. (The older `MIROBODY_VENDOR_<ID>_*` env convention is legacy; only the standalone `vendor` CLI still reads it on its own.)
 
 ## From HTTP to a vendor
 
@@ -157,7 +166,7 @@ The health module (`src/health/`) is the HTTP front end that sits on top of thes
 The SMART-on-FHIR EHR connect flow is browser-driven and has its own routes under `/health/ehr/*` (`providers`, `authorize`, `callback`, `sync`). Every route requires a bearer JWT and is scoped to the authenticated user.
 
 <Warning>
-`/api/providers` is a **different** endpoint — it lists the chat **LLM providers** (OpenAI, Gemini, MiroThinker, …) for the model picker, not health vendors. Health-data sources are the `vendor::Vendor` clients described here.
+`/api/providers` is a **different** endpoint — it lists the chat **LLM providers** (OpenAI, Gemini, …) for the model picker, not health vendors. Health-data sources are the `vendor::Vendor` clients described here.
 </Warning>
 
 ## Next steps

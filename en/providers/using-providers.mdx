@@ -9,32 +9,32 @@ Connecting a source has two phases: **configure credentials** (once, by the oper
 
 ## 1 — Configure credentials
 
-Each vendor reads its credentials from environment variables, by convention (`<ID>` is the vendor id upper-cased):
+Each vendor reads its credentials from the central config, using clean per-vendor keys settable in `config.yml` or as same-named environment variables (`<ID>` is the vendor id upper-cased; see `config.example.yml`):
 
 ```bash
-MIROBODY_VENDOR_<ID>_API_KEY=...        # bearer / API key (most REST vendors)
-MIROBODY_VENDOR_<ID>_CLIENT_ID=...      # OAuth client id
-MIROBODY_VENDOR_<ID>_CLIENT_SECRET=...  # OAuth client secret
-MIROBODY_VENDOR_<ID>_BASE_URL=...       # host override; empty => vendor default
+<ID>_API_KEY=...        # bearer / API key (most REST vendors)
+<ID>_CLIENT_ID=...      # OAuth client id
+<ID>_CLIENT_SECRET=...  # OAuth client secret
+<ID>_BASE_URL=...       # host override; empty => vendor default
 ```
 
 Examples:
 
 ```bash
 # Fitbit (device brand, OAuth 2.0)
-MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
-MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
+FITBIT_CLIENT_ID=your_client_id
+FITBIT_CLIENT_SECRET=your_client_secret
 
 # Terra (aggregator)
-MIROBODY_VENDOR_TERRA_API_KEY=your_api_key
+TERRA_API_KEY=your_api_key
 
 # Generic EHR (SMART on FHIR) — base_url is REQUIRED (per-tenant FHIR base)
-MIROBODY_VENDOR_EHR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
-MIROBODY_VENDOR_EHR_API_KEY=smart_on_fhir_access_token
+EHR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+EHR_API_KEY=smart_on_fhir_access_token
 ```
 
 <Info>
-Because config values whose names contain `_KEY` / `_SECRET` / `_TOKEN` are auto-encrypted on load (Fernet, via `CONFIG_ENCRYPTION_KEY`), you can also set these in `config.yml`. Environment variables take precedence. See [Configuration](/en/configuration).
+Environment variables take precedence over `config.yml`. Secrets kept in `config.yml` can be pre-encrypted as Fernet (`gAAAA…`) values with the `fernet` CLI and are decrypted on load via `CONFIG_ENCRYPTION_KEY`. See [Configuration](/en/configuration). The older `MIROBODY_VENDOR_<ID>_*` env convention is legacy — only the standalone `vendor` debug CLI still reads it.
 </Info>
 
 Register your application on the vendor's developer portal to obtain the client id / secret (or API key). The generic `ehr` client needs the tenant's FHIR **service base URL**, discoverable from the public Service Base URL directories (ONC Lantern; Oracle Health / Cerner).

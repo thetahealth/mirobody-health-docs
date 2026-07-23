@@ -58,7 +58,7 @@ Routes: `GET /fhir/metadata`, `POST /fhir` (batch Bundle), and `GET/POST/PUT/DEL
 
 ## Reading it back — the agent + MCP tools
 
-When a user chats, the single agent (`src/chat/` + `res/agents/base.cpp`) picks an LLM client by provider, builds a system prompt, and streams the turn back — calling **MCP tools** as needed. The health-relevant tools:
+When a user chats, the single agent (`src/chat/` + `res/agents/baseline.cpp`) picks an LLM client by provider, builds a system prompt, and streams the turn back — calling **MCP tools** as needed. The health-relevant tools:
 
 - **`family_health`** — read-only FHIR data for a care-circle member, gated by the sharing level they granted.
 - **`list_files`** / **`read_file`** — enumerate and read the user's uploaded documents.

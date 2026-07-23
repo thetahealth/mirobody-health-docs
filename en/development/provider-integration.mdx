@@ -21,7 +21,7 @@ Using existing vendors? See [Using Providers](/en/providers/using-providers). Fo
     The vendor's **public** API reference: base URL, auth scheme, the endpoint(s) for the data domains you'll support, and any webhook signature scheme. Implement only what's publicly confirmable — leave the rest an honest stub.
   </Accordion>
   <Accordion title="Credentials" icon="key">
-    An API key or OAuth `client_id` / `client_secret`, read from `MIROBODY_VENDOR_<ID>_*` env vars via `VendorConfig`.
+    An API key or OAuth `client_id` / `client_secret`, delivered to `VendorConfig` through the per-vendor `<ID>_*` config keys (e.g. `ACME_CLIENT_ID`), set in `config.yml` or as same-named env vars.
   </Accordion>
 </AccordionGroup>
 
@@ -97,7 +97,7 @@ private:
 
     void require_token() const {
         if (config().api_key.empty()) {
-            throw VendorError(info_.id + ": api_key is required — set MIROBODY_VENDOR_ACME_API_KEY");
+            throw VendorError(info_.id + ": api_key is required — set ACME_API_KEY");
         }
     }
 
@@ -158,6 +158,10 @@ Unlike MCP tools (which auto-register at compile time via a macro), vendors use 
 | `handle_webhook(raw_headers, body)` | the signature scheme is public | stub if unsigned / undocumented |
 | `revoke(user_id, provider)` | a disconnect endpoint is documented | stub |
 | `list_providers(user_id)` | the source has a provider catalogue | stub / N/A for single brands |
+| `exchange_code(code, redirect_uri)` | the source has an OAuth2 authorization-code token endpoint — exchange the code for a `TokenSet` | stub |
+| `refresh(refresh_token)` | the source issues expiring tokens with a refresh grant — trade the refresh token for a fresh `TokenSet` | stub (e.g. Polar's tokens never expire) |
+
+For standard RFC 6749 token endpoints, don't hand-roll the POST: the shared helper `oauth2_token_request(...)` in [`src/health/vendor/oauth2.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.hpp) does the form-encoded request (body or HTTP Basic client auth) and parses the `{access_token, refresh_token?, expires_in?}` response — Fitbit, Dexcom, Oura, Whoop, and Polar all implement `exchange_code` / `refresh` through it (Withings has its own envelope).
 
 **Rules of the road:**
 
@@ -168,13 +172,13 @@ Unlike MCP tools (which auto-register at compile time via a macro), vendors use 
 
 ## Config convention
 
-Credentials come from `VendorConfig::from_env(id)`:
+The server builds `VendorConfig` from the central config, using clean per-vendor keys settable in `config.yml` or as same-named env vars (see `config.example.yml`):
 
 ```
-MIROBODY_VENDOR_ACME_API_KEY / _CLIENT_ID / _CLIENT_SECRET / _BASE_URL
+ACME_API_KEY / ACME_CLIENT_ID / ACME_CLIENT_SECRET / ACME_BASE_URL
 ```
 
-`VendorConfig::configured()` is true when there's an API key or a client id+secret pair.
+`VendorConfig::configured()` is true when there's an API key or a client id+secret pair. (The older `MIROBODY_VENDOR_<ID>_*` env convention survives only in `VendorConfig::from_env()`, which the standalone `vendor` CLI still uses on its own.)
 
 ## Build & verify
 

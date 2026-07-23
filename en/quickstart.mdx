@@ -96,11 +96,10 @@ Prefer not to install a toolchain? Skip to [Run with Docker](#run-with-docker) �
     # Pick at least one provider:
     OPENAI_API_KEY: 'sk-...'          # OpenAI (GPT); also drives OpenAI Realtime audio
     GOOGLE_API_KEY: 'AIza...'         # Google Gemini; default provider fallback is gemini-2.5-flash
-    # MIROTHINKER_API_KEY: '...'      # MiroThinker (needs MCP_PUBLIC_URL — tools run provider-side)
     ```
 
     <Info>
-    Values whose keys contain `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` are **auto-encrypted** (Fernet) using `CONFIG_ENCRYPTION_KEY` when set — so secrets can live encrypted at rest. See [Configuration](/en/configuration).
+    Secrets can live encrypted at rest: pre-encrypt a value with the `fernet` CLI and store the `gAAAA…` token in `config.yml` — it is transparently **decrypted on load** when `CONFIG_ENCRYPTION_KEY` is set. See [Configuration](/en/configuration).
     </Info>
   </Step>
 
@@ -221,13 +220,13 @@ The Docker image uses the desktop **PostgreSQL** backend, so point `PG_HOST` (an
   </Card>
 </CardGroup>
 
-For ChatGPT Apps and other remote MCP integrations, set `MCP_PUBLIC_URL` to a public HTTPS URL so the MCP server is reachable at `<MCP_PUBLIC_URL>/mcp` — see [ChatGPT Apps](/en/tools/chatgpt-apps).
+For remote MCP integrations, give the client your public HTTPS base URL plus `/mcp` — the server advertises itself from the request's `Host` header, so no extra configuration is needed.
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion title="Build fails: missing headers or libraries" icon="hammer">
-    Re-run the dependency install for your platform above. On Ubuntu the libwebsockets package must be recent (≥ 4.1); very old distros ship a version too old to compile the WebSocket client.
+    Re-run the dependency install for your platform above. Note on libwebsockets: distro packages work for a quick start, but they are built **without** HTTP response compression (`LWS_WITH_HTTP_STREAM_COMPRESSION`); for production, build it from source with that flag on a version ≥ 4.3.4 (CVE-2025-1866 fix) as the Docker image does (`v4.3.10`) — see `docs/BUILDING.md`.
   </Accordion>
 
   <Accordion title="Port 8080 already in use" icon="circle-exclamation">
@@ -241,7 +240,7 @@ For ChatGPT Apps and other remote MCP integrations, set `MCP_PUBLIC_URL` to a pu
   </Accordion>
 
   <Accordion title="Chat fails to start" icon="robot">
-    No LLM key is configured, or the selected provider's key is missing. Set at least one of `OPENAI_API_KEY` / `GOOGLE_API_KEY` (or `MIROTHINKER_API_KEY`) in `config.yml` and restart. The default provider fallback is `gemini-2.5-flash`, so `GOOGLE_API_KEY` is the simplest first key.
+    No LLM key is configured, or the selected provider's key is missing. Set at least one of `OPENAI_API_KEY` / `GOOGLE_API_KEY` in `config.yml` and restart. The default provider fallback is `gemini-2.5-flash`, so `GOOGLE_API_KEY` is the simplest first key.
   </Accordion>
 
   <Accordion title="Permission denied on ./build.sh or ./mirobody" icon="lock">

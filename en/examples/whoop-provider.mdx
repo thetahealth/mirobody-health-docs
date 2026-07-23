@@ -3,9 +3,9 @@ title: "OAuth 2.0 Vendor Example (Fitbit)"
 description: "A full OAuth 2.0 device-brand client against the C++ vendor contract — and a note on Whoop."
 ---
 
-<Warning>
-**Whoop is not a shipped vendor client.** The confirmed device-brand clients in `src/health/vendor/device/` are **Fitbit, Garmin, and Withings** only. Whoop has no first-party `vendor::Vendor` — it would be reached through an **aggregator platform** (e.g. Terra, Rook, Spike), or you'd add a client yourself. *(verify — Whoop may only be reachable via an aggregator.)* This page therefore uses **Fitbit** as the OAuth 2.0 example, since it's a real, fully-implemented device client.
-</Warning>
+<Note>
+**Whoop now ships as a first-party vendor client.** [`src/health/vendor/device/whoop.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/whoop.cpp) implements `fetch` (WHOOP API v2: `activity/sleep`, `recovery` for HR/HRV, `cycle`), `authorize_url`, and the OAuth token lifecycle (`exchange_code` / `refresh`) against the WHOOP Developer Platform. This page still uses **Fitbit** as the worked OAuth 2.0 example because it is the most complete device client — on top of the OAuth flow it also implements `revoke` and a signed `handle_webhook`.
+</Note>
 
 ## Overview
 
@@ -35,7 +35,7 @@ std::string authorize_url(const std::string& redirect_uri, const std::string& st
 }
 ```
 
-The token exchange itself happens out of band at `/oauth2/token`; the resulting access token is stored as `config.api_key`.
+The token exchange is implemented in the client: `exchange_code` / `refresh` POST to `{base}/oauth2/token` through the shared `oauth2_token_request(...)` helper ([`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.cpp)), authenticating as the confidential client via HTTP Basic. The resulting access token rides as `config.api_key` on `fetch`.
 
 ## `fetch` — per-domain time-series GETs
 
@@ -78,21 +78,20 @@ Because the signing scheme is **publicly documented**, this can be implemented f
 
 ## Configuration
 
+Credentials use the clean per-vendor keys, settable in `config.yml` or as same-named environment variables (see `config.example.yml`; the older `MIROBODY_VENDOR_<ID>_*` prefix is legacy, read only by the standalone `vendor` CLI):
+
 ```bash
-MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
-MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
-# after the OAuth token exchange, the access token is used as the API key:
-MIROBODY_VENDOR_FITBIT_API_KEY=fitbit_oauth2_access_token
+FITBIT_CLIENT_ID=your_client_id
+FITBIT_CLIENT_SECRET=your_client_secret
+# a user's OAuth access token (obtained via exchange_code / the bind flow):
+FITBIT_API_KEY=fitbit_oauth2_access_token
 # optional host override (default https://api.fitbit.com)
-MIROBODY_VENDOR_FITBIT_BASE_URL=https://api.fitbit.com
+FITBIT_BASE_URL=https://api.fitbit.com
 ```
 
-## If you really need Whoop
+## Using Whoop
 
-Two honest paths:
-
-1. **Via an aggregator** — connect Whoop through Terra / Rook / Spike (whichever lists Whoop in its provider catalogue) and fetch through that aggregator's `vendor::Vendor`. *(verify the aggregator's current Whoop support.)*
-2. **Write a first-party client** — add `src/health/vendor/device/whoop.cpp` implementing the contract against Whoop's public OAuth 2.0 API, and register it. Follow [Provider Integration](/en/development/provider-integration); Fitbit above is the closest template.
+Whoop works the same way, through its own client (id `whoop`). Configure `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET` (and a user's access token as `WHOOP_API_KEY`); `authorize_url` builds the consent URL at `{base}/oauth/oauth2/auth`, `exchange_code` / `refresh` speak `/oauth/oauth2/token`, and `fetch` issues the documented v2 collection GETs (`activity/sleep`, `recovery` for HR/HRV, `cycle` for strain). `revoke` / `handle_webhook` stay honest stubs — WHOOP documents no self-serve token-revoke endpoint, and its webhook signing contract is a separate scheme not wired here. An **aggregator** (Terra / Rook / Spike) remains an option if you'd rather consolidate several brands behind one integration.
 
 ## Next steps
 

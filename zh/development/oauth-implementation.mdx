@@ -5,7 +5,7 @@ description: "C++ vendor 客户端如何处理 OAuth 2.0 授权、PKCE、webhook
 
 ## 概览
 
-大多数健康数据源以 **OAuth 2.0** 授权。在 Mirobody 中，这在每个 C++ `vendor::Vendor` 内经三个契约操作处理 —— `authorize_url`、`handle_webhook`、`revoke` —— 另外，对于浏览器驱动的 SMART-on-FHIR EHR，还有一个独立的有状态连接服务。
+大多数健康数据源以 **OAuth 2.0** 授权。在 Mirobody 中，这在每个 C++ `vendor::Vendor` 内经五个契约操作处理 —— `authorize_url`、`exchange_code`、`refresh`、`handle_webhook`、`revoke` —— 另外，对于浏览器驱动的 SMART-on-FHIR EHR，还有一个独立的有状态连接服务。
 
 <Info>
 代码库中存在两种 OAuth 角色，别把它们混淆：
@@ -34,7 +34,7 @@ std::string authorize_url(const std::string& redirect_uri, const std::string& st
 ```
 
 - `state` 是你的关联 / CSRF 值，会在回调时原样回传。
-- **token 交换**（在该 vendor 的 `/oauth2/token` 用 `code` 换 access token）在带外完成；所得的 access token 就是你存为 `MIROBODY_VENDOR_<ID>_API_KEY` 并在 `fetch` 时传入的那个。
+- **token 交换与刷新在客户端内实现**：`exchange_code(code, redirect_uri)` 与 `refresh(refresh_token)` 通过共享辅助函数 `oauth2_token_request(...)`（[`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.cpp)）POST 到该 vendor 的 token 端点 —— 它发送符合 RFC 6749 的表单编码请求（client 凭据放请求体或走 HTTP Basic），并把 `{access_token, refresh_token?, expires_in?}` JSON 解析成 `TokenSet`。Fitbit、Dexcom、Oura、Whoop、Polar 都经它实现；Withings 使用自己的 `{status, body}` 信封、自行实现这一对操作。**Polar 的 `refresh` 是诚实的桩** —— 其 access token 永不过期，没有 refresh 授权。最终得到的 access token 就是 `fetch` 时作为 `config.api_key`（`<ID>_API_KEY`）携带的那个。
 
 ## 撤销
 
@@ -87,7 +87,7 @@ if (!ct_equal(storage::base64_encode(mac.data(), mac.size()), sig)) {
 
 <AccordionGroup>
   <Accordion title="Token 存储" icon="shield">
-    access token 存于 `VendorConfig.api_key`，源自 `MIROBODY_VENDOR_<ID>_*`。名称中含 `_KEY` / `_SECRET` / `_TOKEN` 的配置值会在加载时自动加密（Fernet）。绝不记录 token。
+    access token 存于 `VendorConfig.api_key`，源自按 vendor 的 `<ID>_*` 配置键。密钥应以 Fernet 密文（`gAAAA…`）预先加密后存入配置 —— 设置了 `CONFIG_ENCRYPTION_KEY` 时会在加载时透明解密；bind 流程产生的按用户 vendor token 只以加密形式持久化（`VENDOR_TOKEN_ENCRYPTION_KEY`）。绝不记录 token。
   </Accordion>
   <Accordion title="State / CSRF" icon="fingerprint">
     向 `authorize_url` 传入一个随机 `state`，并在回调时验证它。EHR 连接服务使用一个一次性的、同时携带用户绑定的缓存 `state`。

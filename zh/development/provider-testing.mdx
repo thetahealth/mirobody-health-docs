@@ -25,7 +25,7 @@ vendor <id> webhook   --file payload.json            # body from --file/--data/s
 vendor <id> revoke    --user U [--provider slug]
 ```
 
-凭据来自服务器所用的同一批 `MIROBODY_VENDOR_<ID>_*` 环境变量。
+独立 CLI 从遗留的 `MIROBODY_VENDOR_<ID>_*` 环境变量读取凭据（它自己的 `from_env()` 约定）；服务器本身则用简洁的 `<ID>_*` 键配置（`FITBIT_CLIENT_ID` 等）—— 参见[使用 Provider](/zh/providers/using-providers)。
 
 <Steps>
   <Step title="元数据（无需凭据）">
@@ -96,7 +96,7 @@ curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-
 许多 vendor 会拒绝非 HTTPS 的 redirect URI，因此一个普通的 `http://localhost:8080` 回调无法用于真实的同意流程。本地开发的选项：
 
 - 一个在 443 端口终止 TLS 的本地反向代理（nginx / Caddy），使用来自 **`mkcert`** 的受信任证书，转发到 `localhost:8080`，并在 hosts 文件中加一条把你的生产回调域名映射到 `127.0.0.1` 的记录 —— 从而让**同一个** redirect URI 在本地和生产都能工作。
-- 一个隧道服务，如 **ngrok**（在本地测试期间也便于接收入站 **webhook** 以及用于 `MCP_PUBLIC_URL`）。
+- 一个隧道服务，如 **ngrok**（在本地测试期间也便于接收入站 **webhook**）。
 
 关键在于，向 vendor 呈现它所期望的确切 HTTPS 回调 URL，而无需为每次改动都部署一遍。
 
@@ -105,6 +105,9 @@ curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-
 <AccordionGroup>
   <Accordion title="理想路径" icon="check">
     有效凭据 → `auth-url` 能构建，`fetch` 为每个支持的域返回有文档的 JSON，带签名的 `webhook` 能验证，`revoke` 成功。
+  </Accordion>
+  <Accordion title="Token 生命周期（exchange_code / refresh）" icon="key">
+    用一个新鲜的授权码调用 `exchange_code(code, redirect_uri)`，应返回一个 `TokenSet`（access token、若 vendor 签发则含 refresh token、`expires_in`）；`refresh(refresh_token)` 应返回一组新 token。错误或已用过的授权码 → 一个携带 vendor 错误响应体的清晰 `VendorError`。没有 refresh 授权的 vendor（Polar —— 其 token 不过期）应抛出其文档中说明的原因。端到端层面，这对操作由 `POST /vendors/{id}/bind/verify`（交换授权码并加密存储用户 token）以及 `fetch` 在 token 过期时的自动刷新来覆盖。
   </Accordion>
   <Accordion title="缺失 / 错误配置" icon="triangle-exclamation">
     空的 `api_key` / `client_id` → 一个点明缺失环境变量的清晰 `VendorError`。必填的 `base_url`（自托管 / EHR）为空 → 拒绝执行，而非猜测一个主机。

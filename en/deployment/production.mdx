@@ -10,7 +10,7 @@ In production, Mirobody is the standalone `mirobody` binary (or the Docker image
 <AccordionGroup>
   <Accordion title="Security" icon="shield">
     - [ ] Replace every `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder in `config.yml`
-    - [ ] Provide `CONFIG_ENCRYPTION_KEY` via the environment (encrypts `_KEY`/`_SECRET`/… values at rest)
+    - [ ] Pre-encrypt secrets in `config.yml` with the `fernet` CLI and provide `CONFIG_ENCRYPTION_KEY` via the environment (it decrypts them on load)
     - [ ] Set a strong `JWT_KEY` (HS256) or `JWT_PRIVATE_KEY` (RS256)
     - [ ] Set `PG_ENCRYPTION_KEY` (encrypts sensitive data columns; keep it out of the file)
     - [ ] Remove `EMAIL_PREDEFINE_CODES` (demo codes are test-only)
@@ -32,7 +32,7 @@ In production, Mirobody is the standalone `mirobody` binary (or the Docker image
 
   <Accordion title="Operations" icon="chart-line">
     - [ ] Wire liveness/readiness probes to `/api/health`
-    - [ ] Ship stdout logs to your aggregator (or set `LOG_DIR`)
+    - [ ] Capture stderr with your process manager (`docker logs`, journald, …) and ship it to your aggregator
     - [ ] Automate PostgreSQL backups and test restores
   </Accordion>
 </AccordionGroup>
@@ -49,15 +49,14 @@ openssl rand -hex 32     # JWT_KEY (HS256), PG_ENCRYPTION_KEY, CONFIG_ENCRYPTION
 export CONFIG_ENCRYPTION_KEY="<generated>"
 ```
 
-With `CONFIG_ENCRYPTION_KEY` set, any value whose key contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK`, or `_TOKEN` is auto-encrypted (Fernet `gAAAA…`) at rest — so you can commit an encrypted `config.yml` if you keep the key in the environment. `PG_ENCRYPTION_KEY` is deliberately **not** auto-encrypted (it bootstraps the database), so keep it in the environment or a secrets manager.
+`CONFIG_ENCRYPTION_KEY` does two things: config values already stored as Fernet ciphertext (`gAAAA…`) are **transparently decrypted on load**, and secret-looking values are **masked** in the config summary dump. Nothing auto-encrypts plaintext on write — you pre-encrypt each secret yourself with the `fernet` CLI (`cli/fernet.cpp`: `fernet genkey` / `fernet encrypt`) and paste the `gAAAA…` token into `config.yml`. Done that way, you can commit an encrypted `config.yml` as long as the key stays in the environment. Keep bootstrap keys like `PG_ENCRYPTION_KEY` in the environment or a secrets manager.
 
 For RS256 (so other services can verify your tokens against a published JWKS), set `JWT_PRIVATE_KEY` instead of `JWT_KEY`; `cli/jwt_keygen` mints a keypair.
 
 ## Example production config
 
 ```yaml config.yml
-LOG_LEVEL: 'INFO'
-LOG_DIR: '/var/log/mirobody'
+LOG_LEVEL: 'INFO'   # logs go to stderr — capture them via your process manager
 
 HTTP_HOST: '0.0.0.0'
 HTTP_PORT: 8080
@@ -76,9 +75,6 @@ PG_DBNAME: 'mirobody'
 # Cache (only needed for multi-instance)
 REDIS_HOST: 'your-redis.cache.amazonaws.com'
 REDIS_PORT: 6379
-
-# Public MCP endpoint (required for MiroThinker and remote MCP clients)
-MCP_PUBLIC_URL: 'https://api.yourdomain.com'
 ```
 
 Provide the secrets separately:
@@ -130,12 +126,12 @@ Care-circle sharing is opt-in and off by default, and the AI assistant is **read
 
 ## Scaling
 
-- **Horizontal** — run multiple instances behind a load balancer; set `REDIS_HOST` so they share cache state, and use PostgreSQL read replicas for read-heavy workloads. *(Sticky sessions are not required for the SSE/WebSocket chat routes as long as each connection stays on one instance for its lifetime — verify against your load balancer's connection handling.)*
+- **Horizontal** — run multiple instances behind a load balancer; set `REDIS_HOST` so they share cache state. All instances talk to the one configured PostgreSQL (`PG_HOST` + a connection pool) — the engine has no read-replica routing, so scale the database itself if it becomes the bottleneck. *(Sticky sessions are not required for the SSE/WebSocket chat routes as long as each connection stays on one instance for its lifetime — verify against your load balancer's connection handling.)*
 - **Vertical** — the C++ binary is lightweight; size CPU/memory to your LLM concurrency and document-processing load.
 
 ## Monitoring
 
-The binary logs to stdout (or `LOG_DIR`). Metrics worth watching:
+The binary logs to **stderr** (`src/platform/log.cpp`); there is no log-file option — capture it with your process manager or `docker logs`. Metrics worth watching:
 
 - Chat turn latency and error rate
 - Provider sync success rate

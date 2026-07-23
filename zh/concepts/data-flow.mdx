@@ -58,7 +58,7 @@ Apple Health、Samsung Health、Google Health Connect 以及小米**不暴露任
 
 ## 读回 —— Agent + MCP 工具
 
-当用户聊天时，那个单一的 agent（`src/chat/` + `res/agents/base.cpp`）会按 provider 挑选一个 LLM 客户端，构建系统提示词，并把这一回合流式返回 —— 按需调用 **MCP 工具**。与健康相关的工具：
+当用户聊天时，那个单一的 agent（`src/chat/` + `res/agents/baseline.cpp`）会按 provider 挑选一个 LLM 客户端，构建系统提示词，并把这一回合流式返回 —— 按需调用 **MCP 工具**。与健康相关的工具：
 
 - **`family_health`** —— 只读地读取护理圈成员的 FHIR 数据，受其授予的共享级别门控。
 - **`list_files`** / **`read_file`** —— 枚举并读取用户上传的文档。

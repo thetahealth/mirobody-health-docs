@@ -9,21 +9,16 @@ Model Context Protocol（MCP）是一个开放标准，让 AI 应用得以连接
 
 Mirobody 的主要角色是**一个 MCP 服务器**：它通过 [`/mcp` 端点](/zh/tools/mcp-integration) 暴露其 [内置工具](/zh/tools/built-in)，而外部客户端 —— Claude Desktop、Cursor、ChatGPT 或任何 MCP 客户端 —— 连接*到*它。
 
-<CardGroup cols={2}>
-  <Card title="将客户端连接到 Mirobody" icon="plug" href="/zh/tools/mcp-integration">
-    把 Claude、Cursor 或自定义客户端指向 `/mcp` 端点。
-  </Card>
-  <Card title="ChatGPT Apps" icon="robot" href="/zh/tools/chatgpt-apps">
-    把 Mirobody 作为远程 MCP 服务器暴露给 ChatGPT。
-  </Card>
-</CardGroup>
+<Card title="将客户端连接到 Mirobody" icon="plug" href="/zh/tools/mcp-integration">
+  把 Claude、Cursor 或自定义客户端指向 `/mcp` 端点。
+</Card>
 
 要扩展 Mirobody 自身 Agent 的能力，请用 C++ 添加一个**内置工具** —— 参见 [添加自定义工具](/zh/tools/adding-tools)。
 
 ## 连接外部 MCP 服务器
 
 <Warning>
-**在当前 C++ 引擎（Mirobody）中未经验证。** 下面的截图描述的是通过 Web 界面添加一个*第三方* MCP 服务器，使其工具对 Agent 可用。撰写本文时，这项对外连接能力**无法**在开源引擎中得到确认 —— 已确认的 MCP 面是 Mirobody 作为 MCP *服务器*（`/mcp` 端点）供客户端连接，以及 MiroThinker 通过 `MCP_PUBLIC_URL` 访问该端点。请把本节视为 *(verify)*，在依赖它之前先检查运行中的构建的 Web 界面。
+**在当前 C++ 引擎（Mirobody）中未经验证。** 下面的截图描述的是通过 Web 界面添加一个*第三方* MCP 服务器，使其工具对 Agent 可用。撰写本文时，这项对外连接能力**无法**在开源引擎中得到确认 —— 已确认的 MCP 面是 Mirobody 作为 MCP *服务器*（`/mcp` 端点）供客户端连接。请把本节视为 *(verify)*，在依赖它之前先检查运行中的构建的 Web 界面。
 </Warning>
 
 如果你的构建的 Web 界面提供 MCP 管理，流程如下：

@@ -156,7 +156,7 @@ ctest --test-dir build --output-on-failure
 
 桌面构建会在 `cli/` 下产出独立的各子系统 CLI（用 `-DMIROBODY_BUILD_TOOLS=OFF` 切换），它们绕过 HTTP/WS 服务器 —— 便于单独把玩某一个部分：
 
-- **LLM 客户端** —— `openai_chat`、`openai_responses`、`openai_realtime`、`gemini`、`gemini_live`、`mirothinker`
+- **LLM 客户端** —— `openai_chat`、`openai_responses`、`openai_realtime`、`gemini`、`gemini_live`
 - **存储** —— `aws_s3`、`aliyun_oss`、`azure_blob`
 - **转码器** —— `image`、`document`、`file_parser`
 - **FHIR** —— `fhir normalize "<5.6 mg/dL"`，以及 `fhir token <user_id> --config <yaml>` 为 FHIR 路由铸出一个 bearer JWT
@@ -169,7 +169,7 @@ ctest --test-dir build --output-on-failure
 
 两者都在**编译期**自注册 —— 没有运行时插件目录：
 
-- **Agent** —— 唯一的 agent 是 `res/agents/base.cpp`。`res/agents/` 下的每个 `.cpp` 都会被 glob 进构建。
+- **Agent** —— 唯一的 agent 是 `res/agents/baseline.cpp`。`res/agents/` 下的每个 `.cpp` 都会被 glob 进构建。
 - **MCP 工具** —— 在 `res/mcp_tools/` 里丢一个 `.cpp`，用一行 `MIROBODY_REGISTER_TOOL(...)` 声明它的参数表，然后重新构建。最小示例见 `res/mcp_tools/echo.cpp` 和 [新增工具](/zh/tools/adding-tools)。
 
 ```bash

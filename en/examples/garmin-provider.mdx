@@ -20,7 +20,7 @@ This is a `vendor::Vendor` implementing the shared `authorize / fetch / webhook`
 | **Webhook signature** | Pushes carry **no documented signature** | `handle_webhook` is a **stub** — it can't verify authenticity from public docs |
 | **Disconnect** | The account-disconnect hook **is** publicly documented | `revoke` **is implemented** |
 
-So of the six contract operations, Garmin ships exactly one working call — `revoke` — and three deliberate stubs (`fetch`, `authorize_url`, `handle_webhook`), with `list_providers` N/A (single brand). This is the intended state, recorded in the file header.
+So of the eight contract operations, Garmin ships exactly one working call — `revoke` — and three deliberate stubs (`fetch`, `authorize_url`, `handle_webhook`), with `list_providers` N/A (single brand). The OAuth token pair — `exchange_code` / `refresh` — also stays inherited stubs: Garmin's token exchange requires the persisted PKCE `code_verifier`, which belongs to the stateful connect layer, not this client. This is the intended state, recorded in the file header.
 
 ## `revoke` — the one wired operation
 
@@ -43,7 +43,7 @@ void revoke(const std::string& /*user_id*/, const std::string& /*provider*/) ove
 }
 ```
 
-The data host defaults to `https://apis.garmin.com` (override via `MIROBODY_VENDOR_GARMIN_BASE_URL`).
+The data host defaults to `https://apis.garmin.com` (override via `GARMIN_BASE_URL`).
 
 ## `fetch` — a stub that explains itself
 
@@ -77,11 +77,13 @@ i.integrations       = {Integration::Rest, Integration::Webhook};
 
 ## Configuration
 
+Set in `config.yml` or as same-named env vars (see `config.example.yml`; the `MIROBODY_VENDOR_<ID>_*` prefix is legacy, read only by the standalone `vendor` CLI):
+
 ```bash
 # Garmin partner-gated OAuth 2.0 access token (needed for revoke; data path is partner-gated)
-MIROBODY_VENDOR_GARMIN_API_KEY=your_garmin_oauth2_access_token
+GARMIN_API_KEY=your_garmin_oauth2_access_token
 # optional host override
-MIROBODY_VENDOR_GARMIN_BASE_URL=https://apis.garmin.com
+GARMIN_BASE_URL=https://apis.garmin.com
 ```
 
 ## Takeaways for your own vendor

@@ -10,7 +10,7 @@ description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端
 <AccordionGroup>
   <Accordion title="安全性" icon="shield">
     - [ ] 替换 `config.yml` 里每一个 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位符
-    - [ ] 经环境提供 `CONFIG_ENCRYPTION_KEY`（加密静态的 `_KEY`/`_SECRET`/… 值）
+    - [ ] 先用 `fernet` CLI 把 `config.yml` 中的密钥预加密，再经环境提供 `CONFIG_ENCRYPTION_KEY`（加载时解密它们）
     - [ ] 设置一个强 `JWT_KEY`（HS256）或 `JWT_PRIVATE_KEY`（RS256）
     - [ ] 设置 `PG_ENCRYPTION_KEY`（加密敏感数据列；别放进文件）
     - [ ] 移除 `EMAIL_PREDEFINE_CODES`（demo 验证码仅供测试）
@@ -32,7 +32,7 @@ description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端
 
   <Accordion title="运维" icon="chart-line">
     - [ ] 把存活/就绪探针接到 `/api/health`
-    - [ ] 把 stdout 日志送到你的聚合器（或设置 `LOG_DIR`）
+    - [ ] 用进程管理器捕获 stderr（`docker logs`、journald 等）并送到你的日志聚合器
     - [ ] 自动化 PostgreSQL 备份并测试恢复
   </Accordion>
 </AccordionGroup>
@@ -49,15 +49,14 @@ openssl rand -hex 32     # JWT_KEY (HS256)、PG_ENCRYPTION_KEY、CONFIG_ENCRYPTI
 export CONFIG_ENCRYPTION_KEY="<generated>"
 ```
 
-设置了 `CONFIG_ENCRYPTION_KEY` 后，任何键名包含 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK`、`_TOKEN` 的值都会被静态自动加密（Fernet `gAAAA…`）—— 于是只要把密钥留在环境里，你就可以提交一个加密后的 `config.yml`。`PG_ENCRYPTION_KEY` 有意**不**自动加密（它用于引导数据库启动），所以把它放在环境变量或密钥管理器里。
+`CONFIG_ENCRYPTION_KEY` 只做两件事：已经以 Fernet 密文（`gAAAA…`）存储的配置值会在**加载时透明解密**；看起来像密钥的值在配置摘要输出时会被**打码**。没有任何机制会在写入时自动加密明文 —— 需要你自己用 `fernet` CLI（`cli/fernet.cpp`：`fernet genkey` / `fernet encrypt`）预先加密每个密钥，把 `gAAAA…` 密文粘贴进 `config.yml`。照此操作后，只要密钥留在环境里，就可以提交加密后的 `config.yml`。像 `PG_ENCRYPTION_KEY` 这类引导性密钥请放在环境变量或密钥管理器里。
 
 对于 RS256（让其他服务能对照发布的 JWKS 校验你的令牌），设置 `JWT_PRIVATE_KEY` 而非 `JWT_KEY`；`cli/jwt_keygen` 会铸出一对密钥。
 
 ## 生产配置示例
 
 ```yaml config.yml
-LOG_LEVEL: 'INFO'
-LOG_DIR: '/var/log/mirobody'
+LOG_LEVEL: 'INFO'   # 日志输出到 stderr —— 用进程管理器捕获
 
 HTTP_HOST: '0.0.0.0'
 HTTP_PORT: 8080
@@ -76,9 +75,6 @@ PG_DBNAME: 'mirobody'
 # 缓存（仅多实例时需要）
 REDIS_HOST: 'your-redis.cache.amazonaws.com'
 REDIS_PORT: 6379
-
-# 公开 MCP 端点（MiroThinker 和远程 MCP 客户端必需）
-MCP_PUBLIC_URL: 'https://api.yourdomain.com'
 ```
 
 把密钥单独提供：
@@ -130,12 +126,12 @@ curl https://api.yourdomain.com/api/health   # -> ok
 
 ## 扩容
 
-- **水平** —— 在负载均衡器后跑多个实例；设置 `REDIS_HOST` 让它们共享缓存状态，并对读密集型负载使用 PostgreSQL 只读副本。*（只要每个连接在其生命周期内保持在同一实例上，SSE/WebSocket 对话路由就不需要粘性会话 —— 请对照你负载均衡器的连接处理方式核实。）*
+- **水平** —— 在负载均衡器后跑多个实例；设置 `REDIS_HOST` 让它们共享缓存状态。所有实例都连到那一个配置好的 PostgreSQL（`PG_HOST` + 连接池）—— 引擎没有只读副本路由，数据库成为瓶颈时请扩展数据库本身。*（只要每个连接在其生命周期内保持在同一实例上，SSE/WebSocket 对话路由就不需要粘性会话 —— 请对照你负载均衡器的连接处理方式核实。）*
 - **垂直** —— C++ 二进制很轻量；按你的 LLM 并发和文档处理负载来配置 CPU/内存。
 
 ## 监控
 
-二进制把日志打到 stdout（或 `LOG_DIR`）。值得关注的指标：
+二进制把日志打到 **stderr**（`src/platform/log.cpp`）；没有日志文件选项 —— 用进程管理器或 `docker logs` 捕获。值得关注的指标：
 
 - 对话轮次延迟和错误率
 - Provider 同步成功率

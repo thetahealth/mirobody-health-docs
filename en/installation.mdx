@@ -246,7 +246,7 @@ mirobody/
 │   ├── main.cpp            # standalone server entry point
 │   ├── server/             # HTTP + WebSocket routing (libwebsockets)
 │   ├── chat/               # agent: provider selection, system prompt, streamed turns
-│   ├── llm/                # streaming LLM clients (OpenAI, Gemini, MiroThinker; chat / realtime / embeddings)
+│   ├── llm/                # streaming LLM clients (OpenAI, Gemini; chat / realtime / embeddings)
 │   ├── mcp/                # MCP JSON-RPC endpoint + compile-time tool registry
 │   ├── memory/             # long-term memory (local embeddings or Mem0 / Zep / EverOS)
 │   ├── fhir/               # RESTful FHIR R4 endpoint + unit normalization + terminology
@@ -261,7 +261,7 @@ mirobody/
 │   ├── transcode/          # upload transcoders: image + document (PDF/Excel/CSV)
 │   └── platform/           # logging + JNI / C-ABI / pybind11 entry points
 ├── res/                    # bundled resources compiled/served by the binary
-│   ├── agents/base.cpp     # the one agent, self-registered at compile time
+│   ├── agents/baseline.cpp     # the one agent, self-registered at compile time
 │   ├── mcp_tools/*.cpp     # MCP tools, self-registered at compile time
 │   ├── mcp_resources/      # MCP resources
 │   ├── sql/                # per-dialect SQL schemas (pg, sqlite, mysql, …)
@@ -303,15 +303,15 @@ Agents and MCP tools **self-register at compile time**: drop a `.cpp` in `res/ag
   </Step>
 
   <Step title="Logs">
-    The binary logs to stdout by default; set `LOG_DIR` in `config.yml` to write files. Under Docker, `docker logs <container>`.
+    The binary logs to stderr; capture it with your process manager. Under Docker, `docker logs <container>`.
   </Step>
 </Steps>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="libwebsockets too old / websocket_client.cpp fails to compile" icon="circle-exclamation">
-    The code needs libwebsockets ≥ 4.1. Ubuntu 24.04 ships 4.3; older distros (and Debian bookworm) may be too old — install a newer build or use the Docker image, which is based on Ubuntu 24.04.
+  <Accordion title="Responses come back uncompressed / libwebsockets version" icon="circle-exclamation">
+    Distro `libwebsockets-dev` packages are compiled **without** `LWS_WITH_HTTP_STREAM_COMPRESSION`, so every response goes out uncompressed. For bandwidth-sensitive deployments, build libwebsockets from source with `-DLWS_WITH_HTTP_STREAM_COMPRESSION=ON -DLWS_WITH_ZLIB=ON`, on a version **≥ 4.3.4** (CVE-2025-1866 is an out-of-bounds bug in that compression path, fixed in 4.3.4) — the Docker image does exactly this, pinning `v4.3.10`. See `docs/BUILDING.md`.
   </Accordion>
 
   <Accordion title="find_package can't locate a dependency" icon="magnifying-glass">

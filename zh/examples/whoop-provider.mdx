@@ -3,9 +3,9 @@ title: "OAuth 2.0 Vendor 示例（Fitbit）"
 description: "一个对照 C++ vendor 契约的完整 OAuth 2.0 设备品牌客户端 —— 以及关于 Whoop 的说明。"
 ---
 
-<Warning>
-**Whoop 不是已发布的 vendor 客户端。** `src/health/vendor/device/` 中已确认的设备品牌客户端仅有 **Fitbit、Garmin 和 Withings**。Whoop 没有第一方 `vendor::Vendor` —— 它需通过**聚合平台**（如 Terra、Rook、Spike）接入，或由你自己添加一个客户端。*(verify — Whoop 可能只能经聚合器接入。)* 因此本页以 **Fitbit** 作为 OAuth 2.0 示例，因为它是一个真实、已完整实现的设备客户端。
-</Warning>
+<Note>
+**Whoop 现在已作为第一方 vendor 客户端发布。** [`src/health/vendor/device/whoop.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/whoop.cpp) 针对 WHOOP 开发者平台实现了 `fetch`（WHOOP API v2：`activity/sleep`、`recovery`（HR/HRV）、`cycle`）、`authorize_url`，以及 OAuth token 生命周期（`exchange_code` / `refresh`）。本页仍以 **Fitbit** 作为 OAuth 2.0 的完整示例，因为它是实现最完整的设备客户端 —— 在 OAuth 流程之外还实现了 `revoke` 和带签名验证的 `handle_webhook`。
+</Note>
 
 ## 概览
 
@@ -35,7 +35,7 @@ std::string authorize_url(const std::string& redirect_uri, const std::string& st
 }
 ```
 
-token 交换本身在带外于 `/oauth2/token` 完成；所得的 access token 存为 `config.api_key`。
+token 交换在客户端内部实现：`exchange_code` / `refresh` 通过共享的 `oauth2_token_request(...)` 辅助函数（[`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.cpp)）POST 到 `{base}/oauth2/token`，以保密客户端身份用 HTTP Basic 认证。所得的 access token 在 `fetch` 时作为 `config.api_key` 携带。
 
 ## `fetch` —— 按域的时间序列 GET
 
@@ -78,21 +78,20 @@ if (!ct_equal(expected, sig)) {
 
 ## 配置
 
+凭据使用简洁的按 vendor 键，可写在 `config.yml` 中，也可用同名环境变量设置（参见 `config.example.yml`；旧的 `MIROBODY_VENDOR_<ID>_*` 前缀已是遗留用法，只有独立的 `vendor` CLI 仍在读取）：
+
 ```bash
-MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
-MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
-# after the OAuth token exchange, the access token is used as the API key:
-MIROBODY_VENDOR_FITBIT_API_KEY=fitbit_oauth2_access_token
-# optional host override (default https://api.fitbit.com)
-MIROBODY_VENDOR_FITBIT_BASE_URL=https://api.fitbit.com
+FITBIT_CLIENT_ID=your_client_id
+FITBIT_CLIENT_SECRET=your_client_secret
+# 某个用户的 OAuth access token（经 exchange_code / bind 流程获得）：
+FITBIT_API_KEY=fitbit_oauth2_access_token
+# 可选的主机覆盖（默认 https://api.fitbit.com）
+FITBIT_BASE_URL=https://api.fitbit.com
 ```
 
-## 如果你确实需要 Whoop
+## 使用 Whoop
 
-两条诚实的路径：
-
-1. **经聚合器** —— 通过 Terra / Rook / Spike（哪个在其 provider 目录中列出了 Whoop 就用哪个）连接 Whoop，并经该聚合器的 `vendor::Vendor` 获取。*(verify the aggregator's current Whoop support.)*
-2. **编写一个第一方客户端** —— 添加 `src/health/vendor/device/whoop.cpp`，对照 Whoop 的公开 OAuth 2.0 API 实现契约并注册它。参照 [Provider 集成](/zh/development/provider-integration)；上面的 Fitbit 是最接近的模板。
+Whoop 的用法完全相同，走它自己的客户端（id 为 `whoop`）。配置 `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET`（以及某个用户的 access token 作为 `WHOOP_API_KEY`）；`authorize_url` 在 `{base}/oauth/oauth2/auth` 构建同意 URL，`exchange_code` / `refresh` 对接 `/oauth/oauth2/token`，`fetch` 发起文档中的 v2 集合 GET（`activity/sleep`、`recovery`（HR/HRV）、`cycle`（strain））。`revoke` / `handle_webhook` 仍是诚实的桩 —— WHOOP 没有公开自助的 token 撤销端点，其 webhook 签名契约也是一套未在此接入的独立方案。若你更想用一次集成覆盖多个品牌，**聚合器**（Terra / Rook / Spike）仍是一个选项。
 
 ## 下一步
 

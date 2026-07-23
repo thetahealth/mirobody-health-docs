@@ -156,7 +156,7 @@ Test sources live under `tests/` (subdirectories like `chat/`, `fhir/`, `circle/
 
 The desktop build produces standalone per-subsystem CLIs under `cli/` (toggle with `-DMIROBODY_BUILD_TOOLS=OFF`) that bypass the HTTP/WS server — handy for poking at one piece in isolation:
 
-- **LLM clients** — `openai_chat`, `openai_responses`, `openai_realtime`, `gemini`, `gemini_live`, `mirothinker`
+- **LLM clients** — `openai_chat`, `openai_responses`, `openai_realtime`, `gemini`, `gemini_live`
 - **Storage** — `aws_s3`, `aliyun_oss`, `azure_blob`
 - **Transcoders** — `image`, `document`, `file_parser`
 - **FHIR** — `fhir normalize "<5.6 mg/dL"`, and `fhir token <user_id> --config <yaml>` to mint a bearer JWT for the FHIR routes
@@ -169,7 +169,7 @@ See `cli/README.md` in the repo for the per-binary flags and credentials.
 
 Both self-register at **compile time** — there is no runtime plugin directory:
 
-- **Agent** — the single agent is `res/agents/base.cpp`. Every `.cpp` under `res/agents/` is globbed into the build.
+- **Agent** — the single agent is `res/agents/baseline.cpp`. Every `.cpp` under `res/agents/` is globbed into the build.
 - **MCP tool** — drop a `.cpp` in `res/mcp_tools/` with a `MIROBODY_REGISTER_TOOL(...)` line declaring its parameter table, then rebuild. See `res/mcp_tools/echo.cpp` for the smallest example and [Adding Tools](/en/tools/adding-tools).
 
 ```bash

@@ -5,7 +5,7 @@ description: "How the C++ vendor clients handle OAuth 2.0 authorization, PKCE, w
 
 ## Overview
 
-Most health-data sources authorize with **OAuth 2.0**. In Mirobody this is handled inside each C++ `vendor::Vendor` via three contract operations — `authorize_url`, `handle_webhook`, `revoke` — plus, for browser-driven SMART-on-FHIR EHRs, a separate stateful connect service. There is no `OAuth1Session` / `aiohttp` provider code any more.
+Most health-data sources authorize with **OAuth 2.0**. In Mirobody this is handled inside each C++ `vendor::Vendor` via five contract operations — `authorize_url`, `exchange_code`, `refresh`, `handle_webhook`, `revoke` — plus, for browser-driven SMART-on-FHIR EHRs, a separate stateful connect service. There is no `OAuth1Session` / `aiohttp` provider code any more.
 
 <Info>
 Two OAuth roles exist in the codebase, don't confuse them:
@@ -34,7 +34,7 @@ std::string authorize_url(const std::string& redirect_uri, const std::string& st
 ```
 
 - `state` is your correlation / CSRF value, echoed back on the callback.
-- The **token exchange** (`code` → access token at the vendor's `/oauth2/token`) happens out of band; the resulting access token is what you store as `MIROBODY_VENDOR_<ID>_API_KEY` and pass on `fetch`.
+- The **token exchange and refresh are implemented in the client**: `exchange_code(code, redirect_uri)` and `refresh(refresh_token)` POST to the vendor's token endpoint through the shared helper `oauth2_token_request(...)` in [`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.cpp), which sends the form-encoded RFC 6749 request (client credentials in the body or via HTTP Basic) and parses the `{access_token, refresh_token?, expires_in?}` JSON into a `TokenSet`. Fitbit, Dexcom, Oura, Whoop, and Polar all go through it; Withings speaks its own `{status, body}` envelope and implements the pair itself. **Polar's `refresh` is an honest stub** — its access tokens never expire, so there is no refresh grant. The resulting access token is what rides as `config.api_key` (`<ID>_API_KEY`) on `fetch`.
 
 ## Revocation
 
@@ -87,7 +87,7 @@ Configured by the `SMART_FHIR_*` keys (client id / redirect uri / scope). PKCE g
 
 <AccordionGroup>
   <Accordion title="Token storage" icon="shield">
-    Access tokens live in `VendorConfig.api_key`, sourced from `MIROBODY_VENDOR_<ID>_*`. Config values whose names contain `_KEY` / `_SECRET` / `_TOKEN` are auto-encrypted on load (Fernet). Never log tokens.
+    Access tokens live in `VendorConfig.api_key`, sourced from the `<ID>_*` config keys. Store secrets pre-encrypted as Fernet (`gAAAA…`) values — they are transparently decrypted on load when `CONFIG_ENCRYPTION_KEY` is set — and per-user vendor tokens from the bind flow are persisted only encrypted (`VENDOR_TOKEN_ENCRYPTION_KEY`). Never log tokens.
   </Accordion>
   <Accordion title="State / CSRF" icon="fingerprint">
     Pass a random `state` to `authorize_url` and verify it on callback. The EHR connect service uses a single-use cached `state` that also carries the user binding.

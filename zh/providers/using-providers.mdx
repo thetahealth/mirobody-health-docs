@@ -9,32 +9,32 @@ description: "配置凭据并将可穿戴设备、聚合器或 EHR 关联到 Mir
 
 ## 1 —— 配置凭据
 
-每个 vendor 按约定从环境变量读取其凭据（`<ID>` 是 vendor id 的大写形式）：
+每个 vendor 从中央配置读取其凭据，使用简洁的按 vendor 键，可写在 `config.yml` 中或用同名环境变量设置（`<ID>` 是 vendor id 的大写形式；参见 `config.example.yml`）：
 
 ```bash
-MIROBODY_VENDOR_<ID>_API_KEY=...        # bearer / API key (most REST vendors)
-MIROBODY_VENDOR_<ID>_CLIENT_ID=...      # OAuth client id
-MIROBODY_VENDOR_<ID>_CLIENT_SECRET=...  # OAuth client secret
-MIROBODY_VENDOR_<ID>_BASE_URL=...       # host override; empty => vendor default
+<ID>_API_KEY=...        # bearer / API key（多数 REST vendor）
+<ID>_CLIENT_ID=...      # OAuth client id
+<ID>_CLIENT_SECRET=...  # OAuth client secret
+<ID>_BASE_URL=...       # 主机覆盖；留空 => vendor 默认
 ```
 
 示例：
 
 ```bash
-# Fitbit (device brand, OAuth 2.0)
-MIROBODY_VENDOR_FITBIT_CLIENT_ID=your_client_id
-MIROBODY_VENDOR_FITBIT_CLIENT_SECRET=your_client_secret
+# Fitbit（设备品牌，OAuth 2.0）
+FITBIT_CLIENT_ID=your_client_id
+FITBIT_CLIENT_SECRET=your_client_secret
 
-# Terra (aggregator)
-MIROBODY_VENDOR_TERRA_API_KEY=your_api_key
+# Terra（聚合器）
+TERRA_API_KEY=your_api_key
 
-# Generic EHR (SMART on FHIR) — base_url is REQUIRED (per-tenant FHIR base)
-MIROBODY_VENDOR_EHR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
-MIROBODY_VENDOR_EHR_API_KEY=smart_on_fhir_access_token
+# 通用 EHR（SMART on FHIR）—— base_url 必填（按租户的 FHIR base）
+EHR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+EHR_API_KEY=smart_on_fhir_access_token
 ```
 
 <Info>
-由于名称中含 `_KEY` / `_SECRET` / `_TOKEN` 的配置值会在加载时自动加密（Fernet，经 `CONFIG_ENCRYPTION_KEY`），你也可以把这些值写进 `config.yml`。环境变量优先。参见[配置](/zh/configuration)。
+环境变量优先于 `config.yml`。写在 `config.yml` 里的密钥可先用 `fernet` CLI 预加密成 Fernet 密文（`gAAAA…`），加载时经 `CONFIG_ENCRYPTION_KEY` 解密。参见[配置](/zh/configuration)。旧的 `MIROBODY_VENDOR_<ID>_*` 环境变量约定已是遗留用法 —— 只有独立的 `vendor` 调试 CLI 仍在读取。
 </Info>
 
 在 vendor 的开发者门户注册你的应用以获取 client id / secret（或 API key）。通用 `ehr` 客户端需要租户的 FHIR **服务 base URL**，可从公开的 Service Base URL 目录（ONC Lantern；Oracle Health / Cerner）发现。

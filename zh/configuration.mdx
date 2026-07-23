@@ -26,7 +26,7 @@ cp config.example.yml config.yml
 
 ### 加密的密钥
 
-任何以 `gAAAA` 开头的字符串值都会被当作 Fernet token，在设置了 `CONFIG_ENCRYPTION_KEY` 时于加载时解密（`config.yml` 和远程拉取都适用）。反过来，**键名**包含 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK`、`_TOKEN` 的值，会用同一个 `CONFIG_ENCRYPTION_KEY` 自动加密 —— 于是你填进去的明文密钥会被改写成静态的 `gAAAA…`。
+任何以 `gAAAA` 开头的字符串值都会被当作 Fernet token，在设置了 `CONFIG_ENCRYPTION_KEY` 时于加载时解密（`config.yml` 和远程拉取都适用）。加密由运维方自己完成：没有任何机制会改写静态的明文 —— 请用 `fernet` CLI（`cli/fernet.cpp`：`fernet genkey` / `fernet encrypt`）加密每个密钥，再把 `gAAAA…` 密文粘贴进配置。此外，**键名**包含 `_KEY`、`_PASSWORD`、`_SECRET`、`_TOKEN`（及类似）的值在配置摘要输出时会被打码。
 
 ```bash
 # 生成一个密钥
@@ -37,7 +37,7 @@ export CONFIG_ENCRYPTION_KEY="<your-key>"
 ```
 
 <Note>
-`PG_ENCRYPTION_KEY` 有意**不**自动加密（不做 `_KEY` 后缀处理）—— 它是用来加密数据列的密钥，因此必须保持可读，以便引导数据库启动。生产环境把它放在环境变量或密钥管理器里。
+`PG_ENCRYPTION_KEY` 是用来加密数据列的密钥，必须保持可读，以便引导数据库启动。生产环境把它放在环境变量或密钥管理器里，而不是 `config.yml`。
 </Note>
 
 ## HTTP 服务器
@@ -64,13 +64,13 @@ HTTP_ROOT: 'res/htdoc'    # 为非 API 的 GET 提供的静态 Web 客户端
 
 ```yaml config.yml
 LOG_LEVEL: 'INFO'     # debug | info | warning | error | critical（大小写不敏感）
-LOG_NAME: 'mirobody'
-LOG_DIR: ''           # 留空 => stdout；设一个路径则写日志文件
 ```
+
+日志始终输出到 **stderr** —— 没有日志文件选项；用进程管理器捕获（`docker logs`、journald、systemd unit 等）。
 
 ## LLM 提供商
 
-**至少**设置一个提供商密钥以启用对话。Agent 在请求时按**提供商**名挑客户端；默认提供商回退是 `gemini-2.5-flash`。工具执行方式因提供商而异：OpenAI 和 Gemini 在**进程内本地**运行内置的 MCP 工具，而 MiroThinker 在**提供商侧**执行工具（因此需要一个公网可达的 `MCP_PUBLIC_URL`）。
+**至少**设置一个提供商密钥以启用对话。Agent 在请求时按**提供商**名挑客户端；默认提供商回退是 `gemini-2.5-flash`。OpenAI 和 Gemini 都在**进程内本地**运行内置的 MCP 工具。
 
 ### Google Gemini
 
@@ -103,18 +103,6 @@ AZURE_OPENAI_DEPLOYMENT: 'gpt-4o-mini'
 AZURE_OPENAI_API_VERSION: '2024-10-21'
 AZURE_OPENAI_API_KEY: ''     # 或 AZURE_OPENAI_KEY
 ```
-
-### MiroThinker
-
-```yaml config.yml
-MIROTHINKER_API_KEY: '...'   # MiroThinker 提供商必需
-# MIROTHINKER_BASE_URL: '...'   # 端点覆盖 *(待核实)*
-# MIROTHINKER_MODEL: '...'      # 模型名 *(待核实)*
-```
-
-<Warning>
-MiroThinker 在提供商侧运行工具：MiroMind 的端点会经公网回调到**本**服务器的 `/mcp`，所以你还必须设置一个公网可达的 [`MCP_PUBLIC_URL`](#mcp-公开-url)。localhost 或私网地址不行。
-</Warning>
 
 ### 设备本地 Gemma（可选）
 
@@ -275,13 +263,9 @@ Mirobody 内嵌一个 OAuth 2.0 授权服务器（授权码 + PKCE），让 MCP 
 
 发现文档在 `/.well-known/oauth-authorization-server`、`/.well-known/openid-configuration`、`/.well-known/jwks.json` 提供。
 
-## MCP 公开 URL
+## 远程 MCP 接入
 
-```yaml config.yml
-# MCP_PUBLIC_URL: 'https://yourdomain.com'
-```
-
-`MCP_PUBLIC_URL` 是你 MCP 端点对外可达的基址（`<MCP_PUBLIC_URL>/mcp`）。它是 MiroThinker 提供商（工具在提供商侧运行）**必需**的，也是把 MCP 服务器暴露给 ChatGPT Apps、远程 Claude Desktop 及其他 MCP 客户端所必需的。本地开发没有公网域名时，用隧道打通它：
+远程 MCP 客户端不需要在本服务器上做任何额外配置：把你的公网 HTTPS 基础 URL 加 `/mcp` 填给客户端即可，MCP/OAuth 服务会从每个请求的 `Host` 头推导对外公布的 URL。本地开发没有公网域名时，用隧道打通它：
 
 <Steps>
   <Step title="安装并运行 ngrok">
@@ -289,14 +273,10 @@ Mirobody 内嵌一个 OAuth 2.0 授权服务器（授权码 + PKCE），让 MCP 
     ngrok http 8080
     ```
   </Step>
-  <Step title="设置隧道 URL">
-    ```yaml config.yml
-    MCP_PUBLIC_URL: 'https://abc123.ngrok-free.app'
-    ```
+  <Step title="把客户端指向隧道地址">
+    把 `https://abc123.ngrok-free.app/mcp` 作为服务器 URL 填给客户端。
   </Step>
 </Steps>
-
-参见 [ChatGPT Apps](/zh/tools/chatgpt-apps)。
 
 ## 健康圈（Care circles）
 

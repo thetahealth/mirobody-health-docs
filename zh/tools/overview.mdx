@@ -5,7 +5,7 @@ description: "了解 Mirobody C++ 引擎中的 Agent、MCP 工具与 /mcp 端点
 
 ## Agent
 
-Mirobody 运行**一个简单的 Agent** —— "Base"，定义在 [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp)。它刻意保持极简：没有 Agent 循环，没有 planner，没有中间件。每一轮它会：
+Mirobody 运行**一个简单的 Agent** —— "Baseline"，定义在 [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/baseline.cpp)。它刻意保持极简：没有 Agent 循环，没有 planner，没有中间件。每一轮它会：
 
 1. **按 provider 名称选择一个 LLM 客户端**（使用请求指定的 `provider`，否则用默认值）。
 2. **构建 system prompt** —— 一段固定的内联字符串，包含当前时间、回复语言，以及引导去获取上传文件（`list_files` / `read_file`）和健康记录（`family_health`）的说明。
@@ -17,19 +17,18 @@ Mirobody 运行**一个简单的 Agent** —— "Base"，定义在 [`res/agents/
 
 ### 支持的提供商
 
-该 Agent 注册最多四个 provider 客户端（各自以 `/api/providers` 选择器展示的模型名为键）。前三个始终会注册，因此它们会出现在选择器中；其中未配置凭据的那个，只会在调用时报错。
+该 Agent 注册最多三个 provider 客户端（各自以 `/api/providers` 选择器展示的模型名为键）。前两个始终会注册，因此它们会出现在选择器中；其中未配置凭据的那个，只会在调用时报错。
 
 | Provider key | 模型 | 客户端 | 工具执行 |
 |--------------|-------|--------|----------------|
 | `gemini-2.5-flash` | Google Gemini 2.5 Flash（**默认**） | `GeminiClient` | 本地，进程内 |
 | `gpt-5-nano` | OpenAI GPT-5 nano | `OpenAIChatClient` | 本地，进程内 |
-| `mirothinker-1.7` | MiroThinker（MiroMind） | `MiroThinkerClient` | 通过 `MCP_PUBLIC_URL` 使用 provider 原生 MCP |
 | `gemma-4-e2b` | 端侧 Gemma 4 E2B | `OpenAIChatClient`（本地端点） | 取决于服务栈 |
 
 原生应用还会在**端侧**运行 **Gemma 4 E2B**（Android/iOS 上用 LiteRT-LM，Electron 上用 llama.cpp）—— 离线、无需密钥。上表中的 `gemma-4-e2b` 是同一个模型，通过本地 OpenAI 兼容端点（Ollama / llama.cpp / vLLM）提供服务，仅在配置了 base URL 时才注册。
 
 <Info>
-**工具的运行方式因 provider 而异。** OpenAI 和 Gemini 把工具作为 function-call 描述符接收，引擎以已认证用户的身份在**本地进程内**执行每次调用。MiroThinker 则在 **provider 侧**运行工具 —— MiroMind 通过公网在 `MCP_PUBLIC_URL` 反向访问你的 `/mcp` 端点。
+**工具的运行方式。** OpenAI 和 Gemini 把工具作为 function-call 描述符接收，引擎以已认证用户的身份在**本地进程内**执行每次调用。
 </Info>
 
 ### 配置
@@ -43,12 +42,6 @@ OPENAI_BASE_URL: 'https://api.openai.com'   # client appends /v1/chat/completion
 
 # Google Gemini (gemini-2.5-flash, the default provider)
 GOOGLE_API_KEY: 'your_google_key'
-
-# MiroThinker (mirothinker-1.7) — provider-native MCP
-MIROTHINKER_API_KEY: 'your_mirothinker_key'
-MIROTHINKER_BASE_URL: ''      # optional override
-MIROTHINKER_MODEL: ''         # optional override
-MCP_PUBLIC_URL: 'https://your-domain.com/mcp'   # where MiroMind reaches your MCP
 
 # On-device Gemma served over a local OpenAI-compatible endpoint (optional)
 GEMMA_CHAT_BASE_URL: 'http://localhost:11434/v1'   # or OLLAMA_BASE_URL
@@ -131,7 +124,7 @@ http://localhost:8080/mcp                 # authenticates via bearer JWT
 http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
 ```
 
-支持的方法包括 `tools/list` 和 `tools/call`。本地开发时，把端口打通隧道（例如 `ngrok http 8080`）并设置 `MCP_PUBLIC_URL`，以便远端客户端 —— 以及 MiroThinker 的 provider 原生 MCP —— 能够访问它。参见 [MCP 集成](/zh/tools/mcp-integration) 连接 Claude、Cursor 和 ChatGPT。
+支持的方法包括 `tools/list` 和 `tools/call`。本地开发时，把端口打通隧道（例如 `ngrok http 8080`），远端客户端就能访问 `/mcp` —— 它们直接连公网 URL，MCP / OAuth 服务会从每个请求的 `Host` 头推导对外公布的 URL。参见 [MCP 集成](/zh/tools/mcp-integration) 连接 Claude、Cursor 和 ChatGPT。
 
 ```bash
 curl -X POST http://localhost:8080/mcp \

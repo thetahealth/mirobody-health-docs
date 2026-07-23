@@ -13,9 +13,9 @@ Mirobody is a **C++11 engine**. It runs standalone on desktop/server or **on-dev
 
 | Piece | Path | Description |
 |-------|------|-------------|
-| **LLM clients** | `src/llm/` | One streaming `llm::Client` per provider: `OpenAIChatClient`, `GeminiClient`, `MiroThinkerClient`, plus `EmbeddingClient` and the realtime `OpenAIRealtimeClient` / `GeminiLiveClient` (audio over WebSocket). |
+| **LLM clients** | `src/llm/` | One streaming `llm::Client` per provider: `OpenAIChatClient`, `GeminiClient`, plus `EmbeddingClient` and the realtime `OpenAIRealtimeClient` / `GeminiLiveClient` (audio over WebSocket). |
 | **MCP tools** | `src/mcp/` + `res/mcp_tools/` | Server-side tools exposed over the `/mcp` endpoint (JSON-RPC 2.0). The nine built-ins are C++ files that self-register at compile time. |
-| **Agent** | `src/chat/` + `res/agents/base.cpp` | One agent ("Base"): picks an LLM client by provider, builds a system prompt, streams the turn back, calling MCP tools. |
+| **Agent** | `src/chat/` + `res/agents/baseline.cpp` | One agent ("Baseline"): picks an LLM client by provider, builds a system prompt, streams the turn back, calling MCP tools. |
 | **Health vendors** | `src/health/vendor/` | One `vendor::Vendor` per source behind an authorize / fetch / webhook contract, resolved by id via a registry. |
 | **FHIR R4** | `src/fhir/` | Embedded RESTful FHIR R4 endpoint + terminology (units normalized to UCUM). |
 
@@ -23,7 +23,7 @@ Agents and tools **self-register at compile time**: drop a `.cpp` in the matchin
 
 ## The agent
 
-Mirobody runs **one simple agent** — [`res/agents/base.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/base.cpp). It has no agent loop, no planner, and no middleware. For each turn it picks an LLM client by **provider name**, builds a fixed inline **system prompt** (current time, response language, and guidance to use the file / health tools), and **streams the provider's events straight back**, letting the model call the built-in MCP tools.
+Mirobody runs **one simple agent** — [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/baseline.cpp). It has no agent loop, no planner, and no middleware. For each turn it picks an LLM client by **provider name**, builds a fixed inline **system prompt** (current time, response language, and guidance to use the file / health tools), and **streams the provider's events straight back**, letting the model call the built-in MCP tools.
 
 <Note>
 The agent is deliberately lightweight: it selects a **provider**, builds a prompt, and streams a turn, invoking MCP tools as needed. You select a **model** (`provider`), not an agent type.
@@ -31,14 +31,13 @@ The agent is deliberately lightweight: it selects a **provider**, builds a promp
 
 ### Providers
 
-The agent registers up to four provider clients, keyed by the model name the `/api/providers` selector shows:
+The agent registers up to three provider clients, keyed by the model name the `/api/providers` selector shows:
 
 - **`gemini-2.5-flash`** — Google Gemini 2.5 Flash (the **default** provider), `GeminiClient`.
 - **`gpt-5-nano`** — OpenAI GPT-5 nano, `OpenAIChatClient`.
-- **`mirothinker-1.7`** — MiroThinker (MiroMind), `MiroThinkerClient`.
 - **`gemma-4-e2b`** — on-device Gemma 4 E2B served over a local OpenAI-compatible endpoint (registered only when a base URL is set).
 
-The native apps also run **Gemma 4 E2B on-device** (LiteRT-LM on Android/iOS, llama.cpp on Electron) — fully offline, no API key. **Tool execution differs by provider:** OpenAI and Gemini receive the tools as function-call descriptors and the engine runs each call **locally, in-process** as the authenticated user; MiroThinker runs tools **provider-side** — MiroMind reaches back to your `/mcp` endpoint over the public internet at `MCP_PUBLIC_URL`. Realtime audio chat is available over WebSocket via OpenAI Realtime and Gemini Live.
+The native apps also run **Gemma 4 E2B on-device** (LiteRT-LM on Android/iOS, llama.cpp on Electron) — fully offline, no API key. **Tool execution:** OpenAI and Gemini receive the tools as function-call descriptors and the engine runs each call **locally, in-process** as the authenticated user. Realtime audio chat is available over WebSocket via OpenAI Realtime and Gemini Live.
 
 See [Tools & Agent Overview](/en/tools/overview) for configuration.
 
@@ -68,7 +67,7 @@ Each data source is a `vendor::Vendor` in `src/health/vendor/`, behind one autho
 |--------|------|---------|
 | **Platforms** | `platform/` | 15 B2B aggregators — Terra, Validic, Human API, Junction, Metriport, … |
 | **Phone** | `phone/` | Huawei |
-| **Device** | `device/` | Fitbit, Garmin, Withings, Oura, Polar |
+| **Device** | `device/` | Fitbit, Garmin, Withings, Dexcom, Oura, Whoop, Polar |
 | **EHR** | `ehr/` | SMART on FHIR — one generic client for ONC-certified EHRs (Epic, Oracle Health / Cerner, athenahealth), discovery via ONC Lantern |
 
 On-device-only stores (Apple Health, Samsung Health, Google Health Connect, Xiaomi) have **no server client** — the host apps read them on-device and POST FHIR `Observation`s. Add a source by implementing a `vendor::Vendor`; see [Provider Integration](/en/development/provider-integration).
@@ -82,7 +81,7 @@ On-device-only stores (Apple Health, Samsung Health, Google Health Connect, Xiao
 - **Database** — chosen at **build time** via CMake `-DMIROBODY_DATABASE_BACKEND=`: `SQLITE` (mobile default), `POSTGRESQL` (desktop default), `MYSQL`, `DUCKDB`, or `CLICKHOUSE`. SQL schemas live in [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql).
 - **File storage** — S3 / S3-compatible (MinIO, R2), Alibaba OSS, Azure Blob, or the local filesystem (default), selected at runtime.
 - **Cache** — an in-process in-memory KV store by default, or Redis when `REDIS_HOST` is set.
-- **Config** — `config.yml` (from `config.example.yml`); precedence is env vars > `config.yml` > remote config > `config.example.yml`. Values whose names contain `_KEY` / `_PASSWORD` / `_SECRET` / `_TOKEN` (and similar) are auto-encrypted (Fernet) with `CONFIG_ENCRYPTION_KEY`. See [Configuration](/en/configuration).
+- **Config** — `config.yml` (from `config.example.yml`); precedence is env vars > `config.yml` > remote config > `config.example.yml`. Secrets stored as Fernet ciphertext (`gAAAA…`) are decrypted on load with `CONFIG_ENCRYPTION_KEY` (pre-encrypt them with the `fernet` CLI). See [Configuration](/en/configuration).
 - **Auth** — multi-user JWT; an OAuth 2.0 authorization server with OIDC discovery + PKCE (so MCP clients can get tokens for `/mcp`); login via email one-time-code and Google / Apple / WeChat / GitHub (Firebase) plus Tanka QR.
 - **Web client** — a static SPA in `htdoc/`, built into `res/htdoc` (`HTTP_ROOT`) and served at the HTTP root.
 
@@ -117,14 +116,13 @@ Here's what happens when a signed-in user sends *"How did I sleep recently?"* in
 1. Browser POSTs to /api/chat (Server-Sent Events).
 2. JWT middleware resolves the caller → user_id.
 3. The chat service seeds/uses a conversation and persists the user message.
-4. The Base agent is created: it detects the response language, builds the
+4. The Baseline agent is created: it detects the response language, builds the
    system prompt, and resolves the LLM client for the requested provider
    (default gemini-2.5-flash).
-5. The client streams the turn. When the model calls a tool:
-   - OpenAI / Gemini → the engine runs it locally in-process as the user
-     (e.g. family_health → recent FHIR Observations; render_chart → a chart
-     event the frontend draws with ECharts).
-   - MiroThinker → the tool runs provider-side over MCP_PUBLIC_URL.
+5. The client streams the turn. When the model calls a tool, the engine
+   runs it locally in-process as the user (e.g. family_health → recent
+   FHIR Observations; render_chart → a chart event the frontend draws
+   with ECharts).
 6. Reply chunks stream back over SSE; the response is persisted.
 7. summarize_conversation may set a short title for the chat-history list.
 ```

@@ -115,7 +115,7 @@ docker run -p 80:80 \
 ## Management
 
 ```bash
-# Logs (the binary logs to stdout)
+# Logs (the binary logs to stderr; docker logs captures it)
 docker logs -f <container>
 
 # Stop (SIGTERM triggers a graceful shutdown)

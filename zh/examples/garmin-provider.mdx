@@ -20,7 +20,7 @@ Garmin 是一个真实的设备品牌客户端 —— [`src/health/vendor/device
 | **Webhook 签名** | 推送**无任何有文档的签名** | `handle_webhook` 是**桩** —— 无法从公开文档验证真伪 |
 | **断开连接** | 账号断连 hook **是**公开有文档的 | `revoke` **已实现** |
 
-于是在六个契约操作中，Garmin 恰好发布了一个可用调用 —— `revoke` —— 以及三个刻意保留的桩（`fetch`、`authorize_url`、`handle_webhook`），而 `list_providers` 不适用（单一品牌）。这是预期状态，记录在该文件的头部。
+于是在八个契约操作中，Garmin 恰好发布了一个可用调用 —— `revoke` —— 以及三个刻意保留的桩（`fetch`、`authorize_url`、`handle_webhook`），而 `list_providers` 不适用（单一品牌）。OAuth token 这一对 —— `exchange_code` / `refresh` —— 也保持为继承的桩：Garmin 的 token 交换需要持久化的 PKCE `code_verifier`，那属于有状态的连接层，而非这个客户端。这是预期状态，记录在该文件的头部。
 
 ## `revoke` —— 唯一接通的操作
 
@@ -43,7 +43,7 @@ void revoke(const std::string& /*user_id*/, const std::string& /*provider*/) ove
 }
 ```
 
-数据主机默认为 `https://apis.garmin.com`（可经 `MIROBODY_VENDOR_GARMIN_BASE_URL` 覆盖）。
+数据主机默认为 `https://apis.garmin.com`（可经 `GARMIN_BASE_URL` 覆盖）。
 
 ## `fetch` —— 一个会自我解释的桩
 
@@ -77,11 +77,13 @@ i.integrations       = {Integration::Rest, Integration::Webhook};
 
 ## 配置
 
+写在 `config.yml` 中或用同名环境变量设置（参见 `config.example.yml`；`MIROBODY_VENDOR_<ID>_*` 前缀已是遗留用法，只有独立的 `vendor` CLI 仍在读取）：
+
 ```bash
-# Garmin partner-gated OAuth 2.0 access token (needed for revoke; data path is partner-gated)
-MIROBODY_VENDOR_GARMIN_API_KEY=your_garmin_oauth2_access_token
-# optional host override
-MIROBODY_VENDOR_GARMIN_BASE_URL=https://apis.garmin.com
+# Garmin 合作方授权的 OAuth 2.0 access token（revoke 需要；数据通路需合作方授权）
+GARMIN_API_KEY=your_garmin_oauth2_access_token
+# 可选的主机覆盖
+GARMIN_BASE_URL=https://apis.garmin.com
 ```
 
 ## 对你自己 vendor 的启示
