@@ -316,10 +316,6 @@
       {
         "label": "Get Started",
         "href": "/en/api-reference"
-      },
-      {
-        "label": "Support",
-        "href": "https://github.com/thetahealth/mirobody/issues"
       }
     ],
     "primary": {
