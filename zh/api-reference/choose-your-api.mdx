@@ -14,16 +14,6 @@ Mirobody 通过**两个接口**暴露同一个 grounded 健康智能体，二者
   </Card>
 </CardGroup>
 
-## 两面不同的部分
+Answers 用的是更早的 Chat Completions 协议，刻意保持封闭 —— 无客户端工具、不存状态，只有 `chat.completion.chunk` 流式 —— 这让它可以直接嵌进现有的 OpenAI 集成，或者[包成一个工具](/zh/api-reference/use-as-a-tool)塞进更大的 agent 里。Agent 用的是更新的 Responses 协议：跨轮次保持状态（`store`、`previous_response_id`、`session_id`），接受你自己的 function 工具并完整交接 `function_call`，流式返回 `response.*` 事件，`openai-agents` SDK 开箱即用只需改 `base_url`。
 
-| | Answers（`/v1/chat/completions`） | Agent（`/v1/responses`） |
-| --- | --- | --- |
-| 协议 | OpenAI Chat Completions | OpenAI Responses |
-| 状态 | 无状态 —— 重发历史 | `store`（默认 `true`）、`previous_response_id`、`session_id` |
-| 客户端工具 | 拒绝（`400 unsupported_parameter`） | `tools` + `function_call` 交接 |
-| 流式 | `chat.completion.chunk` 帧 | `response.*` 事件协议 |
-| 服务端工具轨迹 | `message.tool_steps` + 顶层扩展 | 顶层 `tool_steps` + `response.mirobody_tool_call` 事件 |
-
-## 两面相同的部分
-
-数据依据（[数据面](/zh/api-reference/data)）、模型（`mirobody-flash` / `mirobody-expert`）、`user` → Subject 租户隔离、用量口径，两面完全一致。
+除此之外两者完全一样：同一套服务端对[标准化数据](/zh/api-reference/data)的依据、同样的 `mirobody-flash` / `mirobody-expert` 模型、同样的 Subject 租户隔离、同样的用量口径。

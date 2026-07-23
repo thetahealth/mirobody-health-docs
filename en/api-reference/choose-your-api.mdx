@@ -14,16 +14,6 @@ Mirobody exposes the same grounded health agent through **two surfaces**, both a
   </Card>
 </CardGroup>
 
-## What's different
+Answers speaks the older Chat Completions protocol and stays deliberately closed — no client tools, no stored state, just `chat.completion.chunk` streaming — which is what makes it trivial to drop into an existing OpenAI integration or [wrap as a single tool](/en/api-reference/use-as-a-tool) inside a larger agent. Agent speaks the newer Responses protocol: it keeps state between turns (`store`, `previous_response_id`, `session_id`), accepts your own function tools with a full `function_call` handoff, streams `response.*` events, and is what the `openai-agents` SDK talks to out of the box — change only the `base_url`.
 
-| | Answers (`/v1/chat/completions`) | Agent (`/v1/responses`) |
-| --- | --- | --- |
-| Protocol | OpenAI Chat Completions | OpenAI Responses |
-| State | Stateless — resend history | `store`, `previous_response_id`, `session_id` |
-| Client tools | Rejected (`400 unsupported_parameter`) | `tools` with `function_call` handoff |
-| Streaming | `chat.completion.chunk` frames | `response.*` event protocol |
-| Server tool trace | `message.tool_steps` + extensions | top-level `tool_steps` + `response.mirobody_tool_call` |
-
-## What's identical
-
-Grounding ([Data Plane](/en/api-reference/data)), models (`mirobody-flash` / `mirobody-expert`), Subject tenancy via `user`, and usage accounting are the same on both.
+Everything else is identical either way: the same server-side grounding over your [standardized data](/en/api-reference/data), the same `mirobody-flash` / `mirobody-expert` models, the same Subject-based tenancy, the same usage accounting.
