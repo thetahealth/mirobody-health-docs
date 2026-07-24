@@ -1,14 +1,16 @@
 ---
 title: "Standardization"
-description: "How every write becomes coded, unit-normalized, FHIR-mirrored data — OCR → extraction → LOINC → UCUM → FHIR."
+description: "How structured readings become coded, unit-normalized, FHIR-mirrored data."
 ---
 
-Health data arrives messy — "血糖(空腹)", "FBG", "Glucose, fasting" are the same measurement in three costumes, with units to match. Mirobody's data plane standardizes **every write** so that the agent (and your queries) see one coherent, coded dataset. This page explains the pipeline; you never call it directly — it runs inside [`POST /v1/data`](/en/api-reference/data), [`POST /v1/files`](/en/api-reference/files), and [`POST /v1/extract`](/en/api-reference/extract).
+Health data arrives messy — "血糖(空腹)", "FBG", "Glucose, fasting" are the same measurement in three costumes, with units to match. Mirobody standardizes every **structured reading** written through [`POST /v1/data`](/en/api-reference/data) or stored by [`POST /v1/extract`](/en/api-reference/extract), so the agent and your queries see one coherent, coded dataset.
+
+[`POST /v1/files`](/en/api-reference/files) is a separate storage and text-extraction surface. Uploading a file does not create structured readings; pass its `file_key` to `/v1/extract` when you want report values standardized and stored.
 
 ## The pipeline
 
 ```text
-document / record
+document text / structured record
    │
    ├─ 1. OCR & text extraction        PDF / image → text; Excel → structured rows
    │
@@ -26,12 +28,12 @@ The critical design choice is step 3: **codes are resolved deterministically, no
 
 ## Before / after
 
-What you send (or what a lab PDF says) vs. what the store holds:
+What you send to `/v1/data` (or what `/v1/extract` reads from a report) vs. what the structured store holds:
 
 | | Before (as written) | After (standardized) |
 | --- | --- | --- |
 | Indicator | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`, `canonical_name: "Fasting glucose [Mass/volume] in Serum or Plasma"` |
-| Value | `"5.4 mmol/L"` (one string) | `parsed_value: "5.4"`, `parsed_unit: "mmol/L"` (UCUM) |
+| Value | `"97 mg/dL"` (one string) | `parsed_value: "97"`, `parsed_unit: "mg/dL"` (UCUM) |
 | Unit spelling | `"mg/dl"`, `"MG/DL"`, `"mg/dL"` | `"mg/dL"` (one UCUM form) |
 | Interop | free text | FHIR R4 Observation (`fhir_resource_id`) |
 | Original | — | **kept**: `value` stays the human-readable string; raw names/units preserved |

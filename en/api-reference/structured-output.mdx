@@ -3,10 +3,10 @@ title: "Structured Output"
 description: "text.format — constrain the model to JSON (json_object) or a JSON Schema (json_schema) in backbone mode."
 ---
 
-Use `text.format` on [`POST /v1/responses`](/en/api-reference/responses) to force the model's output into JSON. It follows the [OpenAI Responses `text.format` spec](https://platform.openai.com/docs/api-reference/responses/create#responses-create-text) and is available **only in [backbone mode](/en/api-reference/backbone-mode) (`mode:"model"`)**.
+Use `text.format` on [`POST /v1/responses`](/en/api-reference/responses) to request JSON output. It follows the [OpenAI Responses `text.format` shape](https://platform.openai.com/docs/api-reference/responses/create#responses-create-text) and is available **only in [backbone mode](/en/api-reference/backbone-mode) (`mode:"model"`)**.
 
 <Warning>
-`text.format` requires `mode:"model"`. On the default agent mode it returns `400 unsupported_parameter` (`param: "text"`) — free-text that explodes downstream is more expensive than an interface error. The Answers API (`/v1/chat/completions`) likewise rejects `response_format` with `400`.
+`text.format` requires `mode:"model"`. On the default agent mode it returns `400 unsupported_parameter` (`param: "text"`). The Answers API (`/v1/chat/completions`) likewise rejects `response_format` with `400`.
 </Warning>
 
 ## `json_object`
@@ -30,7 +30,7 @@ The message text is a JSON string you parse yourself:
 
 ## `json_schema`
 
-Constrains the output to a schema you supply. Set `strict: true` for exact schema adherence:
+Requests output that follows a schema you supply. `strict: true` is forwarded to providers that support native JSON Schema:
 
 <CodeGroup>
 ```bash curl
@@ -89,7 +89,7 @@ print(resp.output_text)   # {"item":"apples","count":3}
 
 ## Provider fallback
 
-`text.format` passes through to the underlying model. When the backing provider has **no** native `json_schema` support, Mirobody automatically retries **once** as `json_object` with the schema injected into the system prompt. The retry is transparent — you still get schema-shaped JSON back — so treat structured output as reliable without knowing which provider backs a tier.
+`text.format` passes through to the underlying model. If the provider rejects native `json_schema`, Mirobody retries once as `json_object` with the schema included in the system prompt. That fallback targets the requested shape but does **not** validate the returned object against your schema. Always parse and validate `output_text` in your application before using it.
 
 ## See also
 

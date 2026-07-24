@@ -12,7 +12,7 @@ import StoreRetentionMatrix from '/snippets/store-retention-matrix.mdx';
 ```http
 POST   /v1/responses                Create a response
 GET    /v1/responses/{response_id}  Retrieve a stored response
-DELETE /v1/responses/{response_id}  Delete a stored response (+ its conversation)
+DELETE /v1/responses/{response_id}  Delete a stored response; tear down its conversation if it was the last live response
 Authorization: Bearer mb_live_*
 ```
 
@@ -77,7 +77,7 @@ print(resp.output_text)
 | `stream` | bool | `true` → SSE of standard `response.*` events. See [Streaming](/en/api-reference/streaming). |
 | `store` | bool | **Default `true`.** Persist the response + conversation: 30-day TTL, or permanent when bound to a `session_id`. Enables `previous_response_id` and `GET /v1/responses/{id}`. |
 | `previous_response_id` | string | Continue the conversation of a stored response (server-side state — no need to resend history). `404` if the id is unknown, expired, or deleted. |
-| `session_id` | string | Mirobody extension. Binds this and future turns to a **durable named conversation** (never auto-expires). |
+| `session_id` | string | Mirobody extension. Binds this and future turns to a **durable named conversation** (never auto-expires). Generate a globally unique opaque id (for example a UUID) and never reuse it across Subjects. |
 | `tools` | array | Client **function** tools (`{"type": "function", "name", "description", "parameters"}`; the completions-nested form is also accepted) and/or remote **MCP** servers (`{"type": "mcp", "server_label", "server_url", …}` — executed server-side). Max 64; names must match `[a-zA-Z0-9_-]{1,64}` and may not shadow built-in tool names. See [Function calling](/en/api-reference/function-calling) · [MCP servers](/en/api-reference/mcp-servers). |
 | `tool_choice` | string \| object | `"auto"` (default) / `"none"` / `"required"` / a named **client** tool. `"required"` and named guarantees apply in [backbone mode](/en/api-reference/backbone-mode); the full contract (incl. the `400` cases) is there. |
 | `mode` | string | `"agent"` (default, full server-side agent) or `"model"` ([backbone mode](/en/api-reference/backbone-mode) — bare inference, no server tools/state). |
@@ -116,7 +116,7 @@ print(resp.output_text)
   "health_records": [],                                  // Mirobody extension: {tool, data} evidence
   "citations": [],                                       // Mirobody extension: literature evidence
   "previous_response_id": null,
-  "store": false,
+  "store": true,
   "tools": [],
   "error": null,
   "metadata": {}
@@ -129,9 +129,9 @@ The `output` array contains **only standard OpenAI item types** — `reasoning`,
 
 ### Usage accounting
 
-`usage.input_tokens` reports the input **you actually sent**; the platform's system prompt / tool-schema overhead is broken out as `input_tokens_details.system_tokens`. `output_tokens_details.reasoning_tokens` counts thinking tokens. Counts are summed across every model call of the agent turn.
+`usage.input_tokens` reports the input **you actually sent**; the platform's system prompt / tool-schema overhead is broken out as `input_tokens_details.system_tokens`. `output_tokens_details.reasoning_tokens` reports provider reasoning tokens. Counts are summed across every model call of the agent turn.
 
-`usage.billed_tokens` (`{input, output, total}`) is the **provider-true** total — the number the platform actually meters (`api_usage_record`) and prices. Use it for cost accounting; you no longer need to add visible + system tokens yourself. It's present on both the Agent API and the [Answers API](/en/api-reference/chat). Cost = `billed_tokens` × the [model tier's rate](/en/api-reference/models).
+`usage.billed_tokens` (`{input, output, total}`) is the **provider-true** total used for metering. It is present on both the Agent API and the [Answers API](/en/api-reference/chat). Applying the catalog's standard input/output rates gives an estimate; prompt-cache discounts can make actual metered cost lower.
 
 ## Retrieve a stored response
 

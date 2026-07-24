@@ -85,10 +85,10 @@ Mirobody 是一个 **C++11** 代码库，用 **CMake** 和 **Ninja** 构建（Wi
     ./build.sh              # -> build/mirobody  和  build/tests/mirobody_tests
     ```
 
-    用一个 token（`sqlite`、`legacy`、`mysql`、`duckdb`、`ck`）选择其他 SQL 后端；每个后端有各自的 `build[_<backend>]` 目录，因此多个可以共存：
+    用一个 token（`sqlite`、`legacy`、`mysql`、`duckdb`、`ck`）选择其他 SQL 后端；每个后端有各自的 `build[-<backend>]` 目录，因此多个可以共存：
 
     ```bash
-    ./build.sh sqlite       # -> build_sqlite/
+    ./build.sh sqlite       # -> build-sqlite/
     ./build.sh clean        # 清空并重新配置
     ```
 
@@ -110,13 +110,13 @@ Mirobody 是一个 **C++11** 代码库，用 **CMake** 和 **Ninja** 构建（Wi
     在 `config.yml` 里设置一个 LLM 密钥（以及默认后端所需的 `PG_*` 连接），然后运行：
 
     ```bash
-    ./mirobody --config config.yml
+    ./build/mirobody --config config.yml
     ```
 
     服务器在 `http://localhost:8080` 启动。完整键列表见 [配置](/zh/configuration)。
 
     <Tip>
-    要一个无需外部数据库的零依赖开发循环，构建 SQLite 后端（`./build.sh sqlite`）并运行 `./build_sqlite/mirobody`。
+    要一个无需外部数据库的自包含开发循环，构建 SQLite 后端（`./build.sh sqlite`）并运行 `./build-sqlite/mirobody`。
     </Tip>
   </Step>
 </Steps>

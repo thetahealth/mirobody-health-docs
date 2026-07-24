@@ -8,7 +8,7 @@ import SubjectUserParam from '/snippets/subject-user-param.mdx';
 You've already integrated a wearable — through Terra, Junction, or a vendor API — and samples are flowing into your backend. This page is the recipe for getting them into Mirobody, so the [standardization pipeline](/en/api-reference/standardization) and the agent work on them like on any other health record.
 
 <Note>
-**Mirobody does not host device OAuth** — there is no Terra-style connect widget. Mirobody hosts, standardizes and serves the data to AI; collecting it (device OAuth, app capture) is your side of the line.
+**Mirobody does not host device OAuth** — there is no Terra-style connect widget. You choose how device data is collected and prepared; Mirobody stores and standardizes the records you send, then makes them available to AI.
 </Note>
 
 ## The recipe
@@ -49,7 +49,7 @@ curl https://api.mirobody.ai/v1/data \
       }'
 ```
 
-Up to **500 records per request** — batch a full day (or a backfill window) per Subject into one call. tag the vendor in `source` — it comes back in the `comment` field on reads (the `source` column reports the write channel, `api`).
+Up to **500 records per request** — batch a full day (or a backfill window) per Subject into one call. Tag the vendor in `source` — it comes back in the `comment` field on reads (the `source` column reports the write channel, `api`).
 
 <SubjectUserParam />
 
@@ -76,7 +76,7 @@ curl https://api.mirobody.ai/v1/data \
 
 ## 4. Standardization is automatic
 
-Every write runs the same [standardization pipeline](/en/api-reference/standardization) as manual entries and file uploads: indicator names resolve to **LOINC** deterministically, values normalize to **UCUM** units, and each record gets a **FHIR** mirror. Read the clean series back with [`GET /v1/data`](/en/api-reference/data#read-records) — and the agent reads the same series when it answers.
+Every structured write runs the same [standardization pipeline](/en/api-reference/standardization) as manual records and stored extractions: recognized indicator names resolve to **LOINC** deterministically, values are parsed into **UCUM** units, and records are mirrored into **FHIR**. Low-confidence names remain uncoded rather than guessed. Read the series back with [`GET /v1/data`](/en/api-reference/data#read-records) — and the agent reads the same data when it answers.
 
 ## What Mirobody deliberately doesn't do
 
@@ -89,6 +89,6 @@ Hosted device OAuth. Connecting devices — vendor consent screens, token refres
     The full POST / GET / DELETE /v1/data contract.
   </Card>
   <Card title="Standardization" icon="wand-magic-sparkles" href="/en/api-reference/standardization">
-    What LOINC / UCUM / FHIR happen on every write.
+    How LOINC / UCUM / FHIR are applied, including uncoded rows.
   </Card>
 </CardGroup>

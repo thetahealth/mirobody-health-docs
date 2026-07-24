@@ -12,7 +12,7 @@ import StoreRetentionMatrix from '/snippets/zh/store-retention-matrix.mdx';
 ```http
 POST   /v1/responses                创建响应
 GET    /v1/responses/{response_id}  获取存储的响应
-DELETE /v1/responses/{response_id}  删除存储的响应（连同其对话）
+DELETE /v1/responses/{response_id}  删除存储响应；若它是最后一个存活响应，再拆除其对话
 Authorization: Bearer mb_live_*
 ```
 
@@ -77,7 +77,7 @@ print(resp.output_text)
 | `stream` | bool | `true` → 标准 `response.*` 事件的 SSE。见[流式传输](/zh/api-reference/streaming)。 |
 | `store` | bool | **默认 `true`。** 持久化响应 + 对话：30 天 TTL，绑定 `session_id` 时永久。启用 `previous_response_id` 与 `GET /v1/responses/{id}`。 |
 | `previous_response_id` | string | 续接某个已存储响应的对话（服务端状态 —— 无需重发历史）。id 未知、已过期或已删除时返回 `404`。 |
-| `session_id` | string | Mirobody 扩展。把本轮及后续轮次绑定到一个**永续命名对话**（永不自动过期）。 |
+| `session_id` | string | Mirobody 扩展。把本轮及后续轮次绑定到一个**永续命名对话**（永不自动过期）。应生成全局唯一、不含业务语义的 id（如 UUID），且不能跨 Subject 复用。 |
 | `tools` | array | 客户端 **function** 工具(`{"type": "function", "name", "description", "parameters"}`,也接受 completions 嵌套形式)以及/或远程 **MCP** server(`{"type": "mcp", "server_label", "server_url", …}`——服务端执行)。最多 64 个;名称须匹配 `[a-zA-Z0-9_-]{1,64}` 且不得与内置工具重名。见 [Function calling](/zh/api-reference/function-calling) · [MCP servers](/zh/api-reference/mcp-servers)。 |
 | `tool_choice` | string \| object | `"auto"`（默认）/ `"none"` / `"required"` / 指名某个**客户端**工具。`"required"` 与命名的保证适用于 [backbone 模式](/zh/api-reference/backbone-mode)；完整契约（含 `400` 情形）在那里。 |
 | `mode` | string | `"agent"`（默认，完整服务端 agent）或 `"model"`（[backbone 模式](/zh/api-reference/backbone-mode) —— 裸推理，无服务端工具/状态）。 |
@@ -116,7 +116,7 @@ print(resp.output_text)
   "health_records": [],                                  // Mirobody 扩展：{tool, data} 证据
   "citations": [],                                       // Mirobody 扩展：文献证据
   "previous_response_id": null,
-  "store": false,
+  "store": true,
   "tools": [],
   "error": null,
   "metadata": {}
@@ -129,9 +129,9 @@ print(resp.output_text)
 
 ### 用量口径
 
-`usage.input_tokens` 只报告**你实际发送的输入**；平台系统提示 / 工具 schema 的开销单列在 `input_tokens_details.system_tokens`。`output_tokens_details.reasoning_tokens` 统计思考 token。计数为该 agent 轮次内所有模型调用之和。
+`usage.input_tokens` 只报告**你实际发送的输入**；平台系统提示 / 工具 schema 的开销单列在 `input_tokens_details.system_tokens`。`output_tokens_details.reasoning_tokens` 报告 provider 的推理 token。计数为该 agent 轮次内所有模型调用之和。
 
-`usage.billed_tokens`（`{input, output, total}`）是 **provider-true** 汇总 —— 平台实际计量（`api_usage_record`）并计价的数字。成本核算用它即可，不必再自己把 visible + system 相加。Agent API 与 [Answers API](/zh/api-reference/chat) 两面都有。成本 = `billed_tokens` × [档位单价](/zh/api-reference/models)。
+`usage.billed_tokens`（`{input, output, total}`）是用于计量的 **provider-true** 汇总，Agent API 与 [Answers API](/zh/api-reference/chat) 都会返回。按模型目录的标准输入/输出单价计算可得到估算值；提示词缓存折扣可能使实际计量费用更低。
 
 ## 获取存储的响应
 
@@ -153,7 +153,7 @@ curl -X DELETE https://api.mirobody.ai/v1/responses/resp_147e9b14... \
 { "id": "resp_147e9b14...", "object": "response.deleted", "deleted": true }
 ```
 
-删除该存储的响应。若它是所在对话的**最后一个**存活响应，整段对话也会被一并拆除 —— 会话投影、agent 线程状态与对话衍生的记忆。这是存储对话的自助"被遗忘权"入口。
+删除该存储的响应。若它是所在对话的**最后一个**存活响应，整段对话也会被一并拆除 —— 其历史与对话衍生的记忆。这是存储对话的自助"被遗忘权"入口。
 
 ## 状态模型
 

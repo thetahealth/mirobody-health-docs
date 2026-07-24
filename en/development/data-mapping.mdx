@@ -53,7 +53,7 @@ A vendor **throws for domains it doesn't broker** rather than returning empty �
 
 ## 2 — Unit normalization (UCUM)
 
-The terminology engine in [`src/fhir/units/`](https://github.com/thetahealth/mirobody/tree/main/src/fhir/units) turns a free-text "value + unit" string into a canonical **UCUM** unit plus the LOINC PROPERTY family that disambiguates it. Pure local computation — no DB, no embedding API.
+The terminology engine in [`src/fhir/units/`](https://github.com/thetahealth/mirobody/tree/main-v2/src/fhir/units) turns a free-text "value + unit" string into a canonical **UCUM** unit plus the LOINC PROPERTY family that disambiguates it. Pure local computation — no DB, no embedding API.
 
 ```cpp
 #include "fhir/units/normalize.hpp"
@@ -90,7 +90,7 @@ The canonical store is FHIR R4 (`src/fhir/`). FHIR-native vendors — the generi
 Resources are stored per-user as generic validated JSON and served over `/fhir` (see [Data Flow](/en/concepts/data-flow)).
 
 <Note>
-Mapping an indicator to a **coded** `Observation.code` (SNOMED CT / LOINC / RxNorm) — i.e. terminology resolve and the document → coded-FHIR write-back — is **in progress**. UCUM normalization and the RESTful FHIR store are shipped; full terminology mapping is planned (see `src/fhir/README.md` phases 3–4). Until then, `Observation.code` may carry a `text` rather than a resolved code. *(verify)*
+Mapping an indicator to a **coded** `Observation.code` (SNOMED CT / LOINC / RxNorm) — i.e. terminology resolve and the document → coded-FHIR write-back — is **in progress**. UCUM normalization and the RESTful FHIR store are shipped; full terminology mapping is planned (see `src/fhir/README.md` phases 3–4). Until then, `Observation.code` may carry a `text` rather than a resolved code.
 </Note>
 
 ## Mapping a new source

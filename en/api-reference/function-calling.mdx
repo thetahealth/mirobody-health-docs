@@ -15,11 +15,10 @@ The agent always has its platform toolset over the Subject's data (same catalog 
 - `query_health_data` — search and aggregate the Subject's records
 - `list_clinical_records` — list clinical documents / FHIR-backed records
 - `list_family_members` — resolve care-circle members the Subject is allowed to query
-- `write_fhir_observation` — write a structured FHIR observation
 - `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — medical evidence (feeds `citations`)
 - `fetch_url` — read a web page
 
-Plus the deep-agents harness (`write_todos`, `task`, `eval`, filesystem tools) used internally. Their runs appear in the **top-level `tool_steps` extension** of the response object (never as `output` items — official SDKs would mis-parse unknown item types), and in streaming as the [`response.mirobody_tool_call` side-channel event](/en/api-reference/streaming#server-tool-side-channel).
+The `/v1` agent's domain tools are read-only. It also uses the deep-agents harness (`write_todos`, `task`, `eval`, filesystem tools) internally. These runs appear in the **top-level `tool_steps` extension** of the response object (never as `output` items, which official SDKs would mis-parse), and in streaming as the [`response.mirobody_tool_call` side-channel event](/en/api-reference/streaming#server-tool-side-channel).
 
 ## Declaring client tools
 
@@ -51,7 +50,7 @@ Rules (violations are explicit `400`s, never silently dropped):
 | Count | Max **64** tools per request. |
 | Names | Must match `[a-zA-Z0-9_-]{1,64}`; must be unique; must **not shadow a built-in tool name** (`query_health_data`, `read_file`, `task`, …). |
 | `parameters` | A JSON Schema object (defaults to `{"type":"object","properties":{}}`). |
-| `tool_choice` | `"auto"` (default), `"none"` (disables your tools for the turn), or a named client tool. Anything else → `400 unsupported_parameter`. |
+| `tool_choice` | `"auto"` (default), `"none"` (disables **all** tools for the turn, built-ins included — see [backbone mode](/en/api-reference/backbone-mode)), or a named client tool. Anything else → `400 unsupported_parameter`. |
 
 <Warning>
 **Security note:** the agent holds tools over the Subject's health data. Subject isolation already limits every call to that developer's own data, but treat your tool descriptions and results as part of the prompt surface — don't feed untrusted third-party text through them without review.

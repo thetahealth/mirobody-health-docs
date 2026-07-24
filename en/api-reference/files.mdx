@@ -1,15 +1,15 @@
 ---
 title: "Files"
-description: "POST /v1/files, GET /v1/files, DELETE /v1/files/{file_key} — upload & parse reports, list, fetch parsed text, delete."
+description: "POST /v1/files, GET /v1/files, DELETE /v1/files/{file_key} — upload reports, retrieve extracted text, list, and delete."
 ---
 
-Upload a health document and Mirobody parses it into the Subject's store. PDFs and images go through **OCR**; Excel / CSV are parsed structurally into health records. The chat agent then reads uploaded files automatically when it answers.
+Upload a health document to the Subject's store. Mirobody saves the original first, then extracts readable text in the background: PDFs and images use **OCR**, while spreadsheets and text files are converted to text. The agent can read that extracted text when it answers.
 
 <Note>
 Uploads are capped at **100 MB** per file — larger requests return `413`. For big exports or realtime streams, use the [WebSocket upload](/en/api-reference/files#websocket-upload) path.
 </Note>
 
-## Upload & parse
+## Upload a file
 
 ```http
 POST /v1/files
@@ -36,7 +36,7 @@ Response:
 ```json
 {
   "object": "file",
-  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
   "filename": "checkup_2026.pdf",
   "bytes": 20544,
   "status": "processed",
@@ -45,11 +45,13 @@ Response:
 }
 ```
 
-The file's identifier is **`id`** (a slash-containing key) — use it as `{file_key}` in the fetch and list calls below. `created_at` on the upload response is **epoch seconds**. The upload response does **not** include an indicator count or an abstract.
+The file's identifier is **`id`** (a slash-containing key) — use it as `{file_key}` in the fetch and delete calls below. `created_at` is **epoch seconds**. The upload response does **not** include an indicator count or an abstract.
 
 <Note>
-Images and PDFs are OCR'd to text the agent can read; structured-indicator extraction is asynchronous / best-effort. For guaranteed structured data, use [`POST /v1/data`](/en/api-reference/data) or upload a CSV / Excel file.
+`status: "processed"` means the original was accepted and stored; it does not mean background text extraction has finished. A `GET /v1/files/{file_key}` immediately after upload can return an empty `extracted_text`. Retry after a short delay.
 </Note>
+
+Uploading a file makes its text available to the agent; it does **not** write structured health records. To extract standardized indicators, call [`POST /v1/extract`](/en/api-reference/extract) with this `file_key`. To write records you already have, use [`POST /v1/data`](/en/api-reference/data).
 
 ## List files
 
@@ -64,8 +66,8 @@ Authorization: Bearer mb_live_*
   "data": [
     {
       "object": "file",
-      "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
-      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+      "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
+      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
       "filename": "checkup_2026.pdf",
       "file_type": "application/pdf",
       "bytes": 20544,
@@ -85,20 +87,20 @@ GET /v1/files/{file_key}?user=alice
 Authorization: Bearer mb_live_*
 ```
 
-Returns the parsed text for one file — the same content the agent reads:
+Returns the extracted text for one file — the same content the agent reads:
 
 ```json
 {
   "object": "file",
-  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
   "filename": "checkup_2026.pdf",
-  "extracted_text": "date,indicator,value\n2026-06-16,fasting_glucose,5.4\n",
+  "extracted_text": "Annual checkup 2026-06-16\nFasting glucose  97 mg/dL  (ref 70-110)\n...",
   "abstract": "",
   "subject": "alice"
 }
 ```
 
-`abstract` may be empty (it isn't generated for every file type).
+`extracted_text` can be empty while background extraction is still running. `abstract` may also be empty; it is not generated for every file type.
 
 ## WebSocket upload
 
@@ -113,7 +115,7 @@ Frame sequence (all JSON text frames):
 1. **Server → you**: `{"type": "connection_established"}` — send nothing before this.
 2. **You → server**: `{"type": "upload_start", "messageId": "<batch-id>", "files": [{"filename", "contentType", "size"}]}` — one `messageId` for the whole batch.
 3. **You → server**, per 256 KB chunk: `{"type": "upload_chunk", "messageId", "filename", "chunk": "<base64>", "chunkIndex", "totalChunks"}`.
-4. **You → server**: `{"type": "upload_end", "messageId"}` → server replies `upload_end_response` when every file is stored + parsed.
+4. **You → server**: `{"type": "upload_end", "messageId"}` → server replies `upload_end_response` when every original file has been stored. Text extraction may still be running.
 
 Same 100 MB per-file cap, same Subject isolation, and the stored files are identical to a `POST /v1/files` upload — list them with `GET /v1/files`.
 
@@ -127,7 +129,7 @@ Authorization: Bearer mb_live_*
 Removes the file from the API surface immediately (`404` if it isn't the Subject's file or is already deleted):
 
 ```json
-{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv", "deleted": true, "subject": "alice" }
+{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf", "deleted": true, "subject": "alice" }
 ```
 
 Time-bounded uploads are also removed automatically by **[retention](/en/api-reference/overview#data-retention) expiry** — an expired file disappears from every `GET /v1/files*` read immediately and is cleaned up by a background job. To erase everything about a Subject at once, use `DELETE /v1/subjects/{user}` — see [Compliance](/en/api-reference/compliance).

@@ -36,22 +36,22 @@ r2 = client.responses.create(model="mirobody-flash",
 
 ### 清理
 
-`DELETE /v1/responses/{id}` 移除一个存储的响应；当它是所在对话最后一个存活响应时，**整段对话被拆除** —— 线程状态、会话投影与对话衍生记忆。见 [Agent API → 删除](/zh/api-reference/responses#删除存储的响应)。
+`DELETE /v1/responses/{id}` 总会移除指定的存储响应。只有当它是所在对话的**最后一个存活响应**时，平台才会拆除对话历史并回撤对话衍生的记忆。见 [Agent API → 删除](/zh/api-reference/responses#删除存储的响应)。
 
 ## 跨会话记忆
 
-存储的对话会供给平台的异步记忆固化：智能体了解到的关于某个 Subject 的持久事实，可以服务同一 Subject 之后的对话。`store: false` 的轮次完全置身事外；删除响应会撤回其对话贡献的记忆。
+存储的对话会供给平台的异步记忆固化：智能体了解到的关于某个 Subject 的持久事实，可以服务同一 Subject 之后的对话。`store: false` 的轮次完全置身事外。删除一段对话的最后一个存活响应，才会回撤该对话衍生的记忆；线程中仍有其他响应时，删除较早响应不会回撤共享记忆。
 
 ## 写日记（Journaling）
 
-一条主观日记 —— *「头疼一下午，喝了两杯咖啡后缓解」* —— 就是**一次单轮 `POST /v1/responses`，带 `store: true`**。不需要专用端点：本页讲的这些开关组合起来就是配方。把记录绑到自管的 `session_id`（如 `journal-{user}`），它们就不受 30 天 TTL 约束；`builtin_tools: "none"` 加上要求单句确认的 `instructions`，把你并不消费的回复成本压到最低：
+一条主观日记 —— *「头疼一下午，喝了两杯咖啡后缓解」* —— 就是**一次单轮 `POST /v1/responses`，带 `store: true`**。不需要专用端点：本页讲的这些开关组合起来就是配方。为每条记录分配独立的 `session_id`（如 `journal-{entry_id}`），使其不受 30 天 TTL 约束，并可独立删除；`builtin_tools: "none"` 加上要求单句确认的 `instructions`，把你并不消费的回复成本压到最低：
 
 ```bash
 curl -s https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" -d '{
   "input": "头疼一下午，喝了两杯咖啡后缓解",
   "user": "patient-42",
-  "session_id": "journal-patient-42",
+  "session_id": "journal-entry-018",
   "store": true,
   "builtin_tools": "none",
   "instructions": "The user is journaling, not asking a question. Reply with a single short acknowledgement."
@@ -62,7 +62,9 @@ curl -s https://api.mirobody.ai/v1/responses \
 
 - **固化（consolidation）抽出有价值的部分。** 后台固化会读取这条存储的轮次，抽出其中的**可量化指标** —— 与 [`POST /v1/data`](/zh/api-reference/data) 写入的数据同池，`GET /v1/data` 即可查到 —— 以及**持久记忆**，此后该 Subject 的智能体回答会自动带上这些上下文。抽取在后台异步发生，与回复的长短和内容无关。
 - **单条回看**用 `GET /v1/responses/{id}`。**不提供列表端点**（对齐 OpenAI）—— 「日记列表」请在你自己一侧维护 `(记录 → response_id)` 索引。平台是数据/智能层，不是笔记应用。
-- **三个删除层级**：`DELETE /v1/responses/{id}` 移除单条记录**并回撤其对话沉淀的记忆**；[`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 拆除整个日记会话；[`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) 擦除该 Subject 的一切。
+- **删除单条记录**：调用 `DELETE /v1/responses/{id}`。采用推荐的「每个 `session_id` 仅一个响应」设计时，该响应就是对话的最后一个存活响应，其对话衍生记忆也会被回撤。若多个响应共用同一 `session_id`，需将其全部删除后，共享记忆才会被回撤。
+- **删除会话范围的工作数据**：调用 [`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话)。此调用不会删除存储响应对象。
+- **擦除 Subject**：调用 [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject)。
 - **一个细节**：consolidation 已经沉淀进数据面的读数是普通记录 —— 删除日记条目会回撤记忆，但这些读数会保留；用 [`DELETE /v1/data`](/zh/api-reference/data)（按 `id` 或 `indicator`）或 Subject 级擦除来移除。
 
 ## 数据面留存（`retention`）
@@ -83,6 +85,6 @@ curl -s https://api.mirobody.ai/v1/responses \
 | --- | --- |
 | 完全短暂的一次调用 | `store: false`；不写数据（或以 `retention: "1h"` 写入，或用 `retention: "session"`，事后删除会话） |
 | 用户的常驻助手线程 | 每轮都传 `session_id: <稳定 id>`；数据用 `retention: "permanent"` |
-| 用户的日记 | 每条单轮 `store: true` + `session_id: journal-{user}` —— 见[写日记（Journaling）](#写日记journaling) |
-| 短生命周期的分诊对话 | 默认 `store: true` + `previous_response_id` 链式；工作数据 `retention: "session"` + 同一 `session_id`；结束时 `DELETE /v1/sessions/{id}` |
+| 用户的日记 | 每条单轮 `store: true` + 独立的 `session_id: journal-{entry_id}` —— 见[写日记（Journaling）](#写日记journaling) |
+| 短生命周期的分诊对话 | 默认 `store: true` + `previous_response_id` 链式；工作数据 `retention: "session"` + 同一 `session_id`；结束时删除存储响应 id，再调用 `DELETE /v1/sessions/{id}` |
 | 被遗忘权 | [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) —— 一切，包括存储的对话；或按件：`DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |

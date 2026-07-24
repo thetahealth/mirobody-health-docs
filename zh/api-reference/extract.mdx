@@ -14,6 +14,10 @@ Authorization: Bearer mb_live_*
 
 默认是 **dry-run**（`store=false`）：你拿到标准化结果，**什么都不持久化** —— 零副作用。设 `store=true`（并给出 `retention`）则同时把读数经由与 [`POST /v1/data`](/zh/api-reference/data) 相同的管线写入 Subject 的存储。
 
+<Warning>
+`store=true` 不具备幂等性。重复抽取同一内容可能写入重复读数。建议先用默认 dry-run 检查结果；请求超时后不要盲目重试。
+</Warning>
+
 ## 请求
 
 两种输入形态：
@@ -48,7 +52,7 @@ curl https://api.mirobody.ai/v1/extract \
   -H "Content-Type: application/json" \
   -d '{
         "user": "alice",
-        "text": "Fasting glucose 5.6 mmol/L (2026-07-01); LDL cholesterol 3.1 mmol/L",
+        "text": "Fasting glucose 97 mg/dL (2026-07-01); LDL cholesterol 120 mg/dL",
         "store": true,
         "retention": "permanent"
       }'
@@ -64,10 +68,10 @@ curl https://api.mirobody.ai/v1/extract \
       "indicator_raw": "Fasting glucose",
       "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
       "loinc_code": "1558-6",
-      "value_raw": "5.6",
-      "parsed_value": "5.6",
-      "unit_raw": "mmol/L",
-      "unit_ucum": "mmol/L",
+      "value_raw": "97",
+      "parsed_value": "97",
+      "unit_raw": "mg/dL",
+      "unit_ucum": "mg/dL",
       "confidence": 0.82,
       "measured_at": "2026-07-01"
     },
@@ -75,10 +79,10 @@ curl https://api.mirobody.ai/v1/extract \
       "indicator_raw": "LDL cholesterol",
       "canonical_name": "Cholesterol in LDL [Mass/volume] in Serum or Plasma",
       "loinc_code": "2089-1",
-      "value_raw": "3.1",
-      "parsed_value": "3.1",
-      "unit_raw": "mmol/L",
-      "unit_ucum": "mmol/L",
+      "value_raw": "120",
+      "parsed_value": "120",
+      "unit_raw": "mg/dL",
+      "unit_ucum": "mg/dL",
       "confidence": 0.79,
       "measured_at": null
     }
@@ -118,7 +122,7 @@ curl https://api.mirobody.ai/v1/extract \
 
 混合文本按预期工作 —— *「头疼了一天，体温 38.2 °C」* 会抽出体温读数、丢弃叙事部分。
 
-**纯主观记录（journal）有官方配方 —— 不需要专用端点。** 把这条记录作为单轮 [`POST /v1/responses`](/zh/api-reference/responses) 发送，带 `store: true`（外加自管的 `session_id` 如 `journal-{user}`、`builtin_tools: "none"`，以及要求单句确认的 `instructions`）。平台的后台固化（consolidation）随后会抽出其中的**可量化指标**（可经 [`GET /v1/data`](/zh/api-reference/data) 查询）与**持久记忆**（为该 Subject 之后的回答提供上下文）；`DELETE /v1/responses/{id}` 会移除这条记录**并**回撤其沉淀的记忆。完整配方见[写日记（Journaling）](/zh/api-reference/state-and-memory#写日记journaling)。`/v1/extract` 本身保持定量定位 —— 读数进、标准化指标出。
+**纯主观记录（journal）使用 Agent API，不需要专用端点。** 把每条记录作为单轮 [`POST /v1/responses`](/zh/api-reference/responses) 发送，带 `store: true`、独立的 `session_id`（如 `journal-{entry_id}`）、`builtin_tools: "none"`，以及要求简短确认的 `instructions`。后台 consolidation 可以从该存储轮次中沉淀可量化指标与持久记忆。采用每个 `session_id` 一个响应的设计时，删除该响应也会回撤其对话衍生记忆；已经抽取的读数仍需通过 `/v1/data` 删除。准确生命周期见[写日记](/zh/api-reference/state-and-memory#写日记journaling)。
 
 ## 错误
 

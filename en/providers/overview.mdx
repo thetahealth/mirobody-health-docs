@@ -32,7 +32,7 @@ Fifteen B2B health-data aggregators that broker wearable, lab, and/or clinical d
 | **LexisNexis** (`lexisnexis`) | US | Life-insurance underwriting; sales-gated |
 
 <Info>
-Implementation depth varies **per operation** — some vendors implement `fetch` + `authorize_url` + `handle_webhook` + `revoke`, others only `fetch`. The per-vendor status table lives in [`src/health/vendor/README.md`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/README.md).
+Implementation depth varies **per operation** — some vendors implement `fetch` + `authorize_url` + `handle_webhook` + `revoke`, others only `fetch`. The per-vendor status table lives in [`src/health/vendor/README.md`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/README.md).
 </Info>
 
 ## Device brands (`device/`)
@@ -64,16 +64,16 @@ Direct clients for consumer wearable brands, for deployments that want to talk t
 </CardGroup>
 
 <Note>
-**All seven device brands ship a real first-party client** with OAuth and `fetch` against the brand's public API; the OAuth brands also implement the token lifecycle (`exchange_code` / `refresh`) via the shared `oauth2.hpp` helper. The aggregators (Terra, Validic, Thryve, Rook, Spike) remain an alternative — for brands with no direct client, or to consolidate many brands behind one integration.
+Six pull-based brands ship first-party `fetch` implementations; supported OAuth operations vary by brand. Garmin is different: its partner API is push-based and only `revoke` is wired in this repository. Check each card and the source before designing a connection flow.
 </Note>
 
 ## Clinical EHRs (`ehr/`) — SMART on FHIR
 
-Because the US ONC Cures Act forces every certified EHR onto the **SMART App Launch + FHIR R4** standard, a **single generic client** (`ehr`) covers all of them — Epic, Oracle Health / Cerner, athenahealth, MEDITECH, Veradigm, … — parameterized by each tenant's FHIR base URL.
+A single generic client (`ehr`) targets **SMART App Launch + FHIR R4** servers, parameterized by each tenant's FHIR base URL. Many US certified-EHR deployments expose this surface, but a working integration still depends on the tenant endpoint, app registration, scopes, and resources the organization enables.
 
 - `base_url` is **required and per-tenant** (each hospital has its own FHIR service base URL); the client refuses to guess one.
 - Auth is a SMART-on-FHIR OAuth 2.0 bearer token; `fetch` issues standard FHIR R4 `Observation` searches (`patient` + `category` + `date` range) and returns FHIR JSON.
-- Tenant base URLs are discovered from the public **Service Base URL** directories via `EhrDirectory` ([`ehr/directory.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/ehr/directory.hpp)): **ONC Lantern** (national aggregator) and **Oracle Health / Cerner**'s published bundle.
+- `EhrDirectory` can search public **Service Base URL** directories ([`ehr/directory.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/ehr/directory.hpp)): **ONC Lantern** and Oracle Health / Cerner's published bundle. Discovery does not guarantee authorization or resource availability.
 
 The browser-driven connect flow lives at `/health/ehr/*` — see [Using Providers](/en/providers/using-providers).
 

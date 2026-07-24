@@ -1,9 +1,9 @@
 ---
 title: "生产环境部署"
-description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端、健康检查与合规。"
+description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端、健康检查与数据流控制。"
 ---
 
-在生产环境中，Mirobody 就是独立的 `mirobody` 二进制（或 Docker 镜像），由 `config.yml` 和环境变量驱动，背后是你自己的数据库、缓存和对象存储。本页覆盖本地运行之外真正要紧的设置；任何在引擎中无法核实的内容都会标注出来。
+在生产环境中，Mirobody 就是独立的 `mirobody` 二进制（或 Docker 镜像），由 `config.yml` 和环境变量驱动，背后是你自己的数据库、缓存和对象存储。本页覆盖本地运行之外真正要紧的设置。
 
 ## 生产检查清单
 
@@ -24,10 +24,10 @@ description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端
     - [ ] 配置一个对象存储后端（S3 / OSS / Azure Blob），而非本地磁盘
   </Accordion>
 
-  <Accordion title="合规（PHI）" icon="user-shield">
-    - [ ] 让 LLM 留在设备本地，或把托管调用经 BAA 覆盖的通道路由（Vertex AI / Azure OpenAI）
-    - [ ] 在你所在区域自托管，并把出站依赖固定到该区域（GDPR 数据驻留）
-    - [ ] 除非用户主动开启，否则让健康圈分享保持关闭（它默认关闭）
+  <Accordion title="隐私审查" icon="user-shield">
+    - [ ] 盘点全部出站数据流：LLM、对象存储、健康数据供应商、身份/邮件、远程配置与崩溃上报
+    - [ ] 选择符合自身要求的区域和供应商，并取得所需合同或协议
+    - [ ] 审查数据范围后再启用可选分享与外部集成
   </Accordion>
 
   <Accordion title="运维" icon="chart-line">
@@ -37,19 +37,20 @@ description: "在生产环境运行 Mirobody 的 C++ 二进制：密钥、后端
   </Accordion>
 </AccordionGroup>
 
-## 密钥与密钥串
+## 机密与密钥
 
 生成强值，并经环境提供加密密钥：
 
 ```bash
-openssl rand -hex 32     # JWT_KEY (HS256)、PG_ENCRYPTION_KEY、CONFIG_ENCRYPTION_KEY、LOCAL_STORAGE_SECRET
+openssl rand -hex 32     # JWT_KEY（HS256）、PG_ENCRYPTION_KEY、LOCAL_STORAGE_SECRET
+openssl rand -hex 16     # CONFIG_ENCRYPTION_KEY：恰好 32 个可打印字符
 ```
 
 ```bash
 export CONFIG_ENCRYPTION_KEY="<generated>"
 ```
 
-`CONFIG_ENCRYPTION_KEY` 只做两件事：已经以 Fernet 密文（`gAAAA…`）存储的配置值会在**加载时透明解密**；看起来像密钥的值在配置摘要输出时会被**打码**。没有任何机制会在写入时自动加密明文 —— 需要你自己用 `fernet` CLI（`cli/fernet.cpp`：`fernet genkey` / `fernet encrypt`）预先加密每个密钥，把 `gAAAA…` 密文粘贴进 `config.yml`。照此操作后，只要密钥留在环境里，就可以提交加密后的 `config.yml`。像 `PG_ENCRYPTION_KEY` 这类引导性密钥请放在环境变量或密钥管理器里。
+`CONFIG_ENCRYPTION_KEY` 是原始密钥：加载器会去除首尾空白、最多取 32 字节、补齐较短的值，再派生用于解密 `gAAAA…` 配置值的 Fernet 密钥。启动时的配置摘要也会遮蔽看起来像机密的值。系统不会自动加密明文。`PG_ENCRYPTION_KEY` 等引导密钥应放在环境变量或密钥管理器中；如果要把 Fernet 密文写入 YAML，请确保加密工具采用与 `ConfigStore::derive_fernet_key` 完全相同的派生规则。
 
 对于 RS256（让其他服务能对照发布的 JWKS 校验你的令牌），设置 `JWT_PRIVATE_KEY` 而非 `JWT_KEY`；`cli/jwt_keygen` 会铸出一对密钥。
 
@@ -89,7 +90,7 @@ export CONFIG_ENCRYPTION_KEY="..."
 
 ## TLS 与反向代理
 
-二进制在 `HTTP_HOST:HTTP_PORT` 上提供纯 HTTP + WebSocket。在它前面终结 TLS（nginx、Caddy、云负载均衡器），并转发到二进制的端口。如果你在代理处把应用挂到子路径下，设置 `HTTP_URI_PREFIX` 与之匹配，让生成的 URL 和路由对齐。*（引擎自身不终结 TLS —— 请核实你的代理为实时的 `/api/chat` 路由转发了 WebSocket 升级头。）*
+二进制在 `HTTP_HOST:HTTP_PORT` 上提供纯 HTTP + WebSocket。在它前面终结 TLS（nginx、Caddy、云负载均衡器），并转发到二进制的端口。如果你在代理处把应用挂到子路径下，设置 `HTTP_URI_PREFIX` 与之匹配，让生成的 URL 和路由对齐。请确保代理为实时的 `/api/chat` 路由转发 WebSocket 升级头。
 
 ## 健康检查
 
@@ -115,18 +116,23 @@ curl https://api.yourdomain.com/api/health   # -> ok
 
 使用一个持久的后端，而非本地磁盘。在 `config.yml` 里填写 S3、阿里云 OSS 或 Azure Blob 块 —— 参见 [配置 → 文件存储](/zh/configuration#文件存储)。把存储区域固定到你的合规区域。
 
-## 合规 —— HIPAA 与 GDPR
+## 隐私与受监管工作负载
 
-因为内核在设备本地或自托管运行，个人健康数据无需离开你的基础设施。PHI 唯一可能离开的地方是 LLM 调用：
+自托管让你控制部署位置，但不会自动使工作负载合规。在发送受监管数据前，应审查完整数据路径：
 
-- **HIPAA** —— **完全在设备本地**运行模型（Gemma 4；原生应用的"设备本地"提供商），或把托管模型经 BAA 合格的通道路由：**Google Gemini 经 Vertex AI**（`GOOGLE_GENAI_USE_VERTEXAI=1` + `GCP_PROJECT` / `VERTEX_LOCATION`）或 **OpenAI 经 Azure OpenAI**（`AZURE_OPENAI_ENDPOINT` + 部署 + 密钥）。公开的 AI Studio / OpenAI 直连端点不在 BAA 覆盖范围内。
-- **GDPR** —— 在你所在区域自托管，并把每一个出站依赖固定到该区域：Gemini 用 `VERTEX_LOCATION` / `VERTEX_BASE_URL`，GPT 用 Azure 资源区域，对象存储按后端设定区域，主权云用 `AZURE_BLOB_ENDPOINT_SUFFIX`。
+| 数据流 | 何时启用 | 控制点 |
+| --- | --- | --- |
+| LLM 供应商 | 配置托管模型后 | 使用设备端模型，或选择符合自身要求的云项目、区域、账户与协议。 |
+| 对象存储 | 配置 S3、OSS 或 Azure Blob 后 | 选择桶/容器区域、访问策略、加密与留存。 |
+| 健康数据供应商或 EHR | 启用对应集成后 | 审查授权范围、数据目的地与供应商合同。 |
+| 身份与消息服务 | 启用邮件、Firebase、微信、GitHub 或 Tanka 登录后 | 限制发送的身份数据，并关闭不用的登录方式。 |
+| 远程配置与崩溃上报 | 配置相应端点或 DSN 后 | 不要把健康内容写入配置；启用前审查遥测内容。 |
 
-健康圈分享是可选启用、默认关闭的，且 AI 助手对另一位成员的数据是**只读**的。托管云的合规姿态参见 [合规](/zh/api-reference/compliance)。
+Vertex AI 与 Azure OpenAI 是部署选项，不是合规保证。请与服务商及你方安全/法务团队确认服务适用性和所需协议。托管 API 的产品控制见[隐私与合规](/zh/api-reference/compliance)。
 
 ## 扩容
 
-- **水平** —— 在负载均衡器后跑多个实例；设置 `REDIS_HOST` 让它们共享缓存状态。所有实例都连到那一个配置好的 PostgreSQL（`PG_HOST` + 连接池）—— 引擎没有只读副本路由，数据库成为瓶颈时请扩展数据库本身。*（只要每个连接在其生命周期内保持在同一实例上，SSE/WebSocket 对话路由就不需要粘性会话 —— 请对照你负载均衡器的连接处理方式核实。）*
+- **水平** —— 在负载均衡器后跑多个实例；设置 `REDIS_HOST` 让它们共享缓存状态。所有实例都连到那一个配置好的 PostgreSQL（`PG_HOST` + 连接池）—— 引擎没有只读副本路由，数据库成为瓶颈时请扩展数据库本身。只要负载均衡器让每个连接在其生命周期内保持在同一实例上，SSE/WebSocket 对话路由就不需要粘性会话。
 - **垂直** —— C++ 二进制很轻量；按你的 LLM 并发和文档处理负载来配置 CPU/内存。
 
 ## 监控
@@ -139,7 +145,7 @@ curl https://api.yourdomain.com/api/health   # -> ok
 - 缓存命中率（Redis，如果启用）
 - 每实例的 CPU / 内存
 
-*（Mirobody 并未提供我们能在此确认的 Prometheus/指标端点 —— 在代理 / 平台层做埋点，或对照当前构建核实。）*
+Mirobody 没有内置的 Prometheus/指标端点 —— 请在代理或平台层做埋点。
 
 ## 备份
 
@@ -159,8 +165,8 @@ curl https://api.yourdomain.com/api/health   # -> ok
   <Card title="配置" icon="gear" href="/zh/configuration">
     所有生产环境键集中一处
   </Card>
-  <Card title="合规" icon="user-shield" href="/zh/api-reference/compliance">
-    HIPAA / GDPR 姿态
+  <Card title="隐私控制" icon="user-shield" href="/zh/api-reference/compliance">
+    留存、删除与审查边界
   </Card>
   <Card title="API 参考" icon="code" href="/zh/api-reference/overview">
     你的客户端会调用的端点

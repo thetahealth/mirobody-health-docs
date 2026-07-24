@@ -5,7 +5,7 @@ description: "How Mirobody turns uploaded documents into LLM-consumable parts: P
 
 ## Overview
 
-Mirobody can ingest health documents — lab reports, spreadsheets, scanned records — and turn them into content a chat turn can carry. The work is done by the **document transcoder** in `src/transcode/` ([`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`), the document counterpart to the image transcoder. Its strategy is **text first, image (and OCR) fallback**.
+Mirobody can ingest health documents — lab reports, spreadsheets, scanned records — and turn them into content a chat turn can carry. The work is done by the **document transcoder** in `src/transcode/` ([`document.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/transcode/document.hpp) / `document.cpp`), the document counterpart to the image transcoder. Its strategy is **text first, image (and OCR) fallback**.
 
 <Info>
 The transcoder decomposes a document into text and image parts; a vision-capable LLM then reads them during the chat turn.
@@ -25,7 +25,7 @@ The container format is sniffed from the leading magic bytes, then routed to a h
 With a gate off, the input still sniffs but `process()` throws `DocumentError("... not built")` — nothing is silently mis-handled.
 
 <Note>
-Images uploaded on their own are handled by the sibling **image transcoder** (`src/transcode/image.hpp`), which fits an image to a target vision model's input limits. Audio and genetic-file handling from the old docs are **not** part of this C++ transcoder. *(verify)*
+Images uploaded on their own are handled by the sibling **image transcoder** (`src/transcode/image.hpp`), which fits an image to a target vision model's input limits. Audio and genetic-file handling from the old docs are **not** part of this C++ transcoder.
 </Note>
 
 ## The pipeline
@@ -76,7 +76,7 @@ The transcoded parts are read by the agent during a chat turn: uploaded files ar
 </Warning>
 
 <Note>
-Writing extracted lab values back into the FHIR store as coded `Observation`s (the document → indicator → FHIR pipeline) is **in progress**: UCUM unit normalization and the RESTful FHIR store are shipped; terminology resolve (SNOMED CT / LOINC / RxNorm) and automatic write-back are planned. *(verify against `src/fhir/README.md`.)*
+Writing extracted lab values back into the FHIR store as coded `Observation`s (the document → indicator → FHIR pipeline) is **in progress**: UCUM unit normalization and the RESTful FHIR store are shipped; terminology resolve (SNOMED CT / LOINC / RxNorm) is still landing and automatic write-back is planned.
 </Note>
 
 ## Tests

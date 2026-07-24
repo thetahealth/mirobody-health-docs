@@ -5,7 +5,7 @@ description: "向 Mirobody 引擎添加一个 C++ MCP 工具 —— 把一个 .c
 
 ## 概览
 
-Mirobody 中的工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中的 C++ 文件**。每个文件声明一个 `Tool` 并在编译时自注册；`CMakeLists.txt` 会把该目录下每个 `.cpp` 都 glob 进构建，因此整个流程就是：**丢入一个新文件、重新构建，工具即上线** —— 无需手动注册，无需连接 router，无需手写 JSON schema。
+Mirobody 中的工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/mcp_tools) 中的 C++ 文件**。每个文件声明一个 `Tool` 并在编译时自注册；`CMakeLists.txt` 会把该目录下每个 `.cpp` 都 glob 进构建，因此整个流程就是：**丢入一个新文件、重新构建，工具即上线** —— 无需手动注册，无需连接 router，无需手写 JSON schema。
 
 <Info>
 这是一个**编译期**机制，而非运行时插件。C++ 引擎（Mirobody）中没有 Python 工具加载器 —— 参数在一张小表里声明，注册表会把它们展开成 MCP 的 `inputSchema` 以及 OpenAI / Gemini 的 function 描述符。
@@ -27,7 +27,7 @@ Mirobody 中的工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mir
 
 ## 快速开始
 
-参考工具是 [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/echo.cpp) —— 最小的完整示例。复制它然后开动。
+参考工具是 [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/echo.cpp) —— 最小的完整示例。复制它然后开动。
 
 <Steps>
   <Step title="创建文件">
@@ -86,7 +86,7 @@ Mirobody 中的工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mir
     ./build.sh
     ```
 
-    `res/mcp_tools/*.cpp` 会被 CMake glob，因此你的新文件无需任何其它改动即可被拾取。重启 `./mirobody`，工具即上线。
+    `res/mcp_tools/*.cpp` 会被 CMake glob，因此你的新文件无需任何其它改动即可被拾取。重启 `./build/mirobody`，工具即上线。
   </Step>
 </Steps>
 
@@ -119,12 +119,12 @@ if (ctx.memory == nullptr)
 ```
 
 <Tip>
-关于读取模式 —— 强制按用户所有权、返回 FHIR observation、持久化到关系型存储 —— 请配合本页一起阅读内置工具：[`list_files.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/list_files.cpp)、[`read_file.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/read_file.cpp)、[`family_health.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/family_health.cpp)、[`remember.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/remember.cpp)。
+关于读取模式 —— 强制按用户所有权、返回 FHIR observation、持久化到关系型存储 —— 请配合本页一起阅读内置工具：[`list_files.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/list_files.cpp)、[`read_file.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/read_file.cpp)、[`family_health.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/family_health.cpp)、[`remember.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/remember.cpp)。
 </Tip>
 
 ## 非扁平参数
 
-声明的 `params` 表会生成一个由扁平标量和数组构成的 JSON Schema，这覆盖了大多数工具。若某个工具的参数不是扁平的，用 `args.raw()` 读取原始对象（正如 [`render_chart`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/render_chart.cpp) 处理它的 ECharts `option` 那样），并且 —— 如果你需要对外声明的 schema 完全一致 —— 把 `Tool` 上可选的 `raw_input_schema` 字段设为一个会被逐字使用的 schema 字符串。
+声明的 `params` 表会生成一个由扁平标量和数组构成的 JSON Schema，这覆盖了大多数工具。若某个工具的参数不是扁平的，用 `args.raw()` 读取原始对象（正如 [`render_chart`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/render_chart.cpp) 处理它的 ECharts `option` 那样），并且 —— 如果你需要对外声明的 schema 完全一致 —— 把 `Tool` 上可选的 `raw_input_schema` 字段设为一个会被逐字使用的 schema 字符串。
 
 ## 最佳实践
 
@@ -142,7 +142,7 @@ if (ctx.memory == nullptr)
   </Accordion>
 
   <Accordion title="限定到调用者" icon="lock">
-    对 `auth` 工具，一切都从 `user.user_id` 派生。绝不要用 `subject_user_id` 来写入或暴露其它数据 —— 它是一个只读的护理圈提示，只有健康读取类工具才应遵从。
+    对 `auth` 工具，一切都从 `user.user_id` 派生。绝不要用 `subject_user_id` 来写入或暴露其它数据 —— 它是一个只读的照护圈提示，只有健康读取类工具才应遵从。
   </Accordion>
 </AccordionGroup>
 
@@ -165,7 +165,7 @@ curl -X POST http://localhost:8080/mcp \
     默认提供的 9 个工具参考
   </Card>
   <Card title="MCP 集成" icon="bolt" href="/zh/tools/mcp-integration">
-    将你的工具连接到 Claude、Cursor 和 ChatGPT
+    将你的工具连接到 Claude 和 Cursor
   </Card>
   <Card title="工具与 Agent 概览" icon="brain" href="/zh/tools/overview">
     Agent、工具与 provider 如何协同

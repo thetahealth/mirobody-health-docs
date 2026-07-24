@@ -35,7 +35,7 @@ Using existing vendors? See [Using Providers](/en/providers/using-providers). Fo
     Vendor files are listed explicitly (not globbed): add your new `.cpp` next to the sibling vendor entries in the `MIROBODY_CORE_SOURCES` list in `CMakeLists.txt` (the block right after `src/health/vendor/registry.cpp`).
   </Step>
   <Step title="Register it">
-    Declare the factory and add a row in [`src/health/vendor/registry.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/registry.cpp).
+    Declare the factory and add a row in [`src/health/vendor/registry.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/registry.cpp).
   </Step>
 </Steps>
 
@@ -161,7 +161,7 @@ Unlike MCP tools (which auto-register at compile time via a macro), vendors use 
 | `exchange_code(code, redirect_uri)` | the source has an OAuth2 authorization-code token endpoint — exchange the code for a `TokenSet` | stub |
 | `refresh(refresh_token)` | the source issues expiring tokens with a refresh grant — trade the refresh token for a fresh `TokenSet` | stub (e.g. Polar's tokens never expire) |
 
-For standard RFC 6749 token endpoints, don't hand-roll the POST: the shared helper `oauth2_token_request(...)` in [`src/health/vendor/oauth2.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.hpp) does the form-encoded request (body or HTTP Basic client auth) and parses the `{access_token, refresh_token?, expires_in?}` response — Fitbit, Dexcom, Oura, Whoop, and Polar all implement `exchange_code` / `refresh` through it (Withings has its own envelope).
+For standard RFC 6749 token endpoints, don't hand-roll the POST: the shared helper `oauth2_token_request(...)` in [`src/health/vendor/oauth2.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/oauth2.hpp) does the form-encoded request (body or HTTP Basic client auth) and parses the `{access_token, refresh_token?, expires_in?}` response — Fitbit, Dexcom, Oura, Whoop, and Polar all implement `exchange_code` / `refresh` through it (Withings has its own envelope).
 
 **Rules of the road:**
 

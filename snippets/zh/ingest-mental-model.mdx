@@ -3,8 +3,8 @@
 | 数据形态 | 典型来源 | 录入方式 | 端点 |
 | --- | --- | --- | --- |
 | **结构化读数** | 设备/穿戴（**由你自己接入**，日聚合后写入）、手动记录 | 结构化记录 | [`POST /v1/data`](/zh/api-reference/data) —— 高频样本先自聚合；episode 型（睡眠、运动）用 `time` + `end_time` 携带时段。见[设备数据 cookbook](/zh/api-reference/device-data)。 |
-| **文件/照片** | 化验单、体检报告 PDF、手机拍照 | 文件上传 | [`POST /v1/files`](/zh/api-reference/files) —— 自动 OCR 与解析；想同步拿回解析结果用 [`POST /v1/extract`](/zh/api-reference/extract) |
+| **文件/照片** | 化验单、体检报告 PDF、手机拍照 | 文件上传 | [`POST /v1/files`](/zh/api-reference/files) —— 保存原件并抽取文本；将 `file_key` 传给 [`POST /v1/extract`](/zh/api-reference/extract) 可创建结构化读数 |
 | **带读数的叙事** | "头疼了一天，体温 38.2 °C"、对话口述 | 叙事文本 | [`POST /v1/extract`](/zh/api-reference/extract) —— 抽取其中的可量化读数，周边叙事被丢弃 |
 | **纯主观日记** | "整个下午头晕头疼"、心情记录 | 单轮智能体调用 | [`POST /v1/responses`](/zh/api-reference/responses) 带 `store: true` —— 后台固化抽出指标与持久记忆。见[写日记配方](/zh/api-reference/state-and-memory#写日记journaling)。 |
 
-Mirobody 负责托管、标准化并把数据供给 AI —— 采集数据（设备 OAuth、App 侧获取）在你那一侧。
+Mirobody 负责存储源数据、标准化结构化读数，并将二者提供给 AI 使用；数据如何采集、是否预处理，由你自行决定。

@@ -5,7 +5,7 @@ description: "How Mirobody connects to health-data sources: the C++ vendor::Vend
 
 ## What a vendor is
 
-In Mirobody a **vendor** is a C++ client for one health-data source, living one-per-file under `src/health/vendor/`. Every vendor implements the same abstract interface — `vendor::Vendor` in [`src/health/vendor/vendor.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/vendor.hpp) — so the rest of the engine talks to a wearable brand, a B2B aggregator, and a hospital EHR through one contract, and picks the concrete client at runtime by **id**.
+In Mirobody a **vendor** is a C++ client for one health-data source, living one-per-file under `src/health/vendor/`. Every vendor implements the same abstract interface — `vendor::Vendor` in [`src/health/vendor/vendor.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/vendor.hpp) — so the rest of the engine talks to a wearable brand, a B2B aggregator, and a hospital EHR through one contract, and picks the concrete client at runtime by **id**.
 
 <Info>
 Each data source is a **`vendor::Vendor`**, compiled in and resolved by id through a registry.
@@ -87,7 +87,7 @@ public:
 ```
 
 - **`DataDomain`** is the normalized data category: `Activity`, `Sleep`, `HeartRate`, `Glucose`, `Nutrition`, `BodyMetrics`, `Labs`, `Clinical`.
-- **`TokenSet`** carries `access_token` / `refresh_token` / `expires_in` from an OAuth2 token-endpoint call. The OAuth device brands implement `exchange_code` / `refresh` via a shared helper, `oauth2_token_request(...)` in [`src/health/vendor/oauth2.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.hpp) (Withings uses its own envelope; Polar's tokens don't expire, so its `refresh` throws).
+- **`TokenSet`** carries `access_token` / `refresh_token` / `expires_in` from an OAuth2 token-endpoint call. The OAuth device brands implement `exchange_code` / `refresh` via a shared helper, `oauth2_token_request(...)` in [`src/health/vendor/oauth2.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/oauth2.hpp) (Withings uses its own envelope; Polar's tokens don't expire, so its `refresh` throws).
 - **Time bounds** are ISO-8601 strings; empty means "the vendor's default window".
 - **Data-returning operations hand back the vendor's own JSON** as a string. (A normalized model over that JSON is a later step; several FHIR-based vendors already return FHIR resources.)
 
@@ -123,7 +123,7 @@ struct VendorInfo {
 
 ## Resolved by id through a registry
 
-The concrete vendor classes are never named outside their own translation unit. Callers reach them only through the registry ([`src/health/vendor/registry.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/registry.hpp)):
+The concrete vendor classes are never named outside their own translation unit. Callers reach them only through the registry ([`src/health/vendor/registry.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/registry.hpp)):
 
 ```cpp
 namespace mirobody { namespace vendor {

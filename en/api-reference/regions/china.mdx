@@ -1,50 +1,26 @@
 ---
-title: "China Cluster"
-description: "api.mirobody.cn — China-region cluster."
+title: "China Region"
+description: "Planned China production endpoints and current availability."
 ---
 
-The China cluster keeps 100% of data within mainland China, with no cross-border replication.
+The China production environment is being prepared for workloads that must use a China-region deployment. Its public production domains are **not available yet**.
 
-<Note>
-The China-region web app and developer console are live. Their domains mirror the global ones with `.cn` in place of `.ai` — `chat.mirobody.cn` (web app), `platform.mirobody.cn` (developer console). The China **API** cluster (`api.mirobody.cn`) is coming soon — until then, create your `mb_live_*` keys on the [global console](https://platform.mirobody.ai/) and call the global API.
-</Note>
+## Planned hosts
 
-## Hosts
+| Surface | Planned URL | Status |
+| --- | --- | --- |
+| API (`base_url`) | `https://api.mirobody.cn/v1` | Pending DNS and production enablement |
+| Developer console | `https://platform.mirobody.cn/` | Pending public enablement |
+| Web app | `https://chat.mirobody.cn/` | Pending public enablement |
 
-| Surface | URL |
-| --- | --- |
-| **API** (`base_url`) | `https://api.mirobody.cn/v1` (coming soon) |
-| **Developer console** | [platform.mirobody.cn](https://platform.mirobody.cn/) |
-| **Web app** | [chat.mirobody.cn](https://chat.mirobody.cn/) |
+Do not configure a production integration against these hosts until Mirobody confirms availability for your account.
 
-The console is where you create `mb_live_*` keys, view usage, and try the Playground. The Mirobody web app is the flagship product — the same engine behind this API.
+## API contract
 
-## Capabilities (`/v1`)
+The China deployment is intended to expose the same stable `/v1` resources as the global cluster: Models, Answers, Agent, Data, Extract, Files, Sessions, and Subjects. Model providers and pricing can differ by region, so clients must read [`GET /v1/models`](/en/api-reference/models) from the cluster they call.
 
-<CardGroup cols={2}>
-  <Card title="Agent API" icon="rocket" href="/en/api-reference/responses">
-    `POST /v1/responses` — OpenAI Responses-compatible: sessions, your tools, MCP
-  </Card>
-  <Card title="Answers API" icon="comments" href="/en/api-reference/chat">
-    `POST /v1/chat/completions` — grounded one-shot Q&A, streaming, citations
-  </Card>
-  <Card title="Data" icon="database" href="/en/api-reference/data">
-    `POST/GET /v1/data` + `POST /v1/extract` — standardized records per Subject
-  </Card>
-  <Card title="Files" icon="file" href="/en/api-reference/files">
-    `POST/GET /v1/files` — OCR / Excel parsing, WebSocket streaming
-  </Card>
-</CardGroup>
+## Using the global API
 
-## Models
+The global API remains available at `https://api.mirobody.ai/v1`. Calling it from China sends request data to the global environment; do so only if that processing location is acceptable for your application and users.
 
-Managed by Mirobody — no LLM key of your own needed: `mirobody-flash` (default) / `mirobody-expert`. See [Models](/en/api-reference/models).
-
-## Storage & residency
-
-- Files stored in **Aliyun OSS (Hangzhou region)**.
-- 100% of data stored inside mainland China; no cross-border replication.
-
-## Compliance
-
-Aligned with PIPL / Data Security Law / Cybersecurity Law — see [Compliance](/en/api-reference/compliance). For rate limits, see [Rate Limits](/en/api-reference/rate-limits).
+For China-region onboarding and current availability, contact [Mirobody Support](mailto:developer@thetahealth.ai). See [Privacy & Compliance](/en/api-reference/compliance) for the controls you should review before sending regulated data.

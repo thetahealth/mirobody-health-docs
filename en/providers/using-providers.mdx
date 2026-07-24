@@ -5,7 +5,7 @@ description: "Configure credentials and link a wearable, aggregator, or EHR to M
 
 ## How linking works
 
-Connecting a source has two phases: **configure credentials** (once, by the operator) and **link an account** (per user, ownership-gated). Data then flows into the embedded FHIR store, where the agent reads it. For the underlying contract see [Vendor System](/en/concepts/providers).
+Connecting a source has two phases: **configure credentials** (once, by the operator) and **link an account** (per user, ownership-gated). `GET /vendors/{id}/data` fetches vendor-native JSON without storing it; `POST /vendors/{id}/sync` maps supported values to FHIR Observations and persists them. For the underlying contract see [Vendor System](/en/concepts/providers).
 
 ## 1 — Configure credentials
 
@@ -34,51 +34,64 @@ EHR_API_KEY=smart_on_fhir_access_token
 ```
 
 <Info>
-Environment variables take precedence over `config.yml`. Secrets kept in `config.yml` can be pre-encrypted as Fernet (`gAAAA…`) values with the `fernet` CLI and are decrypted on load via `CONFIG_ENCRYPTION_KEY`. See [Configuration](/en/configuration). The older `MIROBODY_VENDOR_<ID>_*` env convention is legacy — only the standalone `vendor` debug CLI still reads it.
+Environment variables take precedence over `config.yml`. Fernet ciphertext (`gAAAA…`) can be decrypted on load via `CONFIG_ENCRYPTION_KEY`; its key-derivation rules matter, so follow [Configuration](/en/configuration) rather than assuming a generated Fernet key can be used directly. The older `MIROBODY_VENDOR_<ID>_*` env convention is legacy — only the standalone `vendor` debug CLI still reads it.
 </Info>
 
 Register your application on the vendor's developer portal to obtain the client id / secret (or API key). The generic `ehr` client needs the tenant's FHIR **service base URL**, discoverable from the public Service Base URL directories (ONC Lantern; Oracle Health / Cerner).
 
-## 2 — Link an account (bind → verify → data)
+## 2 — Link an account
 
-Linking is **ownership-gated**: a user proves they own the external account before any data is read, so a self-asserted id can never reach someone else's records. The health module exposes three routes (all require a bearer JWT and are scoped to the authenticated user):
+Linking is **ownership-gated** and scoped to the authenticated JWT user. The repository exposes two connection paths; support varies by vendor.
 
-<Steps>
-  <Step title="Bind">
-    Record the external account id as a PENDING link.
+### Browser OAuth
 
-    ```bash
-    curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
-      -H "Authorization: Bearer $JWT" \
-      -H "Content-Type: application/json" \
-      -d '{"external_user_id": "FITBIT_USER_ID"}'
-    ```
+For vendors with `authorize_url` and token exchange implemented:
 
-    <Note>The exact request body per vendor may differ; check the vendor's `.cpp` and `src/health/vendor_service.*`. *(verify)*</Note>
-  </Step>
+1. Call `GET /vendors/{id}/authorize` with the user's bearer JWT.
+2. Redirect the browser to the returned `authorize_url`.
+3. The vendor redirects to public `GET /vendors/callback?code=&state=`. The server consumes the single-use state, exchanges the code, stores encrypted tokens when a vendor/file encryption key is configured, marks the link verified, and redirects back to the app.
 
-  <Step title="Verify">
-    Prove ownership through the vendor's consent / claim flow. On success the link is marked VERIFIED.
+```bash
+curl "http://localhost:8080/vendors/fitbit/authorize" \
+  -H "Authorization: Bearer $JWT"
+```
 
-    ```bash
-    curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" \
-      -H "Authorization: Bearer $JWT"
-    ```
+Set `VENDOR_REDIRECT_URI` to the server callback URL. A vendor whose authorize or exchange operation is an explicit stub returns an error; check the [provider status](/en/providers/overview) before exposing a connect button.
 
-    A `UNIQUE(vendor_id, external_user_id)` constraint is the backstop — two users can't both claim one account.
-  </Step>
+<Warning>
+Set `VENDOR_TOKEN_ENCRYPTION_KEY` or `FILE_ENCRYPTION_KEY` before using per-user OAuth. Without one, bearer tokens are never persisted in plaintext and later fetches fall back to shared configured credentials. See [Configuration → Vendor OAuth tokens](/en/configuration#vendor-oauth-tokens).
+</Warning>
 
-  <Step title="Fetch data">
-    Once verified, pull a data domain over a time range. `Vendor::fetch` runs and returns the source's JSON.
+### Manual or configured-credential link
 
-    ```bash
-    curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-30" \
-      -H "Authorization: Bearer $JWT"
-    ```
+For non-browser integrations, create a pending link with the fixed body below, then verify it using the vendor-specific proof path:
 
-    Valid `domain` values: `activity`, `sleep`, `heart_rate`, `glucose`, `nutrition`, `body_metrics`, `labs`, `clinical` (a vendor rejects domains it doesn't broker).
-  </Step>
-</Steps>
+```bash
+curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"external_user_id":"FITBIT_USER_ID"}'
+
+curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+`bind/verify` accepts `{code, redirect_uri}` for an OAuth code exchange; an empty body asks the configured-credential verification path to prove access. It is not a universal shortcut: unsupported vendor operations fail explicitly. A `UNIQUE(vendor_id, external_user_id)` constraint prevents two local users from claiming the same vendor account.
+
+## 3 — Fetch or sync
+
+After verification, fetch one advertised domain as vendor-native JSON:
+
+```bash
+curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-30" \
+  -H "Authorization: Bearer $JWT"
+```
+
+To persist supported values, call `POST /vendors/{id}/sync` with the same query parameters. Omitting `domain` attempts every domain the vendor advertises and returns `{posted, failed}`; an unmapped vendor payload may legitimately post zero Observations.
+
+Valid domain names are `activity`, `sleep`, `heart_rate`, `glucose`, `nutrition`, `body_metrics`, `labs`, and `clinical`. A vendor rejects domains it does not broker.
 
 ## Connecting an EHR (SMART on FHIR)
 

@@ -1,9 +1,9 @@
 ---
 title: "配置"
-description: "通过 config.yml 配置 Mirobody：LLM 提供商、数据库、缓存、存储、鉴权、健康圈以及 MCP 暴露。"
+description: "通过 config.yml 配置 Mirobody：LLM 提供商、数据库、缓存、存储、鉴权、照护圈以及 MCP 暴露。"
 ---
 
-Mirobody 通过单个 **`config.yml`** 文件配置 —— 一组扁平的键，由 C++ 内核解析。把提交在仓库里的模板复制成 `config.yml` 再编辑；每个键都有可用的默认值，所以你只需设置真正要改的那些。
+Mirobody 通过单个 **`config.yml`** 文件配置 —— 一组由 C++ 内核解析的扁平键。把仓库模板复制成 `config.yml` 再编辑。模板同时记录默认值、可选集成和生产环境必填密钥；未提供凭据的集成不会启用。
 
 ```bash
 cp config.example.yml config.yml
@@ -26,11 +26,11 @@ cp config.example.yml config.yml
 
 ### 加密的密钥
 
-任何以 `gAAAA` 开头的字符串值都会被当作 Fernet token，在设置了 `CONFIG_ENCRYPTION_KEY` 时于加载时解密（`config.yml` 和远程拉取都适用）。加密由运维方自己完成：没有任何机制会改写静态的明文 —— 请用 `fernet` CLI（`cli/fernet.cpp`：`fernet genkey` / `fernet encrypt`）加密每个密钥，再把 `gAAAA…` 密文粘贴进配置。此外，**键名**包含 `_KEY`、`_PASSWORD`、`_SECRET`、`_TOKEN`（及类似）的值在配置摘要输出时会被打码。
+任何以 `gAAAA` 开头的字符串值都会被当作 Fernet token，在设置 `CONFIG_ENCRYPTION_KEY` 后于加载时解密（`config.yml` 与远程配置都适用）。加载器把 `CONFIG_ENCRYPTION_KEY` 当作原始密钥：去除首尾空白、最多取 32 字节、补齐较短的值，再派生 Fernet 密钥。加密由运维方完成，系统不会自动改写明文；若在服务器外生成密文，必须精确复现 `ConfigStore::derive_fernet_key`。此外，**键名**包含 `_KEY`、`_PASSWORD`、`_SECRET`、`_TOKEN`（及类似）的值会在配置摘要中被遮蔽。
 
 ```bash
-# 生成一个密钥
-openssl rand -hex 32
+# 生成恰好 32 个字符的原始密钥
+openssl rand -hex 16
 
 # 经环境提供（不存进 config.yml）
 export CONFIG_ENCRYPTION_KEY="<your-key>"
@@ -78,7 +78,7 @@ LOG_LEVEL: 'INFO'     # debug | info | warning | error | critical（大小写不
 GOOGLE_API_KEY: 'AIza...'    # AI Studio 密钥（也会读取为 GEMINI_API_KEY）
 ```
 
-要覆盖 HIPAA/BAA，把 Gemini 经 **Vertex AI** 而非 AI Studio 路由：
+如需让 Gemini 使用你自己的 Google Cloud 项目和区域，请改走 **Vertex AI**，而非 AI Studio：
 
 ```yaml config.yml
 GOOGLE_GENAI_USE_VERTEXAI: '1'
@@ -95,7 +95,7 @@ OPENAI_API_KEY: 'sk-...'
 # OPENAI_BASE_URL: ''        # 指向任意 OpenAI 兼容端点（OpenRouter、DeepSeek、Groq…）
 ```
 
-要覆盖 HIPAA/BAA，把 GPT 跑在你自己的 **Azure OpenAI** 资源里 —— 设置了 `AZURE_OPENAI_ENDPOINT` 时客户端会自动切到 Azure 模式：
+如需让 GPT 使用你自己的 Azure 资源和区域，请改走 **Azure OpenAI**。设置 `AZURE_OPENAI_ENDPOINT` 后，客户端会切换到 Azure 模式：
 
 ```yaml config.yml
 AZURE_OPENAI_ENDPOINT: 'https://my-resource.openai.azure.com'
@@ -206,6 +206,18 @@ MEMORY_PROVIDER: 'local'   # local（默认）| mem0 | zep | everos
 
 `local` 把事实连同 1024 维 embeddings 存进应用数据库，按进程内余弦相似度排序 —— 无需额外服务。其他后端经 HTTP 与远程记忆服务通信。
 
+## Vendor OAuth token
+
+只有存在静态加密密钥时，服务端才会存储每个用户的 vendor access/refresh token。`VENDOR_TOKEN_ENCRYPTION_KEY` 接受 44 字符 Fernet key 列表：最后一个用于加密新 token，轮换期间列表内全部 key 都可解密。未设置时会回退到 `FILE_ENCRYPTION_KEY`。
+
+```yaml config.yml
+VENDOR_TOKEN_ENCRYPTION_KEY:
+  - '<44-character Fernet key>'
+VENDOR_REDIRECT_URI: 'https://api.example.com/vendors/callback'
+```
+
+可用 `./build/fernet genkey` 生成兼容 key。若 vendor token 与文件加密 key 都未配置，OAuth callback 仍可证明所有权，但服务端不会把 bearer token 以明文写入数据库；后续拉取只能依赖共享配置凭据。因此，多用户或多实例 OAuth 部署必须配置其中一种 key。
+
 ## 鉴权
 
 ### 邮箱验证码
@@ -278,7 +290,7 @@ Mirobody 内嵌一个 OAuth 2.0 授权服务器（授权码 + PKCE），让 MCP 
   </Step>
 </Steps>
 
-## 健康圈（Care circles）
+## 照护圈（Care circles）
 
 在单用户内核之上的可选分享功能。规模由上限约束（`0` 禁用对应项）：
 
@@ -322,7 +334,7 @@ CHAT_RATE_WINDOW_SEC: 60   # 窗口长度（秒）
     - 把每一个 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位符替换成强随机值
     - 当其他服务需要校验你的令牌时，使用 RS256（`JWT_PRIVATE_KEY`）
     - 生产环境限制 CORS origin
-    - 让 PHI 留在设备本地，或把托管 LLM 调用经 BAA 覆盖的通道路由（Vertex AI / Azure OpenAI）
+    - 盘点全部出站数据流并取得工作负载所需的协议；选择 Vertex AI 或 Azure OpenAI 本身不等于已经合规
   </Accordion>
 
   <Accordion title="校验 YAML" icon="circle-check">

@@ -23,9 +23,10 @@ do feature work on `dev` and merge to `main` only when ready to publish.
 - The Open Source tab stays focused on the OSS project — no Theta Wellness /
   platform.mirobody.ai positioning there.
 - Don't document `/api/console/*` (session-JWT internal endpoints) as public API.
-- Don't promise unimplemented behavior: `retention` hour/day tiers and file
-  retention are NOT auto-expired (see a007-mirovital `docs/bugs/`); Subject
-  erasure does NOT cover stored Agent API conversations.
+- Time-bounded retention and Subject conversation erasure were implemented on
+  `a007-mirovital/test` on 2026-07-23. Keep the public wording gated on the
+  corresponding backend release; see `a007-mirovital/docs/bugs/` for the
+  implementation and rollout status.
 - Local preview: `npx mintlify dev` (port 3000). `*/index.mdx` at a language root
   collides with the default-tab URL — that's why the OSS landing page is
   `welcome.mdx`, not `index.mdx`.

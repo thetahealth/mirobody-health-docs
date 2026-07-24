@@ -22,7 +22,7 @@ Lists the capability tiers you can pass as `model` to the [Answers API](/en/api-
 | `mirobody-flash` | Default — fast, low cost | Everyday health Q&A, high concurrency |
 | `mirobody-expert` | Deeper reasoning | Complex report interpretation, multi-step analysis |
 
-Billing is metered per **actual (provider-true) token usage** — the [console's Usage page](https://platform.mirobody.ai/developer/usage) and each response's `usage.billed_tokens` are the source of truth for consumption and cost. Self-hosting the open-source engine is free software; you pay only for your own infrastructure and LLM keys.
+Hosted model usage is metered from the backing provider's token counts. Each model response includes `usage.billed_tokens`; combine those counts with the current catalog's `pricing` when estimating cost. The console Usage page currently reports request counts, not token-level cost. Self-hosting the open-source engine is free software; you pay for your own infrastructure and LLM providers.
 
 ## Per-tier metadata
 
@@ -30,9 +30,9 @@ Each entry carries a conservative capacity budget and the per-tier price:
 
 | Field | Meaning |
 | --- | --- |
-| `context_window` | Total tokens (input + output) a request may use. A **conservative lower bound** — budget against it and you're always safe. |
-| `max_output_tokens` | Upper bound on generated tokens per response. Also a conservative floor. |
-| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}` — price per **1M tokens**, applied to `usage.billed_tokens`. Numbers only; the backing provider/model id is not exposed. |
+| `context_window` | Advertised input-plus-output capacity for the tier. Treat it as a planning budget, not a promise that every request shape will fit. |
+| `max_output_tokens` | Advertised output capacity. This is catalog metadata; request fields such as `max_tokens` are not enforced by agent mode. |
+| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}` — standard price per **1M tokens** for estimating from `usage.billed_tokens`. Cache adjustments are not represented in this object. |
 
 ## Example
 
@@ -54,7 +54,7 @@ for m in client.models.list().data:
 
 ## Response
 
-An OpenAI-style `{ "object": "list", "data": [ … ] }` — each tier extends the standard model object with `context_window`, `max_output_tokens`, and `pricing`:
+An OpenAI-style `{ "object": "list", "data": [ … ] }` — each tier extends the standard model object with `context_window`, `max_output_tokens`, and `pricing`. The values below illustrate the response shape; read the live endpoint for current values:
 
 ```jsonc
 {
@@ -71,7 +71,7 @@ An OpenAI-style `{ "object": "list", "data": [ … ] }` — each tier extends th
 ```
 
 <Note>
-The values above are from the **global** cluster (`api.mirobody.ai`). The **China** cluster (`api.mirobody.cn`) exposes the same fields, but its tiers are priced differently — always read `pricing` from the cluster you call rather than hard-coding numbers.
+Capacity, backing providers, and pricing may differ by cluster and can change without changing the stable tier id. Always read `pricing` from the cluster you call rather than hard-coding the example.
 </Note>
 
 For your `model` value, always pass a stable tier — `mirobody-flash` (default) or `mirobody-expert`.

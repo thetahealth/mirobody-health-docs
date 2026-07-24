@@ -1,6 +1,6 @@
 ---
 title: "Build health agents on standardized health data"
-description: "Upload messy health data, get standardized records, and put AI to work on them — one OpenAI-compatible API."
+description: "Store source data, standardize health readings, and put AI to work on them."
 ---
 
 import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
@@ -10,10 +10,10 @@ import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
 ## The loop: upload → standardize → use with AI
 
 <Steps>
-  <Step title="Upload anything">
-    Structured readings via [`POST /v1/data`](/en/api-reference/data), lab PDFs / photos / spreadsheets via [`POST /v1/files`](/en/api-reference/files) (OCR included) — per end-user, fully isolated [Subjects](/en/api-reference/overview#multi-tenancy-the-user-field).
+  <Step title="Send the right data shape">
+    Structured readings go to [`POST /v1/data`](/en/api-reference/data). [`POST /v1/files`](/en/api-reference/files) stores lab PDFs, photos, and spreadsheets and extracts their text. Use [`POST /v1/extract`](/en/api-reference/extract) to turn a report into standardized readings.
   </Step>
-  <Step title="Standardization happens on every write">
+  <Step title="Every structured reading is standardized">
     Names resolve to **LOINC** deterministically (no LLM code-guessing), values normalize to **UCUM** units, every reading gets a **FHIR** mirror. `"血糖(空腹)"`, `"FBG"` and `"Glucose, fasting"` become one series. See [Standardization](/en/api-reference/standardization).
   </Step>
   <Step title="Put AI on top">
@@ -21,7 +21,7 @@ import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
   </Step>
 </Steps>
 
-## Three shapes of data, one door each
+## Four shapes of data, one door each
 
 <IngestMentalModel />
 
@@ -40,8 +40,8 @@ Not sure? [Choose your API](/en/api-reference/choose-your-api) in one minute.
 
 ## Why Mirobody
 
-- **Grounded, not plausible** — answers come from the Subject's real records, with `health_records` / `citations` evidence and a full server tool trace.
-- **Standardized by default** — LOINC + UCUM + FHIR on every write; your analytics and the agent read the same clean series. Dry-run any document with [`POST /v1/extract`](/en/api-reference/extract).
+- **Grounded, not plausible** — answers can include `health_records`, `citations`, and the server tool steps used to gather evidence.
+- **Standardized structured data** — LOINC + UCUM + FHIR on records written through `/v1/data` or stored by `/v1/extract`; your analytics and the agent read the same series.
 - **OpenAI-compatible twice over** — Chat Completions *and* Responses protocols; existing SDKs and agent frameworks just work.
 - **Multi-tenant by design** — one key, an isolated Subject per end-user; per-Subject [right-to-be-forgotten deletes](/en/api-reference/overview#endpoints-at-a-glance).
 - **Open at the core** — the same engine is [open source](/en/welcome); self-host it whenever you want.
@@ -49,7 +49,7 @@ Not sure? [Choose your API](/en/api-reference/choose-your-api) in one minute.
 ## Two ways to run Mirobody
 
 - **Hosted API** (this platform) — an `mb_live_*` key against our managed clusters; storage, models, and keys are run for you. Start with the [Quickstart](/en/api-reference/quickstart).
-- **Open source** — `git clone` the [Mirobody engine](/en/welcome) and stand up the full stack yourself with `deploy.sh`.
+- **Open source** — `git clone` the [Mirobody engine](/en/welcome), build it with `./build.sh`, and run it yourself.
 
 ## Start here
 

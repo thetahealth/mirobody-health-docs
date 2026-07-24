@@ -5,7 +5,7 @@ description: "了解 Mirobody C++ 引擎中的 Agent、MCP 工具与 /mcp 端点
 
 ## Agent
 
-Mirobody 运行**一个简单的 Agent** —— "Baseline"，定义在 [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/baseline.cpp)。它刻意保持极简：没有 Agent 循环，没有 planner，没有中间件。每一轮它会：
+Mirobody 运行**一个简单的 Agent** —— "Baseline"，定义在 [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/agents/baseline.cpp)。它刻意保持极简：没有 Agent 循环，没有 planner，没有中间件。每一轮它会：
 
 1. **按 provider 名称选择一个 LLM 客户端**（使用请求指定的 `provider`，否则用默认值）。
 2. **构建 system prompt** —— 一段固定的内联字符串，包含当前时间、回复语言，以及引导去获取上传文件（`list_files` / `read_file`）和健康记录（`family_health`）的说明。
@@ -57,7 +57,7 @@ GEMMA_CHAT_MODEL: 'gemma-4-e2b'
 
 ### 什么是工具？
 
-工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中的 C++ 文件**。每个文件声明一个 `Tool`（名称、描述、一个 `auth` 标志、一张小小的 `Param` 表以及一个 handler），并在编译时自注册。`CMakeLists.txt` 会把该目录下的每个 `.cpp` 都 glob 进构建（带 `CONFIGURE_DEPENDS`），因此**只需丢入一个新文件并重新构建即可** —— 无需手动注册，无需手写 JSON schema。
+工具是 **[`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/mcp_tools) 中的 C++ 文件**。每个文件声明一个 `Tool`（名称、描述、一个 `auth` 标志、一张小小的 `Param` 表以及一个 handler），并在编译时自注册。`CMakeLists.txt` 会把该目录下的每个 `.cpp` 都 glob 进构建（带 `CONFIGURE_DEPENDS`），因此**只需丢入一个新文件并重新构建即可** —— 无需手动注册，无需手写 JSON schema。
 
 <Info>
 这是**编译期**机制：工具从 `res/mcp_tools/` 编译进程序，而非从运行时目录加载。
@@ -69,7 +69,7 @@ GEMMA_CHAT_MODEL: 'gemma-4-e2b'
 |------|:----:|---------|
 | `list_files` | ✅ | 列出用户上传的文件 |
 | `read_file` | ✅ | 按 `file_key` 读取一个上传文件 |
-| `family_health` | ✅ | 读取用户或已共享护理圈成员的近期 FHIR `Observation` |
+| `family_health` | ✅ | 读取用户或已共享照护圈成员的近期 FHIR `Observation` |
 | `whoami` | ✅ | 确认认证状态，返回 session id |
 | `recall_memory` | ✅ | 检索用户最相关的长期记忆 |
 | `remember` | ✅ | 在长期记忆中存储一条事实 |
@@ -124,7 +124,7 @@ http://localhost:8080/mcp                 # authenticates via bearer JWT
 http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
 ```
 
-支持的方法包括 `tools/list` 和 `tools/call`。本地开发时，把端口打通隧道（例如 `ngrok http 8080`），远端客户端就能访问 `/mcp` —— 它们直接连公网 URL，MCP / OAuth 服务会从每个请求的 `Host` 头推导对外公布的 URL。参见 [MCP 集成](/zh/tools/mcp-integration) 连接 Claude、Cursor 和 ChatGPT。
+支持的方法包括 `tools/list` 和 `tools/call`。本地开发时，把端口打通隧道（例如 `ngrok http 8080`），远端客户端就能访问 `/mcp` —— 它们直接连公网 URL，MCP / OAuth 服务会从每个请求的 `Host` 头推导对外公布的 URL。参见 [MCP 集成](/zh/tools/mcp-integration) 连接 Claude 和 Cursor。
 
 ```bash
 curl -X POST http://localhost:8080/mcp \
@@ -134,7 +134,7 @@ curl -X POST http://localhost:8080/mcp \
 
 ## 健康数据存放在哪里
 
-像 `family_health` 这样的工具不会命中临时表 —— 它们通过**内嵌的 FHIR R4 存储**（`src/fhir/`）读取，返回 FHIR `Observation` 资源。数据在进入时会被归一化（单位转为 UCUM），而关系型后端是在**构建期**通过 CMake（`-DMIROBODY_DATABASE_BACKEND=`）选定的：SQLite（移动端默认）、PostgreSQL（桌面端默认）、MySQL、DuckDB 或 ClickHouse。SQL schema 位于 [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql)（`pg`、`sqlite`、`mysql`、`duckdb`、`clickhouse`）。完整图景见 [架构](/zh/concepts/architecture)。
+像 `family_health` 这样的工具不会命中临时表 —— 它们通过**内嵌的 FHIR R4 存储**（`src/fhir/`）读取，返回 FHIR `Observation` 资源。数据在进入时会被归一化（单位转为 UCUM），而关系型后端是在**构建期**通过 CMake（`-DMIROBODY_DATABASE_BACKEND=`）选定的：SQLite（移动端默认）、PostgreSQL（桌面端默认）、MySQL、DuckDB 或 ClickHouse。SQL schema 位于 [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/sql)（`pg`、`sqlite`、`mysql`、`duckdb`、`clickhouse`）。完整图景见 [架构](/zh/concepts/architecture)。
 
 ## 下一步
 
@@ -146,7 +146,7 @@ curl -X POST http://localhost:8080/mcp \
     编写你自己的 C++ 工具
   </Card>
   <Card title="MCP 集成" icon="bolt" href="/zh/tools/mcp-integration">
-    连接 Claude、Cursor 和 ChatGPT
+    连接 Claude 和 Cursor
   </Card>
   <Card title="添加 MCP" icon="plug" href="/zh/tools/adding-mcps">
     连接外部 MCP 服务器

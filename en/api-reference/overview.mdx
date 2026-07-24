@@ -16,18 +16,13 @@ Mirobody is **global-first**.
 
 <BaseUrl />
 
-Two clusters, one contract: the global API (`https://api.mirobody.ai/v1`) and the **China** API (`https://api.mirobody.cn/v1`). See [Regions](/en/api-reference/regions/overview).
+The global API (`https://api.mirobody.ai/v1`) is the current public production endpoint. The planned China production endpoint is not public yet. See [Regions](/en/api-reference/regions/overview).
 
 ## Authentication
 
 <AuthKey />
 
-| Surface | Scheme | How to get it |
-| --- | --- | --- |
-| `/v1/*` (the API) | `Authorization: Bearer mb_live_*` | Create a key in the [console](https://platform.mirobody.ai/developer/keys) → **API Keys**. The secret is shown **once**. |
-| `/api/console/*` (console) | Session **JWT** (login) | Email-code or WeChat login in the console. |
-
-`/v1` keys are **not** JWTs — they're long-lived API keys scoped to your account. Never ship them in client-side code.
+Console sign-in (email code or WeChat) is a separate session login for the dashboard — it is not an API credential, and `/v1` keys are not JWTs.
 
 ## OpenAI compatibility
 

@@ -28,7 +28,7 @@ with client.responses.stream(
 | `response.in_progress` | 紧随其后（对齐 OpenAI）。 |
 | `response.output_item.added` | 新 output item 开启（`reasoning` / `message` / `function_call`）—— 携带 `output_index` 与进行中的 item。 |
 | `response.reasoning_summary_part.added` / `.done` | 一个推理摘要片段开启 / 结束。 |
-| `response.reasoning_summary_text.delta` / `.done` | 推理（深度思考）文本增量，随后是全文。 |
+| `response.reasoning_summary_text.delta` / `.done` | Provider 返回的推理摘要增量，随后是完整摘要。 |
 | `response.content_part.added` / `.done` | 一个回答内容片段开启 / 结束。 |
 | `response.output_text.delta` / `.done` | 回答文本增量，随后是全文 —— **大多数客户端渲染的通道**。 |
 | `response.function_call_arguments.delta` / `.done` | 客户端工具交接的参数（见 [Function calling](/zh/api-reference/function-calling)）。 |

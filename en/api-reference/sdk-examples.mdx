@@ -19,9 +19,9 @@ curl $BASE/chat/completions \
 # 2) Write a record (retention is REQUIRED), then ask again
 curl $BASE/data \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"user":"alice","retention":"permanent","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
+  -d '{"user":"alice","retention":"permanent","records":[{"indicator":"fasting_glucose","value":97,"unit":"mg/dL","time":"2026-06-16T07:30:00Z"}]}'
 
-# 3) Upload a report (OCR/parse), then ask about it
+# 3) Upload a report. The original is stored immediately; text extraction continues in the background.
 curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=alice" -F "file=@report.pdf"
 
 # 4) Agent API (Responses)
@@ -68,7 +68,8 @@ print(r2.output_text)
 ```
 
 ```python
-# File upload uses multipart, so call the REST endpoint directly
+# File upload uses multipart, so call the REST endpoint directly.
+# status="processed" means the original was accepted, not that text extraction is finished.
 import requests
 
 up = requests.post(

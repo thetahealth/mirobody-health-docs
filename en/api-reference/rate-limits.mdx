@@ -8,7 +8,7 @@ OpenAI-compatible error envelope so the standard SDKs surface them cleanly.
 
 ## Request rate limit (per key)
 
-Each API key is limited to a number of **requests per minute** (default 60).
+Each API key has a **requests-per-minute** setting (60 by default). The same limit applies across authenticated `/v1` endpoints; it is not a separate allowance for each path.
 On overflow you get HTTP `429` with `Retry-After` plus `X-RateLimit-*` headers:
 
 ```text
@@ -28,32 +28,25 @@ The window is counted per serving replica, so the advertised per-key number is a
 floor, not an exact global ceiling. Contact [Mirobody Support](mailto:developer@thetahealth.ai)
 to raise a key's limit.
 
-## Usage quota (per account, monthly)
+## Monthly account cap
 
-Each account has a **monthly usage cap** (USD of billed model usage). When the
-current month's usage reaches the cap, `/v1` requests are refused with HTTP `429`
-`insufficient_quota` until the next month, when it resets:
+Hosted environments can enforce a **monthly account cap** in USD. When enabled
+for an account and the current month's metered usage reaches the cap, authenticated
+`/v1` requests return HTTP `429` with `insufficient_quota` until the next calendar
+month or a support adjustment:
 
 ```json
 {"error": {"message": "You have reached your $5 monthly API usage limit (billed $5.00 this month). It resets next month; contact support to raise it.",
            "type": "insufficient_quota", "code": "insufficient_quota"}}
 ```
 
-The cap covers **all keys under the account together**. Cost is metered on
-provider-true (billed) tokens at the [model tier's rate](/en/api-reference/models),
-with prompt-cache hits billed at the reduced cache rate (see `usage.billed_tokens`
-on every response). To raise or lift your cap, contact
-[Mirobody Support](mailto:developer@thetahealth.ai).
+When present, the cap covers **all keys under the account together**. The error
+message reports the configured cap and current-month metered amount. To confirm
+or change your account's cap, contact [Mirobody Support](mailto:developer@thetahealth.ai).
 
 ## Client pacing
 
-| Path | Suggested RPM | Notes |
-| --- | --- | --- |
-| `POST /v1/chat/completions` | ≤ 60 | Streaming calls count too |
-| `POST /v1/responses` | ≤ 60 | Concurrent streams are supported |
-| `POST /v1/files` | ≤ 30 | Uploads capped at **100 MB** per file; OCR is compute-heavy |
-| `POST /v1/data` | ≤ 120 | Batch records into one request (up to 500/batch) |
-| `GET` reads | ≤ 120 | — |
+Keep the combined request rate for one key below its configured RPM. Streaming calls count when the request starts. Batch structured records into one `POST /v1/data` request (up to 500 records), and avoid polling an uploaded file without delay while background text extraction is still running.
 
 ## Client backoff
 

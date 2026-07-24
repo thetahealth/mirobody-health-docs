@@ -3,7 +3,7 @@ title: "Data Lifecycle"
 description: "Retention, session cleanup, and Subject offboarding — how data leaves the platform."
 ---
 
-Data flows in ([`POST /v1/data`](/en/api-reference/data), [`POST /v1/files`](/en/api-reference/files)), gets [standardized](/en/api-reference/standardization), and grounds the agent's answers. This page closes the loop: how data **leaves** — on your terms. Three exits, from automatic to total:
+Data flows in through structured records and files. Structured readings are [standardized](/en/api-reference/standardization); uploaded files retain their original and extracted text. Both can ground the agent's answers. This page closes the loop: how data **leaves** — on your terms. Three exits, from automatic to total:
 
 1. **Retention expiry** — time-bounded writes (`1h` / `2h` / `6h` / `1d`) expire on their own; see [Data retention](/en/api-reference/overview#data-retention).
 2. **Session deletion** — one call tears down a named working scope (below).
@@ -11,7 +11,7 @@ Data flows in ([`POST /v1/data`](/en/api-reference/data), [`POST /v1/files`](/en
 
 ## Sessions
 
-A `session_id` is a **cleanup scope with a name** — one id that ties together the working data and conversation of one interaction:
+A `session_id` can identify both a working-data scope and an Agent conversation:
 
 1. **Scopes `retention=session` data** — records written via [`POST /v1/data`](/en/api-reference/data) (or [`POST /v1/extract`](/en/api-reference/extract) with `store=true`) with `retention: "session"` **must** carry a `session_id` and live until the session is deleted — deleting the session is what clears them, so don't skip it.
 2. **Binds durable conversations on the Agent API** — passing `session_id` to [`POST /v1/responses`](/en/api-reference/responses) makes the conversation durable and resumable under that id. See [State & memory](/en/api-reference/state-and-memory).
@@ -21,7 +21,11 @@ DELETE /v1/sessions/{session_id}
 Authorization: Bearer mb_live_*
 ```
 
-Ends the session and clears everything it scoped: records written with `retention=session` under this `session_id` are erased (together with their FHIR mirrors), session-tier file uploads are removed, and any chat history threaded on it disappears from the API surface.
+Ends the working-data scope: records written with `retention=session` under this `session_id` are erased (together with their FHIR mirrors), session-tier file uploads are removed, and the underlying chat session is marked closed.
+
+<Warning>
+This endpoint does **not** delete stored Responses API objects. A response created with the same `session_id` remains available through `GET /v1/responses/{id}` and can still be chained. Delete the response objects with `DELETE /v1/responses/{id}`, or use Subject offboarding to erase every stored response for that Subject.
+</Warning>
 
 ```bash
 curl -X DELETE "https://api.mirobody.ai/v1/sessions/sess_abc123?user=alice" \
@@ -36,7 +40,7 @@ Pass the same `user` you used when writing the session's data; omitting it targe
 { "status": "ok", "session_id": "sess_abc123", "deleted": 2, "subject": "alice" }
 ```
 
-`deleted` counts the purged items (session-scoped records + conversation rows); `0` simply means nothing was scoped to this session.
+`deleted` counts session-scoped records, session-scoped files, and the underlying chat-session row. It does not count stored Responses API objects. `0` means none of those resources matched.
 
 ```python
 import requests
@@ -55,7 +59,7 @@ requests.post(f"{BASE}/data", headers=H, json={
 
 # ... run agent turns with session_id="sess_abc123" ...
 
-# When the interaction ends, purge everything it scoped:
+# When the interaction ends, purge its session-scoped working data:
 requests.delete(f"{BASE}/sessions/sess_abc123", headers=H, params={"user": "alice"})
 ```
 
@@ -92,7 +96,7 @@ An erase never creates the very Subject it is erasing: resolution looks up the e
 | `deleted.files` | Files removed from the API surface. |
 | `deleted.conversations` | Stored Agent API conversations removed. |
 
-For **finer-grained** deletion, use the per-piece levers instead: `DELETE /v1/data` (records), `DELETE /v1/files/{key}` (one file), `DELETE /v1/responses/{id}` (one stored conversation), `DELETE /v1/sessions/{id}` ([one session's scope](#sessions)). See [Compliance](/en/api-reference/compliance) for the full user-rights picture.
+For **finer-grained** deletion, use the per-piece levers instead: `DELETE /v1/data` (records), `DELETE /v1/files/{key}` (one file), `DELETE /v1/responses/{id}` (one stored response), `DELETE /v1/sessions/{id}` ([session-scoped data and files](#sessions)). See [Compliance](/en/api-reference/compliance) for the full user-rights picture.
 
 ## Errors
 

@@ -1,60 +1,60 @@
 ---
-title: "合规"
-description: "独立的中国 / 美国部署；二者均按健康级隐私标准构建"
+title: "隐私与合规"
+description: "区域隔离、数据控制与安全审查资料。"
 ---
 
-Mirobody Platform 以两套独立部署运行——一套面向中国大陆，一套面向国际市场。两个集群**完全隔离**：账户、文件和健康数据**绝不跨境**。每个集群均依据其所在司法辖区的法律进行设计、运营与审计。
+Mirobody 为全球与中国区工作负载设置独立的区域环境。全球生产集群目前可用；中国区生产 API 与公开 `.cn` 端点仍在上线过程中。选择 base URL 前，请先阅读[区域](/zh/api-reference/regions/overview)。
 
-<Note>
-两个集群均按 **HIPAA 级健康隐私**标准设计。美国侧还额外接受持续的第三方审计。中国集群遵循中国的隐私与数据安全法律，并主动对齐 HIPAA 的设计原则。
-</Note>
+本页说明 API 已提供的产品控制，不构成笼统的合规认证声明。具体监管义务取决于使用场景、合同、数据流与所在区域。
 
-## 核心承诺
+## 产品控制
 
-<AccordionGroup>
-  <Accordion title="健康记录隐私由设计保障" icon="user-shield">
-    严格遵循最小必要原则。健康指标 / 文件 / 日志均限定在用户范围内；分析仅呈现必要字段；敏感字段静态加密；服务运维人员无法访问明文 PHI。
-  </Accordion>
-  <Accordion title="完整推理轨迹，为可追溯性而保留" icon="list-check">
-    当 `store` 开启时（Agent API 默认开启），完整的推理轨迹——每一次工具调用、其参数、以及返回的证据——都会随响应一并保留，让临床人员或审计方能看清一个结论是如何从该 Subject 的记录中推导出来的。这份轨迹只存在于你自己存储的对话里（`GET /v1/responses/{id}`），不会流向任何第三方；如果不想保留，按请求传 `store:false` 即可关闭。LLM 提供方的凭据由 Mirobody 管理，绝不会在任何用户可访问的 API 中暴露。
-  </Accordion>
-  <Accordion title="加密" icon="lock">
-    传输中强制使用 TLS 1.2+ 保护 HTTPS 与 WSS。静态存储采用行业标准加密。敏感字段在写入前还会额外经过一层字段级加密。
-  </Accordion>
-  <Accordion title="我们不出售你的数据" icon="ban">
-    Mirobody **绝不**出售用户健康数据，绝不将其用于广告，绝不通过第三方将其变现。
-  </Accordion>
-  <Accordion title="用户权利" icon="key">
-    通过 API 可按数据主体导出数据（[结构化数据](/zh/api-reference/data) / [文件](/zh/api-reference/files)）。`/v1` 内建自助擦除：`DELETE /v1/data`（记录）、`DELETE /v1/files/{file_key}`（文件）、`DELETE /v1/responses/{id}`（单条存储的对话）、`DELETE /v1/sessions/{id}`（会话范围数据），以及 [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) —— 一次调用擦除该 Subject 的**一切**：记录、文件、存储的 Agent API 对话与身份映射。会话范围数据（`retention: "session"`）在调用 `DELETE /v1/sessions/{id}` 时被清除；有时限的档位（`1h` / `2h` / `6h` / `1d`）会自行过期；`permanent` 数据在被显式删除前会一直保留。如需注销账户，请联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
-  </Accordion>
-</AccordionGroup>
+### Subject 隔离
 
-## 各集群框架
+每个经过认证的 `/v1` 请求都限定在 API key 所属账户内。在账户内部，`user` 字段映射到隔离的 Subject。开发者无法使用自己的 API key 读取其他账户的 Subject。
 
-<CardGroup cols={2}>
-  <Card title="🇨🇳 中国集群" icon="check">
-    **已上线** · 遵循中国法律 · 对齐 HIPAA 设计原则
-  </Card>
-  <Card title="🇺🇸 全球集群" icon="check">
-    **自第一天起即符合 HIPAA** · 持续接受第三方审计
-  </Card>
-</CardGroup>
+建议为 `user` 使用稳定且不敏感的标识符。除非你的数据策略明确要求，否则不要在该字段中放入邮箱、病历号或其他直接身份标识。
 
-### 中国集群
+### API 凭据
 
-| 法律 | 实施年份 | 官方文本 |
-| --- | --- | --- |
-| 个人信息保护法（PIPL） | 2021 | [国务院](https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm) |
-| 数据安全法 | 2021 | [国务院](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
-| 网络安全法 | 2017 | [国务院](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+API key 使用 `mb_live_*` 格式。完整密钥只在创建时返回一次；服务端保存其哈希，开发者控制台之后仅显示 key 前缀。如怀疑密钥泄露，请立即撤销。
 
-### 全球集群
+### 留存与删除
 
-| 框架 | 适用范围 | 官方文本 / 证明 |
-| --- | --- | --- |
-| HIPAA | 美国市场 | [HHS HIPAA Hub](https://www.hhs.gov/hipaa/index.html) · [Theta Vanta Trust Report](https://app.vanta.com/thetahealth/trust/hdtz5tifn8kd4ab4tx01) |
-| BAA（业务伙伴协议） | HIPAA 受监管实体 | 邮件联系 [Mirobody Support](mailto:developer@thetahealth.ai) 以发起 |
+API 为各类存储面提供显式控制：
 
-## 合规材料包
+| 范围 | 控制 |
+| --- | --- |
+| 结构化记录 | `DELETE /v1/data`；限时留存（`1h`、`2h`、`6h`、`1d`） |
+| 文件 | `DELETE /v1/files/{file_key}`；限时或会话留存 |
+| 存储响应 | `DELETE /v1/responses/{id}` |
+| 会话范围的数据与文件 | `DELETE /v1/sessions/{id}` |
+| 整个 Subject | [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) |
 
-如需合规问卷、数据处理协议（DPA）、HIPAA BAA，或 SOC 2 / Vanta 审计报告，请邮件联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
+`DELETE /v1/sessions/{id}` **不会**删除已存储的 Responses API 对象。各删除路径的准确行为见[数据生命周期](/zh/api-reference/lifecycle)与[状态与记忆](/zh/api-reference/state-and-memory)。
+
+### 可追溯输出
+
+Agent 响应可返回 `tool_steps`、`health_records` 与 `citations`，便于应用检查回答所使用的工具调用与证据。这些字段是执行轨迹，不代表会暴露模型的私有推理或所有内部操作。
+
+在 Agent API 上，`store:false` 会阻止响应对象与对话线程在请求结束后保留，也会使该轮对话不进入异步记忆固化。
+
+### 区域处理
+
+不同区域环境使用独立主机与存储。除非你的合规审查允许由此产生的数据传输，否则不要为同一 Subject 切换区域。集群可用性与数据驻留要求应在接入时确认。
+
+## 法规审查
+
+中国区部署可能适用包括以下法律在内的要求：
+
+| 法律 | 官方文本 |
+| --- | --- |
+| 《个人信息保护法》 | [全国人民代表大会](http://www.npc.gov.cn/npc/c2/c30834/202108/t20210820_313088.html) |
+| 《数据安全法》 | [国务院](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
+| 《网络安全法》 | [国务院](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+
+面向美国医疗场景时，请评估 [HIPAA](https://www.hhs.gov/hipaa/index.html) 义务，并确认是否需要业务伙伴协议（BAA）。不要仅依据 API 能力推断某项工作负载符合 HIPAA。
+
+## 安全与合规资料
+
+如需安全问卷、架构审查、数据处理条款，或确认当前是否可提供 DPA、BAA 与独立评估材料，请联系 [Mirobody Support](mailto:developer@thetahealth.ai)。在发送受监管的生产数据前，应先取得适用文件。

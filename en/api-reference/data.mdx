@@ -6,7 +6,7 @@ description: "POST /v1/data, GET /v1/data, DELETE /v1/data — write, read, and 
 import SubjectUserParam from '/snippets/subject-user-param.mdx';
 import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
 
-Write structured records straight into a Subject's store, and read them back. Every write runs through the platform's [standardization pipeline](/en/api-reference/standardization) — records come back with a LOINC code, canonical name, UCUM-normalized value/unit, and a FHIR mirror. The chat agent reads this same data with its built-in tools.
+Write structured records straight into a Subject's store, and read them back. Every write runs through the platform's [standardization pipeline](/en/api-reference/standardization): values and units are parsed, recognized indicators receive a LOINC code and canonical name, and records are mirrored into FHIR. Uncoded rows remain readable. The agent reads this same data with its built-in tools.
 
 <IngestMentalModel />
 
@@ -25,7 +25,7 @@ Content-Type:  application/json
 | `records` | array | Each record `{indicator, value, unit?, time?, end_time?, source?}`. **Max 500 records per request.** `end_time` (optional, ISO time) marks the end of an episode — sleep, workouts — whose start is `time`. `measured_at` / `start_time` are accepted as aliases for `time` — rows from POST /v1/extract (which returns `measured_at`) can be forwarded as-is. |
 | `user` | string | Subject the records belong to (tenant-isolation key). |
 | `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as an alias of `permanent`). Hour grains auto-delete after that long (hard-capped ≤ 24h). Omitting it — or sending any value outside the enum — returns `400` (`code: invalid_retention`). |
-| `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) can purge them. |
+| `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Use a globally unique, opaque id (for example a UUID; never reuse it across Subjects). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) can purge them. |
 
 ```bash
 curl https://api.mirobody.ai/v1/data \
@@ -35,8 +35,8 @@ curl https://api.mirobody.ai/v1/data \
         "user": "alice",
         "retention": "permanent",
         "records": [
-          {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
-          {"indicator": "fasting_glucose", "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+          {"indicator": "fasting_glucose", "value": 97, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z"},
+          {"indicator": "fasting_glucose", "value": 92, "unit": "mg/dL", "time": "2026-06-17T07:25:00Z"}
         ]
       }'
 ```
@@ -48,8 +48,12 @@ Response — `standardized` counts the records that resolved to a LOINC code on 
 ```
 
 <Note>
-**Every write is standardized, not just stored.** Each record's value/unit is UCUM-parsed and its indicator name resolved to LOINC deterministically (curated corpus + embedding — no LLM guessing). See [Standardization](/en/api-reference/standardization). To preview that pipeline without writing anything, use [`POST /v1/extract`](/en/api-reference/extract) with `store=false`.
+**Every write runs standardization, not just storage.** Each value/unit is UCUM-parsed and the indicator name is matched to LOINC deterministically (curated corpus + embedding — no LLM guessing). A low-confidence match stays uncoded. See [Standardization](/en/api-reference/standardization). To preview that pipeline without writing anything, use [`POST /v1/extract`](/en/api-reference/extract) with `store=false`.
 </Note>
+
+<Warning>
+Writes are not idempotent. A retry can create duplicate readings, so check the outcome before retrying a timed-out request and keep your own ingestion ledger.
+</Warning>
 
 ### Episodes (sleep, workouts)
 
@@ -86,7 +90,7 @@ Authorization: Bearer mb_live_*
 | `limit` | `1`–`1000` (default `100`). |
 | `offset` | Skip N records for paging (ordering is stable: newest first). `has_more: true` → request the next page with `offset += limit`. |
 
-The response is an OpenAI-style list, newest first. `value` is the **human-readable string** (e.g. `"5.4 mmol/L"`); the machine-readable fields ride alongside:
+The response is an OpenAI-style list, newest first. `value` is the **human-readable string** (e.g. `"97 mg/dL"`); the machine-readable fields ride alongside:
 
 ```json
 {
@@ -95,9 +99,9 @@ The response is an OpenAI-style list, newest first. `value` is the **human-reada
     {
       "id": 1287,
       "indicator": "fasting_glucose",
-      "value": "5.4 mmol/L",
-      "parsed_value": "5.4",
-      "parsed_unit": "mmol/L",
+      "value": "97 mg/dL",
+      "parsed_value": "97",
+      "parsed_unit": "mg/dL",
       "loinc_code": "1558-6",
       "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
       "fhir_resource_id": "8f3c9a1e-...",
@@ -133,7 +137,7 @@ DELETE /v1/data?user=alice&indicator=fasting_glucose
 Authorization: Bearer mb_live_*
 ```
 
-**Hard-deletes** the Subject's records — right-to-be-forgotten semantics (rows physically removed, not flagged). Three scopes, from narrowest to widest:
+**Permanently erases** the Subject's records — right-to-be-forgotten semantics (the data is removed, not merely hidden from reads). Three scopes, from narrowest to widest:
 
 | Query | Scope |
 | --- | --- |

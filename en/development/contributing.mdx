@@ -50,13 +50,13 @@ Mirobody builds against **system-installed** libraries on Linux / WSL / macOS; *
   <Step title="Build">
     ```bash
     ./build.sh            # host arch, PostgreSQL backend, into ./build
-    ./mirobody            # run it (reads ./config.yml)
+    ./build/mirobody      # run it (reads ./config.yml)
     ```
 
     `build.sh` takes an arch and/or backend selector in any order, plus `clean`:
     ```bash
-    ./build.sh sqlite         # SQLite backend -> ./build_sqlite
-    ./build.sh arm64 mysql    # cross combo, its own build dir
+    ./build.sh sqlite         # SQLite backend -> ./build-sqlite
+    ./build.sh mysql          # MySQL backend -> ./build-mysql
     ./build.sh clean          # wipe the build dir and reconfigure
     ```
 

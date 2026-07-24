@@ -5,7 +5,7 @@ description: "How Mirobody's C++ test suite is structured and how to run it."
 
 ## Overview
 
-Mirobody's tests are **C++ unit tests written with [Catch2 v3](https://github.com/catchorg/Catch2)**, living under [`tests/`](https://github.com/thetahealth/mirobody/tree/main/tests) and compiled into a single `mirobody_tests` binary. They are built by default and discovered by CTest.
+Mirobody's tests are **C++ unit tests written with [Catch2 v3](https://github.com/catchorg/Catch2)**, living under [`tests/`](https://github.com/thetahealth/mirobody/tree/main-v2/tests) and compiled into a single `mirobody_tests` binary. They are built by default and discovered by CTest.
 
 <Info>
 The tests are a **C++ Catch2 suite** — the `*_test.cpp` files under `tests/`.
@@ -29,7 +29,7 @@ Or run the test binary directly and use Catch2's filtering:
 ```
 
 <Note>
-On Windows the binary is `build\tests\mirobody_tests.exe`. The build dir name follows your backend selector (e.g. `build_sqlite/tests/mirobody_tests`).
+On Windows the binary is `build\tests\mirobody_tests.exe`. The build dir name follows your backend selector (e.g. `build-sqlite\tests\mirobody_tests.exe`).
 </Note>
 
 ## Test layout
@@ -49,7 +49,7 @@ The test target links the self-registering objects (`mcp_tools`, `mcp_resources`
 
 ## Writing a test
 
-Add a `*_test.cpp` under the matching `tests/<module>/` directory, then list it in [`tests/CMakeLists.txt`](https://github.com/thetahealth/mirobody/blob/main/tests/CMakeLists.txt) in the `add_executable(mirobody_tests ...)` sources.
+Add a `*_test.cpp` under the matching `tests/<module>/` directory, then list it in [`tests/CMakeLists.txt`](https://github.com/thetahealth/mirobody/blob/main-v2/tests/CMakeLists.txt) in the `add_executable(mirobody_tests ...)` sources.
 
 ```cpp
 #include <catch2/catch_test_macros.hpp>
@@ -78,7 +78,7 @@ Tag tests with `[module]` so they can be selected (`mirobody_tests "[units]"`).
 
 ## Continuous integration
 
-CI runs the build and tests on push. The pipeline is defined in the repository's CI config (`.gitlab-ci.yml`). *(verify the exact jobs in the repo.)*
+CI runs the build and tests on push. The pipeline is defined in the repository's CI config (`.gitlab-ci.yml`).
 
 ## Next steps
 

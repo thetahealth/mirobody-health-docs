@@ -1,60 +1,60 @@
 ---
-title: "Compliance"
-description: "Independent CN / US deployments; both built to health-grade privacy standards"
+title: "Privacy & Compliance"
+description: "Regional isolation, data controls, and security-review resources."
 ---
 
-Mirobody Platform runs as two independent deployments — one for mainland China and one for international markets. The two clusters are **fully isolated**: accounts, files, and health data **never cross the border**. Each cluster is designed, operated, and audited under the laws of its jurisdiction.
+Mirobody operates separate regional environments for global and China workloads. The global production cluster is available today; the China production API and public `.cn` endpoints are still being brought online. See [Regions](/en/api-reference/regions/overview) before choosing a base URL.
 
-<Note>
-Both clusters are designed to **HIPAA-grade health-privacy** standards. The US side is additionally subject to continuous third-party audit. The China cluster complies with the PRC's privacy and data-security laws and voluntarily aligns with HIPAA design principles.
-</Note>
+This page describes product controls exposed by the API. It is not a blanket certification statement. Regulatory obligations depend on your use case, contract, data flows, and region.
 
-## Core commitments
+## Product controls
 
-<AccordionGroup>
-  <Accordion title="Health-record privacy by design" icon="user-shield">
-    Strict minimum-necessary principle. Health indicators / files / journals are user-scoped; analytics surface only the necessary fields; sensitive fields are encrypted at rest; service operators do not have access to plaintext PHI.
-  </Accordion>
-  <Accordion title="Full reasoning trace, kept for traceability" icon="list-check">
-    When `store` is on (the default on the Agent API), the complete reasoning trace — every tool call, its arguments, and the evidence it returned — is retained alongside the response, so a clinician or auditor can see exactly how an answer was derived from the Subject's records. That trace lives in your own stored conversation (`GET /v1/responses/{id}`), never with a third party; turn it off per-request with `store:false` if you don't want it kept. LLM provider credentials are managed by Mirobody and never exposed in any user-accessible API.
-  </Accordion>
-  <Accordion title="Encryption" icon="lock">
-    TLS 1.2+ enforced for HTTPS and WSS in transit. Industry-standard encryption at rest. Sensitive fields receive an additional layer of field-level encryption before write.
-  </Accordion>
-  <Accordion title="We do not sell your data" icon="ban">
-    Mirobody **never** sells user health data, never uses it for advertising, never monetizes it via third parties.
-  </Accordion>
-  <Accordion title="User rights" icon="key">
-    Per-Subject data export via the API ([structured data](/en/api-reference/data) / [files](/en/api-reference/files)). Self-service erasure is built into `/v1`: `DELETE /v1/data` (records), `DELETE /v1/files/{file_key}` (files), `DELETE /v1/responses/{id}` (a specific stored conversation), `DELETE /v1/sessions/{id}` (session-scoped data), and [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) — which erases **everything** for one Subject in a single call: records, files, stored Agent API conversations, and the identity mapping. Session-scoped data (`retention: "session"`) is cleared when you call `DELETE /v1/sessions/{id}`; time-bounded tiers (`1h` / `2h` / `6h` / `1d`) auto-expire on their own; `permanent` data is held until explicitly deleted. For account deletion, contact [Mirobody Support](mailto:developer@thetahealth.ai).
-  </Accordion>
-</AccordionGroup>
+### Subject isolation
 
-## Per-cluster framework
+Every authenticated `/v1` request is scoped to the API-key owner. Within that account, the `user` field resolves to an isolated Subject. A developer cannot use an API key to read another account's Subjects.
 
-<CardGroup cols={2}>
-  <Card title="🇨🇳 China Cluster" icon="check">
-    **Live** · PRC law compliant · Aligned with HIPAA design principles
-  </Card>
-  <Card title="🇺🇸 Global Cluster" icon="check">
-    **HIPAA-compliant since day one** · Continuously third-party audited
-  </Card>
-</CardGroup>
+Use a stable, non-sensitive identifier for `user`; do not put an email address, medical record number, or other direct identifier in the field unless your data policy requires it.
 
-### China cluster
+### API credentials
 
-| Law | Adopted | Official text |
-| --- | --- | --- |
-| Personal Information Protection Law (PIPL) | 2021 | [State Council](https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm) |
-| Data Security Law | 2021 | [State Council](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
-| Cybersecurity Law | 2017 | [State Council](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+API keys use the `mb_live_*` format. The full secret is returned only when the key is created; the service stores a hash, and the developer console subsequently shows only the key prefix. Revoke a key immediately if it may have been exposed.
 
-### Global cluster
+### Retention and deletion
 
-| Framework | Scope | Official text / Attestation |
-| --- | --- | --- |
-| HIPAA | US market | [HHS HIPAA Hub](https://www.hhs.gov/hipaa/index.html) · [Theta Vanta Trust Report](https://app.vanta.com/thetahealth/trust/hdtz5tifn8kd4ab4tx01) |
-| BAA (Business Associate Agreement) | HIPAA covered entities | Email [Mirobody Support](mailto:developer@thetahealth.ai) to initiate |
+The API exposes explicit controls for each storage surface:
 
-## Compliance package
+| Scope | Control |
+| --- | --- |
+| Structured records | `DELETE /v1/data`; timed retention (`1h`, `2h`, `6h`, `1d`) |
+| Files | `DELETE /v1/files/{file_key}`; timed or session retention |
+| Stored responses | `DELETE /v1/responses/{id}` |
+| Session-scoped data and files | `DELETE /v1/sessions/{id}` |
+| Entire Subject | [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) |
 
-For the compliance questionnaire, Data Processing Agreement (DPA), HIPAA BAA, or SOC 2 / Vanta audit report, email [Mirobody Support](mailto:developer@thetahealth.ai).
+`DELETE /v1/sessions/{id}` does **not** delete stored Responses API objects. For the exact behavior of every deletion path, see [Data Lifecycle](/en/api-reference/lifecycle) and [State & Memory](/en/api-reference/state-and-memory).
+
+### Traceable outputs
+
+Agent responses can include `tool_steps`, `health_records`, and `citations` so applications can inspect the tool calls and evidence returned for an answer. These fields are an execution trace, not a guarantee that private model reasoning or every internal operation is exposed.
+
+On the Agent API, `store:false` prevents the response object and conversation thread from being retained after the request. It also excludes that turn from asynchronous memory consolidation.
+
+### Regional processing
+
+The regional environments use separate hosts and storage. Do not switch regions for the same Subject unless your own compliance review permits the resulting data transfer. Cluster availability and data-residency requirements should be confirmed during onboarding.
+
+## Regulatory review
+
+China deployments may be subject to the following laws, among others:
+
+| Law | Official text |
+| --- | --- |
+| Personal Information Protection Law (PIPL) | [National People's Congress](http://www.npc.gov.cn/npc/c2/c30834/202108/t20210820_313088.html) |
+| Data Security Law | [State Council](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
+| Cybersecurity Law | [State Council](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+
+For US healthcare workloads, review your obligations under [HIPAA](https://www.hhs.gov/hipaa/index.html) and confirm whether a Business Associate Agreement is required. Do not infer HIPAA eligibility from the API alone.
+
+## Security and compliance package
+
+For a security questionnaire, architecture review, data-processing terms, or the current availability of a DPA, BAA, or independent assessment, contact [Mirobody Support](mailto:developer@thetahealth.ai). Obtain the applicable documents before sending regulated production data.

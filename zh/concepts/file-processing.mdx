@@ -5,7 +5,7 @@ description: "Mirobody 如何把上传的文档转成 LLM 可消费的片段：P
 
 ## 概览
 
-Mirobody 能摄取健康文档 —— 检验报告、电子表格、扫描记录 —— 并把它们转成一次聊天回合可以携带的内容。这项工作由 `src/transcode/` 中的**文档转码器**（[`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`）完成，它是图像转码器在文档侧的对应物。其策略是**文本优先，图像（及 OCR）兜底**。
+Mirobody 能摄取健康文档 —— 检验报告、电子表格、扫描记录 —— 并把它们转成一次聊天回合可以携带的内容。这项工作由 `src/transcode/` 中的**文档转码器**（[`document.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/transcode/document.hpp) / `document.cpp`）完成，它是图像转码器在文档侧的对应物。其策略是**文本优先，图像（及 OCR）兜底**。
 
 <Info>
 转码器把文档拆解为文本与图像片段；具备视觉能力的 LLM 在对话轮次中读取它们。
@@ -25,7 +25,7 @@ Mirobody 能摄取健康文档 —— 检验报告、电子表格、扫描记录
 当某开关关闭时，输入仍会被嗅探，但 `process()` 会抛出 `DocumentError("... not built")` —— 不会有任何内容被悄悄错误处理。
 
 <Note>
-单独上传的图像由姊妹**图像转码器**（`src/transcode/image.hpp`）处理，它会把图像适配到目标视觉模型的输入上限。旧文档中的音频与基因文件处理**不属于**这个 C++ 转码器。*(verify)*
+单独上传的图像由姊妹**图像转码器**（`src/transcode/image.hpp`）处理，它会把图像适配到目标视觉模型的输入上限。旧文档中的音频与基因文件处理**不属于**这个 C++ 转码器。
 </Note>
 
 ## 流水线
@@ -76,7 +76,7 @@ Mirobody 能摄取健康文档 —— 检验报告、电子表格、扫描记录
 </Warning>
 
 <Note>
-把提取出的检验值作为带编码的 `Observation` 写回 FHIR 存储（文档 → 指标 → FHIR 流水线）尚在**进行中**：UCUM 单位归一化与 RESTful FHIR 存储已上线；术语解析（SNOMED CT / LOINC / RxNorm）与自动写回尚在计划中。*(verify against `src/fhir/README.md`.)*
+把提取出的检验值作为带编码的 `Observation` 写回 FHIR 存储（文档 → 指标 → FHIR 流水线）尚在**进行中**：UCUM 单位归一化与 RESTful FHIR 存储已上线；术语解析（SNOMED CT / LOINC / RxNorm）仍在落地，自动写回尚在计划中。
 </Note>
 
 ## 测试

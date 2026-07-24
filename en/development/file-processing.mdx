@@ -5,10 +5,10 @@ description: "The C++ document transcoder: formats, build gates, the Options/Par
 
 ## Overview
 
-Document ingestion is handled by the **document transcoder** in `src/transcode/` — [`document.hpp`](https://github.com/thetahealth/mirobody/blob/main/src/transcode/document.hpp) / `document.cpp`. It decomposes an uploaded PDF or spreadsheet into an ordered list of **LLM-consumable parts** (text and/or images), strategy **"text first, image (and OCR) fallback."** For the conceptual walkthrough see [File Processing](/en/concepts/file-processing).
+Document ingestion is handled by the **document transcoder** in `src/transcode/` — [`document.hpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/transcode/document.hpp) / `document.cpp`. It decomposes an uploaded PDF or spreadsheet into an ordered list of **LLM-consumable parts** (text and/or images), strategy **"text first, image (and OCR) fallback."** For the conceptual walkthrough see [File Processing](/en/concepts/file-processing).
 
 <Info>
-The document transcoder decomposes an uploaded document into text and image parts that a vision-capable LLM reads during the chat turn. *(verify upload wiring against the current HTTP layer.)*
+The document transcoder decomposes an uploaded document into text and image parts that a vision-capable LLM reads during the chat turn.
 </Info>
 
 ## Supported formats & build gates
@@ -102,7 +102,7 @@ Image parts (rasterized scanned pages) are written next to `<out>`; text parts l
 
 ## Units
 
-Values pulled from documents can be normalized to UCUM with the units engine (`src/fhir/units/`) — see [Data Mapping](/en/development/data-mapping#2-unit-normalization-ucum).
+Values pulled from documents can be normalized to UCUM with the units engine (`src/fhir/units/`) — see [Data Mapping](/en/development/data-mapping).
 
 ## Tests
 
@@ -113,7 +113,7 @@ Values pulled from documents can be normalized to UCUM with the units engine (`s
 ```
 
 <Note>
-Writing extracted values back to the FHIR store as coded `Observation`s (the document → indicator → FHIR pipeline) is **in progress** — the transcoder and UCUM normalization ship; terminology mapping and write-back are planned (`src/fhir/README.md` phases 3–4). *(verify)*
+Writing extracted values back to the FHIR store as coded `Observation`s (the document → indicator → FHIR pipeline) is **in progress** — the transcoder and UCUM normalization ship; terminology mapping and write-back are planned (`src/fhir/README.md` phases 3–4).
 </Note>
 
 ## Next steps

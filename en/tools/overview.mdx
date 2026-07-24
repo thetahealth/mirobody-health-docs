@@ -5,7 +5,7 @@ description: "Understanding the agent, MCP tools, and the /mcp endpoint in the M
 
 ## The agent
 
-Mirobody runs **one simple agent** — "Baseline", defined in [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/agents/baseline.cpp). It is deliberately minimal: there is no agent loop, no planner, no middleware. For each turn it:
+Mirobody runs **one simple agent** — "Baseline", defined in [`res/agents/baseline.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/agents/baseline.cpp). It is deliberately minimal: there is no agent loop, no planner, no middleware. For each turn it:
 
 1. **Picks an LLM client by provider name** (the requested `provider`, else the default).
 2. **Builds a system prompt** — a fixed inline string with the current time, the response language, and guidance to fetch uploads (`list_files` / `read_file`) and health records (`family_health`).
@@ -57,7 +57,7 @@ Personal-health questions almost always resolve to: *read the user's records →
 
 ### What tools are
 
-Tools are **C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools)**. Each declares a `Tool` (name, description, an `auth` flag, a small `Param` table, and a handler) and self-registers at compile time. `CMakeLists.txt` globs every `.cpp` in that directory (with `CONFIGURE_DEPENDS`) into the build, so **dropping a new file and rebuilding is all it takes** — no manual registration, no hand-written JSON schema.
+Tools are **C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/mcp_tools)**. Each declares a `Tool` (name, description, an `auth` flag, a small `Param` table, and a handler) and self-registers at compile time. `CMakeLists.txt` globs every `.cpp` in that directory (with `CONFIGURE_DEPENDS`) into the build, so **dropping a new file and rebuilding is all it takes** — no manual registration, no hand-written JSON schema.
 
 <Info>
 This is a **compile-time** mechanism: tools are compiled in from `res/mcp_tools/`, not loaded from a runtime directory.
@@ -124,7 +124,7 @@ http://localhost:8080/mcp                 # authenticates via bearer JWT
 http://localhost:8080/mcp/{secret}        # personal-MCP secret resolving to a user
 ```
 
-Supported methods include `tools/list` and `tools/call`. For local development, tunnel the port (e.g. `ngrok http 8080`) so remote clients can reach `/mcp` — they connect to the public URL directly, and the MCP / OAuth services derive their advertised URLs from each request's `Host` header. See [MCP Integration](/en/tools/mcp-integration) to connect Claude, Cursor, and ChatGPT.
+Supported methods include `tools/list` and `tools/call`. For local development, tunnel the port (e.g. `ngrok http 8080`) so remote clients can reach `/mcp` — they connect to the public URL directly, and the MCP / OAuth services derive their advertised URLs from each request's `Host` header. See [MCP Integration](/en/tools/mcp-integration) to connect Claude and Cursor.
 
 ```bash
 curl -X POST http://localhost:8080/mcp \
@@ -134,7 +134,7 @@ curl -X POST http://localhost:8080/mcp \
 
 ## Where health data lives
 
-Tools like `family_health` don't hit ad-hoc tables — they read through the **embedded FHIR R4 store** (`src/fhir/`), returning FHIR `Observation` resources. Data is normalized on the way in (units to UCUM), and the relational backend is chosen at **build time** via CMake (`-DMIROBODY_DATABASE_BACKEND=`): SQLite (mobile default), PostgreSQL (desktop default), MySQL, DuckDB, or ClickHouse. The SQL schemas live in [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main/res/sql) (`pg`, `sqlite`, `mysql`, `duckdb`, `clickhouse`). See [Architecture](/en/concepts/architecture) for the full picture.
+Tools like `family_health` don't hit ad-hoc tables — they read through the **embedded FHIR R4 store** (`src/fhir/`), returning FHIR `Observation` resources. Data is normalized on the way in (units to UCUM), and the relational backend is chosen at **build time** via CMake (`-DMIROBODY_DATABASE_BACKEND=`): SQLite (mobile default), PostgreSQL (desktop default), MySQL, DuckDB, or ClickHouse. The SQL schemas live in [`res/sql/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/sql) (`pg`, `sqlite`, `mysql`, `duckdb`, `clickhouse`). See [Architecture](/en/concepts/architecture) for the full picture.
 
 ## Next Steps
 
@@ -146,7 +146,7 @@ Tools like `family_health` don't hit ad-hoc tables — they read through the **e
     Write your own C++ tool
   </Card>
   <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
-    Connect Claude, Cursor, and ChatGPT
+    Connect Claude and Cursor
   </Card>
   <Card title="Adding MCPs" icon="plug" href="/en/tools/adding-mcps">
     Connect external MCP servers

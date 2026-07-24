@@ -22,7 +22,7 @@ GET /v1/models
 | `mirobody-flash` | 默认 —— 快速、低成本 | 日常健康问答、高并发 |
 | `mirobody-expert` | 更深入的推理 | 复杂报告解读、多步分析 |
 
-计费按**实际（provider-true）token 用量**计量 —— [控制台的用量页](https://platform.mirobody.ai/developer/usage)与每次响应的 `usage.billed_tokens` 是消耗与费用的权威来源。自托管开源引擎是免费软件；你只需为自己的基础设施和 LLM 密钥付费。
+托管模型用量按底层提供方返回的 token 数计量。每次模型响应都包含 `usage.billed_tokens`；估算费用时，应将其与当前模型目录中的 `pricing` 结合使用。控制台的用量页目前展示请求数，不提供 token 级费用。自托管开源引擎是免费软件；你需要承担自己的基础设施与 LLM 提供方费用。
 
 ## 每档元数据
 
@@ -30,9 +30,9 @@ GET /v1/models
 
 | 字段 | 含义 |
 | --- | --- |
-| `context_window` | 一次请求可用的总 token 数（输入 + 输出）。是**保守下限** —— 按它预算永远安全。 |
-| `max_output_tokens` | 单次响应生成 token 的上界。同样是保守下限。 |
-| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}` —— 每 **1M tokens** 的单价，作用于 `usage.billed_tokens`。只暴露数字；背后的 provider/model id 不暴露。 |
+| `context_window` | 该能力档公布的输入与输出总容量。它用于容量规划，不保证任意请求形态都能占满。 |
+| `max_output_tokens` | 公布的输出容量。它是模型目录元数据；agent 模式不会强制执行 `max_tokens` 等请求字段。 |
+| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}` —— 用于结合 `usage.billed_tokens` 估算的每 **1M tokens** 标准单价；该对象不体现缓存调整。 |
 
 ## 示例
 
@@ -54,7 +54,7 @@ for m in client.models.list().data:
 
 ## 响应
 
-一个 OpenAI 风格的 `{ "object": "list", "data": [ … ] }` —— 每个档位在标准 model 对象上扩展 `context_window`、`max_output_tokens` 与 `pricing`：
+一个 OpenAI 风格的 `{ "object": "list", "data": [ … ] }` —— 每个档位在标准 model 对象上扩展 `context_window`、`max_output_tokens` 与 `pricing`。以下数值用于展示响应形状；当前值应以实时端点为准：
 
 ```jsonc
 {
@@ -71,7 +71,7 @@ for m in client.models.list().data:
 ```
 
 <Note>
-以上取值来自**全球**集群（`api.mirobody.ai`）。**中国**集群（`api.mirobody.cn`）暴露相同字段，但其档位定价不同 —— 请始终从你调用的集群读取 `pricing`，不要写死数字。
+容量、底层提供方与定价可能因集群而异，也可能在稳定能力档 id 不变的情况下调整。请始终从实际调用的集群读取 `pricing`，不要写死示例数值。
 </Note>
 
 你的 `model` 取值请始终传入稳定的能力档 —— `mirobody-flash`（默认）或 `mirobody-expert`。

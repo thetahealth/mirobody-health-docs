@@ -34,7 +34,7 @@ std::string authorize_url(const std::string& redirect_uri, const std::string& st
 ```
 
 - `state` 是你的关联 / CSRF 值，会在回调时原样回传。
-- **token 交换与刷新在客户端内实现**：`exchange_code(code, redirect_uri)` 与 `refresh(refresh_token)` 通过共享辅助函数 `oauth2_token_request(...)`（[`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.cpp)）POST 到该 vendor 的 token 端点 —— 它发送符合 RFC 6749 的表单编码请求（client 凭据放请求体或走 HTTP Basic），并把 `{access_token, refresh_token?, expires_in?}` JSON 解析成 `TokenSet`。Fitbit、Dexcom、Oura、Whoop、Polar 都经它实现；Withings 使用自己的 `{status, body}` 信封、自行实现这一对操作。**Polar 的 `refresh` 是诚实的桩** —— 其 access token 永不过期，没有 refresh 授权。最终得到的 access token 就是 `fetch` 时作为 `config.api_key`（`<ID>_API_KEY`）携带的那个。
+- **token 交换与刷新在客户端内实现**：`exchange_code(code, redirect_uri)` 与 `refresh(refresh_token)` 通过共享辅助函数 `oauth2_token_request(...)`（[`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/oauth2.cpp)）POST 到该 vendor 的 token 端点 —— 它发送符合 RFC 6749 的表单编码请求（client 凭据放请求体或走 HTTP Basic），并把 `{access_token, refresh_token?, expires_in?}` JSON 解析成 `TokenSet`。Fitbit、Dexcom、Oura、Whoop、Polar 都经它实现；Withings 使用自己的 `{status, body}` 信封、自行实现这一对操作。**Polar 的 `refresh` 是诚实的桩** —— 其 access token 永不过期，没有 refresh 授权。最终得到的 access token 就是 `fetch` 时作为 `config.api_key`（`<ID>_API_KEY`）携带的那个。
 
 ## 撤销
 

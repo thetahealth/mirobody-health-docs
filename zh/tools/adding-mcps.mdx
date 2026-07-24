@@ -1,62 +1,27 @@
 ---
 title: "添加自定义 MCP"
-description: "MCP 在 Mirobody 中如何工作 —— 引擎作为 MCP 服务器，以及连接外部 MCP 服务器"
+description: "MCP 在 Mirobody 中如何工作 —— 引擎作为 MCP 服务器。"
 ---
 
 ## 概览
 
 Model Context Protocol（MCP）是一个开放标准，让 AI 应用得以连接工具和数据源。了解更多请访问 <a href="https://modelcontextprotocol.io">modelcontextprotocol.io</a>。
 
-Mirobody 的主要角色是**一个 MCP 服务器**：它通过 [`/mcp` 端点](/zh/tools/mcp-integration) 暴露其 [内置工具](/zh/tools/built-in)，而外部客户端 —— Claude Desktop、Cursor、ChatGPT 或任何 MCP 客户端 —— 连接*到*它。
+Mirobody 的角色是**一个 MCP 服务器**：它通过 [`/mcp` 端点](/zh/tools/mcp-integration) 暴露其 [内置工具](/zh/tools/built-in)，而外部客户端 —— Claude Desktop、Cursor 或任何 MCP 客户端 —— 连接*到*它。
 
 <Card title="将客户端连接到 Mirobody" icon="plug" href="/zh/tools/mcp-integration">
   把 Claude、Cursor 或自定义客户端指向 `/mcp` 端点。
 </Card>
 
-要扩展 Mirobody 自身 Agent 的能力，请用 C++ 添加一个**内置工具** —— 参见 [添加自定义工具](/zh/tools/adding-tools)。
-
 ## 连接外部 MCP 服务器
 
-<Warning>
-**在当前 C++ 引擎（Mirobody）中未经验证。** 下面的截图描述的是通过 Web 界面添加一个*第三方* MCP 服务器，使其工具对 Agent 可用。撰写本文时，这项对外连接能力**无法**在开源引擎中得到确认 —— 已确认的 MCP 面是 Mirobody 作为 MCP *服务器*（`/mcp` 端点）供客户端连接。请把本节视为 *(verify)*，在依赖它之前先检查运行中的构建的 Web 界面。
-</Warning>
-
-如果你的构建的 Web 界面提供 MCP 管理，流程如下：
-
-<Steps>
-  <Step title="打开 MCP 管理视图">
-    在 Mirobody Web 界面中，进入用于管理 MCP 连接的页面。
-  </Step>
-
-  <Step title="添加一个 MCP 服务器">
-    开始添加一个新的 MCP 服务器。
-
-    <Frame>
-      <img src="/images/add-mcp.png" alt="Add MCP button in the web interface" />
-    </Frame>
-  </Step>
-
-  <Step title="配置服务器">
-    提供服务器详情：
-    - **Name**：此 MCP 服务器的友好名称
-    - **MCP Server URL**：该 MCP 服务器可访问的 HTTP URL（例如 `https://your-domain.com/mcp`）
-    - **Token**（可选）：如果该服务器需要，则填写认证 token
-
-    <Frame>
-      <img src="/images/add-mcp-detail.png" alt="MCP configuration form with server details" />
-    </Frame>
-  </Step>
-
-  <Step title="保存">
-    保存配置以注册该服务器的工具。
-  </Step>
-</Steps>
+引擎不包含对外的 MCP 客户端 —— 没有注册*第三方* MCP 服务器、让其工具进入 Agent 工具集的途径。要扩展 Mirobody 自身 Agent 的能力，请改用 C++ 添加一个**内置工具**。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="MCP 集成" icon="bolt" href="/zh/tools/mcp-integration">
-    将 Claude、Cursor 和 ChatGPT 连接到 `/mcp` 端点
+    将 Claude Desktop 或 Cursor 连接到 `/mcp` 端点
   </Card>
   <Card title="添加自定义工具" icon="plus" href="/zh/tools/adding-tools">
     用一个 C++ 工具扩展 Agent

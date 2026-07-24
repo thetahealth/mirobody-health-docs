@@ -3,18 +3,18 @@ title: "MCP Servers"
 description: "把你自己的远程 MCP 工具带进智能体轮次 —— Agent API 上的 OpenAI 原生 tools 条目。"
 ---
 
-智能体内置了针对 Subject 健康数据的工具(见 [Function calling → 内置服务端工具](/zh/api-reference/function-calling#内置服务端工具))。远程 MCP 接入让你用**自己的 MCP server** 扩展它:平台负责连接、列出你服务器上的工具,并让智能体在一轮中与内置工具并肩调用它们。
+智能体内置了针对 Subject 健康数据的工具（见 [Function calling → 内置服务端工具](/zh/api-reference/function-calling#内置服务端工具)）。远程 MCP 接入让你用**自己的 MCP server** 扩展它：平台负责连接、列出你服务器上的工具，并让智能体在一轮中与内置工具并肩调用它们。
 
 <Note>
-这**不是**"Mirobody 作为 MCP server"。方向相反:你把外部 MCP 工具带进智能体的推理过程。调用由平台**服务端执行**——与[客户端 function 工具](/zh/api-reference/function-calling)不同,没有交还给你的 handoff。
+这**不是**"Mirobody 作为 MCP server"。方向相反：你把外部 MCP 工具带进智能体的推理过程。调用由平台**服务端执行** —— 与[客户端 function 工具](/zh/api-reference/function-calling)不同，没有交还给你的 handoff。
 </Note>
 
 ## 接入一个 server
 
-在 **Agent API** 上,用 OpenAI 原生的 Responses `tools` 条目:
+在 **Agent API** 上，用 OpenAI 原生的 Responses `tools` 条目：
 
 ```bash
-curl https://api.mirobody.cn/v1/responses \
+curl https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -35,30 +35,30 @@ curl https://api.mirobody.cn/v1/responses \
 
 | 字段 | 说明 |
 | --- | --- |
-| `server_label` | 必填。字母数字/`_`/`-`;会以 `mcp__{label}__{tool}` 的形式出现在 `tool_steps` 名称里。 |
-| `server_url` | 必填。**公网 http(s)** 的 streamable-HTTP MCP 端点——解析到内网/回环地址的主机会被拒绝(`400`)。 |
-| `authorization` | 可选。作为 `Authorization` 头发送(未带 scheme 时自动加 `Bearer ` 前缀)。 |
-| `allowed_tools` | 可选的工具名白名单;服务器上的其它工具一律忽略。 |
-| `require_approval` | 仅支持 `"never"`(默认)。传 `"always"` 返回 `400`——server 是你自己的,调用在服务端执行,审批回合不增加任何安全性。 |
+| `server_label` | 必填。字母数字 / `_` / `-`；会以 `mcp__{label}__{tool}` 的形式出现在 `tool_steps` 名称里。 |
+| `server_url` | 必填。**公网 http(s)** 的 streamable-HTTP MCP 端点 —— 解析到内网/回环地址的主机会被拒绝（`400`）。 |
+| `authorization` | 可选。作为 `Authorization` 头发送（未带 scheme 时自动加 `Bearer ` 前缀）。 |
+| `allowed_tools` | 可选的工具名白名单；服务器上的其它工具一律忽略。 |
+| `require_approval` | 仅支持 `"never"`（默认）。传 `"always"` 返回 `400` —— server 是你自己的，调用在服务端执行，审批回合不增加任何安全性。 |
 
-可与你的 `type: "function"` 客户端工具混在同一个 `tools` 数组里。上限:每请求 ≤ 8 个 server、共 ≤ 64 个工具。
+可与你的 `type: "function"` 客户端工具混在同一个 `tools` 数组里。上限：每请求 ≤ 8 个 server、共 ≤ 64 个工具。
 
 ## 返回什么
 
-MCP 调用是**服务端工具步骤**——出现在响应顶层的 `tool_steps`(名称 `mcp__{label}__{tool}`,含参数与结果),流式则以 `response.mirobody_tool_call` 事件推送。`output` 数组保持纯 OpenAI item 类型;MCP 工具没有 `function_call` handoff。
+MCP 调用是**服务端工具步骤** —— 出现在响应顶层的 `tool_steps`（名称 `mcp__{label}__{tool}`，含参数与结果），流式则以 `response.mirobody_tool_call` 事件推送。`output` 数组保持纯 OpenAI item 类型；MCP 工具没有 `function_call` handoff。
 
 ## 错误
 
 | HTTP `400` 消息 | 原因 |
 | --- | --- |
 | `mcp server '<label>' unusable: …` | 端点不可达 / 不是 MCP streamable-HTTP server。 |
-| `mcp server host resolves to a non-public address` | SSRF 防护——URL 必须公网可路由。 |
+| `mcp server host resolves to a non-public address` | SSRF 防护 —— URL 必须公网可路由。 |
 | `require_approval is not supported …` | 传 `"never"` 或省略。 |
 
 ## 在网页应用里
 
-Mirobody 网页应用的最终用户可在**设置 → MCP** 中接入自己的 MCP server——对话智能体每轮自动加载。配置错误或宕机的 server 在那里会被跳过(聊天绝不因此失败);在 API 面上,同样的问题是显式 `400`——因为是你在这次请求里点名要它。
+Mirobody 网页应用的最终用户可在**设置 → MCP** 中接入自己的 MCP server —— 对话智能体每轮自动加载。配置错误或宕机的 server 在那里会被跳过（聊天绝不因此失败）；在 API 面上，同样的问题是显式 `400` —— 因为是你在这次请求里点名要它。
 
 ## 何时改用客户端 function 工具
 
-如果你的工具必须在**你自己的进程里**运行(内网、本地状态、需要人工确认),请改用[客户端 function 工具](/zh/api-reference/function-calling):模型以 `function_call` 交接,你执行后续跑——openai-agents SDK 会自动完成这个循环。
+如果你的工具必须在**你自己的进程里**运行（内网、本地状态、需要人工确认），请改用[客户端 function 工具](/zh/api-reference/function-calling)：模型以 `function_call` 交接，你执行后续跑 —— openai-agents SDK 会自动完成这个循环。

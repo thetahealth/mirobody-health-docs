@@ -45,7 +45,7 @@ resp = client.chat.completions.create(
     user="alice",                                 # tenant-isolation key (a Subject)
 )
 print(resp.choices[0].message.content)
-# resp.choices[0].message.reasoning_content      # deep-thinking (CoT) detail (may be empty)
+# resp.choices[0].message.reasoning_content      # provider-supplied reasoning text (may be empty)
 # resp.choices[0].message.tool_steps             # server tool trace: {id, name, arguments, result}
 ```
 
@@ -74,10 +74,10 @@ console.log(resp.choices[0].message.content);
 | `messages` | array | OpenAI `{role, content}`. The surface is **stateless** — send the full history each call; a `system` message shapes tone/format (see [System prompts](#system-prompts)). |
 | `stream` | bool | `true` → SSE stream of `chat.completion.chunk` frames. |
 | `user` | string | Tenant-isolation key → a Subject. Pass each end-user's stable id. See [multi-tenancy](/en/api-reference/overview#multi-tenancy-the-user-field). |
-| `retention` | string | Mirobody extension, accepted for parity with the data plane. Data lifetimes are governed where data is written — see [Data](/en/api-reference/data) and the [retention model](/en/api-reference/overview#data-retention). |
-| `session_id` | string | Mirobody extension. Tags the call for [session-scoped cleanup](/en/api-reference/lifecycle#sessions). For real multi-turn state, use the [Agent API](/en/api-reference/responses). |
 
 <SubjectUserParam />
+
+`retention` and `session_id` are not fields on this stateless surface. Set retention when writing [data](/en/api-reference/data), [files](/en/api-reference/files), or stored [extraction](/en/api-reference/extract) results. For server-side conversation state, use the [Agent API](/en/api-reference/responses).
 
 ## Unsupported parameters
 
@@ -96,7 +96,7 @@ This surface is a closed grounded completion — tools run **server-side only**,
 
 ## Response
 
-`message.content` carries **one clean final answer**. The gather phase (thinking + tool calls) is surfaced in separate channels, so the answer itself is never polluted by tool narration.
+`message.content` carries **one clean final answer**. Optional provider reasoning text and server tool calls use separate channels, so the answer itself is not mixed with tool narration.
 
 ```jsonc
 {
@@ -110,7 +110,7 @@ This surface is a closed grounded completion — tools run **server-side only**,
     "message": {
       "role": "assistant",
       "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
-      "reasoning_content": "",                                            // deep-thinking (CoT); may be empty
+      "reasoning_content": "",                                            // provider-supplied reasoning text; may be empty
       "tool_steps": [                                                     // server tool trace, ordered
         { "id": "call_abc", "name": "query_health_data",
           "arguments": { "query": "fasting glucose last 90 days" },
@@ -122,8 +122,9 @@ This surface is a closed grounded completion — tools run **server-side only**,
     "prompt_tokens": 12,                                                  // YOUR visible input only
     "completion_tokens": 210,
     "total_tokens": 222,
-    "prompt_tokens_details": { "system_tokens": 10096 },                  // platform overhead, not billed to your prompt
-    "completion_tokens_details": { "reasoning_tokens": 0 }
+    "prompt_tokens_details": { "system_tokens": 10096 },                  // reported separately from visible prompt_tokens
+    "completion_tokens_details": { "reasoning_tokens": 0 },
+    "billed_tokens": { "input": 20391, "output": 841, "total": 21232 }    // provider-true metering basis
   },
   "health_records": [ { "tool": "query_health_data", "data": "..." } ],
   "citations": [ { "tool": "search_medical_literature", "data": "..." } ]
@@ -133,7 +134,7 @@ This surface is a closed grounded completion — tools run **server-side only**,
 | Channel | Content |
 | --- | --- |
 | `message.content` | Final answer only (the "reply" channel). |
-| `message.reasoning_content` | The model's **deep-thinking** (CoT) detail. May be an empty string when the tier doesn't emit it. |
+| `message.reasoning_content` | Provider-supplied reasoning text. It may be empty and is not a guarantee of complete internal reasoning. |
 | `message.tool_steps[]` | The server tool trace — each `{id, name, arguments, result}`, merged by `id`. **Always returned**; there is no opt-in flag and no truncation switch. |
 | `health_records` | Traceable health-data tool outputs the answer used — `{tool, data}` pairs. This is where the explainability lives. |
 | `citations` | Literature-tool outputs (`search_medical_literature` / `get_clinical_trials` / `get_article_by_pmcid`) — `{tool, data}` pairs; empty when no literature was consulted. |
@@ -143,11 +144,13 @@ This surface is a closed grounded completion — tools run **server-side only**,
 
 ### Usage accounting
 
-`usage.prompt_tokens` reports the input **you actually sent** (your `messages`); the platform's own system prompt and tool schemas are broken out as `prompt_tokens_details.system_tokens` instead of being blamed on your prompt. `completion_tokens_details.reasoning_tokens` counts thinking tokens. Counts are summed across every model call of the agent turn.
+`usage.prompt_tokens` reports the input **you actually sent** (your `messages`); the platform's system prompt and tool schemas are reported separately in `prompt_tokens_details.system_tokens`. `completion_tokens_details.reasoning_tokens` reports provider reasoning tokens. Counts are summed across every model call in the agent turn.
+
+`usage.billed_tokens` is the provider-true total used for metering. Multiplying it by the catalog's standard input/output rates gives a cost estimate; prompt-cache discounts can make actual metered cost lower.
 
 ## Streaming
 
-With `stream: true`, frames arrive in order. The **first chunk carries `delta.role: "assistant"`** (OpenAI parity — many clients key message init off it), then tool/thinking deltas, then a single uninterrupted answer stream:
+With `stream: true`, frames arrive in order. The **first chunk carries `delta.role: "assistant"`** (OpenAI parity — many clients key message init off it), then optional reasoning/tool deltas, then a single uninterrupted answer stream:
 
 ```text
 data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":""}}]}
@@ -162,7 +165,7 @@ Frames are `chat.completion.chunk` objects. Merge `tool_steps` by `id` (streamed
 
 ## System prompts
 
-A `system` message sets the tone, persona, format, and language of the answer. Data gathering is platform-controlled — the agent always reads the Subject's real data — so a `system` prompt shapes *how* the answer reads, never *whether* real data is used.
+A `system` message sets the tone, persona, format, and language of the answer. Server-tool availability and Subject scoping remain platform-controlled; the prompt cannot grant access to another Subject or add tools.
 
 ## Built-in tools
 
@@ -173,11 +176,10 @@ The built-in tools the hosted agent can call:
 - `query_health_data` — search and aggregate the Subject's records
 - `list_clinical_records` — list clinical documents / FHIR-backed records
 - `list_family_members` — resolve care-circle members the Subject is allowed to query
-- `write_fhir_observation` — write a structured FHIR observation
 - `search_medical_literature`, `get_clinical_trials`, `get_article_by_pmcid` — look up medical evidence (feeds `citations`)
 - `fetch_url` — read a web page
 
-Planning / delegation / code-analysis tools are internal plumbing and not part of the API contract. `ask_user` is part of the same built-in set (it serves the web app) but is **disabled on the `/v1` surfaces** — an API caller has no widget to answer it. Files you upload via [`/v1/files`](/en/api-reference/files) land in `/uploads`, and the agent reads them automatically.
+The `/v1` agent's main loop is read-only. Health facts stated in stored conversations are processed asynchronously by consolidation rather than written directly by an agent tool. Planning, delegation, and code-analysis tools are internal and not part of the API contract. `ask_user` serves the web app but is **disabled on the `/v1` surfaces** because an API caller has no widget to answer it. Files uploaded through [`/v1/files`](/en/api-reference/files) become readable after background text extraction completes.
 
 To add **your own** tools, use the [Agent API's function calling](/en/api-reference/function-calling) — this surface intentionally has no tool injection.
 

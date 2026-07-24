@@ -74,13 +74,13 @@ Mirobody is a native binary you build from source: run `./build.sh` (or `build.c
     The backend is a command-line token (no env var), passed in any order with `clean`:
 
     ```bash
-    ./build.sh sqlite       # SQLITE                 -> build_sqlite/
-    ./build.sh legacy       # POSTGRESQL_LEGACY      -> build_legacy/
+    ./build.sh sqlite       # SQLITE                 -> build-sqlite/
+    ./build.sh legacy       # POSTGRESQL_LEGACY      -> build-legacy/
     ./build.sh legacy clean # reconfigure from scratch
     ./build.sh -h           # full token list
     ```
 
-    Tokens: `pg` / `postgresql`, `legacy` / `pg_legacy`, `mysql`, `sqlite`, `duckdb`, `ck` / `clickhouse` (omit for the `POSTGRESQL` default). Each backend builds into its own `build[_<backend>]` directory, so several can coexist.
+    Tokens: `pg` / `postgresql`, `legacy` / `pg_legacy`, `mysql`, `sqlite`, `duckdb`, `ck` / `clickhouse` (omit for the `POSTGRESQL` default). Each backend builds into its own `build[-<backend>]` directory, so several can coexist.
 
     Or invoke CMake directly:
 
@@ -104,11 +104,11 @@ Mirobody is a native binary you build from source: run `./build.sh` (or `build.c
 
     ### 3. Build
 
-    vcpkg pulls the native deps from [`vcpkg.json`](https://github.com/thetahealth/mirobody/blob/main/vcpkg.json) automatically — no manual installs.
+    vcpkg pulls the native deps from [`vcpkg.json`](https://github.com/thetahealth/mirobody/blob/main-v2/vcpkg.json) automatically — no manual installs.
 
     ```cmd
     build.cmd              :: host arch + POSTGRESQL   -> build\mirobody.exe
-    build.cmd sqlite       :: SQLITE                   -> build_sqlite\
+    build.cmd sqlite       :: SQLITE                   -> build-sqlite\
     build.cmd legacy clean :: reconfigure that dir
     build.cmd -h           :: full token list
     ```
@@ -122,9 +122,9 @@ Mirobody is a native binary you build from source: run `./build.sh` (or `build.c
 ### Run
 
 ```bash
-./mirobody                  # reads ./config.yml by default
-./mirobody --config /path/to/config.yml
-./mirobody --help
+./build/mirobody                  # reads ./config.yml by default
+./build/mirobody --config /path/to/config.yml
+./build/mirobody --help
 ```
 
 Copy `config.example.yml` to `config.yml` first and set an LLM key — see [Quick Start](/en/quickstart) and [Configuration](/en/configuration). The server serves HTTP + WebSocket (and the web client from `res/htdoc`) on `HTTP_HOST:HTTP_PORT`, `0.0.0.0:8080` by default.

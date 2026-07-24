@@ -5,7 +5,7 @@ description: "配置凭据并将可穿戴设备、聚合器或 EHR 关联到 Mir
 
 ## 关联如何工作
 
-连接一个数据源分两个阶段：**配置凭据**（由运维方一次性完成）与**关联账号**（按用户、所有权门控）。数据随后流入内嵌的 FHIR 存储，agent 在其中读取。关于底层契约，参见 [Vendor 系统](/zh/concepts/providers)。
+连接一个数据源分两个阶段：**配置凭据**（由运维方一次性完成）与**关联账号**（按用户、所有权门控）。`GET /vendors/{id}/data` 只返回 vendor 原生 JSON，不会存储；`POST /vendors/{id}/sync` 将支持的值映射为 FHIR Observation 并持久化。底层契约见 [Vendor 系统](/zh/concepts/providers)。
 
 ## 1 —— 配置凭据
 
@@ -34,51 +34,64 @@ EHR_API_KEY=smart_on_fhir_access_token
 ```
 
 <Info>
-环境变量优先于 `config.yml`。写在 `config.yml` 里的密钥可先用 `fernet` CLI 预加密成 Fernet 密文（`gAAAA…`），加载时经 `CONFIG_ENCRYPTION_KEY` 解密。参见[配置](/zh/configuration)。旧的 `MIROBODY_VENDOR_<ID>_*` 环境变量约定已是遗留用法 —— 只有独立的 `vendor` 调试 CLI 仍在读取。
+环境变量优先于 `config.yml`。Fernet 密文（`gAAAA…`）可在加载时经 `CONFIG_ENCRYPTION_KEY` 解密；密钥派生规则必须一致，请按[配置](/zh/configuration)操作，不要假设随机生成的 Fernet key 可以直接复用。旧的 `MIROBODY_VENDOR_<ID>_*` 环境变量约定已是遗留用法 —— 只有独立的 `vendor` 调试 CLI 仍在读取。
 </Info>
 
 在 vendor 的开发者门户注册你的应用以获取 client id / secret（或 API key）。通用 `ehr` 客户端需要租户的 FHIR **服务 base URL**，可从公开的 Service Base URL 目录（ONC Lantern；Oracle Health / Cerner）发现。
 
-## 2 —— 关联账号（bind → verify → data）
+## 2 —— 关联账号
 
-关联是**所有权门控**的：用户在读取任何数据之前先证明其拥有该外部账号，因此一个自称的 id 永远无法触及他人的记录。健康模块暴露三条路由（都需要 bearer JWT，并限定在已认证用户范围内）：
+关联受**所有权门控**，并限定在当前 JWT 用户范围内。仓库提供两种连接路径；具体支持程度因 vendor 而异。
 
-<Steps>
-  <Step title="Bind">
-    将外部账号 id 记录为 PENDING 关联。
+### 浏览器 OAuth
 
-    ```bash
-    curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
-      -H "Authorization: Bearer $JWT" \
-      -H "Content-Type: application/json" \
-      -d '{"external_user_id": "FITBIT_USER_ID"}'
-    ```
+对于已经实现 `authorize_url` 与 token exchange 的 vendor：
 
-    <Note>各 vendor 具体的请求体可能不同；请查看该 vendor 的 `.cpp` 与 `src/health/vendor_service.*`。*(verify)*</Note>
-  </Step>
+1. 携带用户 bearer JWT 调用 `GET /vendors/{id}/authorize`。
+2. 把浏览器重定向到返回的 `authorize_url`。
+3. Vendor 重定向到公开的 `GET /vendors/callback?code=&state=`。服务端消费一次性 state、交换 code；在已配置 vendor/file 加密 key 时加密存储 token，然后把关联标记为 verified 并跳回应用。
 
-  <Step title="Verify">
-    通过该 vendor 的同意 / 认领流程证明所有权。成功后该关联被标记为 VERIFIED。
+```bash
+curl "http://localhost:8080/vendors/fitbit/authorize" \
+  -H "Authorization: Bearer $JWT"
+```
 
-    ```bash
-    curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" \
-      -H "Authorization: Bearer $JWT"
-    ```
+请把 `VENDOR_REDIRECT_URI` 设置为服务端 callback URL。若某个 vendor 的 authorize 或 exchange 是显式 stub，接口会返回错误；展示连接按钮前先核对 [Provider 状态](/zh/providers/overview)。
 
-    一个 `UNIQUE(vendor_id, external_user_id)` 约束是最后一道防线 —— 两名用户不能都认领同一个账号。
-  </Step>
+<Warning>
+使用每用户 OAuth 前，必须设置 `VENDOR_TOKEN_ENCRYPTION_KEY` 或 `FILE_ENCRYPTION_KEY`。两者都没有时，bearer token 不会以明文持久化，后续拉取会回退到共享配置凭据。见[配置 → Vendor OAuth token](/zh/configuration#vendor-oauth-token)。
+</Warning>
 
-  <Step title="Fetch data">
-    验证之后，在某个时间区间内拉取一个数据域。`Vendor::fetch` 运行并返回该源的 JSON。
+### 手动关联或配置凭据
 
-    ```bash
-    curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-30" \
-      -H "Authorization: Bearer $JWT"
-    ```
+对于非浏览器集成，先用固定请求体创建 pending link，再通过该 vendor 支持的证明路径验证：
 
-    合法的 `domain` 取值：`activity`、`sleep`、`heart_rate`、`glucose`、`nutrition`、`body_metrics`、`labs`、`clinical`（vendor 会拒绝它不中转的域）。
-  </Step>
-</Steps>
+```bash
+curl -X POST "http://localhost:8080/vendors/fitbit/bind" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"external_user_id":"FITBIT_USER_ID"}'
+
+curl -X POST "http://localhost:8080/vendors/fitbit/bind/verify" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+`bind/verify` 可接收 `{code, redirect_uri}` 做 OAuth code exchange；空对象会走配置凭据验证。它不是通用绕过方式：不支持的 vendor 操作会明确失败。`UNIQUE(vendor_id, external_user_id)` 约束防止两个本地用户认领同一外部账号。
+
+## 3 —— 拉取或同步
+
+验证后，可按一个已声明的数据域拉取 vendor 原生 JSON：
+
+```bash
+curl "http://localhost:8080/vendors/fitbit/data?domain=heart_rate&start=2026-06-01&end=2026-06-30" \
+  -H "Authorization: Bearer $JWT"
+```
+
+需要持久化支持的值时，使用相同查询参数调用 `POST /vendors/{id}/sync`。省略 `domain` 会尝试该 vendor 声明的全部域，并返回 `{posted, failed}`；尚无映射的 vendor payload 合法地可能写入零条 Observation。
+
+合法 domain 为 `activity`、`sleep`、`heart_rate`、`glucose`、`nutrition`、`body_metrics`、`labs`、`clinical`。Vendor 会拒绝它不支持的域。
 
 ## 连接一个 EHR（SMART on FHIR）
 

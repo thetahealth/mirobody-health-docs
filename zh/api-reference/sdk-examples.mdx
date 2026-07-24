@@ -19,9 +19,9 @@ curl $BASE/chat/completions \
 # 2) 写入一条记录（retention 必填），再问一次
 curl $BASE/data \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"user":"alice","retention":"permanent","records":[{"indicator":"fasting_glucose","value":5.4,"unit":"mmol/L","time":"2026-06-16T07:30:00Z"}]}'
+  -d '{"user":"alice","retention":"permanent","records":[{"indicator":"fasting_glucose","value":97,"unit":"mg/dL","time":"2026-06-16T07:30:00Z"}]}'
 
-# 3) 上传报告（OCR/解析），再就它提问
+# 3) 上传报告。原件立即保存，文本抽取在后台继续。
 curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=alice" -F "file=@report.pdf"
 
 # 4) Agent API（Responses）
@@ -68,7 +68,8 @@ print(r2.output_text)
 ```
 
 ```python
-# 文件上传是 multipart，直接调 REST 端点
+# 文件上传是 multipart，直接调 REST 端点。
+# status="processed" 表示原件已接收，不代表文本抽取已经完成。
 import requests
 
 up = requests.post(

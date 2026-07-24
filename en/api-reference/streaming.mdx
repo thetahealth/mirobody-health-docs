@@ -28,7 +28,7 @@ with client.responses.stream(
 | `response.in_progress` | Follows immediately (OpenAI parity). |
 | `response.output_item.added` | A new output item opened (`reasoning`, `message`, or `function_call`) — carries `output_index` + the in-progress item. |
 | `response.reasoning_summary_part.added` / `.done` | A reasoning summary part opened / closed. |
-| `response.reasoning_summary_text.delta` / `.done` | Reasoning (deep-thinking) text fragments, then the full text. |
+| `response.reasoning_summary_text.delta` / `.done` | Provider-supplied reasoning-summary fragments, then the full summary. |
 | `response.content_part.added` / `.done` | An answer content part opened / closed. |
 | `response.output_text.delta` / `.done` | Answer text fragments, then the full text — **the channel most clients render**. |
 | `response.function_call_arguments.delta` / `.done` | A client-tool handoff's arguments (see [Function calling](/en/api-reference/function-calling)). |

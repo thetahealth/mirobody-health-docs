@@ -42,7 +42,7 @@ Apple Health, Samsung Health, Google Health Connect, and Xiaomi expose **no serv
 Uploaded documents (lab reports, spreadsheets, scans) are decomposed by the document transcoder into LLM-consumable parts, then the LLM reads them during chat. Uploads are stored per-user; the agent lists and reads them with the `list_files` / `read_file` MCP tools. See [File Processing](/en/concepts/file-processing).
 
 <Note>
-The document → structured-indicator → FHIR pipeline (parsing a report into coded lab values written back as FHIR) is **in progress** — unit normalization to UCUM and the RESTful FHIR store are shipped; full terminology mapping and automatic write-back are planned. *(verify against `src/fhir/README.md` phases.)*
+The document → structured-indicator → FHIR pipeline (parsing a report into coded lab values written back as FHIR) is **in progress** — unit normalization to UCUM and the RESTful FHIR store are shipped; terminology mapping is still landing and automatic write-back is planned.
 </Note>
 
 ## The store — embedded FHIR R4
@@ -52,7 +52,7 @@ All three doors converge on the embedded FHIR R4 endpoint in `src/fhir/`:
 - Resources are stored as generic validated JSON in one portable `fhir_resources(user_id, resource_type, resource_id, version_id, updated_at, deleted_at, content)` table, across whichever SQL backend was compiled in (SQLite on mobile, PostgreSQL on desktop, …).
 - Each user has an **independent resource space** (single-patient model); every FHIR route requires a bearer JWT.
 - Units are normalized to **UCUM** (`mg/dL`, `mmol/L`, `mm[Hg]`, …) by the terminology engine in `src/fhir/units/`.
-- Deletes are soft (a later read returns `410 Gone`).
+- Reading a deleted resource returns `410 Gone` (FHIR delete semantics).
 
 Routes: `GET /fhir/metadata`, `POST /fhir` (batch Bundle), and `GET/POST/PUT/DELETE /fhir/{type}[/{id}]`. Bodies are `application/fhir+json`; errors come back as an `OperationOutcome`.
 

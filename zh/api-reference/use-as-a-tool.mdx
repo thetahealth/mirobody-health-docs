@@ -3,7 +3,7 @@ title: "把 Answers 用作工具"
 description: "Cookbook：把 Answers API 包成你自己 agent 里的一个工具（openai-agents SDK / LangChain）。"
 ---
 
-[Answers API](/zh/api-reference/chat) 是一个**封闭的 grounded completion** —— 问题进、有证据的回答出，没有旋钮。这个形状恰好就是外层 agent 想要的工具：你的 agent（跑在任何模型、任何框架上）保有编排权，把*"这位用户的真实健康记录说明了什么？"*委托给 Mirobody。
+[Answers API](/zh/api-reference/chat) 是一个**封闭的 grounded completion** —— 问题进、有证据的回答出，没有额外开关。这个形状恰好就是外层 agent 想要的工具：你的 agent（跑在任何模型、任何框架上）保有编排权，把*"这位用户的真实健康记录说明了什么？"*委托给 Mirobody。
 
 何时优先于 [Agent API](/zh/api-reference/responses)：你**已经有**一个 agent，只需要把"有依据的健康回答"作为其中一项能力。若你想让 Mirobody *就是*那个 agent（并调用**你的**工具），请改用 [Agent API](/zh/api-reference/function-calling)。
 

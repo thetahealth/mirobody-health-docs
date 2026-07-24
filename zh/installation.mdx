@@ -74,13 +74,13 @@ Mirobody 是一个从源码构建的原生二进制：运行 `./build.sh`（Wind
     后端是一个命令行 token（不是环境变量），可与 `clean` 以任意顺序传入：
 
     ```bash
-    ./build.sh sqlite       # SQLITE                 -> build_sqlite/
-    ./build.sh legacy       # POSTGRESQL_LEGACY      -> build_legacy/
+    ./build.sh sqlite       # SQLITE                 -> build-sqlite/
+    ./build.sh legacy       # POSTGRESQL_LEGACY      -> build-legacy/
     ./build.sh legacy clean # 从头重新配置
     ./build.sh -h           # 完整 token 列表
     ```
 
-    Token：`pg` / `postgresql`、`legacy` / `pg_legacy`、`mysql`、`sqlite`、`duckdb`、`ck` / `clickhouse`（省略即用 `POSTGRESQL` 默认）。每个后端构建到各自的 `build[_<backend>]` 目录，因此多个可以共存。
+    Token：`pg` / `postgresql`、`legacy` / `pg_legacy`、`mysql`、`sqlite`、`duckdb`、`ck` / `clickhouse`（省略即用 `POSTGRESQL` 默认）。每个后端构建到各自的 `build[-<backend>]` 目录，因此多个可以共存。
 
     或者直接调用 CMake：
 
@@ -104,11 +104,11 @@ Mirobody 是一个从源码构建的原生二进制：运行 `./build.sh`（Wind
 
     ### 3. 构建
 
-    vcpkg 会自动从 [`vcpkg.json`](https://github.com/thetahealth/mirobody/blob/main/vcpkg.json) 拉取原生依赖 —— 无需手动安装。
+    vcpkg 会自动从 [`vcpkg.json`](https://github.com/thetahealth/mirobody/blob/main-v2/vcpkg.json) 拉取原生依赖 —— 无需手动安装。
 
     ```cmd
     build.cmd              :: 主机架构 + POSTGRESQL   -> build\mirobody.exe
-    build.cmd sqlite       :: SQLITE                   -> build_sqlite\
+    build.cmd sqlite       :: SQLITE                   -> build-sqlite\
     build.cmd legacy clean :: 重新配置该目录
     build.cmd -h           :: 完整 token 列表
     ```
@@ -122,9 +122,9 @@ Mirobody 是一个从源码构建的原生二进制：运行 `./build.sh`（Wind
 ### 运行
 
 ```bash
-./mirobody                  # 默认读取 ./config.yml
-./mirobody --config /path/to/config.yml
-./mirobody --help
+./build/mirobody                  # 默认读取 ./config.yml
+./build/mirobody --config /path/to/config.yml
+./build/mirobody --help
 ```
 
 先把 `config.example.yml` 复制成 `config.yml` 并设置一个 LLM 密钥 —— 参见 [快速开始](/zh/quickstart) 和 [配置](/zh/configuration)。服务器在 `HTTP_HOST:HTTP_PORT`（默认 `0.0.0.0:8080`）上提供 HTTP + WebSocket（以及从 `res/htdoc` 提供的 Web 客户端）。
@@ -255,7 +255,7 @@ mirobody/
 │   ├── cache/              # 进程内 KV 或 Redis
 │   ├── storage/            # S3 / OSS / Azure Blob / 本地文件系统 后端
 │   ├── user/               # 邮箱 + 社交登录（含 Tanka 二维码）、令牌签发
-│   ├── circle/             # 健康圈：分享关系图
+│   ├── circle/             # 照护圈：分享关系图
 │   ├── jwt/  oauth/         # JWT 签发/校验 + OAuth 2.0 授权服务器
 │   ├── config/             # 配置 schema + 加载器（YAML + Fernet）
 │   ├── transcode/          # 上传转码器：图像 + 文档（PDF/Excel/CSV）

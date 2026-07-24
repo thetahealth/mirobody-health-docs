@@ -8,7 +8,7 @@ import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
 你已经接好了穿戴设备 —— 通过 Terra、Junction 或厂商 API —— 样本正流进你的后端。本页是把它们写入 Mirobody 的配方：写入之后，[标准化管线](/zh/api-reference/standardization)和智能体会像对待任何健康记录一样处理它们。
 
 <Note>
-**Mirobody 不托管设备 OAuth** —— 没有 Terra 式的 connect 组件。Mirobody 负责托管、标准化并把数据供给 AI；采集数据（设备 OAuth、App 侧获取）在你那一侧。
+**Mirobody 不托管设备 OAuth**，也不提供 Terra 式的连接组件。设备数据如何采集、是否预处理，由你自行决定；Mirobody 存储并标准化你发送的记录，再将其提供给 AI 使用。
 </Note>
 
 ## 配方
@@ -76,7 +76,7 @@ curl https://api.mirobody.ai/v1/data \
 
 ## 4. 标准化自动发生
 
-每次写入都走与手动录入、文件上传相同的[标准化管线](/zh/api-reference/standardization)：指标名称确定性解析到 **LOINC**，值归一到 **UCUM** 单位，每条记录都有 **FHIR** 镜像。用 [`GET /v1/data`](/zh/api-reference/data#读取记录) 读回干净的序列 —— 智能体回答时读的也是同一份。
+每次结构化写入都走与手动记录、存储抽取结果相同的[标准化管线](/zh/api-reference/standardization)：识别出的指标名称确定性解析到 **LOINC**，值解析为 **UCUM** 单位，记录镜像到 **FHIR**。低置信度名称会保留为未编码，不会猜测。用 [`GET /v1/data`](/zh/api-reference/data#读取记录) 读回序列 —— Agent 回答时读的也是同一份数据。
 
 ## Mirobody 刻意不做什么
 
@@ -89,6 +89,6 @@ curl https://api.mirobody.ai/v1/data \
     POST / GET / DELETE /v1/data 的完整契约。
   </Card>
   <Card title="标准化" icon="wand-magic-sparkles" href="/zh/api-reference/standardization">
-    每次写入都发生的 LOINC / UCUM / FHIR。
+    LOINC / UCUM / FHIR 如何应用，以及未编码行如何处理。
   </Card>
 </CardGroup>

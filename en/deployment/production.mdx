@@ -1,9 +1,9 @@
 ---
 title: "Production Deployment"
-description: "Run the Mirobody C++ binary in production: secrets, backends, health checks, and compliance."
+description: "Run the Mirobody C++ binary in production: secrets, backends, health checks, and data-flow controls."
 ---
 
-In production, Mirobody is the standalone `mirobody` binary (or the Docker image) driven by `config.yml` and environment variables, backed by your own database, cache, and object storage. This page covers the settings that matter beyond a local run; anything not verifiable in the engine is flagged.
+In production, Mirobody is the standalone `mirobody` binary (or the Docker image) driven by `config.yml` and environment variables, backed by your own database, cache, and object storage. This page covers the settings that matter beyond a local run.
 
 ## Production checklist
 
@@ -24,10 +24,10 @@ In production, Mirobody is the standalone `mirobody` binary (or the Docker image
     - [ ] Configure an object-storage backend (S3 / OSS / Azure Blob) instead of local disk
   </Accordion>
 
-  <Accordion title="Compliance (PHI)" icon="user-shield">
-    - [ ] Keep the LLM on-device, or route hosted calls through a BAA-covered surface (Vertex AI / Azure OpenAI)
-    - [ ] Self-host in your region and pin outbound dependencies to it (GDPR data residency)
-    - [ ] Leave care-circle sharing off unless users opt in (it is off by default)
+  <Accordion title="Privacy review" icon="user-shield">
+    - [ ] Map every outbound data flow: LLM, storage, health-data vendors, identity/email, remote config, and crash reporting
+    - [ ] Select regions and providers that match your requirements, then obtain any required contracts or agreements
+    - [ ] Enable optional sharing and external integrations only after reviewing their data scope
   </Accordion>
 
   <Accordion title="Operations" icon="chart-line">
@@ -42,14 +42,15 @@ In production, Mirobody is the standalone `mirobody` binary (or the Docker image
 Generate strong values and provide the encryption key via the environment:
 
 ```bash
-openssl rand -hex 32     # JWT_KEY (HS256), PG_ENCRYPTION_KEY, CONFIG_ENCRYPTION_KEY, LOCAL_STORAGE_SECRET
+openssl rand -hex 32     # JWT_KEY (HS256), PG_ENCRYPTION_KEY, LOCAL_STORAGE_SECRET
+openssl rand -hex 16     # CONFIG_ENCRYPTION_KEY: exactly 32 printable characters
 ```
 
 ```bash
 export CONFIG_ENCRYPTION_KEY="<generated>"
 ```
 
-`CONFIG_ENCRYPTION_KEY` does two things: config values already stored as Fernet ciphertext (`gAAAA…`) are **transparently decrypted on load**, and secret-looking values are **masked** in the config summary dump. Nothing auto-encrypts plaintext on write — you pre-encrypt each secret yourself with the `fernet` CLI (`cli/fernet.cpp`: `fernet genkey` / `fernet encrypt`) and paste the `gAAAA…` token into `config.yml`. Done that way, you can commit an encrypted `config.yml` as long as the key stays in the environment. Keep bootstrap keys like `PG_ENCRYPTION_KEY` in the environment or a secrets manager.
+`CONFIG_ENCRYPTION_KEY` is a raw secret: the loader trims it, takes at most 32 bytes, pads shorter values, and derives the Fernet key used to decrypt `gAAAA…` config values. Secret-looking values are also masked in the startup summary. Nothing encrypts plaintext automatically. Keep bootstrap secrets such as `PG_ENCRYPTION_KEY` in environment variables or a secrets manager; if you store Fernet ciphertext in YAML, make sure the encryption tool derives its Fernet key exactly as `ConfigStore::derive_fernet_key` does.
 
 For RS256 (so other services can verify your tokens against a published JWKS), set `JWT_PRIVATE_KEY` instead of `JWT_KEY`; `cli/jwt_keygen` mints a keypair.
 
@@ -89,7 +90,7 @@ export CONFIG_ENCRYPTION_KEY="..."
 
 ## TLS and the reverse proxy
 
-The binary serves plain HTTP + WebSocket on `HTTP_HOST:HTTP_PORT`. Terminate TLS in front of it (nginx, Caddy, a cloud load balancer) and forward to the binary's port. If you mount the app under a sub-path at the proxy, set `HTTP_URI_PREFIX` to match so generated URLs and routes line up. *(The engine does not terminate TLS itself — verify your proxy forwards WebSocket upgrade headers for the realtime `/api/chat` route.)*
+The binary serves plain HTTP + WebSocket on `HTTP_HOST:HTTP_PORT`. Terminate TLS in front of it (nginx, Caddy, a cloud load balancer) and forward to the binary's port. If you mount the app under a sub-path at the proxy, set `HTTP_URI_PREFIX` to match so generated URLs and routes line up. Make sure the proxy forwards WebSocket upgrade headers for the realtime `/api/chat` route.
 
 ## Health checks
 
@@ -115,18 +116,23 @@ The shipped `Dockerfile` is written for this: it runs as an unprivileged user (u
 
 Use a durable backend rather than local disk. Fill the S3, Alibaba OSS, or Azure Blob block in `config.yml` — see [Configuration → File storage](/en/configuration#file-storage). Pin the storage region to your compliance region.
 
-## Compliance — HIPAA & GDPR
+## Privacy and regulated workloads
 
-Because the core runs on-device or self-hosted, personal health data never has to leave your infrastructure. The single place PHI can leave is the LLM call:
+Self-hosting gives you control over placement, but it does not make a deployment compliant by itself. Review the complete data path before sending regulated data:
 
-- **HIPAA** — run the model **fully on-device** (Gemma 4; the native apps' "On-device" provider), or route hosted models through a BAA-eligible surface: **Google Gemini via Vertex AI** (`GOOGLE_GENAI_USE_VERTEXAI=1` + `GCP_PROJECT` / `VERTEX_LOCATION`) or **OpenAI via Azure OpenAI** (`AZURE_OPENAI_ENDPOINT` + deployment + key). The public AI Studio / OpenAI-direct endpoints are not BAA-covered.
-- **GDPR** — self-host in your region and pin every outbound dependency to it: `VERTEX_LOCATION` / `VERTEX_BASE_URL` for Gemini, the Azure resource region for GPT, the object-storage region per backend, and `AZURE_BLOB_ENDPOINT_SUFFIX` for sovereign clouds.
+| Data flow | When it is active | Control |
+| --- | --- | --- |
+| LLM provider | A hosted model is configured | Use an on-device model or select the cloud project, region, account, and agreement appropriate to your workload. |
+| Object storage | S3, OSS, or Azure Blob is configured | Choose the bucket/container region, access policy, encryption, and retention. |
+| Health-data vendor or EHR | A vendor integration is enabled | Review the vendor's authorization scope, destination, and contract. |
+| Identity and messaging | Email, Firebase, WeChat, GitHub, or Tanka login is enabled | Limit the identity data sent and disable unused methods. |
+| Remote config and crash reporting | Their endpoints or DSNs are configured | Keep health content out of configuration and review telemetry before enabling it. |
 
-Care-circle sharing is opt-in and off by default, and the AI assistant is **read-only** over another member's data. See [Compliance](/en/api-reference/compliance) for the managed-cloud posture.
+Vertex AI and Azure OpenAI are deployment choices, not compliance guarantees. Confirm service eligibility and required agreements with the provider and your legal/security team. See [Privacy & Compliance](/en/api-reference/compliance) for the hosted API's product controls.
 
 ## Scaling
 
-- **Horizontal** — run multiple instances behind a load balancer; set `REDIS_HOST` so they share cache state. All instances talk to the one configured PostgreSQL (`PG_HOST` + a connection pool) — the engine has no read-replica routing, so scale the database itself if it becomes the bottleneck. *(Sticky sessions are not required for the SSE/WebSocket chat routes as long as each connection stays on one instance for its lifetime — verify against your load balancer's connection handling.)*
+- **Horizontal** — run multiple instances behind a load balancer; set `REDIS_HOST` so they share cache state. All instances talk to the one configured PostgreSQL (`PG_HOST` + a connection pool) — the engine has no read-replica routing, so scale the database itself if it becomes the bottleneck. Sticky sessions are not required for the SSE/WebSocket chat routes as long as your load balancer keeps each connection on one instance for its lifetime.
 - **Vertical** — the C++ binary is lightweight; size CPU/memory to your LLM concurrency and document-processing load.
 
 ## Monitoring
@@ -139,7 +145,7 @@ The binary logs to **stderr** (`src/platform/log.cpp`); there is no log-file opt
 - Cache hit rate (Redis, if enabled)
 - CPU / memory per instance
 
-*(Mirobody does not ship a Prometheus/metrics endpoint that we can confirm here — instrument at the proxy / platform layer, or verify against the current build.)*
+Mirobody does not ship a built-in Prometheus/metrics endpoint — instrument at the proxy or platform layer.
 
 ## Backups
 
@@ -159,8 +165,8 @@ Also back up your `config.yml` (encrypted) and the object-storage bucket. Test r
   <Card title="Configuration" icon="gear" href="/en/configuration">
     Every production key in one place
   </Card>
-  <Card title="Compliance" icon="user-shield" href="/en/api-reference/compliance">
-    HIPAA / GDPR posture
+  <Card title="Privacy controls" icon="user-shield" href="/en/api-reference/compliance">
+    Retention, deletion, and review boundaries
   </Card>
   <Card title="API Reference" icon="code" href="/en/api-reference/overview">
     Endpoints your clients will call

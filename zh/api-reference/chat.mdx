@@ -45,7 +45,7 @@ resp = client.chat.completions.create(
     user="alice",                                 # 租户隔离键（一个 Subject）
 )
 print(resp.choices[0].message.content)
-# resp.choices[0].message.reasoning_content      # 深度思考（CoT）细节（可能为空）
+# resp.choices[0].message.reasoning_content      # provider 返回的推理文本（可能为空）
 # resp.choices[0].message.tool_steps             # 服务端工具轨迹：{id, name, arguments, result}
 ```
 
@@ -74,10 +74,10 @@ console.log(resp.choices[0].message.content);
 | `messages` | array | OpenAI `{role, content}`。此面**无状态** —— 每次调用需发送完整历史；`system` 消息用于设定语气/格式（见[系统提示](#系统提示)）。 |
 | `stream` | bool | `true` → SSE 流式返回 `chat.completion.chunk` 帧。 |
 | `user` | string | 租户隔离键 → 一个 Subject。为每个终端用户传入其稳定 id。详见[多租户](/zh/api-reference/overview#多租户user-字段)。 |
-| `retention` | string | Mirobody 扩展，为与数据面对齐而接受。数据的生命周期在写入处治理 —— 见[数据](/zh/api-reference/data)与[留存模型](/zh/api-reference/overview#数据留存)。 |
-| `session_id` | string | Mirobody 扩展。为本次调用打上[会话级清理](/zh/api-reference/lifecycle#会话)的标签。真正的多轮状态请用 [Agent API](/zh/api-reference/responses)。 |
 
 <SubjectUserParam />
+
+`retention` 与 `session_id` 不是这个无状态接口的字段。请在写入[数据](/zh/api-reference/data)、[文件](/zh/api-reference/files)或存储[抽取](/zh/api-reference/extract)结果时设置留存策略；需要服务端对话状态时，请使用 [Agent API](/zh/api-reference/responses)。
 
 ## 不支持的参数
 
@@ -96,7 +96,7 @@ console.log(resp.choices[0].message.content);
 
 ## 响应
 
-`message.content` 只承载**一条干净的最终回答**。收集阶段（思考 + 工具调用）走独立通道，回答本身绝不被工具叙述污染。
+`message.content` 只承载**一条干净的最终回答**。可选的 provider 推理文本与服务端工具调用走独立通道，不会混入工具叙述。
 
 ```jsonc
 {
@@ -110,7 +110,7 @@ console.log(resp.choices[0].message.content);
     "message": {
       "role": "assistant",
       "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
-      "reasoning_content": "",                                            // 深度思考（CoT）；可能为空
+      "reasoning_content": "",                                            // provider 返回的推理文本；可能为空
       "tool_steps": [                                                     // 服务端工具轨迹，按序
         { "id": "call_abc", "name": "query_health_data",
           "arguments": { "query": "fasting glucose last 90 days" },
@@ -122,8 +122,9 @@ console.log(resp.choices[0].message.content);
     "prompt_tokens": 12,                                                  // 只计你可见的输入
     "completion_tokens": 210,
     "total_tokens": 222,
-    "prompt_tokens_details": { "system_tokens": 10096 },                  // 平台开销，不算进你的 prompt
-    "completion_tokens_details": { "reasoning_tokens": 0 }
+    "prompt_tokens_details": { "system_tokens": 10096 },                  // 与可见 prompt_tokens 分开报告
+    "completion_tokens_details": { "reasoning_tokens": 0 },
+    "billed_tokens": { "input": 20391, "output": 841, "total": 21232 }    // provider-true 计量口径
   },
   "health_records": [ { "tool": "query_health_data", "data": "..." } ],
   "citations": [ { "tool": "search_medical_literature", "data": "..." } ]
@@ -133,7 +134,7 @@ console.log(resp.choices[0].message.content);
 | 通道 | 内容 |
 | --- | --- |
 | `message.content` | 只有最终回答（"回复"通道）。 |
-| `message.reasoning_content` | 模型的**深度思考**（CoT）细节。当档位不产出时可能为空字符串。 |
+| `message.reasoning_content` | Provider 返回的推理文本。它可能为空，也不代表完整的模型内部推理。 |
 | `message.tool_steps[]` | 服务端工具轨迹 —— 每条 `{id, name, arguments, result}`，按 `id` 合并。**始终返回**；没有开关参数，也没有截断开关。 |
 | `health_records` | 回答所依赖的健康数据工具输出 —— `{tool, data}` 对。可解释性就在这里。 |
 | `citations` | 文献类工具（`search_medical_literature` / `get_clinical_trials` / `get_article_by_pmcid`）的输出 —— `{tool, data}` 对；未查文献时为空。 |
@@ -143,11 +144,13 @@ console.log(resp.choices[0].message.content);
 
 ### 用量口径
 
-`usage.prompt_tokens` 只报告**你实际发送的输入**（你的 `messages`）；平台自身的系统提示与工具 schema 单列在 `prompt_tokens_details.system_tokens`，不会算到你的 prompt 头上。`completion_tokens_details.reasoning_tokens` 统计思考 token。计数为该 agent 轮次内所有模型调用之和。
+`usage.prompt_tokens` 只报告**你实际发送的输入**（你的 `messages`）；平台系统提示与工具 schema 单列在 `prompt_tokens_details.system_tokens`。`completion_tokens_details.reasoning_tokens` 报告 provider 的推理 token。计数为该 agent 轮次内所有模型调用之和。
+
+`usage.billed_tokens` 是用于计量的 provider-true 汇总。按模型目录的标准输入/输出单价相乘可估算费用；提示词缓存折扣可能使实际计量费用更低。
 
 ## 流式传输
 
-`stream: true` 时帧按序到达。**首个 chunk 携带 `delta.role: "assistant"`**（对齐 OpenAI —— 许多客户端以它初始化消息），随后是工具/思考增量，最后是一条不间断的回答流：
+`stream: true` 时帧按序到达。**首个 chunk 携带 `delta.role: "assistant"`**（对齐 OpenAI —— 许多客户端以它初始化消息），随后是可选的推理/工具增量，最后是一条不间断的回答流：
 
 ```text
 data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":""}}]}
@@ -162,22 +165,21 @@ data: [DONE]
 
 ## 系统提示
 
-`system` 消息设定回答的语气、人设、格式与语言。数据收集由平台控制 —— 智能体始终读取 Subject 的真实数据 —— 因此 `system` 提示塑造回答*怎么读*，从不决定*是否*使用真实数据。
+`system` 消息设定回答的语气、人设、格式与语言。服务端工具的可用范围与 Subject 隔离仍由平台控制；该提示不能获得其他 Subject 的访问权，也不能添加工具。
 
 ## 内置工具
 
-除了普通的工具调用,托管智能体还能**规划**多步工作、**分派**子任务、运行**沙箱代码**做数值分析(趋势、相关性),并读取 Subject 上传的文件。这些都不需要你调用——智能体自己会,基于该 Subject 的数据。
+除了普通的工具调用，托管智能体还能**规划**多步工作、**分派**子任务、运行**沙箱代码**做数值分析（趋势、相关性），并读取 Subject 上传的文件。这些都不需要你调用 —— 智能体自己会，基于该 Subject 的数据。
 
 托管智能体可调用的**内置工具**：
 
 - `query_health_data` —— 检索并聚合 Subject 的记录
 - `list_clinical_records` —— 列出临床文档 / FHIR 支撑的记录
 - `list_family_members` —— 解析 Subject 有权查询的照护圈成员
-- `write_fhir_observation` —— 写入一条结构化 FHIR observation
 - `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 查询医学证据（供给 `citations`）
 - `fetch_url` —— 读取网页
 
-规划 / 分派 / 代码分析类工具属于内部管线，不算 API 契约的一部分。`ask_user` 也在同一套内置工具里（服务于网页应用），但在 **`/v1` 面上已禁用**（API 调用方没有可作答的 widget）。你通过 [`/v1/files`](/zh/api-reference/files) 上传的文件会落在 `/uploads`，智能体会自动读取。
+`/v1` 智能体的主循环只读。存储对话中出现的健康事实由后台 consolidation 异步处理，而不是由智能体工具直接写入。规划、分派与代码分析类工具属于内部实现，不属于 API 契约。`ask_user` 服务于网页应用，但在 **`/v1` 接口上已禁用**，因为 API 调用方没有可响应的交互组件。通过 [`/v1/files`](/zh/api-reference/files) 上传的文件，会在后台文本抽取完成后供智能体读取。
 
 要添加**你自己的**工具，请使用 [Agent API 的 function calling](/zh/api-reference/function-calling) —— 此面刻意不提供工具注入。
 

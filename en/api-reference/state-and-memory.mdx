@@ -36,22 +36,22 @@ r2 = client.responses.create(model="mirobody-flash",
 
 ### Cleanup
 
-`DELETE /v1/responses/{id}` removes a stored response; when it is the last live response of its conversation, the **whole conversation is torn down** — its history and any conversation-derived memory. See [Agent API → Delete](/en/api-reference/responses#delete-a-stored-response).
+`DELETE /v1/responses/{id}` always removes that stored response. Only when it is the **last live response in its conversation** does the platform tear down the conversation history and retract conversation-derived memory. See [Agent API → Delete](/en/api-reference/responses#delete-a-stored-response).
 
 ## Cross-session memory
 
-Stored conversations feed the platform's asynchronous memory consolidation: durable facts the agent learns about a Subject can inform later conversations for that same Subject. `store: false` turns keep out of it entirely; deleting a response retracts what its conversation contributed.
+Stored conversations feed the platform's asynchronous memory consolidation: durable facts the agent learns about a Subject can inform later conversations for that same Subject. `store: false` turns stay out of it entirely. Deleting the last live response in a conversation retracts that conversation's derived memory; deleting an earlier response does not while other responses in the thread remain.
 
 ## Journaling
 
-A subjective journal entry — *"headache all afternoon, eased after two coffees"* — is **a single-turn `POST /v1/responses` with `store: true`**. No dedicated endpoint: the knobs on this page already compose into the recipe. Bind entries to your own `session_id` (e.g. `journal-{user}`) so they never hit the 30-day TTL; `builtin_tools: "none"` plus a short-acknowledgement `instructions` keeps the reply — which you don't consume — as cheap as possible:
+A subjective journal entry — *"headache all afternoon, eased after two coffees"* — is **a single-turn `POST /v1/responses` with `store: true`**. No dedicated endpoint: the knobs on this page already compose into the recipe. Give each entry its own `session_id` (for example, `journal-{entry_id}`) so it never hits the 30-day TTL and can be deleted independently; `builtin_tools: "none"` plus a short-acknowledgement `instructions` keeps the reply — which you don't consume — as cheap as possible:
 
 ```bash
 curl -s https://api.mirobody.ai/v1/responses \
   -H "Authorization: Bearer $MIROBODY_API_KEY" -d '{
   "input": "Headache all afternoon; eased after two cups of coffee",
   "user": "patient-42",
-  "session_id": "journal-patient-42",
+  "session_id": "journal-entry-018",
   "store": true,
   "builtin_tools": "none",
   "instructions": "The user is journaling, not asking a question. Reply with a single short acknowledgement."
@@ -62,7 +62,9 @@ Everything after that is the existing machinery:
 
 - **Consolidation extracts what matters.** The background consolidation pass reads the stored turn and pulls out any **quantifiable indicators** — written to the same pool as [`POST /v1/data`](/en/api-reference/data), so they show up in `GET /v1/data` — and **durable memories**, which ground the Subject's later agent answers automatically. Extraction happens asynchronously; it doesn't depend on the reply's length or content.
 - **Read back a single entry** with `GET /v1/responses/{id}`. There is **no list endpoint** (OpenAI parity) — keep your own `(entry → response_id)` index on your side. The platform is the data/intelligence layer, not a note-taking app.
-- **Three deletion levers**: `DELETE /v1/responses/{id}` removes one entry **and retracts the memory its conversation contributed**; [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) tears down the whole journal session; [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) erases everything for the Subject.
+- **Delete one entry** with `DELETE /v1/responses/{id}`. With the recommended one-response-per-`session_id` design, that response is the conversation's last live response, so its conversation-derived memory is also retracted. If multiple responses share a `session_id`, delete all of them before that shared memory is retracted.
+- **Delete session-scoped working data** with [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions). It does not delete stored response objects.
+- **Erase the Subject** with [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject).
 - **One nuance**: readings that consolidation has already extracted into the data plane are ordinary records — deleting the journal entry retracts memories but leaves those readings; remove them with [`DELETE /v1/data`](/en/api-reference/data) (by `id` or `indicator`) or the Subject-level wipe.
 
 ## Data-plane retention (`retention`)
@@ -83,6 +85,6 @@ There is **no `retention: "none"`** — writing to the store while asking not to
 | --- | --- |
 | Fully ephemeral one-off | `store: false`; don't write data (or write with `retention: "1h"`, or `retention: "session"` and delete the session after) |
 | A user's ongoing assistant thread | `session_id: <stable-id>` on every turn; data `retention: "permanent"` |
-| A user's journal | Single-turn `store: true` + `session_id: journal-{user}` per entry — see [Journaling](#journaling) |
-| Short-lived triage conversation | default `store: true`, chain with `previous_response_id`; working data `retention: "session"` + the same `session_id`; `DELETE /v1/sessions/{id}` when done |
+| A user's journal | Single-turn `store: true` + a unique `session_id: journal-{entry_id}` for each entry — see [Journaling](#journaling) |
+| Short-lived triage conversation | default `store: true`, chain with `previous_response_id`; working data `retention: "session"` + the same `session_id`; delete the stored response IDs and then `DELETE /v1/sessions/{id}` when done |
 | Right to be forgotten | [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) — everything, including stored conversations; or per-piece: `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |

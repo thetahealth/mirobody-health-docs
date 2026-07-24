@@ -1,15 +1,15 @@
 ---
 title: "文件"
-description: "POST /v1/files、GET /v1/files、DELETE /v1/files/{file_key} —— 上传并解析报告、列出、获取解析后的文本、删除。"
+description: "POST /v1/files、GET /v1/files、DELETE /v1/files/{file_key} —— 上传报告、获取抽取文本、列出与删除。"
 ---
 
-上传一份健康文档，Mirobody 会将其解析进数据主体(Subject)的存储。PDF 和图片会经过 **OCR**；Excel / CSV 会按结构解析为健康记录。对话智能体随后会在作答时自动读取已上传的文件。
+将健康文档上传到 Subject 的存储。Mirobody 会先保存原文件，再在后台抽取可读文本：PDF 和图片使用 **OCR**，表格与文本文件会转换为文本。智能体作答时可以读取这些抽取结果。
 
 <Note>
 单文件上传上限 **100 MB**——超限返回 `413`。大导出/实时流请走 [WebSocket 上传](/zh/api-reference/files#websocket-上传)。
 </Note>
 
-## 上传并解析
+## 上传文件
 
 ```http
 POST /v1/files
@@ -36,7 +36,7 @@ curl https://api.mirobody.ai/v1/files \
 ```json
 {
   "object": "file",
-  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
   "filename": "checkup_2026.pdf",
   "bytes": 20544,
   "status": "processed",
@@ -45,11 +45,13 @@ curl https://api.mirobody.ai/v1/files \
 }
 ```
 
-文件的标识符是 **`id`**（一个含斜杠的键）—— 在下方的获取与列出调用中将其用作 `{file_key}`。上传响应上的 `created_at` 是 **epoch 秒**。上传响应**不**包含指标计数或摘要。
+文件标识符是 **`id`**（一个含斜杠的键）—— 在下方的获取与删除调用中将其用作 `{file_key}`。`created_at` 是 **epoch 秒**。上传响应**不**包含指标计数或摘要。
 
 <Note>
-图片和 PDF 会被 OCR 为智能体可读的文本；结构化指标抽取是异步、尽力而为的。如需确定的结构化数据，请使用 [`POST /v1/data`](/zh/api-reference/data) 或上传 CSV / Excel 文件。
+`status: "processed"` 表示原文件已经接收并保存，不代表后台文本抽取已经完成。上传后立即调用 `GET /v1/files/{file_key}`，`extracted_text` 可能为空；请稍后重试。
 </Note>
+
+上传文件只会让其文本可供智能体读取，**不会**自动写入结构化健康记录。需要从文件中抽取标准化指标时，请携带该 `file_key` 调用 [`POST /v1/extract`](/zh/api-reference/extract)；已有结构化记录则使用 [`POST /v1/data`](/zh/api-reference/data)。
 
 ## 列出文件
 
@@ -64,8 +66,8 @@ Authorization: Bearer mb_live_*
   "data": [
     {
       "object": "file",
-      "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
-      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+      "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
+      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
       "filename": "checkup_2026.pdf",
       "file_type": "application/pdf",
       "bytes": 20544,
@@ -85,37 +87,37 @@ GET /v1/files/{file_key}?user=alice
 Authorization: Bearer mb_live_*
 ```
 
-返回单个文件解析后的文本 —— 与智能体所读取的内容一致：
+返回单个文件抽取后的文本 —— 与智能体所读取的内容一致：
 
 ```json
 {
   "object": "file",
-  "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
   "filename": "checkup_2026.pdf",
-  "extracted_text": "date,indicator,value\n2026-06-16,fasting_glucose,5.4\n",
+  "extracted_text": "Annual checkup 2026-06-16\nFasting glucose  97 mg/dL  (ref 70-110)\n...",
   "abstract": "",
   "subject": "alice"
 }
 ```
 
-`abstract` 可能为空（并非每种文件类型都会生成它）。
+后台抽取尚未完成时，`extracted_text` 可能为空。`abstract` 也可能为空，并非每种文件类型都会生成摘要。
 
 ## WebSocket 上传
 
 大导出或实时采集可走 `wss://…/v1/files/stream`:单连接分块上传、带进度。鉴权走查询串(浏览器无法给 WebSocket 设 header):
 
 ```text
-wss://api.mirobody.cn/v1/files/stream?key=mb_live_...&user=alice&retention=permanent
+wss://api.mirobody.ai/v1/files/stream?key=mb_live_...&user=alice&retention=permanent
 ```
 
-帧序列(均为 JSON 文本帧):
+帧序列（均为 JSON 文本帧）：
 
-1. **服务端 → 你**:`{"type": "connection_established"}` —— 收到前不要发任何东西。
-2. **你 → 服务端**:`{"type": "upload_start", "messageId": "<批次id>", "files": [{"filename", "contentType", "size"}]}` —— 整批一个 `messageId`。
-3. **你 → 服务端**,每 256 KB 一块:`{"type": "upload_chunk", "messageId", "filename", "chunk": "<base64>", "chunkIndex", "totalChunks"}`。
-4. **你 → 服务端**:`{"type": "upload_end", "messageId"}` → 全部文件入库并解析完成后,服务端回 `upload_end_response`。
+1. **服务端 → 你**：`{"type": "connection_established"}` —— 收到前不要发任何东西。
+2. **你 → 服务端**：`{"type": "upload_start", "messageId": "<批次id>", "files": [{"filename", "contentType", "size"}]}` —— 整批一个 `messageId`。
+3. **你 → 服务端**，每 256 KB 一块：`{"type": "upload_chunk", "messageId", "filename", "chunk": "<base64>", "chunkIndex", "totalChunks"}`。
+4. **你 → 服务端**：`{"type": "upload_end", "messageId"}` → 全部原文件保存后，服务端返回 `upload_end_response`；此时文本抽取可能仍在后台运行。
 
-单文件 100 MB 上限、Subject 隔离与 `POST /v1/files` 完全一致——用 `GET /v1/files` 可列出。
+单文件 100 MB 上限、Subject 隔离与 `POST /v1/files` 完全一致 —— 用 `GET /v1/files` 可列出。
 
 ## 删除文件
 
@@ -127,7 +129,7 @@ Authorization: Bearer mb_live_*
 立即将该文件从 API 表面移除（若不是该 Subject 的文件或已删除则返回 `404`）：
 
 ```json
-{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....csv", "deleted": true, "subject": "alice" }
+{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf", "deleted": true, "subject": "alice" }
 ```
 
 有时限的上传也会通过[留存](/zh/api-reference/overview#数据留存)过期自动移除 —— 过期文件立即从所有 `GET /v1/files*` 读取中消失，随后由后台任务清理。如需一次性擦除某个 Subject 的一切，请使用 `DELETE /v1/subjects/{user}` —— 参见[合规](/zh/api-reference/compliance)。

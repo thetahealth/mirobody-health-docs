@@ -33,12 +33,12 @@ export MIROBODY_API_KEY="mb_live_..."
             "user": "alice",
             "retention": "permanent",
             "records": [
-              {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
-              {"indicator": "FBG",             "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+              {"indicator": "fasting_glucose", "value": 97, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z"},
+              {"indicator": "FBG",             "value": 92, "unit": "mg/dL", "time": "2026-06-17T07:25:00Z"}
             ]
           }'
 
-    # Or a document (OCR'd and parsed automatically)
+    # Or a document (the original is stored; text extraction runs in the background)
     curl https://api.mirobody.ai/v1/files \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -F "user=alice" -F "file=@lab_report.pdf"
@@ -49,9 +49,6 @@ export MIROBODY_API_KEY="mb_live_..."
 
   <Step title="② It comes back standardized">
     Note the two spellings above — `fasting_glucose` and `FBG`. Read the data back and both rows carry the **same LOINC code**, a canonical name, UCUM-parsed values, and a FHIR mirror id:
-
-    Done experimenting? `DELETE /v1/subjects/alice` erases everything this quickstart wrote (records, files, conversations) in one call.
-
 
     ```bash
     curl "https://api.mirobody.ai/v1/data?user=alice&limit=10" \
@@ -64,9 +61,9 @@ export MIROBODY_API_KEY="mb_live_..."
       "data": [
         {
           "indicator": "FBG",
-          "value": "5.1 mmol/L",
-          "parsed_value": "5.1",
-          "parsed_unit": "mmol/L",
+          "value": "92 mg/dL",
+          "parsed_value": "92",
+          "parsed_unit": "mg/dL",
           "loinc_code": "1558-6",
           "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
           "fhir_resource_id": "8f3c9a1e-...",
@@ -75,12 +72,12 @@ export MIROBODY_API_KEY="mb_live_..."
           "comment": ""
         }
       ],
-      "has_more": true,
+      "has_more": false,
       "subject": "alice"
     }
     ```
 
-    That's the [standardization pipeline](/en/api-reference/standardization) — deterministic name→LOINC (no LLM code-guessing) + UCUM + FHIR, on **every** write. To preview it on a document without storing anything, try [`POST /v1/extract`](/en/api-reference/extract).
+    That's the [standardization pipeline](/en/api-reference/standardization) — deterministic name→LOINC (no LLM code-guessing) + UCUM + FHIR, on every **structured-record** write. To extract and standardize readings from a document, use [`POST /v1/extract`](/en/api-reference/extract), either with the file itself or an uploaded `file_key`.
   </Step>
 
   <Step title="③ Put AI on top">
@@ -114,7 +111,6 @@ export MIROBODY_API_KEY="mb_live_..."
     print(Runner.run_sync(agent, "Check my recent glucose; book a follow-up if it's trending up.").final_output)
     ```
 
-    
 <Warning>
 Every agents-SDK agent that touches Mirobody tools must pass the Subject via `model_settings=ModelSettings(extra_body={"user": ...})`. Without it, the run reads the **account-default Subject**, not the user you meant.
 </Warning>
@@ -125,14 +121,14 @@ Mirobody's built-in tools read alice's real data; when the model decides to book
 
 ## Prefer clicking over curl?
 
-The console has a **Playground** — run chats, upload files, and inspect tool steps with no code.
+The console Playground follows the same flow: **① Ingest data → ② Auto-standardize → ③ Agent or Answers**. Use it to upload a file, inspect extracted text or standardized records, and run either API without writing code.
 
 <CardGroup cols={2}>
-  <Card title="Playground" icon="flask" href="https://platform.mirobody.ai/developer">
-    Try the agent in the browser against your account.
+  <Card title="Playground" icon="flask" href="https://platform.mirobody.ai/developer/data">
+    Ingest data, inspect standardization, then open Agent or Answers.
   </Card>
   <Card title="Usage" icon="chart-line" href="https://platform.mirobody.ai/developer/usage">
-    Requests, tokens, and cost.
+    Request counts for the last 30 days.
   </Card>
 </CardGroup>
 

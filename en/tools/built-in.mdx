@@ -5,7 +5,7 @@ description: "The MCP tools that ship with the Mirobody C++ engine"
 
 ## Overview
 
-Mirobody ships **9 built-in MCP tools**. Each is a small C++ file in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) that self-registers at compile time (see [Adding Custom Tools](/en/tools/adding-tools)). They're exposed over the [`/mcp` endpoint](/en/tools/mcp-integration) for external clients and are also handed to the built-in agent as function-call descriptors, so the OpenAI and Gemini clients can invoke them locally in-process.
+Mirobody ships **9 built-in MCP tools**. Each is a small C++ file in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/mcp_tools) that self-registers at compile time (see [Adding Custom Tools](/en/tools/adding-tools)). They're exposed over the [`/mcp` endpoint](/en/tools/mcp-integration) for external clients and are also handed to the built-in agent as function-call descriptors, so the OpenAI and Gemini clients can invoke them locally in-process.
 
 <Info>
 Tools marked **auth required** only run for an authenticated caller — the engine resolves the caller's identity (JWT or personal MCP secret) before dispatch and injects it as `UserInfo`. Tools without auth (like `echo` and `render_chart`) run for anyone.
@@ -129,7 +129,7 @@ Returns `{ authenticated: true, session_id, acting_for_member? }`.
 
 ### echo
 
-Echoes the provided text back. It's the reference tool — the smallest possible example of the drop-a-file registration pattern (see [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/echo.cpp)) — and doubles as a connectivity check.
+Echoes the provided text back. It's the reference tool — the smallest possible example of the drop-a-file registration pattern (see [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/echo.cpp)) — and doubles as a connectivity check.
 
 <ParamField body="text" type="string" required>
   Text to echo back.
@@ -181,7 +181,7 @@ See [Adding Custom Tools](/en/tools/adding-tools) for the full walkthrough.
     Add your own C++ tool in `res/mcp_tools/`
   </Card>
   <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
-    Connect Claude, Cursor, or ChatGPT to the `/mcp` endpoint
+    Connect Claude Desktop or Cursor to the `/mcp` endpoint
   </Card>
   <Card title="Tools & Agent Overview" icon="wrench" href="/en/tools/overview">
     How the agent, tools, and MCP fit together

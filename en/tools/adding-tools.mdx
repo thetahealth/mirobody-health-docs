@@ -5,7 +5,7 @@ description: "Add a C++ MCP tool to the Mirobody engine — drop a .cpp into res
 
 ## Overview
 
-Tools in Mirobody are **C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools)**. Each file declares a `Tool` and self-registers at compile time; `CMakeLists.txt` globs every `.cpp` in that directory into the build, so the whole workflow is: **drop a new file, rebuild, and the tool is live** — no manual registration, no router wiring, no JSON schema by hand.
+Tools in Mirobody are **C++ files in [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/mcp_tools)**. Each file declares a `Tool` and self-registers at compile time; `CMakeLists.txt` globs every `.cpp` in that directory into the build, so the whole workflow is: **drop a new file, rebuild, and the tool is live** — no manual registration, no router wiring, no JSON schema by hand.
 
 <Info>
 This is a **compile-time** mechanism, not a runtime drop-in. There is no Python tool loader in the C++ engine (Mirobody) — parameters are declared in a small table and the registry expands them into the MCP `inputSchema` and the OpenAI / Gemini function descriptors.
@@ -27,7 +27,7 @@ Parameter types are `Type::String`, `Integer`, `Number`, `Boolean`, `Array`, `Ob
 
 ## Quick start
 
-The reference tool is [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/echo.cpp) — the smallest complete example. Copy it and go.
+The reference tool is [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/echo.cpp) — the smallest complete example. Copy it and go.
 
 <Steps>
   <Step title="Create the file">
@@ -86,7 +86,7 @@ The reference tool is [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/
     ./build.sh
     ```
 
-    `res/mcp_tools/*.cpp` is globbed by CMake, so your new file is picked up with no other edits. Restart `./mirobody` and the tool is live.
+    `res/mcp_tools/*.cpp` is globbed by CMake, so your new file is picked up with no other edits. Restart `./build/mirobody` and the tool is live.
   </Step>
 </Steps>
 
@@ -119,12 +119,12 @@ if (ctx.memory == nullptr)
 ```
 
 <Tip>
-For the read patterns — enforcing per-user ownership, returning FHIR observations, persisting to the relational store — read the built-ins alongside this page: [`list_files.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/list_files.cpp), [`read_file.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/read_file.cpp), [`family_health.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/family_health.cpp), [`remember.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/remember.cpp).
+For the read patterns — enforcing per-user ownership, returning FHIR observations, persisting to the relational store — read the built-ins alongside this page: [`list_files.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/list_files.cpp), [`read_file.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/read_file.cpp), [`family_health.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/family_health.cpp), [`remember.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/remember.cpp).
 </Tip>
 
 ## Non-flat arguments
 
-The declared `params` table generates a JSON Schema of flat scalars and arrays, which covers most tools. For a tool whose arguments aren't flat, read the raw object with `args.raw()` (as [`render_chart`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/render_chart.cpp) does with its ECharts `option`), and — if you need the advertised schema to match exactly — set the optional `raw_input_schema` field on the `Tool` to a schema string that's used verbatim.
+The declared `params` table generates a JSON Schema of flat scalars and arrays, which covers most tools. For a tool whose arguments aren't flat, read the raw object with `args.raw()` (as [`render_chart`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/render_chart.cpp) does with its ECharts `option`), and — if you need the advertised schema to match exactly — set the optional `raw_input_schema` field on the `Tool` to a schema string that's used verbatim.
 
 ## Best practices
 
@@ -165,7 +165,7 @@ If it's missing, check the build log for compile errors and confirm the file is 
     Reference for the 9 tools that ship
   </Card>
   <Card title="MCP Integration" icon="bolt" href="/en/tools/mcp-integration">
-    Connect your tools to Claude, Cursor, and ChatGPT
+    Connect your tools to Claude and Cursor
   </Card>
   <Card title="Tools & Agent Overview" icon="brain" href="/en/tools/overview">
     How the agent, tools, and providers fit together

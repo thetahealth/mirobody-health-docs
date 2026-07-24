@@ -14,6 +14,10 @@ Authorization: Bearer mb_live_*
 
 By default it is a **dry-run** (`store=false`): you get the standardization result and **nothing is persisted** — zero side effects. Set `store=true` (with a `retention`) to also write the readings into the Subject's store through the same pipeline as [`POST /v1/data`](/en/api-reference/data).
 
+<Warning>
+`store=true` is not idempotent. Repeating the same extraction can write duplicate readings. Use the default dry-run to inspect a document first, and avoid blind retries after a timeout.
+</Warning>
+
 ## Request
 
 Two input shapes:
@@ -48,7 +52,7 @@ curl https://api.mirobody.ai/v1/extract \
   -H "Content-Type: application/json" \
   -d '{
         "user": "alice",
-        "text": "Fasting glucose 5.6 mmol/L (2026-07-01); LDL cholesterol 3.1 mmol/L",
+        "text": "Fasting glucose 97 mg/dL (2026-07-01); LDL cholesterol 120 mg/dL",
         "store": true,
         "retention": "permanent"
       }'
@@ -64,10 +68,10 @@ curl https://api.mirobody.ai/v1/extract \
       "indicator_raw": "Fasting glucose",
       "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
       "loinc_code": "1558-6",
-      "value_raw": "5.6",
-      "parsed_value": "5.6",
-      "unit_raw": "mmol/L",
-      "unit_ucum": "mmol/L",
+      "value_raw": "97",
+      "parsed_value": "97",
+      "unit_raw": "mg/dL",
+      "unit_ucum": "mg/dL",
       "confidence": 0.82,
       "measured_at": "2026-07-01"
     },
@@ -75,10 +79,10 @@ curl https://api.mirobody.ai/v1/extract \
       "indicator_raw": "LDL cholesterol",
       "canonical_name": "Cholesterol in LDL [Mass/volume] in Serum or Plasma",
       "loinc_code": "2089-1",
-      "value_raw": "3.1",
-      "parsed_value": "3.1",
-      "unit_raw": "mmol/L",
-      "unit_ucum": "mmol/L",
+      "value_raw": "120",
+      "parsed_value": "120",
+      "unit_raw": "mg/dL",
+      "unit_ucum": "mg/dL",
       "confidence": 0.79,
       "measured_at": null
     }
@@ -118,7 +122,7 @@ curl https://api.mirobody.ai/v1/extract \
 
 Mixed text works as you'd expect — *"headache all day, temperature was 38.2 °C"* yields the temperature reading and drops the narrative.
 
-**Purely subjective entries (journaling) have an official recipe — no dedicated endpoint needed.** Send the entry as a single-turn [`POST /v1/responses`](/en/api-reference/responses) with `store: true` (plus your own `session_id` such as `journal-{user}`, `builtin_tools: "none"`, and a short-acknowledgement `instructions`). The platform's background consolidation pass then extracts any **quantifiable indicators** (queryable via [`GET /v1/data`](/en/api-reference/data)) and **durable memories** that ground the Subject's later answers; `DELETE /v1/responses/{id}` removes the entry **and** retracts its consolidated memory. See the full [Journaling recipe](/en/api-reference/state-and-memory#journaling). `/v1/extract` itself stays quantitative — readings in, standardized indicators out.
+**Purely subjective entries (journaling) use the Agent API — no dedicated endpoint is needed.** Send each entry as a single-turn [`POST /v1/responses`](/en/api-reference/responses) with `store: true`, a unique `session_id` such as `journal-{entry_id}`, `builtin_tools: "none"`, and short-acknowledgement `instructions`. Background consolidation can derive quantifiable indicators and durable memory from the stored turn. With one response per `session_id`, deleting that response also retracts its conversation-derived memory; already extracted readings remain until deleted through `/v1/data`. See [Journaling](/en/api-reference/state-and-memory#journaling) for the exact lifecycle.
 
 ## Errors
 

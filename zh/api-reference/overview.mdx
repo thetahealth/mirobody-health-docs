@@ -16,18 +16,13 @@ Mirobody 是**全球优先**的。
 
 <BaseUrl />
 
-两个集群、同一契约：全球 API（`https://api.mirobody.ai/v1`）与**中国** API（`https://api.mirobody.cn/v1`）。见[区域](/zh/api-reference/regions/overview)。
+全球 API（`https://api.mirobody.ai/v1`）是当前公开的生产端点。规划中的中国区生产端点尚未公开提供。见[区域](/zh/api-reference/regions/overview)。
 
 ## 鉴权
 
 <AuthKey />
 
-| 界面 | 方案 | 获取方式 |
-| --- | --- | --- |
-| `/v1/*`（API） | `Authorization: Bearer mb_live_*` | 在[控制台](https://platform.mirobody.ai/developer/keys) → **API Keys** 创建。密钥只显示**一次**。 |
-| `/api/console/*`（控制台） | 会话 **JWT**（登录） | 控制台邮箱验证码或微信登录。 |
-
-`/v1` 密钥**不是** JWT —— 它们是作用域为你账户的长期 API key。切勿放进客户端代码。
+控制台登录（邮箱验证码或微信）是面向控制台的独立会话登录 —— 它不是 API 凭证，`/v1` key 也不是 JWT。
 
 ## OpenAI 兼容性
 

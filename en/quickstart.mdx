@@ -1,277 +1,125 @@
 ---
-title: "Quick Start"
-description: "Build the Mirobody C++ core from source and run it locally in a few minutes."
+title: "Quickstart"
+description: "Build the Mirobody C++ engine with SQLite and run it locally."
 ---
 
-Mirobody is a **C++ engine**: you build it from source (or use Docker), drop an LLM key into `config.yml`, and run the `mirobody` binary. It serves an HTTP + WebSocket API — and the built-in web client — at `http://localhost:8080`.
-
-<Info>
-There is **one build path**: install the native dependencies, run `./build.sh`, then run the resulting `./mirobody` binary.
-</Info>
-
-## Prerequisites
-
-<CardGroup cols={3}>
-  <Card title="C++ toolchain" icon="hammer">
-    A C++11 compiler, CMake, and Ninja
-  </Card>
-  <Card title="Native libraries" icon="boxes-stacked">
-    libwebsockets, libcurl, OpenSSL, and friends (installed below)
-  </Card>
-  <Card title="Git" icon="code-branch">
-    To clone the repository
-  </Card>
-</CardGroup>
-
-<Tip>
-Prefer not to install a toolchain? Skip to [Run with Docker](#run-with-docker) — it builds everything inside the image.
-</Tip>
-
-## Build from source
-
-<Steps>
-  <Step title="Clone the repository">
-    ```bash
-    git clone https://github.com/thetahealth/mirobody.git
-    cd mirobody
-    ```
-  </Step>
-
-  <Step title="Install the native dependencies">
-    The desktop default database backend is PostgreSQL, so these also pull the Postgres client (`libpq`).
-
-    <Tabs>
-      <Tab title="Linux (Debian/Ubuntu/WSL)">
-        ```bash
-        sudo apt install build-essential cmake ninja-build pkg-config \
-                         libwebsockets-dev libcurl4-openssl-dev libssl-dev \
-                         rapidjson-dev libyaml-cpp-dev libhiredis-dev libpq-dev \
-                         libjpeg-dev libpng-dev libtiff-dev libwebp-dev
-        ```
-      </Tab>
-
-      <Tab title="macOS (Homebrew)">
-        ```bash
-        brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
-                     rapidjson yaml-cpp hiredis libpq \
-                     jpeg-turbo libpng libtiff webp
-        ```
-      </Tab>
-
-      <Tab title="Fedora / RHEL">
-        ```bash
-        sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
-                         libwebsockets-devel libcurl-devel openssl-devel \
-                         rapidjson-devel yaml-cpp-devel hiredis-devel libpq-devel \
-                         libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel
-        ```
-      </Tab>
-    </Tabs>
-
-    On Windows, install Visual Studio with the **Desktop development with C++** workload and the **C++ CMake tools** component (which ships Ninja and a bundled vcpkg), then run `build.cmd` — vcpkg pulls the native deps from `vcpkg.json` automatically. See [Installation](/en/installation).
-  </Step>
-
-  <Step title="Build">
-    ```bash
-    ./build.sh          # -> build/mirobody
-    ```
-
-    `build.sh` configures with CMake + Ninja (Release, PostgreSQL backend) and builds the `mirobody` binary. On Windows, run `build.cmd` → `build\mirobody.exe`.
-
-    <Check>
-    A successful build produces `build/mirobody`.
-    </Check>
-  </Step>
-
-  <Step title="Create your config">
-    Copy the committed template to `config.yml` (git-ignored) and edit that:
-
-    ```bash
-    cp config.example.yml config.yml
-    ```
-
-    Then set **at least one** LLM key in `config.yml`:
-
-    ```yaml config.yml
-    # Pick at least one provider:
-    OPENAI_API_KEY: 'sk-...'          # OpenAI (GPT); also drives OpenAI Realtime audio
-    GOOGLE_API_KEY: 'AIza...'         # Google Gemini; default provider fallback is gemini-2.5-flash
-    ```
-
-    <Info>
-    Secrets can live encrypted at rest: pre-encrypt a value with the `fernet` CLI and store the `gAAAA…` token in `config.yml` — it is transparently **decrypted on load** when `CONFIG_ENCRYPTION_KEY` is set. See [Configuration](/en/configuration).
-    </Info>
-  </Step>
-
-  <Step title="Run">
-    ```bash
-    ./mirobody          # reads ./config.yml by default
-    ```
-
-    Override the config path with `--config <path>` or the `MIROBODY_CONFIG` env var. `Ctrl-C` (SIGINT/SIGTERM) triggers a graceful shutdown.
-
-    <Check>
-    The server starts on `http://localhost:8080` (`HTTP_HOST` / `HTTP_PORT` in `config.yml`).
-    </Check>
-  </Step>
-
-  <Step title="Open the web app and sign in">
-    Visit <a href="http://localhost:8080">http://localhost:8080</a>. The login screen offers email one-time-code sign-in; use a preset demo account from `EMAIL_PREDEFINE_CODES`:
-
-    ```
-    demo1@mirobody.ai
-    777777
-    ```
-
-    `demo2@mirobody.ai` and `demo3@mirobody.ai` use the same code.
-
-    <Warning>
-    `EMAIL_PREDEFINE_CODES` is for local testing only — never ship predefined codes in production.
-    </Warning>
-
-    Once in, you can:
-    - **Upload files** — lab reports, medical records, images (see [File Processing](/en/concepts/file-processing))
-    - **Chat with the agent** — pick a provider and ask about your data
-    - **Link providers** — connect a wearable or EHR (see [Using Providers](/en/providers/using-providers))
-  </Step>
-</Steps>
+This path uses the self-contained **SQLite** backend, so you can run Mirobody without provisioning PostgreSQL. You will build the C++ engine, add one LLM key, enable local demo login, and verify the server.
 
 <Note>
-The web client is a static single-page app built from `htdoc/` into `res/htdoc` (where `HTTP_ROOT` points) and served by the standalone binary. A fresh checkout already includes the built assets; to rebuild it, run `cd htdoc && npm install && npm run build`.
+For PostgreSQL, Windows, Docker, mobile, and embeddable-library builds, see [Installation](/en/installation). This page keeps the first local run to one path.
 </Note>
 
-## Run with Docker
+## 1. Clone and install dependencies
 
-The repository ships a multi-stage `Dockerfile` that compiles the binary and produces a slim runtime image.
-
-<Steps>
-  <Step title="Build the image">
-    ```bash
-    git clone https://github.com/thetahealth/mirobody.git
-    cd mirobody
-    docker build -t mirobody:latest .
-    ```
-
-    <Info>
-    The image links the **PostgreSQL** backend by default. To build a different SQL backend, pass e.g. `--build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY`.
-    </Info>
-  </Step>
-
-  <Step title="Run it">
-    The image sets `HTTP_PORT=80` internally and bakes `config.example.yml` as the lowest-precedence defaults layer. Mount your own `config.yml` (with your LLM key) at `/app/config.yml`:
-
-    ```bash
-    docker run -p 80:80 -v $PWD/config.yml:/app/config.yml mirobody:latest
-    ```
-
-    The container listens on port 80; the example above maps host port 80 to it. Then open <a href="http://localhost">http://localhost</a> and sign in with the demo credentials above.
-  </Step>
-</Steps>
-
-<Note>
-The Docker image uses the desktop **PostgreSQL** backend, so point `PG_HOST` (and the other `PG_*` keys) in your mounted `config.yml` at a reachable Postgres. For a zero-dependency single-file setup, build with the **SQLite** backend instead — see [Docker Deployment](/en/deployment/docker).
-</Note>
-
-## Verify the API
+```bash
+git clone https://github.com/thetahealth/mirobody.git
+cd mirobody
+```
 
 <Tabs>
-  <Tab title="Health check">
+  <Tab title="Debian / Ubuntu / WSL">
     ```bash
-    curl http://localhost:8080/api/health
+    sudo apt install build-essential cmake ninja-build pkg-config \
+      libwebsockets-dev libcurl4-openssl-dev libssl-dev \
+      rapidjson-dev libyaml-cpp-dev libhiredis-dev libsqlite3-dev \
+      libjpeg-dev libpng-dev libtiff-dev libwebp-dev
     ```
-    Returns `ok`.
   </Tab>
 
-  <Tab title="MCP tools/list">
+  <Tab title="macOS">
     ```bash
-    curl -X POST http://localhost:8080/mcp \
-      -H "Content-Type: application/json" \
-      -d '{
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "tools/list"
-      }'
+    brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+      rapidjson yaml-cpp hiredis sqlite \
+      jpeg-turbo libpng libtiff webp
     ```
-    Discovery (`initialize` / `tools/list`) is unauthenticated.
   </Tab>
 
-  <Tab title="FHIR capability">
+  <Tab title="Fedora / RHEL">
     ```bash
-    curl http://localhost:8080/fhir/metadata
+    sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
+      libwebsockets-devel libcurl-devel openssl-devel \
+      rapidjson-devel yaml-cpp-devel hiredis-devel sqlite-devel \
+      libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel
     ```
-    Returns the FHIR R4 `CapabilityStatement` (public).
   </Tab>
 </Tabs>
 
-## Endpoints
+## 2. Build the SQLite binary
 
-<CardGroup cols={2}>
-  <Card title="Web app" icon="browser" href="http://localhost:8080">
-    Built-in UI: file upload, chat, providers
-  </Card>
-  <Card title="MCP server" icon="bolt" href="http://localhost:8080/mcp">
-    JSON-RPC 2.0 for ChatGPT / Claude / Cursor
-  </Card>
-  <Card title="Chat API" icon="comments" href="http://localhost:8080/api/chat">
-    SSE (`POST`) + WebSocket realtime (`GET`)
-  </Card>
-  <Card title="FHIR R4" icon="hospital" href="http://localhost:8080/fhir/metadata">
-    Embedded RESTful FHIR endpoint
-  </Card>
-</CardGroup>
+```bash
+./build.sh sqlite
+```
 
-For remote MCP integrations, give the client your public HTTPS base URL plus `/mcp` — the server advertises itself from the request's `Host` header, so no extra configuration is needed.
+The command creates `build-sqlite/mirobody`. Build directories use hyphens; the default PostgreSQL build goes to `build/mirobody`.
 
-## Troubleshooting
+## 3. Configure the local server
 
-<AccordionGroup>
-  <Accordion title="Build fails: missing headers or libraries" icon="hammer">
-    Re-run the dependency install for your platform above. Note on libwebsockets: distro packages work for a quick start, but they are built **without** HTTP response compression (`LWS_WITH_HTTP_STREAM_COMPRESSION`); for production, build it from source with that flag on a version ≥ 4.3.4 (CVE-2025-1866 fix) as the Docker image does (`v4.3.10`) — see `docs/BUILDING.md`.
-  </Accordion>
+```bash
+cp config.example.yml config.yml
+```
 
-  <Accordion title="Port 8080 already in use" icon="circle-exclamation">
-    Change `HTTP_PORT` in `config.yml`:
+Edit `config.yml`:
 
-    ```yaml
-    HTTP_PORT: 8081
-    ```
+```yaml
+# Configure at least one hosted model:
+GOOGLE_API_KEY: 'AIza...'          # or OPENAI_API_KEY: 'sk-...'
 
-    Then restart `./mirobody`.
-  </Accordion>
+# Local demo login. Keep this disabled on any reachable deployment.
+EMAIL_PREDEFINE_CODES:
+  demo1@mirobody.ai: '777777'
+```
 
-  <Accordion title="Chat fails to start" icon="robot">
-    No LLM key is configured, or the selected provider's key is missing. Set at least one of `OPENAI_API_KEY` / `GOOGLE_API_KEY` in `config.yml` and restart. The default provider fallback is `gemini-2.5-flash`, so `GOOGLE_API_KEY` is the simplest first key.
-  </Accordion>
+<Warning>
+The demo credential is public. Use it only on a local server; configure real email or social login before exposing Mirobody to a network.
+</Warning>
 
-  <Accordion title="Permission denied on ./build.sh or ./mirobody" icon="lock">
-    ```bash
-    chmod +x build.sh
-    chmod +x build/mirobody
-    ```
-  </Accordion>
+## 4. Run and sign in
 
-  <Accordion title="Postgres connection failed" icon="database">
-    The desktop build expects PostgreSQL. Check the `PG_*` keys in `config.yml` point at a reachable database, or rebuild with the SQLite backend (`./build.sh sqlite`) for a self-contained setup.
-  </Accordion>
-</AccordionGroup>
+Run the binary from the repository root so it can read `./config.yml` and `res/`:
 
-## Next Steps
+```bash
+./build-sqlite/mirobody
+```
+
+Open [http://localhost:8080](http://localhost:8080) and sign in with:
+
+```text
+demo1@mirobody.ai
+777777
+```
+
+You can now upload a health document, chat with the built-in agent, or connect a data provider.
+
+## 5. Verify the server
+
+```bash
+# Liveness
+curl http://localhost:8080/api/health
+
+# Public FHIR R4 capability statement
+curl http://localhost:8080/fhir/metadata
+
+# MCP discovery
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+The health endpoint returns `ok`; the other two commands return JSON.
+
+## Next steps
 
 <CardGroup cols={2}>
   <Card title="Configuration" icon="gear" href="/en/configuration">
-    Every `config.yml` key: LLM providers, DB, storage, auth, care circles
+    Configure models, authentication, storage, and remote MCP access.
   </Card>
-  <Card title="Explore the API" icon="code" href="/en/api-reference/overview">
-    Chat, data, files, and MCP endpoints
+  <Card title="Architecture" icon="diagram-project" href="/en/concepts/architecture">
+    Understand the C++ core, FHIR store, vendors, agent, and MCP tools.
   </Card>
-  <Card title="Understand the architecture" icon="diagram-project" href="/en/concepts/architecture">
-    The five C++ pieces and how data flows
+  <Card title="Docker deployment" icon="docker" href="/en/deployment/docker">
+    Build the production image and connect it to PostgreSQL.
   </Card>
-  <Card title="Add a new provider" icon="plus" href="/en/development/provider-integration">
-    Hook in a new wearable, phone store, or EHR
+  <Card title="Development setup" icon="code" href="/en/development/setup">
+    Build tests, use debug CLIs, and navigate the source tree.
   </Card>
 </CardGroup>
-
-<Note>
-For production deployment, see [Production](/en/deployment/production) for security and backend notes.
-</Note>

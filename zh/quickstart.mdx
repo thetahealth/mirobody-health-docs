@@ -1,277 +1,125 @@
 ---
 title: "快速开始"
-description: "从源码构建 Mirobody 的 C++ 内核，几分钟内在本地跑起来。"
+description: "使用 SQLite 构建 Mirobody C++ 引擎并在本地运行。"
 ---
 
-Mirobody 是一个 **C++ 引擎**：你从源码构建它（或用 Docker），在 `config.yml` 里填一个 LLM 密钥，然后运行 `mirobody` 二进制。它在 `http://localhost:8080` 上提供 HTTP + WebSocket API —— 以及内置的 Web 客户端。
-
-<Info>
-只有**一条构建路径**：安装原生依赖，运行 `./build.sh`，再运行产出的 `./mirobody` 二进制。
-</Info>
-
-## 前置条件
-
-<CardGroup cols={3}>
-  <Card title="C++ 工具链" icon="hammer">
-    C++11 编译器、CMake 和 Ninja
-  </Card>
-  <Card title="原生库" icon="boxes-stacked">
-    libwebsockets、libcurl、OpenSSL 等（下面会装）
-  </Card>
-  <Card title="Git" icon="code-branch">
-    用于克隆仓库
-  </Card>
-</CardGroup>
-
-<Tip>
-不想装工具链？直接跳到 [用 Docker 运行](#用-docker-运行) —— 它会在镜像内部把一切构建好。
-</Tip>
-
-## 从源码构建
-
-<Steps>
-  <Step title="克隆仓库">
-    ```bash
-    git clone https://github.com/thetahealth/mirobody.git
-    cd mirobody
-    ```
-  </Step>
-
-  <Step title="安装原生依赖">
-    桌面默认的数据库后端是 PostgreSQL，所以下面这些也会一并装上 Postgres 客户端（`libpq`）。
-
-    <Tabs>
-      <Tab title="Linux (Debian/Ubuntu/WSL)">
-        ```bash
-        sudo apt install build-essential cmake ninja-build pkg-config \
-                         libwebsockets-dev libcurl4-openssl-dev libssl-dev \
-                         rapidjson-dev libyaml-cpp-dev libhiredis-dev libpq-dev \
-                         libjpeg-dev libpng-dev libtiff-dev libwebp-dev
-        ```
-      </Tab>
-
-      <Tab title="macOS (Homebrew)">
-        ```bash
-        brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
-                     rapidjson yaml-cpp hiredis libpq \
-                     jpeg-turbo libpng libtiff webp
-        ```
-      </Tab>
-
-      <Tab title="Fedora / RHEL">
-        ```bash
-        sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
-                         libwebsockets-devel libcurl-devel openssl-devel \
-                         rapidjson-devel yaml-cpp-devel hiredis-devel libpq-devel \
-                         libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel
-        ```
-      </Tab>
-    </Tabs>
-
-    在 Windows 上，安装 Visual Studio 并勾选 **使用 C++ 的桌面开发** 工作负载和 **C++ CMake 工具** 组件（它自带 Ninja 和一份内置的 vcpkg），然后运行 `build.cmd` —— vcpkg 会自动从 `vcpkg.json` 拉取原生依赖。参见 [安装指南](/zh/installation)。
-  </Step>
-
-  <Step title="构建">
-    ```bash
-    ./build.sh          # -> build/mirobody
-    ```
-
-    `build.sh` 用 CMake + Ninja 配置（Release、PostgreSQL 后端）并构建 `mirobody` 二进制。在 Windows 上运行 `build.cmd` → `build\mirobody.exe`。
-
-    <Check>
-    构建成功会产出 `build/mirobody`。
-    </Check>
-  </Step>
-
-  <Step title="创建你的配置">
-    把提交在仓库里的模板复制成 `config.yml`（已被 git 忽略），编辑它：
-
-    ```bash
-    cp config.example.yml config.yml
-    ```
-
-    然后在 `config.yml` 里**至少**设置一个 LLM 密钥：
-
-    ```yaml config.yml
-    # 至少挑一个提供商：
-    OPENAI_API_KEY: 'sk-...'          # OpenAI（GPT）；也驱动 OpenAI Realtime 语音
-    GOOGLE_API_KEY: 'AIza...'         # Google Gemini；默认提供商回退是 gemini-2.5-flash
-    ```
-
-    <Info>
-    密钥可以加密存放：先用 `fernet` CLI 把值预加密，把 `gAAAA…` 密文写进 `config.yml` —— 设置了 `CONFIG_ENCRYPTION_KEY` 时会在**加载时透明解密**。参见 [配置](/zh/configuration)。
-    </Info>
-  </Step>
-
-  <Step title="运行">
-    ```bash
-    ./mirobody          # 默认读取 ./config.yml
-    ```
-
-    用 `--config <path>` 或环境变量 `MIROBODY_CONFIG` 覆盖配置路径。`Ctrl-C`（SIGINT/SIGTERM）会触发优雅关停。
-
-    <Check>
-    服务器在 `http://localhost:8080` 启动（由 `config.yml` 里的 `HTTP_HOST` / `HTTP_PORT` 决定）。
-    </Check>
-  </Step>
-
-  <Step title="打开 Web 应用并登录">
-    访问 <a href="http://localhost:8080">http://localhost:8080</a>。登录页提供邮箱验证码登录；用 `EMAIL_PREDEFINE_CODES` 里预置的 demo 账号：
-
-    ```
-    demo1@mirobody.ai
-    777777
-    ```
-
-    `demo2@mirobody.ai` 和 `demo3@mirobody.ai` 用同一个验证码。
-
-    <Warning>
-    `EMAIL_PREDEFINE_CODES` 仅用于本地测试 —— 生产环境切勿保留预置验证码。
-    </Warning>
-
-    登录后即可：
-    - **上传文件** —— 化验单、病历、图像（参见 [文件处理](/zh/concepts/file-processing)）
-    - **与 Agent 对话** —— 挑一个提供商，提问你的数据
-    - **关联 Provider** —— 接入可穿戴或 EHR（参见 [使用 Providers](/zh/providers/using-providers)）
-  </Step>
-</Steps>
+本页使用自包含的 **SQLite** 后端，无需预先部署 PostgreSQL。你将构建 C++ 引擎、配置一个 LLM 密钥、启用本地演示登录，然后验证服务。
 
 <Note>
-Web 客户端是一个静态单页应用，从 `htdoc/` 构建到 `res/htdoc`（即 `HTTP_ROOT` 指向处），由独立二进制托管。新检出的仓库已包含构建好的资源；要重新构建，运行 `cd htdoc && npm install && npm run build`。
+PostgreSQL、Windows、Docker、移动端和嵌入式构建方式见[安装指南](/zh/installation)。本页只保留一条首次运行路径。
 </Note>
 
-## 用 Docker 运行
+## 1. 克隆仓库并安装依赖
 
-仓库自带一个多阶段 `Dockerfile`，它会编译出二进制并产出一个精简的运行时镜像。
-
-<Steps>
-  <Step title="构建镜像">
-    ```bash
-    git clone https://github.com/thetahealth/mirobody.git
-    cd mirobody
-    docker build -t mirobody:latest .
-    ```
-
-    <Info>
-    镜像默认链接 **PostgreSQL** 后端。要构建其他 SQL 后端，传入例如 `--build-arg MIROBODY_DATABASE_BACKEND=POSTGRESQL_LEGACY`。
-    </Info>
-  </Step>
-
-  <Step title="运行">
-    镜像内部把 `HTTP_PORT=80` 固定好，并把 `config.example.yml` 烘焙成优先级最低的默认层。把你自己的 `config.yml`（含 LLM 密钥）挂载到 `/app/config.yml`：
-
-    ```bash
-    docker run -p 80:80 -v $PWD/config.yml:/app/config.yml mirobody:latest
-    ```
-
-    容器监听 80 端口；上面的示例把宿主机 80 端口映射到它。然后打开 <a href="http://localhost">http://localhost</a>，用上面的 demo 凭据登录。
-  </Step>
-</Steps>
-
-<Note>
-Docker 镜像用的是桌面 **PostgreSQL** 后端，所以要把挂载的 `config.yml` 里的 `PG_HOST`（及其他 `PG_*` 键）指向一个可达的 Postgres。要一个零依赖的单文件方案，改用 **SQLite** 后端构建 —— 参见 [Docker 部署](/zh/deployment/docker)。
-</Note>
-
-## 验证 API
+```bash
+git clone https://github.com/thetahealth/mirobody.git
+cd mirobody
+```
 
 <Tabs>
-  <Tab title="健康检查">
+  <Tab title="Debian / Ubuntu / WSL">
     ```bash
-    curl http://localhost:8080/api/health
+    sudo apt install build-essential cmake ninja-build pkg-config \
+      libwebsockets-dev libcurl4-openssl-dev libssl-dev \
+      rapidjson-dev libyaml-cpp-dev libhiredis-dev libsqlite3-dev \
+      libjpeg-dev libpng-dev libtiff-dev libwebp-dev
     ```
-    返回 `ok`。
   </Tab>
 
-  <Tab title="MCP tools/list">
+  <Tab title="macOS">
     ```bash
-    curl -X POST http://localhost:8080/mcp \
-      -H "Content-Type: application/json" \
-      -d '{
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "tools/list"
-      }'
+    brew install cmake ninja pkg-config libwebsockets curl openssl@3 \
+      rapidjson yaml-cpp hiredis sqlite \
+      jpeg-turbo libpng libtiff webp
     ```
-    发现类调用（`initialize` / `tools/list`）无需鉴权。
   </Tab>
 
-  <Tab title="FHIR 能力">
+  <Tab title="Fedora / RHEL">
     ```bash
-    curl http://localhost:8080/fhir/metadata
+    sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
+      libwebsockets-devel libcurl-devel openssl-devel \
+      rapidjson-devel yaml-cpp-devel hiredis-devel sqlite-devel \
+      libjpeg-turbo-devel libpng-devel libtiff-devel libwebp-devel
     ```
-    返回 FHIR R4 的 `CapabilityStatement`（公开）。
   </Tab>
 </Tabs>
 
-## 各端点
+## 2. 构建 SQLite 版本
 
-<CardGroup cols={2}>
-  <Card title="Web 应用" icon="browser" href="http://localhost:8080">
-    内置 UI：文件上传、对话、Provider
-  </Card>
-  <Card title="MCP 服务器" icon="bolt" href="http://localhost:8080/mcp">
-    给 ChatGPT / Claude / Cursor 用的 JSON-RPC 2.0
-  </Card>
-  <Card title="Chat API" icon="comments" href="http://localhost:8080/api/chat">
-    SSE（`POST`）+ WebSocket 实时（`GET`）
-  </Card>
-  <Card title="FHIR R4" icon="hospital" href="http://localhost:8080/fhir/metadata">
-    内嵌的 RESTful FHIR 端点
-  </Card>
-</CardGroup>
+```bash
+./build.sh sqlite
+```
 
-要接入远程 MCP 集成，把你的公网 HTTPS 基础 URL 加 `/mcp` 填给客户端即可 —— 服务器会根据请求的 `Host` 头对外公布自己，无需额外配置。
+产物位于 `build-sqlite/mirobody`。构建目录使用连字符；默认的 PostgreSQL 构建产物位于 `build/mirobody`。
 
-## 故障排查
+## 3. 配置本地服务
 
-<AccordionGroup>
-  <Accordion title="构建失败：缺少头文件或库" icon="hammer">
-    重新执行上面对应平台的依赖安装。关于 libwebsockets：发行版的包足够跑通快速上手，但它们在编译时**没有**开启 HTTP 响应压缩（`LWS_WITH_HTTP_STREAM_COMPRESSION`）；生产环境请从源码构建并开启该选项，版本须 ≥ 4.3.4（修复 CVE-2025-1866），Docker 镜像即如此（锁定 `v4.3.10`）—— 参见 `docs/BUILDING.md`。
-  </Accordion>
+```bash
+cp config.example.yml config.yml
+```
 
-  <Accordion title="8080 端口被占用" icon="circle-exclamation">
-    修改 `config.yml` 里的 `HTTP_PORT`：
+编辑 `config.yml`：
 
-    ```yaml
-    HTTP_PORT: 8081
-    ```
+```yaml
+# 至少配置一个托管模型：
+GOOGLE_API_KEY: 'AIza...'          # 或 OPENAI_API_KEY: 'sk-...'
 
-    然后重启 `./mirobody`。
-  </Accordion>
+# 本地演示登录。任何可被外部访问的部署都不应启用。
+EMAIL_PREDEFINE_CODES:
+  demo1@mirobody.ai: '777777'
+```
 
-  <Accordion title="对话无法启动" icon="robot">
-    没有配置 LLM 密钥，或所选提供商的密钥缺失。在 `config.yml` 里至少设置 `OPENAI_API_KEY` / `GOOGLE_API_KEY` 之一并重启。默认提供商回退是 `gemini-2.5-flash`，所以 `GOOGLE_API_KEY` 是最省事的第一个密钥。
-  </Accordion>
+<Warning>
+演示凭据是公开信息，只能用于本地服务。将 Mirobody 暴露到网络之前，请配置真实的邮箱或社交登录。
+</Warning>
 
-  <Accordion title="./build.sh 或 ./mirobody 权限被拒" icon="lock">
-    ```bash
-    chmod +x build.sh
-    chmod +x build/mirobody
-    ```
-  </Accordion>
+## 4. 运行并登录
 
-  <Accordion title="Postgres 连接失败" icon="database">
-    桌面构建期望有 PostgreSQL。检查 `config.yml` 里的 `PG_*` 键是否指向一个可达的数据库，或用 SQLite 后端重新构建（`./build.sh sqlite`）得到一个自包含的方案。
-  </Accordion>
-</AccordionGroup>
+请在仓库根目录运行二进制，以便读取 `./config.yml` 和 `res/`：
+
+```bash
+./build-sqlite/mirobody
+```
+
+打开 [http://localhost:8080](http://localhost:8080)，使用以下凭据登录：
+
+```text
+demo1@mirobody.ai
+777777
+```
+
+现在可以上传健康文档、与内置智能体对话，或关联数据 Provider。
+
+## 5. 验证服务
+
+```bash
+# 存活检查
+curl http://localhost:8080/api/health
+
+# 公开的 FHIR R4 CapabilityStatement
+curl http://localhost:8080/fhir/metadata
+
+# MCP 工具发现
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+健康检查返回 `ok`，其余两个命令返回 JSON。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="配置" icon="gear" href="/zh/configuration">
-    `config.yml` 的每个键：LLM 提供商、数据库、存储、鉴权、健康圈
+    配置模型、鉴权、存储和远程 MCP 接入。
   </Card>
-  <Card title="探索 API" icon="code" href="/zh/api-reference/overview">
-    chat、data、files 和 MCP 端点
+  <Card title="架构" icon="diagram-project" href="/zh/concepts/architecture">
+    了解 C++ 内核、FHIR 存储、Vendor、智能体与 MCP 工具。
   </Card>
-  <Card title="理解架构" icon="diagram-project" href="/zh/concepts/architecture">
-    五个 C++ 部分以及数据如何流动
+  <Card title="Docker 部署" icon="docker" href="/zh/deployment/docker">
+    构建生产镜像并连接 PostgreSQL。
   </Card>
-  <Card title="接入新 Provider" icon="plus" href="/zh/development/provider-integration">
-    接入新的可穿戴、手机存储或 EHR
+  <Card title="开发环境" icon="code" href="/zh/development/setup">
+    构建测试、使用调试 CLI 并熟悉源码结构。
   </Card>
 </CardGroup>
-
-<Note>
-生产部署请参见 [生产部署](/zh/deployment/production)，含安全与后端说明。
-</Note>

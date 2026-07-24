@@ -3,7 +3,7 @@ title: "Configuration"
 description: "Configure Mirobody through config.yml: LLM providers, database, cache, storage, auth, care circles, and MCP exposure."
 ---
 
-Mirobody is configured through a single **`config.yml`** file — a flat set of keys parsed by the C++ core. Copy the committed template to `config.yml` and edit that; every key has a working default so you only set what you need.
+Mirobody is configured through a single **`config.yml`** file — a flat set of keys parsed by the C++ core. Copy the committed template to `config.yml` and edit that. The template documents defaults, optional integrations, and required production secrets; integrations remain disabled until you provide their credentials.
 
 ```bash
 cp config.example.yml config.yml
@@ -26,11 +26,11 @@ Config is merged per key from layered sources, higher overriding lower:
 
 ### Encrypted secrets
 
-Any string value beginning with `gAAAA` is treated as a Fernet token and decrypted on load when `CONFIG_ENCRYPTION_KEY` is set (applies to both `config.yml` and the remote pull). Encryption is the operator's job: nothing rewrites plaintext at rest — encrypt each secret with the `fernet` CLI (`cli/fernet.cpp`: `fernet genkey` / `fernet encrypt`) and paste the `gAAAA…` token into the config. Values whose **key name** contains `_KEY`, `_PASSWORD`, `_SECRET`, `_TOKEN` (and similar) are additionally masked in the config summary dump.
+Any string value beginning with `gAAAA` is treated as a Fernet token and decrypted on load when `CONFIG_ENCRYPTION_KEY` is set (for both `config.yml` and remote config). The loader treats `CONFIG_ENCRYPTION_KEY` as a raw secret, trims it, takes at most 32 bytes, pads shorter values, and derives the Fernet key. Encryption is the operator's job: nothing rewrites plaintext at rest. If you generate ciphertext outside the server, reproduce `ConfigStore::derive_fernet_key` exactly. Values whose **key name** contains `_KEY`, `_PASSWORD`, `_SECRET`, `_TOKEN` (and similar) are also masked in the config summary.
 
 ```bash
-# Generate a key
-openssl rand -hex 32
+# Generate an exact 32-character raw secret
+openssl rand -hex 16
 
 # Provide it via the environment (not stored in config.yml)
 export CONFIG_ENCRYPTION_KEY="<your-key>"
@@ -78,7 +78,7 @@ Set **at least one** provider key to enable chat. The agent picks a client by **
 GOOGLE_API_KEY: 'AIza...'    # AI Studio key (also read as GEMINI_API_KEY)
 ```
 
-For HIPAA/BAA coverage, route Gemini through **Vertex AI** instead of AI Studio:
+To run Gemini through your own Google Cloud project and region, use **Vertex AI** instead of AI Studio:
 
 ```yaml config.yml
 GOOGLE_GENAI_USE_VERTEXAI: '1'
@@ -95,7 +95,7 @@ OPENAI_API_KEY: 'sk-...'
 # OPENAI_BASE_URL: ''        # point at any OpenAI-compatible endpoint (OpenRouter, DeepSeek, Groq, …)
 ```
 
-For HIPAA/BAA coverage, run GPT inside your own **Azure OpenAI** resource — the client auto-switches to Azure mode when `AZURE_OPENAI_ENDPOINT` is set:
+To run GPT through your own Azure resource and region, use **Azure OpenAI**. The client switches to Azure mode when `AZURE_OPENAI_ENDPOINT` is set:
 
 ```yaml config.yml
 AZURE_OPENAI_ENDPOINT: 'https://my-resource.openai.azure.com'
@@ -205,6 +205,18 @@ MEMORY_PROVIDER: 'local'   # local (default) | mem0 | zep | everos
 ```
 
 `local` keeps facts plus 1024-dim embeddings in the app database, ranked by in-process cosine similarity — no extra services. The others talk to a remote memory service over HTTP.
+
+## Vendor OAuth tokens
+
+Per-user vendor access and refresh tokens are stored only when an at-rest encryption key is available. `VENDOR_TOKEN_ENCRYPTION_KEY` accepts a list of 44-character Fernet keys; the last encrypts new tokens and all listed keys can decrypt during rotation. When unset, it falls back to `FILE_ENCRYPTION_KEY`.
+
+```yaml config.yml
+VENDOR_TOKEN_ENCRYPTION_KEY:
+  - '<44-character Fernet key>'
+VENDOR_REDIRECT_URI: 'https://api.example.com/vendors/callback'
+```
+
+Generate a compatible key with `./build/fernet genkey`. If neither vendor-token nor file encryption is configured, an OAuth callback can prove ownership but the server deliberately does not store bearer tokens in plaintext; later fetches must rely on configured shared credentials. Multi-user or multi-instance OAuth deployments therefore need one of these keys.
 
 ## Authentication
 
@@ -322,7 +334,7 @@ Pull config from a service instead of a local file — active only when all thre
     - Replace every `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder with a strong, random value
     - Use RS256 (`JWT_PRIVATE_KEY`) when other services must verify your tokens
     - Restrict CORS origins in production
-    - Keep PHI on-device or route hosted LLM calls through a BAA-covered surface (Vertex AI / Azure OpenAI)
+    - Inventory every outbound data flow and obtain any agreements your workload requires; selecting Vertex AI or Azure OpenAI does not by itself establish compliance
   </Accordion>
 
   <Accordion title="Validate YAML" icon="circle-check">

@@ -4,12 +4,12 @@ description: "A full OAuth 2.0 device-brand client against the C++ vendor contra
 ---
 
 <Note>
-**Whoop now ships as a first-party vendor client.** [`src/health/vendor/device/whoop.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/whoop.cpp) implements `fetch` (WHOOP API v2: `activity/sleep`, `recovery` for HR/HRV, `cycle`), `authorize_url`, and the OAuth token lifecycle (`exchange_code` / `refresh`) against the WHOOP Developer Platform. This page still uses **Fitbit** as the worked OAuth 2.0 example because it is the most complete device client — on top of the OAuth flow it also implements `revoke` and a signed `handle_webhook`.
+**Whoop now ships as a first-party vendor client.** [`src/health/vendor/device/whoop.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/device/whoop.cpp) implements `fetch` (WHOOP API v2: `activity/sleep`, `recovery` for HR/HRV, `cycle`), `authorize_url`, and the OAuth token lifecycle (`exchange_code` / `refresh`) against the WHOOP Developer Platform. This page still uses **Fitbit** as the worked OAuth 2.0 example because it is the most complete device client — on top of the OAuth flow it also implements `revoke` and a signed `handle_webhook`.
 </Note>
 
 ## Overview
 
-**Fitbit** ([`src/health/vendor/device/fitbit.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/device/fitbit.cpp), id `fitbit`) is the best example of a device brand with a **complete** OAuth 2.0 implementation against the vendor contract: it implements `fetch`, `authorize_url`, `revoke`, and a signed `handle_webhook`. Contrast it with the [Garmin example](/en/examples/garmin-provider), which is mostly stubs because Garmin's data API is partner-gated.
+**Fitbit** ([`src/health/vendor/device/fitbit.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/device/fitbit.cpp), id `fitbit`) is the best example of a device brand with a **complete** OAuth 2.0 implementation against the vendor contract: it implements `fetch`, `authorize_url`, `revoke`, and a signed `handle_webhook`. Contrast it with the [Garmin example](/en/examples/garmin-provider), which is mostly stubs because Garmin's data API is partner-gated.
 
 <Info>
 This is a `vendor::Vendor`. See [Vendor System](/en/concepts/providers) for the interface it implements.
@@ -35,7 +35,7 @@ std::string authorize_url(const std::string& redirect_uri, const std::string& st
 }
 ```
 
-The token exchange is implemented in the client: `exchange_code` / `refresh` POST to `{base}/oauth2/token` through the shared `oauth2_token_request(...)` helper ([`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main/src/health/vendor/oauth2.cpp)), authenticating as the confidential client via HTTP Basic. The resulting access token rides as `config.api_key` on `fetch`.
+The token exchange is implemented in the client: `exchange_code` / `refresh` POST to `{base}/oauth2/token` through the shared `oauth2_token_request(...)` helper ([`src/health/vendor/oauth2.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/src/health/vendor/oauth2.cpp)), authenticating as the confidential client via HTTP Basic. The resulting access token rides as `config.api_key` on `fetch`.
 
 ## `fetch` — per-domain time-series GETs
 

@@ -5,7 +5,7 @@ description: "Mirobody C++ 引擎默认提供的 MCP 工具"
 
 ## 概览
 
-Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main/res/mcp_tools) 中一个小小的 C++ 文件，在编译时自注册（参见 [添加自定义工具](/zh/tools/adding-tools)）。它们通过 [`/mcp` 端点](/zh/tools/mcp-integration) 暴露给外部客户端，同时也作为 function-call 描述符交给内置 Agent，因此 OpenAI 和 Gemini 客户端可以在本地进程内调用它们。
+Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/`](https://github.com/thetahealth/mirobody/tree/main-v2/res/mcp_tools) 中一个小小的 C++ 文件，在编译时自注册（参见 [添加自定义工具](/zh/tools/adding-tools)）。它们通过 [`/mcp` 端点](/zh/tools/mcp-integration) 暴露给外部客户端，同时也作为 function-call 描述符交给内置 Agent，因此 OpenAI 和 Gemini 客户端可以在本地进程内调用它们。
 
 <Info>
 标注 **需要 auth** 的工具只对已认证的调用者运行 —— 引擎会在分发前解析调用者身份（JWT 或个人 MCP secret）并将其作为 `UserInfo` 注入。无需 auth 的工具（如 `echo` 和 `render_chart`）对任何人都可运行。
@@ -15,7 +15,7 @@ Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/
 |------|:----:|--------------|
 | [`list_files`](#list_files) | ✅ | 列出用户已上传的文件 |
 | [`read_file`](#read_file) | ✅ | 按 `file_key` 读取一个上传文件 |
-| [`family_health`](#family_health) | ✅ | 读取用户或已共享护理圈成员的近期 FHIR `Observation` |
+| [`family_health`](#family_health) | ✅ | 读取用户或已共享照护圈成员的近期 FHIR `Observation` |
 | [`whoami`](#whoami) | ✅ | 确认认证状态并返回 session id |
 | [`recall_memory`](#recall_memory) | ✅ | 检索用户最相关的长期记忆 |
 | [`remember`](#remember) | ✅ | 在长期记忆中存储一条事实 |
@@ -49,12 +49,12 @@ Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/
 
 ### family_health
 
-读取近期健康记录 —— FHIR `Observation` 资源 —— 属于用户本人，或已共享其健康数据的护理圈成员。Agent 正是借此回答诸如*"我睡得怎么样？"*或*"妈妈最近怎么样？"*之类的问题。
+读取近期健康记录 —— FHIR `Observation` 资源 —— 属于用户本人，或已共享其健康数据的照护圈成员。Agent 正是借此回答诸如*"我睡得怎么样？"*或*"妈妈最近怎么样？"*之类的问题。
 
 `member` 参数解析到一个目标用户：为空或 `"me"` 表示调用者本人；数字 id、姓名、昵称或邮箱则匹配某位已共享其数据的人。读取会被两次把关 —— 此人必须在调用者的健康共享列表中，且 `can_read_health` 会再次授权此次读取。只有已共享其数据的成员才可访问。
 
 <ParamField body="member" type="string">
-  要读取谁的健康数据：某位护理圈成员的姓名 / 昵称 / 邮箱 / id，或 `"me"`（或省略）表示调用者。当聊天输入框的"当前为谁"选择器已选中某位成员时，默认使用该成员。
+  要读取谁的健康数据：某位照护圈成员的姓名 / 昵称 / 邮箱 / id，或 `"me"`（或省略）表示调用者。当聊天输入框的"当前为谁"选择器已选中某位成员时，默认使用该成员。
 </ParamField>
 
 <ParamField body="count" type="integer">
@@ -121,7 +121,7 @@ Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/
 
 ### whoami
 
-确认调用者已认证，并返回其（不透明的）session 标识。当本轮"当前为"某位调用者可读取的护理圈成员时，它还会标记 `acting_for_member`。它从不回显任何内部用户主键。
+确认调用者已认证，并返回其（不透明的）session 标识。当本轮"当前为"某位调用者可读取的照护圈成员时，它还会标记 `acting_for_member`。它从不回显任何内部用户主键。
 
 <ParamField body="(无参数)" />
 
@@ -129,7 +129,7 @@ Mirobody 默认提供 **9 个内置 MCP 工具**。每个都是 [`res/mcp_tools/
 
 ### echo
 
-回显所提供的文本。它是参考工具 —— 丢文件即注册模式最小可能的示例（见 [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main/res/mcp_tools/echo.cpp)）—— 同时兼作连通性检查。
+回显所提供的文本。它是参考工具 —— 丢文件即注册模式最小可能的示例（见 [`echo.cpp`](https://github.com/thetahealth/mirobody/blob/main-v2/res/mcp_tools/echo.cpp)）—— 同时兼作连通性检查。
 
 <ParamField body="text" type="string" required>
   要回显的文本。
@@ -181,7 +181,7 @@ MIROBODY_REGISTER_TOOL(kEcho);
     在 `res/mcp_tools/` 中添加你自己的 C++ 工具
   </Card>
   <Card title="MCP 集成" icon="bolt" href="/zh/tools/mcp-integration">
-    将 Claude、Cursor 或 ChatGPT 连接到 `/mcp` 端点
+    将 Claude Desktop 或 Cursor 连接到 `/mcp` 端点
   </Card>
   <Card title="工具与 Agent 概览" icon="wrench" href="/zh/tools/overview">
     Agent、工具与 MCP 如何协同

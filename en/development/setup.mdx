@@ -85,10 +85,10 @@ Mirobody is a **C++11** codebase built with **CMake** and **Ninja** (vcpkg on Wi
     ./build.sh              # -> build/mirobody  and  build/tests/mirobody_tests
     ```
 
-    Pick a different SQL backend with a token (`sqlite`, `legacy`, `mysql`, `duckdb`, `ck`); each backend gets its own `build[_<backend>]` dir so several can coexist:
+    Pick a different SQL backend with a token (`sqlite`, `legacy`, `mysql`, `duckdb`, `ck`); each backend gets its own `build[-<backend>]` dir so several can coexist:
 
     ```bash
-    ./build.sh sqlite       # -> build_sqlite/
+    ./build.sh sqlite       # -> build-sqlite/
     ./build.sh clean        # wipe and reconfigure
     ```
 
@@ -110,13 +110,13 @@ Mirobody is a **C++11** codebase built with **CMake** and **Ninja** (vcpkg on Wi
     Set an LLM key (and, for the default backend, your `PG_*` connection) in `config.yml`, then run:
 
     ```bash
-    ./mirobody --config config.yml
+    ./build/mirobody --config config.yml
     ```
 
     The server starts on `http://localhost:8080`. See [Configuration](/en/configuration) for the full key list.
 
     <Tip>
-    For a zero-dependency dev loop with no external database, build the SQLite backend (`./build.sh sqlite`) and run `./build_sqlite/mirobody`.
+    For a self-contained dev loop with no external database, build the SQLite backend (`./build.sh sqlite`) and run `./build-sqlite/mirobody`.
     </Tip>
   </Step>
 </Steps>

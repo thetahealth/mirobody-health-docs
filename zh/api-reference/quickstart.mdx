@@ -8,10 +8,6 @@ import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 
 Mirobody 三步走：**① 接入数据 → ② 数据以标准化形态返回 → ③ 让 AI 使用它。** 一切兼容 OpenAI —— 你需要一个 `mb_live_*` 密钥和约 10 分钟。
 
-<Warning>
-所有会触达 Mirobody 工具的 agents-SDK agent,必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时,这次运行读到的是**账号默认 Subject**,而不是你想要的那个用户。
-</Warning>
-
 <Note>
 账户管理 —— **API 密钥、用量与在线 Playground** —— 位于开发者控制台 [**platform.mirobody.ai**](https://platform.mirobody.ai/)。邮箱验证码登录，打开 **API Keys** 创建一个（密钥只显示**一次**）：
 
@@ -37,12 +33,12 @@ export MIROBODY_API_KEY="mb_live_..."
             "user": "alice",
             "retention": "permanent",
             "records": [
-              {"indicator": "fasting_glucose", "value": 5.4, "unit": "mmol/L", "time": "2026-06-16T07:30:00Z"},
-              {"indicator": "FBG",             "value": 5.1, "unit": "mmol/L", "time": "2026-06-17T07:25:00Z"}
+              {"indicator": "fasting_glucose", "value": 97, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z"},
+              {"indicator": "FBG",             "value": 92, "unit": "mg/dL", "time": "2026-06-17T07:25:00Z"}
             ]
           }'
 
-    # 或者一份文档（自动 OCR 与解析）
+    # 或者一份文档（保存原件；后台抽取文本）
     curl https://api.mirobody.ai/v1/files \
       -H "Authorization: Bearer $MIROBODY_API_KEY" \
       -F "user=alice" -F "file=@lab_report.pdf"
@@ -53,9 +49,6 @@ export MIROBODY_API_KEY="mb_live_..."
 
   <Step title="② 数据以标准化形态返回">
     注意上面的两种写法 —— `fasting_glucose` 和 `FBG`。把数据读回来，两行都带有**同一个 LOINC 编码**、规范名称、UCUM 解析后的值以及 FHIR 镜像 id：
-
-    实验完了？`DELETE /v1/subjects/alice` 一次调用即可擦除本快速开始写入的一切（记录、文件、会话）。
-
 
     ```bash
     curl "https://api.mirobody.ai/v1/data?user=alice&limit=10" \
@@ -68,9 +61,9 @@ export MIROBODY_API_KEY="mb_live_..."
       "data": [
         {
           "indicator": "FBG",
-          "value": "5.1 mmol/L",
-          "parsed_value": "5.1",
-          "parsed_unit": "mmol/L",
+          "value": "92 mg/dL",
+          "parsed_value": "92",
+          "parsed_unit": "mg/dL",
           "loinc_code": "1558-6",
           "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
           "fhir_resource_id": "8f3c9a1e-...",
@@ -79,12 +72,12 @@ export MIROBODY_API_KEY="mb_live_..."
           "comment": ""
         }
       ],
-      "has_more": true,
+      "has_more": false,
       "subject": "alice"
     }
     ```
 
-    这就是[标准化管线](/zh/api-reference/standardization) —— 确定性的名称→LOINC（不让 LLM 猜码）+ UCUM + FHIR，作用于**每一次**写入。想先在文档上预览、不存任何东西，试试 [`POST /v1/extract`](/zh/api-reference/extract)。
+    这就是[标准化管线](/zh/api-reference/standardization) —— 确定性的名称→LOINC（不让 LLM 猜码）+ UCUM + FHIR，作用于每一次**结构化记录**写入。需要从文档抽取并标准化读数时，请使用 [`POST /v1/extract`](/zh/api-reference/extract)，直接传文件或已上传的 `file_key` 均可。
   </Step>
 
   <Step title="③ 让 AI 在其上工作">
@@ -118,20 +111,24 @@ export MIROBODY_API_KEY="mb_live_..."
     print(Runner.run_sync(agent, "Check my recent glucose; book a follow-up if it's trending up.").final_output)
     ```
 
-    Mirobody 的内置工具读取 alice 的真实数据；当模型决定预约时，交接给**你的**函数。底层协议见 [Function calling](/zh/api-reference/function-calling)。
+<Warning>
+所有会触达 Mirobody 工具的 agents-SDK agent，都必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时，这次运行读到的是**账户默认 Subject**，而不是你想要的那个用户。
+</Warning>
+
+Mirobody 的内置工具读取 alice 的真实数据；当模型决定预约时，交接给**你的**函数。底层协议见 [Function calling](/zh/api-reference/function-calling)。
   </Step>
 </Steps>
 
 ## 更喜欢点击而不是 curl？
 
-控制台有 **Playground** —— 无需代码即可运行对话、上传文件、查看工具步骤。
+控制台演练场采用相同流程：**① 接入数据 → ② 自动标准化 → ③ 智能体或问答**。无需编写代码，即可上传文件、查看抽取文本或标准化记录，并试用两种 API。
 
 <CardGroup cols={2}>
-  <Card title="Playground" icon="flask" href="https://platform.mirobody.ai/developer">
-    在浏览器中对你的账户试用智能体。
+  <Card title="演练场" icon="flask" href="https://platform.mirobody.ai/developer/data">
+    接入数据、检查标准化结果，再进入智能体或问答。
   </Card>
   <Card title="用量" icon="chart-line" href="https://platform.mirobody.ai/developer/usage">
-    请求数、令牌数与费用。
+    最近 30 天的请求数。
   </Card>
 </CardGroup>
 

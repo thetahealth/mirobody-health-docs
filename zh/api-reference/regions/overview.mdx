@@ -3,11 +3,11 @@ title: "区域概览"
 description: "选择与你的用户相匹配的集群"
 ---
 
-Mirobody 采用**全球优先**架构，各集群之间**无跨境数据流动**。本文档中的代码示例统一使用全球集群的 `base_url`；替换为你签约集群的地址即可。
+本文档中的代码示例统一使用全球生产环境的 `base_url`。不同区域环境使用独立主机与存储；请只使用已为你的账户和合同开通的端点。
 
 | 集群 | API base URL | 控制台 | 网页应用 | 状态 |
 | --- | --- | --- | --- | --- |
 | [🌐 全球](/zh/api-reference/regions/global) | `https://api.mirobody.ai/v1` | [platform.mirobody.ai](https://platform.mirobody.ai/) | [chat.mirobody.ai](https://chat.mirobody.ai/) | ✅ |
-| [🇨🇳 中国](/zh/api-reference/regions/china) | `https://api.mirobody.cn/v1`（即将上线） | [platform.mirobody.cn](https://platform.mirobody.cn/) | [chat.mirobody.cn](https://chat.mirobody.cn/) | 🚧 仅 API 待上线 |
+| [🇨🇳 中国](/zh/api-reference/regions/china) | `https://api.mirobody.cn/v1`（规划） | `platform.mirobody.cn`（待上线） | `chat.mirobody.cn`（待上线） | 尚未公开 |
 
-集群在签约时确定；**不支持运行时切换**。详见[合规](/zh/api-reference/compliance)。
+在 Mirobody 明确确认开通前，请勿把生产流量发往中国区域名。从中国调用全球 API 会把数据发送到全球环境；仅在该数据流符合你的要求时使用。详见[隐私与合规](/zh/api-reference/compliance)。

@@ -15,11 +15,10 @@ description: "Agent API 上的内置服务端工具 + 你自己的客户端 func
 - `query_health_data` —— 检索并聚合 Subject 的记录
 - `list_clinical_records` —— 列出临床文档 / FHIR 支撑的记录
 - `list_family_members` —— 解析 Subject 有权查询的照护圈成员
-- `write_fhir_observation` —— 写入一条结构化 FHIR observation
 - `search_medical_literature`、`get_clinical_trials`、`get_article_by_pmcid` —— 医学证据（供给 `citations`）
 - `fetch_url` —— 读取网页
 
-外加内部使用的 deep-agents 框架工具（`write_todos`、`task`、`eval`、文件系统工具）。它们的运行出现在响应对象的**顶层 `tool_steps` 扩展**中（绝不作为 `output` item —— 官方 SDK 会错误解析未知 item 类型），流式下则是 [`response.mirobody_tool_call` 旁路事件](/zh/api-reference/streaming#服务端工具旁路通道)。
+`/v1` 智能体的领域工具只读。内部还会使用 deep-agents 框架工具（`write_todos`、`task`、`eval`、文件系统工具）。这些运行出现在响应对象的**顶层 `tool_steps` 扩展**中（不作为 `output` item，以免官方 SDK 解析未知类型），流式下则通过 [`response.mirobody_tool_call` 旁路事件](/zh/api-reference/streaming#服务端工具旁路通道)返回。
 
 ## 声明客户端工具
 
@@ -51,7 +50,7 @@ description: "Agent API 上的内置服务端工具 + 你自己的客户端 func
 | 数量 | 每请求最多 **64** 个工具。 |
 | 名称 | 需匹配 `[a-zA-Z0-9_-]{1,64}`；必须唯一；**不得与内置工具重名**（`query_health_data`、`read_file`、`task` 等）。 |
 | `parameters` | JSON Schema 对象（默认 `{"type":"object","properties":{}}`）。 |
-| `tool_choice` | `"auto"`（默认）、`"none"`（本轮禁用你的工具）或指名某个客户端工具。其它取值 → `400 unsupported_parameter`。 |
+| `tool_choice` | `"auto"`（默认）、`"none"`（本轮禁用**所有**工具，含内置工具 —— 见 [backbone 模式](/zh/api-reference/backbone-mode)）或指名某个客户端工具。其它取值 → `400 unsupported_parameter`。 |
 
 <Warning>
 **安全提示：** 智能体持有访问 Subject 健康数据的工具。Subject 隔离已把每次调用限定在该开发者自己的数据内，但你的工具描述与结果同属提示面 —— 不要未经审查地把不可信的第三方文本灌进去。
@@ -151,7 +150,7 @@ print(result.final_output)
 ```
 
 <Warning>
-所有会触达 Mirobody 工具的 agents-SDK agent,必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时,这次运行读到的是**账号默认 Subject**,而不是你想要的那个用户。
+所有会触达 Mirobody 工具的 agents-SDK agent，都必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时，这次运行读到的是**账户默认 Subject**，而不是你想要的那个用户。
 </Warning>
 
 模型用**内置服务端工具**读取 Subject 的真实血糖数据，再交接给**你的** `book_appointment` —— SDK 在本地执行并自动回放转录。

@@ -1,6 +1,6 @@
 ---
 title: "在标准化健康数据上构建健康 agent"
-description: "上传杂乱的健康数据，得到标准化记录，让 AI 在其上工作 —— 一个兼容 OpenAI 的 API。"
+description: "保存源数据、标准化健康读数，再让 AI 使用它们。"
 ---
 
 import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
@@ -10,10 +10,10 @@ import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 ## 闭环：上传 → 标准化 → AI 使用
 
 <Steps>
-  <Step title="上传任何东西">
-    结构化读数走 [`POST /v1/data`](/zh/api-reference/data)，化验 PDF / 照片 / 表格走 [`POST /v1/files`](/zh/api-reference/files)（含 OCR）—— 按终端用户完全隔离的 [Subject](/zh/api-reference/overview#多租户user-字段)。
+  <Step title="按数据形态选择入口">
+    结构化读数走 [`POST /v1/data`](/zh/api-reference/data)。[`POST /v1/files`](/zh/api-reference/files) 保存化验 PDF、照片与表格，并抽取其文本；需要把报告转成标准化读数时，使用 [`POST /v1/extract`](/zh/api-reference/extract)。
   </Step>
-  <Step title="每次写入都会标准化">
+  <Step title="每条结构化读数都会标准化">
     名称确定性解析到 **LOINC**（不让 LLM 猜码），值归一到 **UCUM** 单位，每条读数都有 **FHIR** 镜像。`"血糖(空腹)"`、`"FBG"`、`"Glucose, fasting"` 归成一条序列。见[标准化](/zh/api-reference/standardization)。
   </Step>
   <Step title="让 AI 在其上工作">
@@ -21,7 +21,7 @@ import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
   </Step>
 </Steps>
 
-## 三种数据形态，各有一扇门
+## 四种数据形态，各有一扇门
 
 <IngestMentalModel />
 
@@ -40,8 +40,8 @@ import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 
 ## 为什么选 Mirobody
 
-- **有依据，而非听着合理** —— 回答来自 Subject 的真实记录，附 `health_records` / `citations` 证据与完整服务端工具轨迹。
-- **默认标准化** —— 每次写入都过 LOINC + UCUM + FHIR；你的分析与智能体读同一份干净序列。任何文档都可用 [`POST /v1/extract`](/zh/api-reference/extract) dry-run。
+- **有依据，而非听着合理** —— 回答可附 `health_records`、`citations` 与服务端采集证据时使用的工具步骤。
+- **结构化数据标准化** —— 通过 `/v1/data` 写入或由 `/v1/extract` 存储的记录都会经过 LOINC + UCUM + FHIR；你的分析与智能体读取同一份序列。
 - **双重 OpenAI 兼容** —— Chat Completions *与* Responses 两个协议；现有 SDK 与 agent 框架直接可用。
 - **天生多租户** —— 一个 key，每个终端用户一个隔离 Subject；按 Subject 的[被遗忘权删除](/zh/api-reference/overview#端点一览)。
 - **内核开放** —— 同一引擎[开源](/zh/welcome)；随时可以自托管。
@@ -49,7 +49,7 @@ import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 ## 运行 Mirobody 的两种方式
 
 - **托管 API**（本平台）—— 用 `mb_live_*` 密钥对接我们的托管集群；存储、模型与密钥由我们代运维。从[快速开始](/zh/api-reference/quickstart)入手。
-- **开源** —— `git clone` [Mirobody 引擎](/zh/welcome)，用 `deploy.sh` 自己拉起整套栈。
+- **开源** —— `git clone` [Mirobody 引擎](/zh/welcome)，用 `./build.sh` 构建后自己运行。
 
 ## 从这里开始
 
