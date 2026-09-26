@@ -1,0 +1,233 @@
+---
+title: "结构化记录"
+description: "POST /v1/data、GET /v1/data、DELETE /v1/data：写入、读取与擦除结构化健康记录。"
+---
+
+import SubjectUserParam from '/snippets/zh/subject-user-param.mdx';
+import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+把结构化记录直接写进 Subject 的存储，并读回。**结构化记录最主要的形式就是设备与可穿戴数据**（见[下文](/zh/api-reference/data#设备与可穿戴数据)）。每次写入都会经过平台的[标准化管线](/zh/api-reference/standardization)：解析值与单位，为识别出的指标补上 LOINC 编码和规范名称，每条记录都镜像到 FHIR。未解析出编码的行仍可正常读取。agent 通过内置工具读取同一份数据。
+
+<IngestMentalModel />
+
+<SubjectUserParam />
+
+## 写入记录
+
+```http
+POST /v1/data
+Authorization: Bearer mb_live_*
+Content-Type:  application/json
+```
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记一段 episode（睡眠、运动）的结束，起点是 `time`。`measured_at` / `start_time` 是 `time` 的别名，POST /v1/standardize 返回的行（字段名为 `measured_at`）可原样转发。 |
+| `user` | string | 记录所属的 Subject（租户隔离键）。 |
+| `retention` | string | **必填：没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的别名也接受）。有时限的档位到期即自动删除，`1d` 是最长的一档。省略它（或传枚举之外的任何值）返回 `400`（`code: invalid_retention`）。 |
+| `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。应使用全局唯一、不含业务语义的 id（如 UUID），且不能跨 Subject 复用。它为记录添加标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 能清除它们。 |
+
+```bash
+curl "$MIROBODY_API_BASE/data" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "fasting_glucose", "value": 97, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z"},
+          {"indicator": "fasting_glucose", "value": 92, "unit": "mg/dL", "time": "2026-06-17T07:25:00Z"}
+        ]
+      }'
+```
+
+响应如下，其中 `standardized` 统计写入途中成功解析到 LOINC 编码的记录数：
+
+```json
+{ "status": "ok", "ingested": 2, "standardized": 2, "subject": "alice" }
+```
+
+<Note>
+**每次写入都会做标准化，而不只是存储。** 每条记录的值和单位会解析成 UCUM，指标名称会匹配到一个 LOINC 编码，绝不猜码，因此低置信度的匹配只会保留为未编码。见[标准化机制](/zh/api-reference/standardization)。想在不写入的情况下看到结果，请用 [`POST /v1/standardize`](/zh/api-reference/extract) 的 `store=false`。
+</Note>
+
+<Warning>
+写入不具备幂等性，重试可能生成重复记录。请求超时时先核对结果，再决定是否重试，并在调用方维护写入账本。
+</Warning>
+
+### Episode 型（睡眠、运动）
+
+Episode 型记录跨越一个时段而非时间点，起点放 `time`，终点放可选的 `end_time`：
+
+```bash
+curl "$MIROBODY_API_BASE/data" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "sleep_duration", "value": 7.5, "unit": "h",
+           "time": "2026-07-09T23:10:00Z", "end_time": "2026-07-10T06:40:00Z",
+           "source": "garmin"}
+        ]
+      }'
+```
+
+## 读取记录
+
+```http
+GET /v1/data?user=alice&indicator=fasting_glucose&limit=100
+Authorization: Bearer mb_live_*
+```
+
+| Query | 说明 |
+| --- | --- |
+| `user` | 读取哪个 Subject。 |
+| `indicator` | 可选，按指标名过滤（子串匹配）。 |
+| `limit` | `1`–`1000`（默认 `100`）。 |
+| `offset` | 跳过 N 条用于翻页（排序稳定：最新在前）。`has_more: true` 时用 `offset += limit` 取下一页。 |
+
+响应为 OpenAI 风格的列表，最新在前。`value` 是原样写入的值（如 `"97"`），单位单独放在 `parsed_unit` 中，与其它机读字段一同返回：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": 1287,
+      "indicator": "fasting_glucose",
+      "value": "97",
+      "parsed_value": "97",
+      "parsed_unit": "mg/dL",
+      "loinc_code": "1558-6",
+      "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
+      "time": "2026-06-16T07:30:00+00",
+      "end_time": null,
+      "source": "api",
+      "comment": ""
+    }
+  ],
+  "has_more": false,
+  "subject": "alice"
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `data` | 记录数组（至多 `limit` 条）。 |
+| `id` | 行 id（整数），传给 `DELETE /v1/data?id=` 做行级删除。 |
+| `value` | 原样写入的值（字符串，如 `"97"`）；单位放在 `parsed_unit` 中。 |
+| `parsed_value` / `parsed_unit` | 标准化管线产出的数值 + **UCUM** 单位（无法解析时为 `null`）。 |
+| `loinc_code` / `canonical_name` | 确定性 LOINC 解析结果及其展示名（名称未解析时为 `null`）。 |
+| `end_time` | Episode 型记录（睡眠、运动）时段的结束时间；时间点读数为 `null`。 |
+| `reference_low` / `reference_high` / `reference_text` / `abnormal` | 参考范围与异常标记，来源（如化验单）携带时返回；否则为 `null`。 |
+| `source` / `comment` | 记录的来源方式：`api`（经 `POST /v1/data` 写入）、`extract`（来自 `POST /v1/standardize`）、`upload`（从 `/v1/files` 上传中读出）或 `consolidation`（从已存储的对话中得来）。你在记录自己的 `source` 字段里传入的来源标签，会在 `comment` 中返回。 |
+| `has_more` | 本页取满 `limit` 时为 `true`，用 `offset += limit` 取下一页。 |
+| `subject` | 记录所属的 Subject（由 `user` 解析）。 |
+
+## 擦除记录
+
+```http
+DELETE /v1/data?user=alice&indicator=fasting_glucose
+Authorization: Bearer mb_live_*
+```
+
+**永久擦除**该 Subject 的记录：被遗忘权语义（数据被真正移除，而非仅从读取中隐藏）。三种范围，由窄到宽：
+
+| Query | 范围 |
+| --- | --- |
+| `id` | 恰好**一行**，即 `GET /v1/data` 返回的整数 id。优先于 `indicator`。 |
+| `indicator` | 单个指标（子串匹配，与 GET 过滤一致）。 |
+| *（都不传）* | 该 Subject 的**全部**记录。 |
+
+```http
+DELETE /v1/data?user=alice&id=1287
+```
+
+```json
+{ "status": "ok", "deleted": 1, "subject": "alice" }
+```
+
+如需一次性擦除某个 Subject 的*一切*（记录 + 文件 + 对话 + 身份映射），使用 [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject)，见[合规](/zh/api-reference/compliance)。
+
+## 设备与可穿戴数据
+
+结构化记录最主要的形式就是设备与可穿戴数据。当你的厂商接入（Terra、Junction 或你自己
+对接的厂商 API）已经把样本送进你的后端之后，写入做法如下。
+
+<Note>
+**Mirobody 不托管设备 OAuth** —— 没有 Terra 那样的连接组件。厂商授权页、token 刷新与
+webhook 管道都留在你的产品里，因为每家厂商的流程都不一样，这部分属于你自己的产品体验。
+数据到达*之后*的一切（存储、标准化、留存、删除、AI）才是 Mirobody 的职责。
+</Note>
+
+<Steps>
+  <Step title="接收">
+    你的厂商接入以 webhook 推送或定时拉取的方式送来样本。
+  </Step>
+  <Step title="聚合到日级（建议）">
+    高频序列在写入前先归并为每天一条。episode 型记录保留它自己的时段。
+  </Step>
+  <Step title="用 POST /v1/data 写入">
+    单次请求最多 500 条，必须带 `retention` —— 契约见上文。
+  </Step>
+</Steps>
+
+### 该聚合到什么粒度
+
+`POST /v1/data` 接受任意粒度，但对多数产品来说，每个有意义的读数一行就够了：写入量更小，
+序列也更容易解读。
+
+- **日累计**（步数、卡路里、距离）：每天一条。
+- **连续序列**（心率、血氧等每几分钟一个采样）：先聚合成日级值，例如静息心率或平均心率；
+  确实需要时再把最小值/最大值作为各自的指标写入。只在产品真正需要处才做得更细。
+- **episode 型**（睡眠、运动）：每段一条，用 `time` + `end_time` 携带时段。
+
+### 一次调用写入一天的设备记录
+
+```bash
+curl "$MIROBODY_API_BASE/data" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "steps",              "value": 12450,             "time": "2026-07-10T00:00:00Z", "source": "garmin"},
+          {"indicator": "resting_heart_rate", "value": 58, "unit": "/min", "time": "2026-07-10T00:00:00Z", "source": "garmin"}
+        ]
+      }'
+```
+
+按 Subject 把一整天（或一个回填窗口）批到一次调用里。用 `source` 标注厂商 —— 读取记录时
+它会出现在 `comment` 字段中。
+
+### 端上批量样本
+
+有些样本根本不经过厂商 API：由你的 App 从手机自带的健康库读出（Apple HealthKit、
+Android Health Connect，或直接与你的 App 配对的蓝牙体脂秤），再由 App 自己上传。
+端点还是这一个，客户端需要额外定下两件事：
+
+- **在设备本地成批并预聚合。** 一个月的 HealthKit 心率样本有数万行，先归并成你真正会
+  查询的日级值，再按每次请求最多 500 条发送。
+- **发送样本自带的时间戳**，而不是上传时间：`time` 是读数被测量的时刻，睡眠与运动的
+  时段由 `end_time` 携带。
+
+用 `source` 记下样本的来源（`"healthkit"`、`"health_connect"`、你的设备型号），
+便于事后追溯一条读数的出处。
+
+## 用完即弃的数据
+
+**没有 `retention: "none"`**：写入存储却要求不存储是自相矛盾的，该值与其它非枚举值一样被拒绝。两种干净的替代模式：
+
+- **零副作用的 dry-run 分析**：用 [`POST /v1/standardize`](/zh/api-reference/extract) 的 `store=false`（默认），获得标准化结果，什么都不写。
+- **短生命周期工作数据**：以 `retention: "1h"` 写入（一小时后[自动过期](/zh/api-reference/overview#数据留存)），或以 `retention: "session"` + 一个用完即[删](/zh/api-reference/lifecycle#会话)的 `session_id` 写入。
+
+## 另见
+
+- [标准化机制](/zh/api-reference/standardization)：读数写入时经历了什么。
+- [数据生命周期](/zh/api-reference/lifecycle)：记录如何离开平台。

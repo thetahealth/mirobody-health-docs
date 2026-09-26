@@ -1,0 +1,101 @@
+---
+title: "State & Memory"
+description: "How store, previous_response_id, session_id and data retention compose on the Agent API."
+---
+
+import StoreRetentionMatrix from '/snippets/store-retention-matrix.mdx';
+import RegionShell from '/snippets/region-shell.mdx';
+
+<RegionShell />
+
+Two independent knobs govern what persists:
+
+<StoreRetentionMatrix />
+
+## Conversation state (`store`)
+
+`store` defaults to **`true`** (OpenAI parity). A stored response persists three things: the response object (for `GET /v1/responses/{id}`), the conversation thread (so `previous_response_id` can continue it), and what the turn contributes to the platform's conversation memory.
+
+| Mode | How | Lifetime |
+| --- | --- | --- |
+| **One-shot** | `store: false` | Nothing persists after the reply. Multi-turn still possible via [stateless replay](/en/api-reference/function-calling#path-2--stateless-full-replay). |
+| **Chained** | `store: true` (default), continue with `previous_response_id` | **30-day TTL** per response; expired responses `404` on GET and can't be chained. |
+| **Durable conversation** | pass `session_id` | Bound responses **never auto-expire**. The same `session_id` always resumes the same conversation — a stable handle for "the user's ongoing thread". |
+
+```python
+# Turn 1 — stored by default
+r1 = client.responses.create(model="mirobody-flash",
+                             input="How is my fasting glucose trending?", user="alice")
+
+# Turn 2 — server-side state: no history resend
+r2 = client.responses.create(model="mirobody-flash",
+                             input="And compared with last quarter?",
+                             previous_response_id=r1.id, user="alice")
+```
+
+<Note>
+`previous_response_id` on an unknown, **expired**, or deleted response returns `404` — treat a chained conversation older than 30 days as gone unless it was `session_id`-bound. A response that ended in a client-tool handoff must be continued with `function_call_output` items first — see [Function calling](/en/api-reference/function-calling#continuation-errors).
+</Note>
+
+### Cleanup
+
+`DELETE /v1/responses/{id}` always removes that stored response. Only when it is the **last live response in its conversation** does the platform tear down the conversation history and retract conversation-derived memory. See [Agent API → Delete](/en/api-reference/responses#delete-a-stored-response).
+
+## Cross-session memory
+
+Stored conversations let the agent remember durable facts about a Subject across later conversations. `store: false` turns stay out of it entirely. Deleting the last live response in a conversation retracts that conversation's derived memory; deleting an earlier one retracts nothing while other responses in the thread remain.
+
+## Journaling
+
+A subjective journal entry — *"headache all afternoon, eased after two coffees"* — is **a single-turn `POST /v1/responses` with `store: true`**. No dedicated endpoint: the knobs on this page already compose into the recipe. Give each entry its own `session_id` (for example, `journal-{entry_id}`) so it never hits the 30-day TTL and can be deleted independently. `builtin_tools: "none"` plus a short-acknowledgement `instructions` keeps the reply — which you don't consume — as cheap as possible:
+
+```bash
+curl -s "$MIROBODY_API_BASE/responses" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "input": "Headache all afternoon; eased after two cups of coffee",
+  "user": "patient-42",
+  "session_id": "journal-entry-018",
+  "store": true,
+  "builtin_tools": "none",
+  "instructions": "The user is journaling, not asking a question. Reply with a single short acknowledgement."
+}'
+```
+
+Everything after that is standard:
+
+- **Indicators and memories are extracted for you.** Mirobody pulls any quantifiable indicators and durable memories out of the stored entry shortly after the write, independent of the reply.
+- **Read back a single entry** with `GET /v1/responses/{id}`. There is **no list endpoint** (OpenAI parity) — keep your own `(entry → response_id)` index. The platform is the data/intelligence layer, not a note-taking app.
+- **Delete one entry** with `DELETE /v1/responses/{id}`. With the recommended one-response-per-`session_id` design, that response is the conversation's last live response, so its conversation-derived memory is also retracted. If several responses share a `session_id`, the shared memory is retracted only once you delete all of them.
+- **Delete session-scoped working data** with [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions). It does not delete stored response objects.
+- **Erase the Subject** with [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject).
+- **One nuance**: readings already extracted into the data plane are ordinary records — deleting the journal entry retracts memories but leaves those readings; remove them with [`DELETE /v1/data`](/en/api-reference/data) (by `id` or `indicator`) or the Subject-level wipe.
+
+## Data-plane retention (`retention`)
+
+Health records and files carry their own lifetime, set **where the data is written** — [`POST /v1/data`](/en/api-reference/data) (required), [`POST /v1/files`](/en/api-reference/files) (optional), [`POST /v1/standardize`](/en/api-reference/extract) (required when `store=true`):
+
+| `retention` | Lifetime |
+| --- | --- |
+| `permanent` (alias `persistent`) | Until explicitly deleted (`DELETE /v1/data`, `DELETE /v1/files/{key}`, `DELETE /v1/subjects/{user}`) |
+| `1d` / `6h` / `2h` / `1h` | **Auto-expires after the grain** — expired records disappear from reads immediately and are [then permanently deleted](/en/api-reference/overview#data-retention) |
+| `session` | Bound to a `session_id`; purged by [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) |
+
+There is **no `retention: "none"`** — writing to the store while asking not to store is contradictory. For use-and-forget analysis, run [`POST /v1/standardize`](/en/api-reference/extract) with `store=false` (dry-run, zero side effects), write with `retention: "1h"` (auto-expires), or use `retention: "session"` and delete the session when done.
+
+## Common patterns
+
+| Goal | Settings |
+| --- | --- |
+| Fully ephemeral one-off | `store: false`; don't write data (or write with `retention: "1h"`, or `retention: "session"` and delete the session after) |
+| A user's ongoing assistant thread | `session_id: <stable-id>` on every turn; data `retention: "permanent"` |
+| A user's journal | Single-turn `store: true` + a unique `session_id: journal-{entry_id}` for each entry — see [Journaling](#journaling) |
+| Short-lived triage conversation | default `store: true`, chain with `previous_response_id`; working data `retention: "session"` + the same `session_id`; delete the stored response IDs and then `DELETE /v1/sessions/{id}` when done |
+| Right to be forgotten | [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) — everything, including stored conversations; or per-piece: `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/responses/{id}` |
+
+## See also
+
+- [Agent API (Responses)](/en/api-reference/responses) — the endpoint `store` belongs to.
+- [Data Lifecycle](/en/api-reference/lifecycle) — deleting stored responses and Subjects.
+- [Structured Records](/en/api-reference/data) — the `retention` set where data is written.

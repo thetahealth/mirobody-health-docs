@@ -1,0 +1,74 @@
+---
+title: "MCP Servers"
+description: "Bring your own remote MCP tools into the agent turn — OpenAI-native tools entry on the Agent API."
+---
+
+import RegionShell from '/snippets/region-shell.mdx';
+
+<RegionShell />
+
+The agent ships with built-in tools over the Subject's health data ([Function calling → Built-in server tools](/en/api-reference/function-calling#built-in-server-tools)). Attaching a remote MCP server adds **your own tools** to that set: the platform connects, lists the server's tools, and lets the agent call them alongside the built-ins during the turn.
+
+<Note>
+This is **not** "Mirobody as an MCP server." It's the reverse: you bring external MCP tools *into* the agent's reasoning. The platform executes the calls server-side — unlike [client function tools](/en/api-reference/function-calling), there is no handoff back to you.
+</Note>
+
+## Attach a server
+
+Use the OpenAI Responses protocol's own `tools` entry, on the **Agent API**:
+
+```bash
+curl "$MIROBODY_API_BASE/responses" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mirobody-expert",
+    "input": "Cross-check my recent labs against our formulary.",
+    "user": "alice",
+    "tools": [
+      {
+        "type": "mcp",
+        "server_label": "formulary",
+        "server_url": "https://mcp.your-company.com/mcp",
+        "authorization": "YOUR_TOKEN",
+        "allowed_tools": ["lookup_drug"]
+      }
+    ]
+  }'
+```
+
+| Field | Notes |
+| --- | --- |
+| `server_label` | Required. Alphanumeric/`_`/`-`; shows up in `tool_steps` names as `mcp__{label}__{tool}`. |
+| `server_url` | Required. **Public http(s)** streamable-HTTP MCP endpoint — hosts resolving to private/loopback ranges are rejected (`400`). |
+| `authorization` | Optional. Sent as the `Authorization` header (auto-prefixed `Bearer ` unless you pass a scheme). |
+| `allowed_tools` | Optional allowlist of tool names; everything else on the server is ignored. |
+| `require_approval` | Only `"never"` (default). `"always"` returns `400` — the server is yours and calls run server-side, so an approval round-trip adds nothing. |
+
+Mix freely with your `type: "function"` client tools in the same `tools` array. Limits: ≤ 8 servers per request, ≤ 64 tools total.
+
+## The response
+
+MCP calls are **server-side tool steps** — they appear in the response's top-level `tool_steps` (name `mcp__{label}__{tool}`, with arguments and result) and stream as `response.mirobody_tool_call` events. The `output` array stays pure OpenAI item types; there is no `function_call` handoff for MCP tools.
+
+## Errors
+
+| HTTP `400` message | Cause |
+| --- | --- |
+| `mcp server '<label>' unusable: …` | Endpoint unreachable / not an MCP streamable-HTTP server. |
+| `mcp server host resolves to a non-public address` | SSRF guard — the URL must be publicly routable. |
+| `require_approval is not supported …` | Pass `"never"` or omit. |
+
+## In the web app
+
+End users of [Mirobody Chat](https://chat.mirobody.ai/), the consumer app on this same backend, can attach their own MCP servers under **Settings → MCP**, and its agent picks them up automatically each turn. That is the outbound direction, the same as this endpoint. (A self-hosted engine also serves the opposite direction: it mints a personal MCP URL so external clients can call *into* that instance; see [MCP Integration](/en/tools/mcp-integration).) A misconfigured or down server is skipped there (chat never fails because of it); on the API surface the same problem is an explicit `400`, because you asked for that server in this request.
+
+## When to prefer client function tools
+
+If your tool needs to run **inside your own process** (private network, local state, human confirmation), use [client function tools](/en/api-reference/function-calling) instead: the model hands off with `function_call`, you execute, and you resume the run — the openai-agents SDK automates that loop.
+
+## See also
+
+- [Function Calling](/en/api-reference/function-calling) — client tools, the other way to extend the agent.
+- [Agent API (Responses)](/en/api-reference/responses) — the endpoint that accepts the `tools` entry.
+- [Streaming](/en/api-reference/streaming) — how server-side tool steps appear in the stream.

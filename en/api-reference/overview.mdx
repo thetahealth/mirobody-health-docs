@@ -1,0 +1,118 @@
+---
+title: "API Overview"
+description: "OpenAI-compatible health-data API — base URL, auth, multi-tenancy, retention, errors."
+---
+
+import BaseUrl from '/snippets/base-url.mdx';
+import AuthKey from '/snippets/auth-key.mdx';
+
+**Mirobody Cloud is OpenAI-compatible.** Point any OpenAI SDK at the base URL below, pass an `mb_live_*` key, and call the [Answers API](/en/api-reference/chat) (`/v1/chat/completions`) or the [Agent API](/en/api-reference/responses) (`/v1/responses`) — the agent answers from each end-user's **real, standardized health data**, and returns the tool trace behind the answer. Not sure which surface? See [Choose your API](/en/api-reference/choose-your-api). The same engine also runs **self-hosted** — clone the [open-source engine](/en/self-host) and bring it up with `./deploy.sh`; the hosted API adds managed storage, keys, and billing on top.
+
+Keys, usage, and an interactive Playground live in the [developer console](https://platform.mirobody.ai/). These docs are the API reference.
+
+## Base URL
+
+<BaseUrl />
+
+Global and China are production clusters; Japan and EU are in preparation. Pick the one that matches where the data must be processed — see [Regions](/en/api-reference/regions/overview).
+
+## Authentication
+
+<AuthKey />
+
+Console sign-in (email code or WeChat) is a separate session login for the console itself — not an API credential, and `/v1` keys are not JWTs.
+
+## OpenAI compatibility
+
+Standard OpenAI fields work as-is; Mirobody extensions ride along in `extra_body` (Python SDK) or as plain top-level JSON (curl/fetch).
+
+| | Fields |
+| --- | --- |
+| **Standard** | `model`, `messages` / `input`, `stream`, `user` — plus, on the [Agent API](/en/api-reference/responses): `instructions`, `store`, `previous_response_id`, `tools`, `tool_choice`, `text.format` |
+| **Mirobody extensions** | `retention` (data lifetime — see below), `session_id` (session scoping; on [`/v1/responses`](/en/api-reference/responses) it binds a durable conversation), `mode` + `builtin_tools` ([backbone mode](/en/api-reference/backbone-mode)), `strict` (strict validation), `reasoning` / `reasoning_effort` (deep-thinking effort — see [Agent API](/en/api-reference/responses)) |
+| **Response extensions** | `reasoning_content` / `reasoning` items, `tool_steps[]` (server tool trace), top-level `health_records[]` / `citations[]`, `usage.billed_tokens` (the actual token total you're metered on) |
+
+<Note>
+**Sampling parameters are accepted for compatibility, but the agent runs its own generation.** `max_tokens` is accepted but **not enforced**; `temperature`, `top_p`, `stop`, and `seed` are accepted but **ignored**. On the Answers API, `tools` / `tool_choice` / `response_format` / `n>1` are **explicitly rejected with `400`** — see [Unsupported parameters](/en/api-reference/chat#unsupported-parameters).
+</Note>
+
+## Multi-tenancy: the `user` field
+
+Every request carries a `user` string — the **tenant-isolation key**. The backend maps `(your account, user)` to an internal **Subject**, and Subjects are fully isolated — pass each end-user's stable id as `user` and their data never crosses over. Omit it and the call falls back to your account's default Subject. Subjects are not web-app accounts — they're invisible to the Mirobody app and to other developers.
+
+## Data retention
+
+Anything you write to the data plane (structured records, uploaded files, stored extractions) carries a `retention` that decides how long it's kept:
+
+| `retention` | Meaning | Lifetime |
+| --- | --- | --- |
+| `permanent` (alias `persistent`) | Kept until explicitly deleted | Until `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/subjects/{user}` |
+| `session` | Bound to a `session_id` | Until `DELETE /v1/sessions/{id}` |
+| `1d` / `6h` / `2h` / `1h` | Auto-expires after the grain | Hidden from reads at expiry, then permanently deleted |
+
+On **[`POST /v1/data`](/en/api-reference/data) `retention` is required** — no default; omitting it (or any value outside the enum) returns `400` (`code: invalid_retention`). `retention=session` additionally requires a `session_id`. On [`POST /v1/standardize`](/en/api-reference/extract) it's required when `store=true`; on [`POST /v1/files`](/en/api-reference/files) it's optional (defaults to `permanent`).
+
+There is **no `retention: "none"`**. For use-and-forget analysis, run [`POST /v1/standardize`](/en/api-reference/extract) with `store=false` (dry-run — nothing persisted), or write with `retention: "1h"`. The agent **only ever reads the Subject's currently-unexpired data**.
+
+Conversation persistence on the Agent API is a separate knob (`store`) — see [State & memory](/en/api-reference/state-and-memory). For purely subjective entries (journaling), ingest them as stored single-turn agent calls — see the [Journaling recipe](/en/api-reference/state-and-memory#journaling).
+
+## Evidence: health_records & citations
+
+Answers are **explainable and checkable** — not "sounds plausible," but "this conclusion came from that record of yours." Both API surfaces return two top-level evidence arrays of `{tool, data}` pairs:
+
+- **`health_records`** — outputs of the health-data tools the answer relied on (the Subject's actual records).
+- **`citations`** — outputs of the external-evidence tools (`search_medical_evidence`, `read_source`); empty when no external evidence was consulted.
+
+The full server tool trace (every call with arguments and results) is in the `tool_steps` extension.
+
+## Error format
+
+Errors use the OpenAI-style envelope:
+
+```json
+{
+  "error": {
+    "message": "`retention` is required.",
+    "type": "invalid_request_error",
+    "code": "invalid_retention",
+    "param": "retention"
+  }
+}
+```
+
+`type` is consistently `invalid_request_error` for caller mistakes; `code` and `param` identify the specific problem. Observed (status, code) pairs:
+
+| HTTP | `code` | When |
+| --- | --- | --- |
+| `400` | `invalid_retention`, `invalid_session`, … | Malformed request / missing required field — `param` names the field |
+| `400` | `unsupported_parameter` | A parameter this surface rejects (e.g. `tools` on the Answers API, `text.format` on agent mode, an unknown top-level param under `strict`) — `param` names it |
+| `401` | `null` | Missing or malformed `Authorization` header |
+| `401` | `invalid_api_key` | Bad or revoked `mb_live_*` key |
+| `404` | — | Unknown resource (`file_key` / `response_id` / `previous_response_id` / subject) |
+| `413` | — | Upload exceeds the size limit |
+| `422` | — | File text extraction failed (`/v1/standardize`) |
+| `429` | `rate_limit_exceeded` | Per-key request rate limit exceeded — carries `Retry-After` + `X-RateLimit-*`. See [Rate Limits & Quota](/en/api-reference/rate-limits) |
+| `429` | `insufficient_quota` | Monthly account usage cap reached — resets next month. See [Rate Limits & Quota](/en/api-reference/rate-limits) |
+| `500` | `internal_error` | Unexpected server-side failure |
+| `502` | — | Upstream agent error — transient; retry with backoff |
+
+In **streaming**, an upstream failure arrives as an SSE error frame (`{"error": ...}` on the Answers API, `response.failed` on the Agent API) before the stream ends.
+
+## Endpoints at a glance
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | [`/v1/models`](/en/api-reference/models) | List capability tiers (`mirobody-flash` / `mirobody-expert`) |
+| `POST` | [`/v1/chat/completions`](/en/api-reference/chat) | **Answers API** — closed grounded completion (stream, evidence) |
+| `POST`·`GET`·`DELETE` | [`/v1/responses`](/en/api-reference/responses) | **Agent API** — client tools, stored conversations, `response.*` streaming |
+| `POST` · `GET` · `DELETE` | [`/v1/data`](/en/api-reference/data) | Write / read / erase structured records (standardized on write) |
+| `POST` | [`/v1/standardize`](/en/api-reference/extract) | Document → standardized indicators (dry-run by default) |
+| `POST` · `GET` · `DELETE` | [`/v1/files`](/en/api-reference/files) | Upload & parse files (OCR / Excel), list, fetch text, delete |
+| `DELETE` | [`/v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) | End a session and purge its session-scoped data |
+| `DELETE` | [`/v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) | Erase everything for one Subject (right to be forgotten) — see [Compliance](/en/api-reference/compliance) |
+
+## See also
+
+- [Quickstart](/en/api-reference/quickstart) — the shortest working path.
+- [Choose Your API](/en/api-reference/choose-your-api) — Answers or Agent.
+- [Rate Limits & Quota](/en/api-reference/rate-limits) — limits, quota and backoff.

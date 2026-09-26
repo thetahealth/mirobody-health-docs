@@ -1,0 +1,74 @@
+---
+title: "升级部署"
+description: "备份可恢复的数据，核对目标版本，升级自部署 Docker 栈并验证运行结果。"
+---
+
+import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+本流程适用于[在服务器上部署](/zh/deployment/production)所述的 Docker 服务。`deploy.sh` 会先停止旧服务再启动新服务，请安排维护时段。数据库 schema 在启动时向前变更，没有自动回退迁移；只切回旧代码不能完成回滚。
+
+## 更改代码前
+
+<Steps>
+  <Step title="记录当前版本">
+    在引擎仓库目录记录当前提交，并确认服务有响应：
+
+    ```bash
+    git rev-parse HEAD
+    curl -fsS http://127.0.0.1:18060/api/health
+    ```
+
+    健康接口的响应含 `version` 字段。把这两个值记入变更记录；恢复时才能确定要回到哪一版。
+  </Step>
+  <Step title="备份数据和密钥">
+    运行仓库自带的备份脚本，并将结果移到这台主机之外的存储：
+
+    ```bash
+    shell/backup.sh
+    ```
+
+    脚本备份 Postgres，以及实际存在的本地上传文件；临时数据库演练和恢复步骤见[核验与恢复备份](/zh/deployment/restore)。另外，在受保护的位置保存 `.env`、当前使用的 `config.prod.yaml` 或其他覆盖文件、所有 `.key.yaml` 文件，以及 `compose.override.yaml`。脚本不会备份这些文件。若使用外部对象存储，还要单独备份存储桶。
+  </Step>
+  <Step title="核对目标版本">
+    阅读 <OssLink path="CHANGELOG.md" /> 中目标版本的说明和发布页，确认现有配置项与设备服务商设置仍适用。选定明确的发布标签或提交，并在当前 shell 中把 `TARGET_REF` 设为这个已核对的值。
+  </Step>
+</Steps>
+
+## 升级与验证
+
+<Steps>
+  <Step title="切换到目标版本">
+    在同一仓库目录拉取并查看目标版本，然后切换：
+
+    ```bash
+    git fetch --tags origin
+    git show --no-patch "$TARGET_REF"
+    git checkout "$TARGET_REF"
+    ```
+
+    如果你修改过受 Git 跟踪的文件，请先运行 `git status --short`；修改与目标版本冲突时，Git 会拒绝切换。
+  </Step>
+  <Step title="启动新版本">
+    ```bash
+    ./deploy.sh
+    ```
+
+    脚本会在镜像定义变化时重新构建、启动四项服务，并持续输出日志。检查启动或 schema 错误；首次启动也可能重新安装 Python 依赖。
+  </Step>
+  <Step title="核对运行结果">
+    在另一个终端运行：
+
+    ```bash
+    docker compose ps
+    curl -fsS http://127.0.0.1:18060/api/health
+    ```
+
+    `mirobody` 应为 healthy，响应中的 `version` 应与选定版本一致。从公网 HTTPS 地址登录，打开一条已有记录，再验证用户依赖的一项流程，例如文件上传或智能体回答。服务未变为 healthy 时，参考[排错](/zh/troubleshooting)，并查看 `docker compose logs --tail 80 mirobody`。
+  </Step>
+</Steps>
+
+## 回滚
+
+停止应用和 worker，从升级前的备份恢复数据库及本地上传文件，恢复**与备份匹配**的密钥和配置，再把代码切回记录的提交并启动。恢复命令见[核验与恢复备份](/zh/deployment/restore#recover-a-deployment)。请把备份作为一个整体使用：数据库 schema 变更后，只切回旧代码，旧版可能无法读取新版数据库。

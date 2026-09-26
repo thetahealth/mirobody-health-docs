@@ -1,0 +1,55 @@
+---
+title: "Mirobody"
+sidebarTitle: "Overview"
+description: "An open-source health data engine: every source, one standard, answers that cite their source. Run it on Mirobody Cloud or on your own infrastructure."
+---
+
+import NameOrigin from '/snippets/name-origin.mdx';
+import RunModes from '/snippets/run-modes.mdx';
+import { Fact, Stages } from '/snippets/oss-facts.jsx';
+
+**<Fact k="readme.en.tagline" />**
+
+## What is Mirobody?
+
+**Mirobody** is a health data engine. It takes readings from any source — lab reports, wearables, genetic tests, phone photos of a printed report — resolves each one to a canonical code, and stores it as a comparable record an AI can reason over.
+
+<NameOrigin />
+
+The engine is open source under Apache 2.0, at [thetahealth/mirobody](https://github.com/thetahealth/mirobody). **Mirobody Cloud** is its hosted form: the same standardization behind an OpenAI-compatible `/v1` API, with storage, models and keys operated for you.
+
+## Collect · Translate · Agent
+
+A reading takes three stages from arriving to being cited, and each one leaves a trace, so an answer can be followed back to the page it came from.
+
+<Stages lang="en" />
+
+## Choose how you run Mirobody
+
+<RunModes />
+
+| Decision | Mirobody Cloud | Self-hosted engine |
+| --- | --- | --- |
+| First working result | Create an API key and call `/v1` | Install the library or start the Docker stack |
+| Stored records | Operated by Mirobody, under the API's retention settings | In your Postgres and file storage |
+| Model requests | Handled by the hosted service | Sent to the model provider you configure |
+| Deployment and upgrades | Operated by Mirobody | Your responsibility; follow the [server guide](/en/deployment/production) |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Cloud quickstart" icon="rocket" href="/en/api-reference/quickstart">
+    Create a key, write two sample readings, ask one question.
+  </Card>
+  <Card title="Run it yourself" icon="server" href="/en/self-host">
+    Choose the library, a local Docker demo, or a deployment for real records.
+  </Card>
+  <Card title="API overview" icon="code" href="/en/api-reference/overview">
+    Authentication, multi-tenancy, retention, errors and every `/v1` endpoint.
+  </Card>
+  <Card title="Source on GitHub" icon="github" href="https://github.com/thetahealth/mirobody">
+    The engine, its issues, and how to contribute.
+  </Card>
+</CardGroup>
+
+For agents and scripts, the whole site is also published as plain text: [`/llms.txt`](https://docs.mirobody.ai/llms.txt) indexes every page, and [`/llms-full.txt`](https://docs.mirobody.ai/llms-full.txt) is the full corpus in one file.

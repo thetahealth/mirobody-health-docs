@@ -1,0 +1,116 @@
+---
+title: "Self-Host Mirobody"
+description: "Run the open-source engine on your own machine or server: the three ways in, where each stage lives, and what a running deployment serves."
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+Mirobody runs anywhere Python <Fact k="python" /> or Docker runs: a laptop, an on-premises server or a cloud VM. The engine is open source under Apache 2.0 at [thetahealth/mirobody](https://github.com/thetahealth/mirobody), and the data it holds stays in a Postgres you operate. What Mirobody is, and how self-hosting compares with Mirobody Cloud, is on the [overview](/en).
+
+## Ways to run it
+
+Pick the row that matches what you want; the three are alternatives, not steps.
+
+| You want | Path | Needs | Model key |
+| --- | --- | --- | --- |
+| Names and units resolved in your own code | [The library](/en/quickstart#a--the-library) | Python <Fact k="python" /> | none |
+| The whole product running, with demo data in it | [The Docker stack](/en/quickstart#b--the-stack) | Git, Git LFS, Docker with Compose | one for model features |
+| To change the code and see the result | [A source checkout](/en/quickstart#c--a-checkout) | Python and a Postgres with pgvector | one for model features |
+
+The Docker stack is four containers: Postgres with pgvector, Redis, the server and the background worker. It serves the bundled web client at <Fact k="url" code />.
+
+## First local result
+
+With Git, Git LFS and Docker Compose installed, start the **local demo**:
+
+```bash
+git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
+git lfs install && git lfs pull
+./deploy.sh
+```
+
+It creates demo accounts with a published sign-in code and seeds example readings. You can inspect those readings without a model key; extraction and agent answers need one of the supported keys in `.env`. The script follows the service logs; when it reports `Up`, leave that terminal open and use a second terminal in the engine checkout:
+
+```bash
+docker compose ps
+curl -fsS http://localhost:18060/api/health
+docker compose exec mirobody python -m mirobody doctor
+```
+
+The `mirobody` service should become `healthy`; the health response includes `version` and `agent`. The last command checks which model features are available. It runs **inside the container**; a host shell only has `mirobody doctor` if you separately installed the Python package. If you added a model key to `.env` after startup, run `docker compose restart` before checking it.
+
+Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111`, and open **Data** to inspect its seeded readings. For the full three-path guide and the demo upload files, see [Quickstart](/en/quickstart#b--the-stack). For a deployment holding real records, choose the production settings in [Deploy on a Server](/en/deployment/production) **before its first start**. If you already ran the demo, follow the [existing-demo path](/en/deployment/production#after-a-local-demo) to start with clean data volumes.
+
+Self-hosting keeps the stored record in the Postgres and file storage you operate. Extraction and agent answers send data to whichever model provider you configure; review that provider's handling of health data before enabling those features.
+
+## Where the three stages live
+
+The package is organized around the same three stages as this documentation.
+
+| Stage | Package | Pages |
+| --- | --- | --- |
+| ① Collect | `mirobody/collect/` | [Device Providers](/en/providers/using-providers), [Apple Health](/en/providers/apple-health), [File Processing](/en/concepts/file-processing) |
+| ② Translate | `mirobody/engine.py`, `mirobody/translate/` | [Standardization](/en/concepts/indicators), [Device Crosswalk](/en/concepts/device-crosswalk) |
+| ③ Agent | `mirobody/agent/` | [The Agent](/en/tools/agents), [Health-Data Tools](/en/tools/overview), [MCP Integration](/en/tools/mcp-integration) |
+
+How a single reading passes through all three is described in [The Pipeline](/en/concepts/architecture); the directory map is [Repository Layout](/en/concepts/repository-layout).
+
+## What a deployment serves
+
+| Surface | Address | Used by |
+| --- | --- | --- |
+| Web client | `/` | People: documents and readings at `/data`, the agent at `/ask`, and care-circle sharing |
+| HTTP API | `/api/*` | Your own application, against the deployment you run |
+| MCP endpoint | `/mcp` | Claude Desktop, Cursor, or an agent loop of your own; see [MCP Integration](/en/tools/mcp-integration) |
+
+A self-hosted engine does not serve the Cloud `/v1` API. The Cloud tab documents that surface; the routes above are the engine's own.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/en/quickstart">
+    Install the library, bring up the stack, or run a checkout.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/en/configuration">
+    The model key, the configuration files, and the settings a deployment changes.
+  </Card>
+  <Card title="Walkthrough" icon="play" href="/en/walkthrough">
+    The running stack in four scenes, with the demo record.
+  </Card>
+  <Card title="Deploy on a Server" icon="server" href="/en/deployment/production">
+    Production posture, secrets, HTTPS and a deployment check.
+  </Card>
+  <Card title="Upgrade a Deployment" icon="arrow-up" href="/en/deployment/upgrade">
+    Back up, review a release, upgrade and verify the running stack.
+  </Card>
+  <Card title="Verify and Restore a Backup" icon="database" href="/en/deployment/restore">
+    Rehearse a restore and recover Postgres and local uploads.
+  </Card>
+</CardGroup>
+
+When a deployment does not come up, [Troubleshooting](/en/troubleshooting) lists the common causes and their fixes.
+
+## Contributing {#contributing}
+
+The highest-leverage contribution is a term the resolver gets wrong. Run `mirobody resolve "<term>"`; if the answer is wrong or empty, report it, or add a row to <OssLink path="mirobody/res/resolver_overrides.tsv" /> together with a case in <OssLink path="mirobody/tests/test_engine_coverage.py" />. The coverage score is the review.
+
+A development checkout installs the test extra and runs the suite and the import contracts:
+
+```bash
+pip install -e '.[test]' && pytest -q && lint-imports
+```
+
+The full contributor workflow is in <OssLink path="CONTRIBUTING.md" />, and the test layout in <OssLink path="docs/testing.md" />.
+
+<CardGroup cols={2}>
+  <Card title="GitHub repository" icon="github" href="https://github.com/thetahealth/mirobody">
+    Source code, issues and pull requests.
+  </Card>
+  <Card title="Report a problem" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
+    A report that parses incorrectly makes a valuable issue; attach a de-identified sample.
+  </Card>
+</CardGroup>
+
+Security reports go through a private advisory, not a public issue; see <OssLink path="SECURITY.md" />.

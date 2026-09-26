@@ -1,0 +1,44 @@
+{
+  "name": "mirobody-health-docs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "docs.mirobody.ai — Mintlify site. The Open Source pages are generated from the mirobody repository at the commit pinned in oss.lock.",
+  "engines": {
+    "node": ">=20.17"
+  },
+  "scripts": {
+    "dev": "mint dev",
+    "oss:fetch": "node scripts/fetch-oss.mjs",
+    "oss:sync": "node scripts/sync-oss.mjs",
+    "oss:pin": "node scripts/check-oss-pin.mjs",
+    "check:sync": "node scripts/sync-oss.mjs --check",
+    "check:parity": "node scripts/check-parity.mjs",
+    "check:headings": "node scripts/check-headings.mjs",
+    "check:internals": "node scripts/check-internals.mjs",
+    "check:facts": "node scripts/check-facts.mjs",
+    "check:freshness": "node scripts/check-freshness.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check:readme-links": "node scripts/check-readme-links.mjs",
+    "check:cloud-regions": "node scripts/check-cloud-regions.mjs",
+    "check:public": "node scripts/check-public.mjs",
+    "check:mint": "mint broken-links --check-anchors --check-redirects && mint validate",
+    "verify": "npm run oss:fetch && npm run check:sync && npm run check:parity && npm run check:headings && npm run check:internals && npm run check:facts && npm run check:freshness && npm run check:links && npm run check:readme-links && npm run check:cloud-regions && npm run check:public"
+  },
+  "devDependencies": {
+    "@mdx-js/mdx": "^3.1.0",
+    "github-slugger": "^2.0.0",
+    "hast-util-from-html": "^2.0.3",
+    "mdast-util-to-string": "^4.0.0",
+    "mint": "^4.2.939",
+    "property-information": "^7.2.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "smol-toml": "^1.3.1",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "yaml": "^2.8.0"
+  }
+}

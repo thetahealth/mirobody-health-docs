@@ -1,0 +1,10 @@
+Health data arrives in four shapes, and each has exactly one endpoint to write it through:
+
+| Data shape | Typical source | How it goes in | Endpoint |
+| --- | --- | --- | --- |
+| **Structured records** | **Devices and wearables above all** (you own the integration — write daily aggregates), plus manual entries | Structured records | [`POST /v1/data`](/en/api-reference/data) — pre-aggregate high-frequency samples; episodes (sleep, workouts) carry `time` + `end_time`. See the [device-data cookbook](/en/api-reference/data#device-and-wearable-data). |
+| **Files / photos** | Lab reports, checkup PDFs, phone photos | File upload | [`POST /v1/files`](/en/api-reference/files) — stores the original, extracts its text, and pulls out standardized readings automatically. [`POST /v1/standardize`](/en/api-reference/extract) runs the same extraction synchronously — for example as a dry-run preview. |
+| **Narrative with readings** | "headache all day, temperature was 38.2 °C", dictated notes | Narrative text | [`POST /v1/standardize`](/en/api-reference/extract) — the quantifiable readings are extracted; the narrative around them is dropped. |
+| **Purely subjective journal** | "dizzy and a headache all afternoon", mood notes | Single-turn agent call | [`POST /v1/responses`](/en/api-reference/responses) with `store: true` — readings and durable memories are extracted from the entry. See the [Journaling recipe](/en/api-reference/state-and-memory#journaling). |
+
+Mirobody stores source data, standardizes structured readings, and makes both available to AI. You decide how data is collected and prepared before it reaches the API.

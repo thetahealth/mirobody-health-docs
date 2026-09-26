@@ -1,0 +1,74 @@
+---
+title: "Upgrade a Deployment"
+description: "Upgrade a self-hosted Docker stack with a recoverable backup, a reviewed release and a health check."
+---
+
+import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+This procedure is for the Docker deployment described in [Deploy on a Server](/en/deployment/production). `deploy.sh` stops the current stack before starting the new one, so reserve a maintenance window. Database schema changes are additive on startup; there is no automatic down migration. A code checkout alone is not a rollback.
+
+## Before changing code
+
+<Steps>
+  <Step title="Record the running version">
+    In the engine checkout, record the current commit and confirm the service responds:
+
+    ```bash
+    git rev-parse HEAD
+    curl -fsS http://127.0.0.1:18060/api/health
+    ```
+
+    The health response includes a `version` field. Keep both values with the change record so you know exactly what you are returning to if a restore is needed.
+  </Step>
+  <Step title="Back up data and keys">
+    Run the repository's backup script and move its output to storage off this host:
+
+    ```bash
+    shell/backup.sh
+    ```
+
+    The script backs up Postgres and local uploads when present; follow [Verify and Restore a Backup](/en/deployment/restore) for a scratch-database rehearsal and recovery steps. Preserve `.env`, your `config.prod.yaml` or other active overlay, any `.key.yaml` files, and `compose.override.yaml` in protected storage too. The script does not include those files. Keep any external object-storage bucket backed up separately.
+  </Step>
+  <Step title="Review the target release">
+    Read the target version's notes in <OssLink path="CHANGELOG.md" /> and its release page. Confirm that your overlay keys and provider configuration still apply. Choose the exact release tag or commit; set `TARGET_REF` to that reviewed value in your shell before continuing.
+  </Step>
+</Steps>
+
+## Upgrade and verify
+
+<Steps>
+  <Step title="Switch to the reviewed release">
+    In the same checkout, fetch and inspect the selected ref, then check it out:
+
+    ```bash
+    git fetch --tags origin
+    git show --no-patch "$TARGET_REF"
+    git checkout "$TARGET_REF"
+    ```
+
+    Check `git status --short` first if you keep local changes in tracked files; Git will refuse a conflicting checkout.
+  </Step>
+  <Step title="Start the new stack">
+    ```bash
+    ./deploy.sh
+    ```
+
+    The script rebuilds the image if its definition changed, starts the four services and tails their logs. Watch for startup or schema errors. The first boot may reinstall Python dependencies.
+  </Step>
+  <Step title="Check the result">
+    In another terminal, run:
+
+    ```bash
+    docker compose ps
+    curl -fsS http://127.0.0.1:18060/api/health
+    ```
+
+    `mirobody` should be healthy and the response's `version` should match the release you selected. Sign in through the public HTTPS address, open an existing record and verify one workflow your users depend on, such as file upload or an agent answer. If the service does not become healthy, use [Troubleshooting](/en/troubleshooting) and inspect `docker compose logs --tail 80 mirobody`.
+  </Step>
+</Steps>
+
+## Rollback
+
+Stop the app and worker, restore the database and any local uploads from the pre-upgrade backup, restore the **matching** keys and configuration, then return the checkout to the recorded commit and start it. Follow [Verify and Restore a Backup](/en/deployment/restore#recover-a-deployment) for the restore commands. Treat the backup as a unit: restoring only code after a schema change can leave the old release reading a newer database.

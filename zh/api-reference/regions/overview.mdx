@@ -1,0 +1,21 @@
+---
+title: "区域概览"
+description: "选择与你的用户相匹配的集群"
+---
+
+本文档中的代码示例统一使用全球生产环境的 `base_url`。不同区域环境使用独立主机与存储；请只使用已为你的账户和合同开通的端点。
+
+| 集群 | API base URL | 控制台 | 网页应用 | 状态 |
+| --- | --- | --- | --- | --- |
+| [🌐 全球](/zh/api-reference/regions/global) | `https://api.mirobody.ai/v1` | [platform.mirobody.ai](https://platform.mirobody.ai/) | [chat.mirobody.ai](https://chat.mirobody.ai/) | 已上线 |
+| [🇨🇳 中国](/zh/api-reference/regions/china) | `https://api.mirobody.cn/v1` | [platform.mirobody.cn](https://platform.mirobody.cn/) | [chat.mirobody.cn](https://chat.mirobody.cn/) | 已上线 |
+| 🇯🇵 日本 | — | — | — | 筹备中 |
+| 🇪🇺 欧盟 | — | — | — | 筹备中 |
+
+按数据处理位置选择集群：中国区域名在中国区环境处理数据，全球域名在全球环境处理数据。模型提供方与定价因区域不同，请从实际调用的集群读取 `GET /v1/models`。详见[隐私与合规](/zh/api-reference/compliance)。
+
+## 另见
+
+- [全球集群](/zh/api-reference/regions/global)：主机与集群细节。
+- [中国区](/zh/api-reference/regions/china)：主机与集群细节。
+- [隐私与合规](/zh/api-reference/compliance)：数据处理位置与相关材料。

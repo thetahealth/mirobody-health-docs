@@ -1,0 +1,84 @@
+---
+title: "标准化机制"
+description: "结构化读数如何变成带编码、单位归一、可查询的数据。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+健康数据到达时是杂乱的："血糖(空腹)"、"FBG"、"Glucose, fasting" 指的是同一个指标，单位也同样五花八门。无论是通过 [`POST /v1/data`](/zh/api-reference/data) 写入，还是由 [`POST /v1/standardize`](/zh/api-reference/extract) 存储，Mirobody 都会把每条**结构化读数**标准化，让 agent 和你的查询看到的是同一份连贯、带编码的数据集。
+
+[`POST /v1/files`](/zh/api-reference/files) 是独立的文件存储与文本抽取接口；上传文件时，Mirobody 会自动把其中的报告数值标准化为结构化读数。`/v1/standardize` 是同一抽取的显式路径：用它审阅结果（dry-run），或按需标准化 `text` / `file_key` 来源。
+
+## 管线
+
+文档与结构化记录都进入同一条管线：
+
+<Steps>
+  <Step title="读取来源">
+    PDF / 图片 → 文本（OCR）；Excel → 行。
+  </Step>
+  <Step title="抽出读数">
+    找出每条 `{指标, 值, 单位, 日期}`。仅文档需要这一步：`/v1/data` 记录本就是结构化的，直接进入编码。
+  </Step>
+  <Step title="为指标编码">
+    把名称匹配到 LOINC 编码。没有高置信匹配时，`loinc_code` 保持 `null`，绝不给一个错码。
+  </Step>
+  <Step title="归一单位">
+    把单位写法折叠成统一的 UCUM 形式，并把值解析为数字：`"mg/dl"` → `mg/dL`。
+  </Step>
+  <Step title="落成一条序列">
+    每条读数在 Subject 的时间线上占一行，可按指标、编码与日期查询。
+  </Step>
+</Steps>
+
+关键在第 3 步：**编码是匹配出来的，绝不是编造出来的。** 模型很擅长*读*文档，却不该被用来*背*编码体系：一个错的 LOINC 码比没有更糟。所以当匹配不够可信时，Mirobody 会保留原始名称、让 `loinc_code` 为 `null`，而不是去猜。
+
+自部署时，引擎在你自己的基础设施上运行同样的步骤。一条读数从设备连接到最终回答所经过的各个阶段，见[数据管线](/zh/concepts/architecture)。
+
+## 标准化前后对比
+
+你发送给 `/v1/data` 的内容（或 `/v1/standardize` 从报告中读到的内容）与结构化存储中的结果：
+
+| | Before（原样） | After（标准化后） |
+| --- | --- | --- |
+| 指标 | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`，`canonical_name: "Fasting glucose [Mass/volume] in Serum or Plasma"` |
+| 值 | `"97 mg/dL"`（一个字符串） | `value: "97"`（原样的值，不带单位）、`parsed_value: "97"`、`parsed_unit: "mg/dL"`（UCUM） |
+| 单位写法 | `"mg/dl"`、`"MG/DL"`、`"mg/dL"` | `"mg/dL"`（统一 UCUM 形式） |
+| 互操作 | 自由文本 | LOINC 编码 + UCUM 单位，即 FHIR 自身使用的那套词表 |
+| 原文 | — | **保留**：`value` 是原样的值本身（如 `97`，不追加单位，单位在 `parsed_unit` 中）；原始名称/单位不丢 |
+
+同一项检测的三种写法归成**一条序列**：趋势查询、agent 的数据工具与你自己的分析都把它当作同一个指标。
+
+## API 中的标准化结果
+
+| 接口 | 呈现出什么 |
+| --- | --- |
+| [`POST /v1/data`](/zh/api-reference/data) | 响应在 `ingested` 之外还统计 `standardized`。 |
+| [`GET /v1/data`](/zh/api-reference/data#读取记录) | 每行携带 `parsed_value` / `parsed_unit` / `loinc_code` / `canonical_name`；数据源带了参考区间时，还会带上参考区间与 `abnormal` 标记。 |
+| [`POST /v1/standardize`](/zh/api-reference/extract) | 整条管线的同步调用形态：**默认 dry-run**，可先审阅标准化结果再决定写入。 |
+| agent | 有据可循的回答查询的是标准化后的序列，所以"我的血糖怎么样"能找到写成 "FBG" 的记录。 |
+
+## Cookbook：一次调用，报告 → 结构化数据
+
+```bash
+# 先审阅（什么都不持久化）……
+curl "$MIROBODY_API_BASE/standardize" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf"
+
+# ……再提交同一份抽取
+curl "$MIROBODY_API_BASE/standardize" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf" \
+  -F "store=true" -F "retention=permanent"
+```
+
+完整行形状（`indicator_raw`、`loinc_code`、`confidence` 等）见[叙事文本与报告](/zh/api-reference/extract)。
+
+## 另见
+
+- [结构化记录](/zh/api-reference/data)：大多数写入经过的端点。
+- [叙事文本与报告](/zh/api-reference/extract)：对一份文档执行同一条管线。
+- [模型](/zh/api-reference/models)：回答层运行在什么之上。

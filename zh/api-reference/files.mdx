@@ -1,0 +1,149 @@
+---
+title: "文件 / 照片"
+description: "POST /v1/files、GET /v1/files、DELETE /v1/files/{file_key}：上传报告、获取抽取文本、列出与删除。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+将健康文档上传到 Subject 的存储。Mirobody 会先保存原文件，再在后台抽取其中的可读文本（PDF 与图片走 **OCR**，表格与文本文件直接转换），并对其运行与 [`POST /v1/standardize`](/zh/api-reference/extract) 相同的标准化管线，因此上传一份化验报告也会落成标准化记录。agent 作答时会读取两者。
+
+<Note>
+单文件上传上限 **100 MB**，超限返回 `413`。大导出或实时流请走 [WebSocket 上传](/zh/api-reference/files#websocket-上传)。
+</Note>
+
+## 上传文件
+
+```http
+POST /v1/files
+Authorization: Bearer mb_live_*
+Content-Type:  multipart/form-data
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `file` | 文档（PDF / 图片 / Excel / CSV）。 |
+| `user` | 文件所属的 Subject。**可选**：省略时会回退到你账户的 **`default`** Subject，因此为实现按终端用户隔离，请始终传入它。 |
+| `retention` | **此处可选**（与 `POST /v1/data` 不同，那里为必填）。取值与[数据留存](/zh/api-reference/overview#数据留存)相同。 |
+| `session_id` | 可选；将 `retention=session` 的上传限定到某个[会话](/zh/api-reference/lifecycle#会话)。 |
+
+```bash
+curl "$MIROBODY_API_BASE/files" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" \
+  -F "file=@checkup_2026.pdf"
+```
+
+响应：
+
+```json
+{
+  "object": "file",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
+  "filename": "checkup_2026.pdf",
+  "bytes": 20544,
+  "status": "processed",
+  "created_at": 1782924296,
+  "subject": "alice"
+}
+```
+
+文件标识符是 **`id`**（一个含斜杠的键），在下方的获取与删除调用中将其用作 `{file_key}`。`created_at` 是 **epoch 秒**。
+
+<Note>
+`status: "processed"` 表示原文件已经接收并保存，其文本可能仍在处理中。上传后立即调用 `GET /v1/files/{file_key}`，`extracted_text` 可能为空；请稍后重试。
+</Note>
+
+一次上传让文档文本可供 agent 读取，同时 Mirobody 也会从中读出报告里的读数（按与 `POST /v1/data` 写入完全相同的方式做[标准化](/zh/api-reference/standardization)），并作为记录存入 Subject 的存储。无需重新录入即可从 [`GET /v1/data`](/zh/api-reference/data) 查询；重复上传同一个文件不会产生重复记录。若想自己先运行一遍抽取、检查读数无误再入库，改用 [`POST /v1/standardize`](/zh/api-reference/extract)。已有结构化记录则直接用 [`POST /v1/data`](/zh/api-reference/data)。
+
+## 列出文件
+
+```http
+GET /v1/files?user=alice
+Authorization: Bearer mb_live_*
+```
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "file",
+      "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
+      "file_key": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
+      "filename": "checkup_2026.pdf",
+      "file_type": "application/pdf",
+      "bytes": 20544,
+      "created_at": 1782924296
+    }
+  ],
+  "subject": "alice"
+}
+```
+
+`data` 存放文件；`subject` 回显该 Subject。每一项都同时暴露 `id` 和 `file_key`（二者值相同）。`created_at` 是 **epoch 秒**，与上传响应一致。
+
+## 获取解析后的文本
+
+```http
+GET /v1/files/{file_key}?user=alice
+Authorization: Bearer mb_live_*
+```
+
+返回单个文件抽取后的文本，与 agent 所读取的内容一致：
+
+```json
+{
+  "object": "file",
+  "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf",
+  "filename": "checkup_2026.pdf",
+  "extracted_text": "Annual checkup 2026-06-16\nFasting glucose  97 mg/dL  (ref 70-110)\n...",
+  "abstract": "",
+  "subject": "alice"
+}
+```
+
+文件文本仍在处理时，`extracted_text` 可能为空。`abstract` 也可能为空，并非每种文件类型都会生成摘要。
+
+## WebSocket 上传
+
+大导出或实时采集可走 `wss://…/v1/files/stream`：单连接分块上传、带进度。鉴权走查询串（浏览器无法给 WebSocket 设 header）：
+
+```text
+wss://api.mirobody.ai/v1/files/stream?key=mb_live_...&user=alice&retention=permanent
+```
+
+帧序列（均为 JSON 文本帧）：
+
+1. **服务端 → 你**：`{"type": "connection_established"}`，收到之前不要发送任何消息。
+2. **你 → 服务端**：`{"type": "upload_start", "messageId": "<批次id>", "files": [{"filename", "contentType", "size"}]}`，整批一个 `messageId`。
+3. **你 → 服务端**，每 256 KB 一块：`{"type": "upload_chunk", "messageId", "filename", "chunk": "<base64>", "chunkIndex", "totalChunks"}`。
+4. **你 → 服务端**：`{"type": "upload_end", "messageId"}` → 全部原文件保存后，服务端返回 `upload_end_response`；此时文本可能仍在处理中。
+
+单文件 100 MB 上限、Subject 隔离与 `POST /v1/files` 完全一致，用 `GET /v1/files` 可列出。
+
+## 删除文件
+
+```http
+DELETE /v1/files/{file_key}?user=alice
+Authorization: Bearer mb_live_*
+```
+
+立即将该文件从 API 中移除（若不是该 Subject 的文件或已删除则返回 `404`）：
+
+```json
+{ "object": "file", "id": "AUmIn_R-Ddg.../b/bM--fG29X....pdf", "deleted": true, "subject": "alice" }
+```
+
+<Note>
+删除文件只移除**文件本身**，**不会**移除从它自动抽取出的记录。要删除这些记录，请用 [`DELETE /v1/data`](/zh/api-reference/data#擦除记录)（按 `indicator` 或 `id`）从数据面删除，或用 [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) 擦除整个 Subject。（会话级的上传**会**与其会话级记录一起被 [`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 擦除。）
+</Note>
+
+有时限的上传也会在[留存](/zh/api-reference/overview#数据留存)到期时自动移除，过期文件立即从所有 `GET /v1/files*` 读取中消失，随后被永久删除。如需一次性擦除某个 Subject 的一切，请使用 `DELETE /v1/subjects/{user}`，参见[合规](/zh/api-reference/compliance)。
+
+## 另见
+
+- [叙事文本与报告](/zh/api-reference/extract)：不存文件、只标准化一份报告。
+- [结构化记录](/zh/api-reference/data)：抽取产出的结构化记录。
+- [数据生命周期](/zh/api-reference/lifecycle)：文件的留存与删除。

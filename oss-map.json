@@ -1,0 +1,162 @@
+{
+  "$comment": [
+    "Which files of the mirobody repository become pages of the Open Source tab.",
+    "scripts/sync-oss.mjs renders each `source` (at the commit oss.lock pins) into en/<slug>.mdx.",
+    "zh/<slug>.mdx comes from `zhSource` when the repository has a Chinese edition; with",
+    "\"zh\": \"translation\" it is a hand-written translation kept in this repository (its",
+    "frontmatter `source:` records the commit it was translated from, see check:freshness);",
+    "otherwise the zh page shows the English text under a notice.",
+    "Sidebar order and grouping live in docs.json, like every other page."
+  ],
+  "pages": [
+    {
+      "slug": "quickstart",
+      "source": "docs/quickstart.md",
+      "zh": "translation",
+      "label": { "en": "Quickstart", "zh": "快速开始" },
+      "description": {
+        "en": "Three ways to run Mirobody — the library, the Docker stack, or a source checkout — and what each one needs.",
+        "zh": "运行 Mirobody 的三种方式：作为库、完整的 Docker 栈、源码检出，以及各自需要什么。"
+      }
+    },
+    {
+      "slug": "walkthrough",
+      "source": "docs/walkthrough.md",
+      "zhSource": "docs/walkthrough.zh-CN.md",
+      "label": { "en": "Walkthrough", "zh": "完整演示" },
+      "description": {
+        "en": "The running stack in four scenes: sign in, upload a report, ask about your own record, ask about someone in your care circle.",
+        "zh": "用四个场景走完运行中的整套系统：登录、上传报告、查询自己的记录、查询关爱圈成员的记录。"
+      }
+    },
+    {
+      "slug": "concepts/architecture",
+      "source": "docs/pipeline.md",
+      "zhIntro": "从文件进入系统到智能体引用读数，本页逐段解释处理管线。想先看到实际效果，可从[完整演示](/zh/walkthrough)进入；查每个阶段的约束与未处理情况时，再读下方英文原文。",
+      "label": { "en": "The Pipeline", "zh": "数据管线" },
+      "description": {
+        "en": "The eleven stages a reading passes through, the invariant each one holds, and what is deliberately not done.",
+        "zh": "一条读数经过的十一个阶段、每个阶段守住的约束，以及有意不做的事。"
+      }
+    },
+    {
+      "slug": "concepts/repository-layout",
+      "source": "docs/repository-layout.md",
+      "zhSource": "docs/repository-layout.zh-CN.md",
+      "label": { "en": "Repository Layout", "zh": "仓库结构" },
+      "description": {
+        "en": "Where each of the three stages lives in the repository, and the two forms the code ships in: library and application.",
+        "zh": "三个阶段分别位于仓库的哪个目录，以及代码发布的两种形态：库与应用。"
+      }
+    },
+    {
+      "slug": "providers/using-providers",
+      "source": "docs/provider-setup.md",
+      "zhSource": "docs/provider-setup.zh-CN.md",
+      "label": { "en": "Device Providers", "zh": "设备 Provider" },
+      "description": {
+        "en": "Turn on Garmin, Oura and Whoop: vendor credentials, callback URLs, and how to confirm a provider is running.",
+        "zh": "启用 Garmin、Oura 与 Whoop：厂商凭据、回调地址，以及如何确认 provider 已在运行。"
+      }
+    },
+    {
+      "slug": "concepts/file-processing",
+      "source": "docs/file-processing.md",
+      "zhIntro": "本页说明 PDF、图片、Office 和文本文件的上传、提取与错误处理流程。先用[快速开始](/zh/quickstart)运行服务，再按下方英文原文查接口和返回结构。",
+      "title": "File Processing",
+      "label": { "en": "File Processing", "zh": "文件处理" },
+      "description": {
+        "en": "How an uploaded file becomes text by kind — PDF text layer, OCR for scanned pages, Office, plain text — and then readings.",
+        "zh": "上传的文件如何按类型变成文本（PDF 文字层、扫描页 OCR、Office、纯文本），再变成读数。"
+      }
+    },
+    {
+      "slug": "providers/apple-health",
+      "source": "docs/apple-health.md",
+      "zhIntro": "本页介绍 Apple Health 导出包、CDA 文档和手机客户端推送数据的入口。准备接入前，先确认要处理的是离线导出文件，还是持续推送的 HealthKit 数据。",
+      "label": { "en": "Apple Health", "zh": "Apple Health" },
+      "description": {
+        "en": "Importing an Apple Health export and CDA documents, and the endpoint a phone client pushes HealthKit data to.",
+        "zh": "导入 Apple Health 导出包与 CDA 文档，以及手机客户端推送 HealthKit 数据的接口。"
+      }
+    },
+    {
+      "slug": "concepts/indicators",
+      "source": "docs/standardization.md",
+      "zhSource": "docs/standardization.zh-CN.md",
+      "label": { "en": "Standardization", "zh": "标准化" },
+      "description": {
+        "en": "② Translate in depth: the alias tiers, which LOINC release ships, and what the bundled cut does and does not cover.",
+        "zh": "② 转译详解：别名的分层、随包发布的 LOINC 版本，以及这份词表覆盖与不覆盖的范围。"
+      }
+    },
+    {
+      "slug": "concepts/device-crosswalk",
+      "source": "docs/device-crosswalk.md",
+      "zhIntro": "本页逐项列出设备厂商字段与标准编码的对应关系，并注明来源和置信度。先读[标准化](/zh/concepts/indicators)了解编码规则；需要核对某个字段时，再检索下方英文表格。",
+      "label": { "en": "Device Crosswalk", "zh": "设备字段对照" },
+      "description": {
+        "en": "Thirteen wearable vendors' fields mapped to LOINC, with a confidence and a source per row.",
+        "zh": "十三家可穿戴设备厂商的字段到 LOINC 的对照，每一行都标明置信度与出处。"
+      }
+    },
+    {
+      "slug": "tools/overview",
+      "source": "docs/answers.md",
+      "zhIntro": "本页是健康数据工具的参数、返回格式和调用约束参考。若目标是连接现成的 MCP 客户端，先看中文的[MCP 接入](/zh/tools/mcp-integration)；需要实现工具调用时，再查下方英文定义。",
+      "label": { "en": "Health-Data Tools", "zh": "健康数据工具" },
+      "description": {
+        "en": "The tools the agent and MCP clients read health data through: their schemas, the response envelope, and what stops a loop.",
+        "zh": "agent 与 MCP 客户端读取健康数据所用的工具：参数结构、返回信封，以及防止循环调用的机制。"
+      }
+    },
+    {
+      "slug": "tools/medications",
+      "source": "docs/medications.md",
+      "zhIntro": "本页说明用药数据的存储结构、状态与查询工具。读者可先确认所需的是用药记录查询还是通用健康指标查询，再在下方英文原文中查相应字段。",
+      "label": { "en": "Medications", "zh": "用药" },
+      "description": {
+        "en": "The medication model, its state tables, the instruction grammar, and the query_medications tool.",
+        "zh": "用药数据模型、状态表、用法用量的语法，以及 query_medications 工具。"
+      }
+    },
+    {
+      "slug": "tools/adding-tools",
+      "source": "mirobody/agent/tools/README.md",
+      "zhIntro": "本页解释如何把 Python 函数或 Service 类注册为引擎工具，并提供给智能体和 MCP 客户端。开始前先看[MCP 接入](/zh/tools/mcp-integration)了解工具暴露方式，再按下方英文步骤实现。",
+      "title": "Developing Mirobody Tools",
+      "label": { "en": "Adding Tools", "zh": "添加工具" },
+      "description": {
+        "en": "Write a Python function or Service class and the engine serves it as an MCP tool, to the agent and to every MCP client.",
+        "zh": "写一个 Python 函数或 Service 类，引擎就把它作为 MCP 工具提供给 agent 和所有 MCP 客户端。"
+      }
+    },
+    {
+      "slug": "development/provider-integration",
+      "source": "docs/provider-guide.md",
+      "zhIntro": "本页是编写设备 Provider 的详细参考，包含字段解码、认证与拉取、样本、覆盖范围和测试。先读中文的[设备 Provider](/zh/providers/using-providers)确认现成集成是否满足需求，再按下方英文目录跳到要实现的部分。",
+      "jumpTo": [
+        { "anchor": "before-you-write-a-provider-do-you-need-one", "en": "Decide whether you need a provider", "zh": "判断是否需要新 Provider" },
+        { "anchor": "what-a-provider-is-made-of", "en": "Understand its four parts", "zh": "了解 Provider 的四个部分" },
+        { "anchor": "3-implementation-requirements", "en": "Implement the provider", "zh": "实现 Provider" },
+        { "anchor": "4-core-methods-reference", "en": "Look up method signatures", "zh": "查方法签名" },
+        { "anchor": "6-testing-your-provider", "en": "Test the integration", "zh": "测试集成" }
+      ],
+      "label": { "en": "Writing a Provider", "zh": "编写 Provider" },
+      "description": {
+        "en": "Writing a device data provider end to end: the decode table, the IO shell, samples and coverage.",
+        "zh": "从头到尾编写一个设备数据 provider：解码表、IO 外壳、样本与覆盖范围。"
+      }
+    },
+    {
+      "slug": "deployment/backup",
+      "source": "docs/backup-restore.md",
+      "zhIntro": "本页说明数据库、上传文件和其他数据卷的备份与恢复。升级前请先备份并核验结果；密钥与配置文件要单独保存，具体顺序见中文的[升级部署](/zh/deployment/upgrade)。",
+      "label": { "en": "Backup & Restore", "zh": "备份与恢复" },
+      "description": {
+        "en": "What holds your data, how to copy it and get it back, and what changes when you upgrade.",
+        "zh": "数据存放在哪里、如何备份与恢复，以及升级时会发生什么变化。"
+      }
+    }
+  ]
+}

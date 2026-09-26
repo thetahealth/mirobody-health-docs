@@ -1,0 +1,504 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Mirobody",
+  "colors": {
+    "primary": "#0E3880",
+    "light": "#4A7AD6",
+    "dark": "#0D1E3A"
+  },
+  "fonts": {
+    "family": "Source Sans 3"
+  },
+  "background": {
+    "color": {
+      "light": "#F4F1EC",
+      "dark": "#0E1118"
+    }
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/images/light.svg",
+    "dark": "/images/dark.svg",
+    "href": "/"
+  },
+  "navigation": {
+    "languages": [
+      {
+        "language": "en",
+        "default": true,
+        "navbar": {
+          "links": [
+            {
+              "label": "Console (China)",
+              "href": "https://platform.mirobody.cn/"
+            }
+          ],
+          "primary": {
+            "type": "button",
+            "label": "Console",
+            "href": "https://platform.mirobody.ai/"
+          }
+        },
+        "tabs": [
+          {
+            "tab": "Home",
+            "groups": [
+              {
+                "group": "Mirobody",
+                "pages": [
+                  "en/index"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Cloud",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "en/api-reference/index",
+                  "en/api-reference/quickstart",
+                  "en/api-reference/choose-your-api",
+                  "en/api-reference/overview",
+                  "en/api-reference/models"
+                ]
+              },
+              {
+                "group": "Data",
+                "pages": [
+                  "en/api-reference/files",
+                  "en/api-reference/data",
+                  "en/api-reference/extract",
+                  "en/api-reference/standardization",
+                  "en/api-reference/lifecycle"
+                ]
+              },
+              {
+                "group": "Agent API",
+                "pages": [
+                  "en/api-reference/responses",
+                  "en/api-reference/backbone-mode",
+                  "en/api-reference/function-calling",
+                  "en/api-reference/structured-output",
+                  "en/api-reference/mcp-servers",
+                  "en/api-reference/streaming",
+                  "en/api-reference/state-and-memory"
+                ]
+              },
+              {
+                "group": "Answers API",
+                "pages": [
+                  "en/api-reference/chat",
+                  "en/api-reference/use-as-a-tool"
+                ]
+              },
+              {
+                "group": "Regions & Integration",
+                "pages": [
+                  "en/api-reference/regions/overview",
+                  "en/api-reference/regions/china",
+                  "en/api-reference/regions/global",
+                  "en/api-reference/sdk-examples",
+                  "en/api-reference/rate-limits",
+                  "en/api-reference/compliance"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Open Source",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "en/self-host",
+                  "en/quickstart",
+                  "en/configuration",
+                  "en/walkthrough",
+                  "en/troubleshooting"
+                ]
+              },
+              {
+                "group": "Architecture",
+                "pages": [
+                  "en/concepts/architecture",
+                  "en/concepts/repository-layout"
+                ]
+              },
+              {
+                "group": "① Collect",
+                "pages": [
+                  "en/providers/using-providers",
+                  "en/providers/apple-health",
+                  "en/concepts/file-processing"
+                ]
+              },
+              {
+                "group": "② Translate",
+                "pages": [
+                  "en/concepts/indicators",
+                  "en/concepts/device-crosswalk"
+                ]
+              },
+              {
+                "group": "③ Agent",
+                "pages": [
+                  "en/tools/agents",
+                  "en/tools/overview",
+                  "en/tools/medications",
+                  "en/tools/mcp-integration"
+                ]
+              },
+              {
+                "group": "Extend",
+                "pages": [
+                  "en/tools/adding-tools",
+                  "en/development/provider-integration"
+                ]
+              },
+              {
+                "group": "Deploy",
+                "pages": [
+                  "en/deployment/production",
+                  "en/deployment/backup",
+                  "en/deployment/restore",
+                  "en/deployment/upgrade"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "language": "zh",
+        "navbar": {
+          "links": [
+            {
+              "label": "全球站控制台",
+              "href": "https://platform.mirobody.ai/"
+            }
+          ],
+          "primary": {
+            "type": "button",
+            "label": "控制台",
+            "href": "https://platform.mirobody.cn/"
+          }
+        },
+        "tabs": [
+          {
+            "tab": "首页",
+            "groups": [
+              {
+                "group": "Mirobody",
+                "pages": [
+                  "zh/index"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "云端",
+            "groups": [
+              {
+                "group": "开始使用",
+                "pages": [
+                  "zh/api-reference/index",
+                  "zh/api-reference/quickstart",
+                  "zh/api-reference/choose-your-api",
+                  "zh/api-reference/overview",
+                  "zh/api-reference/models"
+                ]
+              },
+              {
+                "group": "数据",
+                "pages": [
+                  "zh/api-reference/files",
+                  "zh/api-reference/data",
+                  "zh/api-reference/extract",
+                  "zh/api-reference/standardization",
+                  "zh/api-reference/lifecycle"
+                ]
+              },
+              {
+                "group": "Agent API",
+                "pages": [
+                  "zh/api-reference/responses",
+                  "zh/api-reference/backbone-mode",
+                  "zh/api-reference/function-calling",
+                  "zh/api-reference/structured-output",
+                  "zh/api-reference/mcp-servers",
+                  "zh/api-reference/streaming",
+                  "zh/api-reference/state-and-memory"
+                ]
+              },
+              {
+                "group": "Answers API",
+                "pages": [
+                  "zh/api-reference/chat",
+                  "zh/api-reference/use-as-a-tool"
+                ]
+              },
+              {
+                "group": "区域与接入",
+                "pages": [
+                  "zh/api-reference/regions/overview",
+                  "zh/api-reference/regions/china",
+                  "zh/api-reference/regions/global",
+                  "zh/api-reference/sdk-examples",
+                  "zh/api-reference/rate-limits",
+                  "zh/api-reference/compliance"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "开源部署",
+            "groups": [
+              {
+                "group": "开始使用",
+                "pages": [
+                  "zh/self-host",
+                  "zh/quickstart",
+                  "zh/configuration",
+                  "zh/walkthrough",
+                  "zh/troubleshooting"
+                ]
+              },
+              {
+                "group": "架构",
+                "pages": [
+                  "zh/concepts/architecture",
+                  "zh/concepts/repository-layout"
+                ]
+              },
+              {
+                "group": "① 收集",
+                "pages": [
+                  "zh/providers/using-providers",
+                  "zh/providers/apple-health",
+                  "zh/concepts/file-processing"
+                ]
+              },
+              {
+                "group": "② 转译",
+                "pages": [
+                  "zh/concepts/indicators",
+                  "zh/concepts/device-crosswalk"
+                ]
+              },
+              {
+                "group": "③ 智能体",
+                "pages": [
+                  "zh/tools/agents",
+                  "zh/tools/overview",
+                  "zh/tools/medications",
+                  "zh/tools/mcp-integration"
+                ]
+              },
+              {
+                "group": "扩展",
+                "pages": [
+                  "zh/tools/adding-tools",
+                  "zh/development/provider-integration"
+                ]
+              },
+              {
+                "group": "部署",
+                "pages": [
+                  "zh/deployment/production",
+                  "zh/deployment/backup",
+                  "zh/deployment/restore",
+                  "zh/deployment/upgrade"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/thetahealth/mirobody",
+      "linkedin": "https://linkedin.com/company/thetahealth",
+      "x": "https://x.com/thetawellnessai"
+    }
+  },
+  "seo": {
+    "metatags": {
+      "og:site_name": "Mirobody"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/en/installation",
+      "destination": "/en/quickstart"
+    },
+    {
+      "source": "/en/engine",
+      "destination": "/en/quickstart#a--the-library"
+    },
+    {
+      "source": "/en/concepts/data-flow",
+      "destination": "/en/concepts/architecture"
+    },
+    {
+      "source": "/en/concepts/semantic-recall",
+      "destination": "/en/concepts/indicators"
+    },
+    {
+      "source": "/en/concepts/providers",
+      "destination": "/en/providers/using-providers"
+    },
+    {
+      "source": "/en/providers/overview",
+      "destination": "/en/providers/using-providers"
+    },
+    {
+      "source": "/en/examples/garmin-provider",
+      "destination": "/en/development/provider-integration"
+    },
+    {
+      "source": "/en/examples/whoop-provider",
+      "destination": "/en/development/provider-integration"
+    },
+    {
+      "source": "/en/development/provider-testing",
+      "destination": "/en/development/provider-integration"
+    },
+    {
+      "source": "/en/development/data-mapping",
+      "destination": "/en/development/provider-integration"
+    },
+    {
+      "source": "/en/development/oauth-implementation",
+      "destination": "/en/development/provider-integration"
+    },
+    {
+      "source": "/en/development/file-processing",
+      "destination": "/en/concepts/file-processing"
+    },
+    {
+      "source": "/en/development/setup",
+      "destination": "/en/self-host#contributing"
+    },
+    {
+      "source": "/en/development/contributing",
+      "destination": "/en/self-host#contributing"
+    },
+    {
+      "source": "/en/development/testing",
+      "destination": "/en/self-host#contributing"
+    },
+    {
+      "source": "/en/tools/built-in",
+      "destination": "/en/tools/overview"
+    },
+    {
+      "source": "/en/tools/skills",
+      "destination": "/en/tools/adding-tools"
+    },
+    {
+      "source": "/en/tools/adding-mcps",
+      "destination": "/en/tools/mcp-integration"
+    },
+    {
+      "source": "/en/deployment/docker",
+      "destination": "/en/deployment/production"
+    },
+    {
+      "source": "/en/welcome",
+      "destination": "/en/self-host"
+    },
+    {
+      "source": "/zh/installation",
+      "destination": "/zh/quickstart"
+    },
+    {
+      "source": "/zh/engine",
+      "destination": "/zh/quickstart#a--the-library"
+    },
+    {
+      "source": "/zh/concepts/data-flow",
+      "destination": "/zh/concepts/architecture"
+    },
+    {
+      "source": "/zh/concepts/semantic-recall",
+      "destination": "/zh/concepts/indicators"
+    },
+    {
+      "source": "/zh/concepts/providers",
+      "destination": "/zh/providers/using-providers"
+    },
+    {
+      "source": "/zh/providers/overview",
+      "destination": "/zh/providers/using-providers"
+    },
+    {
+      "source": "/zh/examples/garmin-provider",
+      "destination": "/zh/development/provider-integration"
+    },
+    {
+      "source": "/zh/examples/whoop-provider",
+      "destination": "/zh/development/provider-integration"
+    },
+    {
+      "source": "/zh/development/provider-testing",
+      "destination": "/zh/development/provider-integration"
+    },
+    {
+      "source": "/zh/development/data-mapping",
+      "destination": "/zh/development/provider-integration"
+    },
+    {
+      "source": "/zh/development/oauth-implementation",
+      "destination": "/zh/development/provider-integration"
+    },
+    {
+      "source": "/zh/development/file-processing",
+      "destination": "/zh/concepts/file-processing"
+    },
+    {
+      "source": "/zh/development/setup",
+      "destination": "/zh/self-host#contributing"
+    },
+    {
+      "source": "/zh/development/contributing",
+      "destination": "/zh/self-host#contributing"
+    },
+    {
+      "source": "/zh/development/testing",
+      "destination": "/zh/self-host#contributing"
+    },
+    {
+      "source": "/zh/tools/built-in",
+      "destination": "/zh/tools/overview"
+    },
+    {
+      "source": "/zh/tools/skills",
+      "destination": "/zh/tools/adding-tools"
+    },
+    {
+      "source": "/zh/tools/adding-mcps",
+      "destination": "/zh/tools/mcp-integration"
+    },
+    {
+      "source": "/zh/deployment/docker",
+      "destination": "/zh/deployment/production"
+    },
+    {
+      "source": "/zh/welcome",
+      "destination": "/zh/self-host"
+    },
+    {
+      "source": "/en/api-reference/device-data",
+      "destination": "/en/api-reference/data#device-and-wearable-data"
+    },
+    {
+      "source": "/zh/api-reference/device-data",
+      "destination": "/zh/api-reference/data#设备与可穿戴数据"
+    }
+  ]
+}

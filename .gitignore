@@ -1,0 +1,19 @@
+# Dependencies, and the checkout of the mirobody repository (scripts/fetch-oss.mjs).
+node_modules/
+vendor/
+
+# Working notes and agent instructions. Never published: check:public fails if
+# any of these is ever committed.
+internal/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+HANDOFF.md
+
+# Local environment.
+.env
+.env.*
+.mintlify/
+.cursor/
+.tmp/
+.DS_Store

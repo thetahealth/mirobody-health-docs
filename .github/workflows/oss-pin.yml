@@ -1,0 +1,71 @@
+# Keep the Open Source pages on the latest mirobody release on PyPI.
+#
+# Daily, or on a `mirobody-release` repository_dispatch from the engine
+# repository: when oss.lock is behind PyPI, move it to the release's commit,
+# re-sync the generated pages and open a pull request. Never merged
+# automatically — a person reads the preview, and updates the hand-written
+# pages the release affects.
+#
+# Pull requests opened with the default GITHUB_TOKEN do not start other
+# workflows, so the checks would not run on them. Set OSS_PIN_TOKEN (a
+# fine-grained token with contents and pull-requests write on this repository)
+# to have them run automatically.
+name: oss-pin
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  repository_dispatch:
+    types: [mirobody-release]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - id: pin
+        run: npm run oss:pin -- --update
+
+      - if: steps.pin.outputs.behind == 'true'
+        run: |
+          npm run oss:fetch
+          npm run oss:sync | tee sync-report.txt
+          {
+            echo "report<<EOF"
+            cat sync-report.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          rm sync-report.txt
+        id: sync
+
+      - if: steps.pin.outputs.behind == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.OSS_PIN_TOKEN || github.token }}
+          branch: oss/${{ steps.pin.outputs.latest }}
+          commit-message: "oss: ${{ steps.pin.outputs.latest }}"
+          title: "oss: ${{ steps.pin.outputs.latest }}"
+          body: |
+            Moves `oss.lock` from ${{ steps.pin.outputs.pinned }} to **${{ steps.pin.outputs.latest }}** (`${{ steps.pin.outputs.commit }}`), the latest release on PyPI, and re-syncs the generated Open Source pages.
+
+            Before merging:
+            - read the release notes in the engine's CHANGELOG.md;
+            - fix what `check:facts` and `check:freshness` report in the hand-written pages;
+            - look at the preview of the changed pages.
+
+            ```
+            ${{ steps.sync.outputs.report }}
+            ```

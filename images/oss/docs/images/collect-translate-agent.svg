@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 380" width="1120" height="380" font-family='Helvetica, Arial, sans-serif' role="img" aria-label="Collect, Translate, Agent: three stages, left to right">
+  <rect width="1120" height="380" fill="#ffffff"/>
+  <defs>
+    <marker id="raw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#7a8aa0"/>
+    </marker>
+    <marker id="std" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2f7d4a"/>
+    </marker>
+  </defs>
+  <rect x="40" y="76" width="300" height="240" rx="14" fill="#f7f9fc" stroke="#9bb1c9" stroke-width="1.5"/>
+  <text x="190" y="122" text-anchor="middle" font-size="23" font-weight="bold" fill="#22303f">① Collect</text>
+  <text x="190" y="146" text-anchor="middle" font-size="12.5" font-weight="normal" fill="#5a6b7a">devices · files · exports</text>
+  <g stroke="#4a5f74" stroke-width="2" fill="none">
+    <rect x="94" y="186" width="30" height="40" rx="7"/>
+    <path d="M102 186 v-8 h14 v8 M102 226 v8 h14 v-8"/>
+    <circle cx="109" cy="206" r="5" fill="#4a5f74" stroke="none"/>
+    <rect x="175" y="180" width="26" height="52" rx="12"/>
+    <path d="M175 210 h26" />
+    <rect x="179" y="214" width="18" height="14" rx="6" fill="#4a5f74" stroke="none"/>
+    <rect x="256" y="180" width="34" height="46" rx="4"/>
+    <path d="M264 194 h18 M264 204 h18 M264 214 h11"/>
+  </g>
+  <text x="190" y="266" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">the file is kept, and a</text>
+  <text x="190" y="284" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">reading points back to it</text>
+  <rect x="410" y="76" width="300" height="240" rx="14" fill="#f3faf5" stroke="#2f7d4a" stroke-width="2.5"/>
+  <text x="560" y="122" text-anchor="middle" font-size="23" font-weight="bold" fill="#1c5233">② Translate</text>
+  <text x="560" y="146" text-anchor="middle" font-size="12.5" font-weight="normal" fill="#5a6b7a">one name, one code, one unit</text>
+  <rect x="474" y="176" width="172" height="38" rx="10" fill="#fff3e0" stroke="#c08a3e" stroke-width="1.5"/>
+  <text x="560" y="201" text-anchor="middle" font-size="15" font-weight="bold" fill="#9a6a1e">LOINC · UCUM</text>
+  <text x="560" y="244" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">offline and deterministic,</text>
+  <text x="560" y="262" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">against a bundle in the package;</text>
+  <text x="560" y="284" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">abstains rather than guesses</text>
+  <rect x="780" y="76" width="300" height="240" rx="14" fill="#f6edfa" stroke="#8a4fb0" stroke-width="2.5"/>
+  <text x="930" y="122" text-anchor="middle" font-size="23" font-weight="bold" fill="#5e2e80">③ Agent</text>
+  <text x="930" y="146" text-anchor="middle" font-size="12.5" font-weight="normal" fill="#5a6b7a">reads the original documents</text>
+  <g stroke="#8a4fb0" stroke-width="2" fill="none">
+    <path d="M838 176 h64 a8 8 0 0 1 8 8 v26 a8 8 0 0 1 -8 8 h-40 l-14 12 v-12 h-10 a8 8 0 0 1 -8 -8 v-26 a8 8 0 0 1 8 -8 z"/>
+    <path d="M936 222 l26 -14 l22 8 l30 -30" stroke="#2f7d4a" stroke-width="2.5"/>
+  </g>
+  <circle cx="936" cy="222" r="3.5" fill="#2f7d4a"/>
+  <circle cx="962" cy="208" r="3.5" fill="#2f7d4a"/>
+  <circle cx="984" cy="216" r="3.5" fill="#2f7d4a"/>
+  <circle cx="1014" cy="186" r="3.5" fill="#2f7d4a"/>
+  <text x="930" y="266" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">names the file behind</text>
+  <text x="930" y="284" text-anchor="middle" font-size="11.5" font-weight="normal" fill="#5a6b7a">a number that came from one</text>
+  <path d="M348 196 H400" stroke="#7a8aa0" stroke-width="2.5" fill="none" marker-end="url(#raw)"/>
+  <path d="M718 196 H770" stroke="#2f7d4a" stroke-width="2.5" fill="none" marker-end="url(#std)"/>
+  <text x="560" y="356" text-anchor="middle" font-size="14" fill="#22303f">Whatever the lab called it, in — <tspan font-weight="bold" fill="#2f7d4a">one coded record an agent can cite, out.</tspan></text>
+</svg>

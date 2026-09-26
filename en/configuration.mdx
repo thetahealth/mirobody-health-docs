@@ -1,0 +1,97 @@
+---
+title: "Configuration"
+description: "The model key, the files configuration is read from, and the settings a deployment changes."
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+Configuration is a set of YAML files plus environment variables. The shipped files hold working defaults for a local stack: a deployment puts its secrets and the model key in `.env`, and changes the few settings it needs in one overlay file.
+
+## Configuration files
+
+| File | Holds | Edit it |
+| --- | --- | --- |
+| `config.yaml` | Server, database, sign-in, extension directories | No: override its values in the overlay |
+| `config.llm.yaml` | The model table (`MODELS`) and which model each surface uses | To change a model |
+| `config.devices.yaml` | Garmin, Oura and Whoop credentials; Google and Apple sign-in | To turn a provider on |
+| `config.{ENV}.yaml` | Your overlay. `./deploy.sh` creates one on first run, with a generated `JWT_KEY` | Yes |
+| `.env` | `ENV`, the two encryption keys, and the model API key | Yes |
+
+Later sources win: environment variables, then the overlay, then `config.devices.yaml` and `config.llm.yaml`, then `config.yaml`. **A dictionary does not merge across files**: a key set in the overlay replaces the whole value, so an overlay that sets `EMAIL_PREDEFINE_CODES` replaces the demo accounts rather than adding to them.
+
+`ENV` only selects which overlay loads and tags log lines; it carries no behaviour of its own. Production posture is the `PRODUCTION` switch below, not an environment name.
+
+In the overlay, a value whose name contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK` or `_TOKEN` is encrypted with `CONFIG_ENCRYPTION_KEY` from `.env`.
+
+## The model key {#the-model-key}
+
+One key runs every surface. Put one of these in the `.env` next to `compose.yaml`, then restart:
+
+<Fact k="llmKeys" code />
+
+```bash
+docker compose restart
+```
+
+Each key selects a model for four surfaces: chat (the model picker), vision (report photos and scanned pages), text (indicator extraction, file titles and summaries) and embeddings (indicator search). The table at the top of <OssLink path="config.llm.yaml" /> lists what each key selects and where each key is issued. DeepSeek and Anthropic serve no embedding model; with one of those keys alone, indicator search uses the lexical index.
+
+`mirobody doctor` prints the keys it found and the model each surface selected, and names the fix for a surface that has none:
+
+```bash
+docker compose exec mirobody python -m mirobody doctor   # the Docker stack
+mirobody doctor                                          # a checkout or a pip install
+```
+
+The server and the worker log the same report at startup.
+
+### Changing a model
+
+- **Point a surface at another entry.** `UTILS_VISION_MODEL`, `UTILS_TEXT_MODEL` and `UTILS_EMBEDDING_MODEL` each take an entry name, a list of names (the first whose key is present wins), a `provider/model` string, or an inline entry. An environment variable of the same name overrides the file, for example `UTILS_VISION_MODEL=qwen-utils`.
+- **Change the chat default.** `DEFAULT_MODEL` names a `MODELS` entry; unset, the first entry whose key is present is the default.
+- **Route a key through another gateway.** `<PREFIX>_BASE_URL` in `.env`, where `PREFIX` is the key's name without `_API_KEY`, redirects every entry that reads that key to another OpenAI-compatible endpoint, for example `OPENROUTER_BASE_URL`. `ANTHROPIC_BASE_URL` is also read by Anthropic's own SDK, so a machine that already sets it for another tool redirects Mirobody too; `mirobody doctor` prints the endpoint each surface resolved.
+- **Add a vendor.** Add an entry to `MODELS` in `config.llm.yaml` with `llm_type: openai`, its `base_url`, `model`, and `api_key` set to the *name* of the `.env` variable that holds the secret. An entry used for vision must declare `supports_image: true`. Add it to `config.llm.yaml` itself: a `MODELS` block in the overlay would replace the whole table.
+
+Changing the embedding model invalidates every vector already stored: vectors from different models are not comparable.
+
+## Deployment settings
+
+| Key | Default | Change it when |
+| --- | --- | --- |
+| `PRODUCTION` | `false` | The deployment faces anyone but you. The server then refuses to start while predefined sign-in codes or any `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder remain, and never seeds demo data. |
+| `SEED_DEMO_DATA` | `true` | The deployment will hold real data. Set it to `false` in `.env` before the first start, and neither demo account is created. |
+| `EMAIL_PREDEFINE_CODES` | the two demo accounts | Always, before a network deployment: remove it and use real sign-in. |
+| `BOOTSTRAP_SCHEMA` | `true` | You provision the schema yourself. With `true`, the schema files are replayed at every boot. |
+| `MCP_PUBLIC_URL` | unset | The deployment has a public HTTPS origin; see [Deploy on a Server](/en/deployment/production#public-url-and-https). |
+| `MCP_URL_TTL_DAYS` | <Fact k="mcpUrlTtlDays" /> | A personal MCP URL should live shorter or longer, in days. |
+| `DEFAULT_TIMEZONE` | `America/Los_Angeles` | Your users are mostly elsewhere. An IANA zone name; a user's own setting takes precedence. |
+| `HTTP_HEADERS` | unset | A browser client on another origin needs CORS headers. |
+| `REQUEST_RATE_LIMITER` | per-path limits | The sign-in and chat limits, in requests per minute, need tuning. |
+| `ENABLE_INDICATOR_EXTRACTION` | `1` | Uploads should be stored without extracting readings (`0`). |
+
+The keys that decide how the agent behaves are described in [The Agent](/en/tools/agents#configuration).
+
+## Secrets
+
+| Secret | Where | Set by |
+| --- | --- | --- |
+| `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY` | `.env` | `./deploy.sh`, on first run |
+| `JWT_KEY` | the overlay | `./deploy.sh`, when it creates the overlay |
+| `PG_PASSWORD`, `REDIS_PASSWORD`, `PG_ENCRYPTION_KEY`, `DATABASE_DECRYPTION_KEY` | the overlay | You. They ship as `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholders. |
+
+`PG_ENCRYPTION_KEY` is a separate value from `CONFIG_ENCRYPTION_KEY`: it encrypts stored content such as chat messages and uploaded files. `DATABASE_DECRYPTION_KEY` (hex) encrypts the device credentials the providers store. Do not copy either key between environments. Replacing the database and Redis passwords on the Docker stack is described in [Deploy on a Server](/en/deployment/production#secrets).
+
+## Extension directories
+
+The engine scans three lists of directories at startup. Adding one extends the engine without editing the package.
+
+| Key | Default | Holds |
+| --- | --- | --- |
+| `MCP_TOOL_DIRS` | `mirobody/agent/tools` | Tool modules; see [Adding Tools](/en/tools/adding-tools) |
+| `AGENT_DIRS` | `mirobody/agent` | The agent class; see [The Agent](/en/tools/agents#replacing-the-agent) |
+| `PROVIDER_DIRS` | `mirobody/collect/providers` | Device providers; see [Writing a Provider](/en/development/provider-integration) |
+
+An overlay that sets one of these replaces the list, so repeat the default entry beside your own. An installed package can extend the same three through the `mirobody.tools`, `mirobody.agents` and `mirobody.providers` entry points instead.
+
+The complete reference for every configuration key is <OssLink path="mirobody/utils/config/README.md" />.

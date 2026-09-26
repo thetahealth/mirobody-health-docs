@@ -1,0 +1,96 @@
+---
+title: "MCP Integration"
+description: "Connect Claude Desktop, Cursor or your own agent to a self-hosted engine: the /mcp endpoint, personal URLs, and the tools each account sees."
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+Every tool the bundled agent uses is also served at **`/mcp`**, over the Model Context Protocol. An MCP client such as Claude Desktop, Cursor or an agent loop of your own calls the same tools over the same record, and gets back the same readings.
+
+## Endpoints
+
+| Route | Identifies the caller by | Use |
+| --- | --- | --- |
+| `POST /mcp` | `Authorization: Bearer <access token>` | A client that can send a header |
+| `POST /mcp/<secret>` | The secret in the path | A personal URL, for a client that cannot send a header |
+| `POST /personal/mcp` | `Authorization: Bearer <access token>` | Mints the caller's personal URL; `DELETE` on the same route revokes it |
+
+All three sit under `HTTP_URI_PREFIX` when one is set. On the Docker stack the server listens on port <Fact k="port" />.
+
+## Personal MCP URL
+
+A personal URL carries its own credential, so a desktop client needs no sign-in flow. The web client shows it under **Settings → MCP**; your own client mints it with the access token it already holds:
+
+```bash
+# sign in with a demo account (a real deployment signs in the way its users do)
+TOKEN=$(curl -s -X POST http://localhost:18060/email/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "you@mirobody.ai", "code": "111111"}' | jq -r .data.access_token)
+
+curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{ "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
+```
+
+Minting again returns the same URL while it is valid. It expires after `MCP_URL_TTL_DAYS` days (<Fact k="mcpUrlTtlDays" /> by default). `DELETE /personal/mcp` revokes it, and the next mint issues a new secret.
+
+<Warning>
+The secret is the whole credential: anyone holding the URL can read that person's health record. It ends up in client configuration files and screenshots, so treat it like a password, revoke it when a device is lost, and serve it only over HTTPS once the deployment is reachable from a network.
+</Warning>
+
+The URL starts with the origin the request arrived on. Behind a reverse proxy, that origin is only correct when the server trusts the proxy's forwarded headers; see [Deploy on a Server](/en/deployment/production#public-url-and-https).
+
+## Tools an account sees
+
+The endpoint serves these tools:
+
+<Fact k="tools.mcp" code />
+
+`tools/list` is filtered per account: a data tool is hidden from an account that holds none of that data, so a client never sees a tool whose only answer would be "no data". The filtered tools are <Fact k="tools.gated" code />. What each tool accepts and returns is in [Health-Data Tools](/en/tools/overview), and tools you add yourself are served the same way; see [Adding Tools](/en/tools/adding-tools).
+
+The chat-only tools (the file tools, `eval` and `ask_user`) are not served over MCP.
+
+## Connect a client
+
+Replace the URL below with your personal URL.
+
+<Tabs>
+  <Tab title="Cursor">
+    Cursor connects to a remote server directly. Add it to `~/.cursor/mcp.json`, or to `.cursor/mcp.json` in a project:
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": { "url": "http://localhost:18060/mcp/<secret>" }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http mirobody http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
+  <Tab title="Claude Desktop">
+    Claude Desktop adds remote servers as custom connectors, which need an HTTPS URL it can reach. For an engine on your own machine, bridge the URL over stdio instead, in `claude_desktop_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": {
+          "command": "npx",
+          "args": ["-y", "mcp-remote", "http://localhost:18060/mcp/<secret>"]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+An agent loop of your own calls the endpoint with any MCP client library. The server speaks the current stateless protocol revision and negotiates down for clients that still use the `initialize` handshake.
+
+The protocol implementation and the per-account filter are in <OssLink path="mirobody/mcp/" />.

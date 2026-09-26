@@ -1,0 +1,10 @@
+All `/v1` endpoints share one base URL — pick the cluster your account uses:
+
+```text
+https://api.mirobody.ai/v1   # Global
+https://api.mirobody.cn/v1   # China
+```
+
+These are the Cloud clusters. A self-hosted deployment does not expose `/v1` — it serves its own `/api/*` routes and an `/mcp` endpoint, described in the [Self-Host Mirobody](/en/self-host).
+
+Japan and EU clusters are in preparation — see [Regions](/en/api-reference/regions/overview). Model providers and pricing can differ by region, so read [`GET /v1/models`](/en/api-reference/models) from the cluster you call.

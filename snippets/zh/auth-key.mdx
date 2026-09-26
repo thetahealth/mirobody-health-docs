@@ -1,0 +1,9 @@
+每个 `/v1` 调用都用 API key 认证：
+
+```http
+Authorization: Bearer mb_live_*
+```
+
+在账户所属区域的控制台创建 key：[中国区](https://platform.mirobody.cn/developer/keys)或[全球区](https://platform.mirobody.ai/developer/keys) → **API Keys**。密钥只显示**一次**；调用时须使用同一区域的 API 地址。key 长期有效、作用域为你的账户；切勿放进客户端代码。
+
+唯一的例外是 [`GET /v1/models`](/zh/api-reference/models)：模型目录是公开的、不含租户数据，因此无需 key。其余每个 `/v1` 调用都需要。

@@ -1,0 +1,9 @@
+Authenticate every `/v1` call with an API key:
+
+```http
+Authorization: Bearer mb_live_*
+```
+
+Create keys in your region's console: [Global](https://platform.mirobody.ai/developer/keys) or [China](https://platform.mirobody.cn/developer/keys) → **API Keys**. The secret is shown **once**. Use the API host in the same region as the key; keys are long-lived and scoped to your account. Never ship them in client-side code.
+
+The one exception is [`GET /v1/models`](/en/api-reference/models): the model catalog is public — no tenant data — so it needs no key. Every other `/v1` call does.

@@ -1,0 +1,74 @@
+---
+title: "MCP Servers"
+description: "把你自己的远程 MCP 工具带进 agent 轮次：Agent API 上的 OpenAI 原生 tools 条目。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+agent 内置了针对 Subject 健康数据的工具（见 [Function calling → 内置服务端工具](/zh/api-reference/function-calling#内置服务端工具)）。接入一个远程 MCP server 就能把**你自己的工具**加进这一集合：平台负责连接、列出该服务器上的工具，并让 agent 在一轮中与内置工具并肩调用它们。
+
+<Note>
+这**不是**「Mirobody 作为 MCP server」。方向相反：你把外部 MCP 工具带进 agent 的推理过程。调用由平台**服务端执行**，与[客户端 function 工具](/zh/api-reference/function-calling)不同，不会交接回你的部署。
+</Note>
+
+## 接入一个 server
+
+在 **Agent API** 上，用 OpenAI Responses 协议本身的 `tools` 条目：
+
+```bash
+curl "$MIROBODY_API_BASE/responses" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mirobody-expert",
+    "input": "把我最近的化验结果和我们的药品目录交叉核对一下。",
+    "user": "alice",
+    "tools": [
+      {
+        "type": "mcp",
+        "server_label": "formulary",
+        "server_url": "https://mcp.your-company.com/mcp",
+        "authorization": "YOUR_TOKEN",
+        "allowed_tools": ["lookup_drug"]
+      }
+    ]
+  }'
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `server_label` | 必填。字母数字 / `_` / `-`；会以 `mcp__{label}__{tool}` 的形式出现在 `tool_steps` 名称里。 |
+| `server_url` | 必填。**公网 http(s)** 的 streamable-HTTP MCP 端点，解析到内网/回环地址的主机会被拒绝（`400`）。 |
+| `authorization` | 可选。作为 `Authorization` 头发送（未带 scheme 时自动加 `Bearer ` 前缀）。 |
+| `allowed_tools` | 可选的工具名白名单；服务器上的其它工具一律忽略。 |
+| `require_approval` | 仅支持 `"never"`（默认）。传 `"always"` 返回 `400`：server 是你自己的，调用在服务端执行，审批回合毫无意义。 |
+
+可与你的 `type: "function"` 客户端工具混在同一个 `tools` 数组里。上限：每请求 ≤ 8 个 server、共 ≤ 64 个工具。
+
+## 返回内容
+
+MCP 调用是**服务端工具步骤**：出现在响应顶层的 `tool_steps`（名称 `mcp__{label}__{tool}`，含参数与结果），流式则以 `response.mirobody_tool_call` 事件推送。`output` 数组保持纯 OpenAI item 类型；MCP 工具不存在 `function_call` 交接。
+
+## 错误
+
+| HTTP `400` 消息 | 原因 |
+| --- | --- |
+| `mcp server '<label>' unusable: …` | 端点不可达 / 不是 MCP streamable-HTTP server。 |
+| `mcp server host resolves to a non-public address` | SSRF 防护：URL 必须公网可路由。 |
+| `require_approval is not supported …` | 传 `"never"` 或省略。 |
+
+## 在 Web 应用中
+
+[Mirobody Chat](https://chat.mirobody.ai/)（同一套后端上的消费者端应用）的最终用户可在**设置 → MCP** 中接入自己的 MCP server，其 agent 每轮自动加载。这与本端点是同一个方向：由 Mirobody 向外调用。（自部署的引擎还提供方向相反的一侧：它生成个人 MCP URL，让外部客户端*调入*该实例，见 [MCP 接入](/zh/tools/mcp-integration)。）配置错误或宕机的 server 在那里会被跳过（聊天绝不因此失败）；在 API 面上，同样的问题是显式 `400`，因为是你在这次请求里点名要它。
+
+## 何时改用客户端 function 工具
+
+如果你的工具必须在**你自己的进程里**运行（内网、本地状态、需要人工确认），请改用[客户端 function 工具](/zh/api-reference/function-calling)：模型以 `function_call` 交接，你执行工具后再续运行，openai-agents SDK 会自动完成这个循环。
+
+## 另见
+
+- [Function Calling](/zh/api-reference/function-calling)：客户端工具：扩展 agent 的另一条路。
+- [Agent API（Responses）](/zh/api-reference/responses)：接受 `tools` 项的那个端点。
+- [流式传输](/zh/api-reference/streaming)：服务端工具步骤在流里的呈现方式。

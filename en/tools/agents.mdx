@@ -1,0 +1,55 @@
+---
+title: "The Agent"
+description: "The one agent the engine ships: what a turn can use, the keys that configure it, and how to replace it."
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+The engine ships one agent. It answers the questions asked at `/ask` in the web client and through the chat API, over the coded record of the person the question is about. Adding a capability means adding a [tool](/en/tools/adding-tools), not another agent.
+
+Every agent runtime other than the bundled one (Claude Desktop, Cursor, an agent loop of your own) reaches the same data through the [MCP endpoint](/en/tools/mcp-integration) and needs nothing from this page.
+
+## What a turn can use
+
+| | What it is |
+| --- | --- |
+| Health-data tools | <Fact k="tools.mcp" code />: the same tools any MCP client sees over `/mcp`; see [Health-Data Tools](/en/tools/overview) |
+| Virtual filesystem | `/uploads`, `/library` and `/memories`: read-only views of the person's files and profile, with file tools to list, read and search them |
+| Code execution | An `eval` tool that runs JavaScript in a sandbox, with the data tools reachable inside it |
+| One question back | `ask_user`, which pauses the turn to ask the person a question; the next message answers it. It is never exposed over MCP. |
+| Memory | Conversation state per session, stored in Postgres |
+
+Each answer streams as typed blocks (text, reasoning, tool calls and their results, usage), so a client can show the tool trace behind an answer.
+
+## Configuration {#configuration}
+
+The agent's keys have no agent-name suffix. The shipped values live in `config.llm.yaml`; override them in your overlay.
+
+| Key | What it sets |
+| --- | --- |
+| `MODELS` | The model picker: one entry per chat model. `/api/models` lists the entries whose key is present, and a chat request picks one by name. |
+| `DEFAULT_MODEL` | The picker's default; unset, the first entry whose key is present |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | A tool whitelist or blacklist; the whitelist wins. Listing `eval` in `DISALLOWED_TOOLS` turns code execution off. |
+| `PROMPTS` | System prompt templates, as a path or `path@name`; the first is the default |
+| `AGENT_NAME` | The persona name used in the prompt |
+| `AGENT_CHECKPOINTER` | `true` keeps conversation state per session; `false` makes every turn start fresh |
+
+Model selection and keys are described in [Configuration](/en/configuration#the-model-key).
+
+## Replacing the agent {#replacing-the-agent}
+
+There is one agent slot. A replacement comes from an installed package that declares a `mirobody.agents` entry point, or from a directory listed in `AGENT_DIRS`; the first class found that defines `generate_response` becomes the agent for the process. Nothing in the package needs editing.
+
+The contract is two methods. `generate_response` receives the user the turn is about (already authorized, and possibly a care-circle member rather than the caller), this turn's messages, and keyword arguments such as `language`, `session_id` and `timezone`; it yields the same typed blocks the shipped agent streams. Accept `**kwargs`, since the chat layer may add arguments.
+
+```python
+class MyAgent:
+    def __init__(self, **kwargs): ...
+
+    async def generate_response(self, user_id: str, messages: list[dict], **kwargs):
+        yield {"type": "text", "text": "..."}
+```
+
+To build a different harness on the shipped middleware and filesystem backends instead, install `mirobody[agent]`. The full contract, the block vocabulary and a minimal example plugin are in <OssLink path="mirobody/agent/README.md" />.

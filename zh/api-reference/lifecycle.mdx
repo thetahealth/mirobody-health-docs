@@ -1,0 +1,115 @@
+---
+title: "数据生命周期"
+description: "留存、会话清理与 Subject 下线：数据如何离开平台。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+数据以结构化记录和文件两种形态流入。记录会被[标准化](/zh/api-reference/standardization)；上传文件保留原件与抽取文本。二者都可以为 agent 回答提供依据。本页补上最后一环：数据如何**离开**，由你决定。三个出口，从自动到彻底：
+
+1. **留存过期**：有时限的写入（`1h` / `2h` / `6h` / `1d`）自行过期；见[数据留存](/zh/api-reference/overview#数据留存)。
+2. **删除会话**：一次调用拆除一个具名的工作范围（见下）。
+3. **下线 Subject**：一次调用擦除该 Subject 的一切（[见下](#下线一个-subject)）。
+
+## 会话
+
+`session_id` 可以同时指代两种含义，也就是工作数据范围与 Agent API 对话：
+
+1. **限定 `retention=session` 数据**：以 `retention: "session"` 通过 [`POST /v1/data`](/zh/api-reference/data)（或 [`POST /v1/standardize`](/zh/api-reference/extract) 的 `store=true`）写入的记录**必须**携带 `session_id`。它们存活到会话被删除为止，而删除会话是唯一能清除它们的办法。
+2. **在 Agent API 上给对话命名**：给 [`POST /v1/responses`](/zh/api-reference/responses) 传 `session_id`，这条对话就在该 id 下永续、可恢复。见[状态与记忆](/zh/api-reference/state-and-memory)。
+
+```http
+DELETE /v1/sessions/{session_id}
+Authorization: Bearer mb_live_*
+```
+
+结束工作数据范围：以此 `session_id` 写入、`retention=session` 的记录被擦除，会话范围的文件上传被移除，底层聊天会话被标记为已结束。
+
+<Warning>
+此端点**不会**删除已存储的响应对象。使用同一 `session_id` 创建的响应仍可通过 `GET /v1/responses/{id}` 获取，也仍可继续串联。请通过 `DELETE /v1/responses/{id}` 删除响应对象；需要擦除该 Subject 的全部存储响应时，请使用 Subject 下线。
+</Warning>
+
+```bash
+curl -X DELETE "$MIROBODY_API_BASE/sessions/sess_abc123?user=alice" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+<Note>
+传入与写入该会话数据时相同的 `user`；省略则指向你账户的默认 Subject。
+</Note>
+
+```json
+{ "status": "ok", "session_id": "sess_abc123", "deleted": 2, "subject": "alice" }
+```
+
+`deleted` 统计会话范围的记录、文件与底层聊天会话，不包含已存储的响应对象。`0` 表示这几类资源均未匹配。
+
+```python
+import requests
+
+BASE = "https://api.mirobody.ai/v1"
+H = {"Authorization": "Bearer mb_live_..."}
+
+# 写入限定在会话内的工作数据
+requests.post(f"{BASE}/data", headers=H, json={
+    "user": "alice",
+    "retention": "session",
+    "session_id": "sess_abc123",
+    "records": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg",
+                 "time": "2026-06-16T08:00:00Z"}],
+})
+
+# ... 用 session_id="sess_abc123" 运行 agent 轮次 ...
+
+# 交互结束时，清除会话范围内的工作数据：
+requests.delete(f"{BASE}/sessions/sess_abc123", headers=H, params={"user": "alice"})
+```
+
+## 下线一个 Subject
+
+```http
+DELETE /v1/subjects/{user}
+Authorization: Bearer mb_live_*
+```
+
+一次调用实现被遗忘权。它擦除该 Subject 的**一切**：
+
+1. **结构化记录**：经 [`POST /v1/data`](/zh/api-reference/data) 写入的一切，加上存储的抽取结果，不论 `retention` 取值为何。
+2. **文件**：经 [`POST /v1/files`](/zh/api-reference/files) 上传的一切，立即从 API 中消失。
+3. **存储的 Agent API 对话**：立即不可再读取（`GET /v1/responses/{id}` 返回 `404`），随后被永久删除。
+4. **身份映射**：Subject 本身变得不可达。之后传入同一 `user` 的请求会[铸造一个全新的空 Subject](/zh/api-reference/overview#多租户user-字段)，与被擦除的那个毫无关联。
+
+```bash
+curl -X DELETE "$MIROBODY_API_BASE/subjects/alice" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+<Note>
+擦除绝不会创建它正要擦除的那个 Subject：解析只查找已有映射。传入一个你的账户从未用过的 `user` 会返回 `404`，不会铸造任何新 Subject。
+</Note>
+
+```json
+{ "status": "ok", "subject": "alice", "deleted": { "records": 12, "files": 3, "conversations": 5 } }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `deleted.records` | 被擦除的结构化健康记录条数。 |
+| `deleted.files` | 从 API 中移除的文件数。 |
+| `deleted.conversations` | 被移除的存储 Agent API 对话数。 |
+
+需要**更细粒度**的删除时，改用按资源的删除接口：`DELETE /v1/data`（记录）、`DELETE /v1/files/{key}`（单个文件）、`DELETE /v1/responses/{id}`（单个存储响应）、`DELETE /v1/sessions/{id}`（[会话范围的数据与文件](#会话)）。完整的用户权利图景见[合规](/zh/api-reference/compliance)。
+
+## 错误
+
+| HTTP | 何时 |
+| --- | --- |
+| `404` | `DELETE /v1/subjects/{user}`：你的账户没有此 `user` 对应的 Subject（包括已被擦除的） |
+
+## 另见
+
+- [结构化记录](/zh/api-reference/data)：结构化记录的写入与擦除。
+- [状态与记忆](/zh/api-reference/state-and-memory)：`store` 与 `retention` 各自管什么。
+- [隐私与合规](/zh/api-reference/compliance)：这些操作背后的控制机制。

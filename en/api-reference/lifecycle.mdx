@@ -1,0 +1,115 @@
+---
+title: "Data Lifecycle"
+description: "Retention, session cleanup, and Subject offboarding — how data leaves the platform."
+---
+
+import RegionShell from '/snippets/region-shell.mdx';
+
+<RegionShell />
+
+Data flows in as structured records and as files. Records are [standardized](/en/api-reference/standardization); uploaded files keep both their original and their extracted text. Either can ground the agent's answers. This page closes the loop — how data **leaves**, on your terms. Three exits, from automatic to total:
+
+1. **Retention expiry** — time-bounded writes (`1h` / `2h` / `6h` / `1d`) expire on their own; see [Data retention](/en/api-reference/overview#data-retention).
+2. **Session deletion** — one call tears down a named working scope (below).
+3. **Subject offboarding** — one call erases everything about a Subject ([below](#offboarding-a-subject)).
+
+## Sessions
+
+A `session_id` can name two things at once — a working-data scope and an Agent API conversation:
+
+1. **Scopes `retention=session` data** — records written with `retention: "session"` via [`POST /v1/data`](/en/api-reference/data) (or [`POST /v1/standardize`](/en/api-reference/extract) with `store=true`) **must** carry a `session_id`. They live until the session is deleted, and deleting it is the only thing that clears them.
+2. **Names a conversation on the Agent API** — passing `session_id` to [`POST /v1/responses`](/en/api-reference/responses) makes that conversation durable and resumable under the id. See [State & memory](/en/api-reference/state-and-memory).
+
+```http
+DELETE /v1/sessions/{session_id}
+Authorization: Bearer mb_live_*
+```
+
+Ends the working-data scope: records written with `retention=session` under this `session_id` are erased, session-scoped file uploads are removed, and the underlying chat session is marked closed.
+
+<Warning>
+This endpoint does **not** delete stored response objects. A response created with the same `session_id` remains available through `GET /v1/responses/{id}` and can still be chained. Delete the response objects with `DELETE /v1/responses/{id}`, or use Subject offboarding to erase every stored response for that Subject.
+</Warning>
+
+```bash
+curl -X DELETE "$MIROBODY_API_BASE/sessions/sess_abc123?user=alice" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+<Note>
+Pass the same `user` you used when writing the session's data; omitting it targets your account's default Subject.
+</Note>
+
+```json
+{ "status": "ok", "session_id": "sess_abc123", "deleted": 2, "subject": "alice" }
+```
+
+`deleted` counts session-scoped records, session-scoped files, and the underlying chat session. It does not count stored response objects. `0` means none of those resources matched.
+
+```python
+import requests
+
+BASE = "https://api.mirobody.ai/v1"
+H = {"Authorization": "Bearer mb_live_..."}
+
+# Write working data scoped to the session
+requests.post(f"{BASE}/data", headers=H, json={
+    "user": "alice",
+    "retention": "session",
+    "session_id": "sess_abc123",
+    "records": [{"indicator": "systolic_bp", "value": 148, "unit": "mmHg",
+                 "time": "2026-06-16T08:00:00Z"}],
+})
+
+# ... run agent turns with session_id="sess_abc123" ...
+
+# When the interaction ends, purge its session-scoped working data:
+requests.delete(f"{BASE}/sessions/sess_abc123", headers=H, params={"user": "alice"})
+```
+
+## Offboarding a Subject
+
+```http
+DELETE /v1/subjects/{user}
+Authorization: Bearer mb_live_*
+```
+
+Right to be forgotten in a single call. It erases **everything** about one Subject:
+
+1. **Structured records** — everything written via [`POST /v1/data`](/en/api-reference/data), plus stored extractions, whatever their `retention`uded.
+2. **Files** — everything uploaded via [`POST /v1/files`](/en/api-reference/files), immediately gone from the API.
+3. **Stored Agent API conversations** — immediately unreadable (`GET /v1/responses/{id}` returns `404`) and then permanently deleted.
+4. **The identity mapping** — the Subject itself becomes unreachable. A later request that passes the same `user` [mints a fresh, empty Subject](/en/api-reference/overview#multi-tenancy-the-user-field) with no connection to the erased one.
+
+```bash
+curl -X DELETE "$MIROBODY_API_BASE/subjects/alice" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY"
+```
+
+<Note>
+An erase never creates the very Subject it is erasing: resolution looks up the existing mapping only. Passing a `user` your account has never used returns `404` — nothing is minted.
+</Note>
+
+```json
+{ "status": "ok", "subject": "alice", "deleted": { "records": 12, "files": 3, "conversations": 5 } }
+```
+
+| Field | Description |
+| --- | --- |
+| `deleted.records` | Structured health records erased. |
+| `deleted.files` | Files removed from the API surface. |
+| `deleted.conversations` | Stored Agent API conversations removed. |
+
+For **finer-grained** deletion, reach for the per-resource deletes instead: `DELETE /v1/data` (records), `DELETE /v1/files/{key}` (one file), `DELETE /v1/responses/{id}` (one stored response), `DELETE /v1/sessions/{id}` ([session-scoped data and files](#sessions)). See [Compliance](/en/api-reference/compliance) for the full user-rights picture.
+
+## Errors
+
+| HTTP | When |
+| --- | --- |
+| `404` | `DELETE /v1/subjects/{user}`: your account has no Subject for this `user` — including one already erased |
+
+## See also
+
+- [Structured Records](/en/api-reference/data) — writing and erasing structured records.
+- [State & Memory](/en/api-reference/state-and-memory) — what `store` and `retention` each control.
+- [Privacy & Compliance](/en/api-reference/compliance) — the controls behind these operations.

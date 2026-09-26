@@ -1,0 +1,10 @@
+所有 `/v1` 接口共用一个 base URL，按你账户使用的集群选择：
+
+```text
+https://api.mirobody.ai/v1   # 全球
+https://api.mirobody.cn/v1   # 中国
+```
+
+以上是 Cloud 的集群。自部署不提供 `/v1`，它暴露的是自己的 `/api/*` 路由与一个 `/mcp` 端点，见[自部署 Mirobody](/zh/self-host)。
+
+日本与欧盟集群正在筹备中，见[区域](/zh/api-reference/regions/overview)。模型提供方与定价可能因区域不同，请从实际调用的集群读取 [`GET /v1/models`](/zh/api-reference/models)。
