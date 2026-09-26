@@ -50,7 +50,7 @@ function denylist() {
   const lines = [];
   const file = join(ROOT, "internal/public-denylist.txt");
   if (existsSync(file)) lines.push(...readFileSync(file, "utf8").split("\n"));
-  if (process.env.PUBLIC_DENYLIST) lines.push(...process.env.PUBLIC_DENYLIST.split(/\n|,/));
+  if (process.env.PUBLIC_DENYLIST) lines.push(...process.env.PUBLIC_DENYLIST.split(/\r?\n/));
   return lines
     .map((l) => l.replace(/\s+#.*$/, "").trim())
     .filter((l) => l && !l.startsWith("#"))
