@@ -1,0 +1,27 @@
+---
+title: "选择你的 API"
+description: "Answers API vs Agent API：一分钟选对接口。"
+---
+
+Mirobody 通过**两个接口**暴露同一个有据可循的健康 agent。两者都基于 Subject 真实、标准化的健康数据作答，也都返回回答背后的工具轨迹。
+
+两者都属于**③ 智能体**，即引擎三个步骤里的第三个（① 收集 → ② 转译 → ③ 智能体）。这一页要选的不是*你能获得什么*，而是*这个循环由谁来驱动*：Answers API 在服务端把循环闭合、直接交给你一个成品答案；Agent API 把它留开，让你自己的工具参与进来。自部署的引擎也有同样的区分：自带的 agent 在你的部署内部闭合循环，而 `/mcp` 端点让你自己的 agent 循环调用同一组工具。因此在这里做的决定，等你以后[自己运行一套](/zh/self-host)时依然成立。
+
+<CardGroup cols={2}>
+  <Card title="Answers API" icon="comment-dots" href="/zh/api-reference/chat">
+    `POST /v1/chat/completions`：封闭、一发一答、有证据支撑。无客户端工具、无状态。可直接替换 OpenAI 调用。
+  </Card>
+  <Card title="Agent API" icon="robot" href="/zh/api-reference/responses">
+    `POST /v1/responses`：兼容 OpenAI Responses。多轮状态、自带 function 工具、`response.*` 流式。
+  </Card>
+</CardGroup>
+
+**Answers API** 用的是更早的 Chat Completions 协议，刻意保持封闭：无客户端工具、不存状态，只有 `chat.completion.chunk` 流式。正因如此，它能原样嵌进现有的 OpenAI 集成，或[包成一个工具](/zh/api-reference/use-as-a-tool)嵌入更大的 agent 中。**Agent API** 用的是更新的 Responses 协议：跨轮次保持状态（`store`、`previous_response_id`、`session_id`）、你自己的 function 工具与完整的 `function_call` 交接、`response.*` 事件流。`openai-agents` SDK 开箱即用对接的就是它，只需改 `base_url`。
+
+除此之外两者完全一样：同一套基于你[标准化数据](/zh/api-reference/data)的服务端依据、同样的 `mirobody-flash` / `mirobody-expert` 模型、同样的 Subject 租户隔离、同样的用量口径。
+
+## 另见
+
+- [Answers API（Chat Completions）](/zh/api-reference/chat)：封闭式、有据可循的问答。
+- [Agent API（Responses）](/zh/api-reference/responses)：开放的 agent 循环。
+- [快速开始](/zh/api-reference/quickstart)：取密钥、写一条记录、拿到第一个回答。

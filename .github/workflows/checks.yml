@@ -1,0 +1,40 @@
+# The gate in front of main. Mintlify publishes main, so everything a reader
+# will see is checked here first; protect main so that only pull requests that
+# pass this workflow can merge.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # check:public --history reads every commit
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # oss:fetch → check:sync → parity, headings, internals, facts, freshness,
+      # repository links, README links, public content.
+      - run: npm run verify
+        env:
+          PUBLIC_DENYLIST: ${{ secrets.PUBLIC_DENYLIST }}
+
+      - run: npm run check:public -- --history
+        env:
+          PUBLIC_DENYLIST: ${{ secrets.PUBLIC_DENYLIST }}
+
+      - run: npm run check:mint

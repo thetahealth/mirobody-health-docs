@@ -1,0 +1,87 @@
+---
+title: "模型"
+description: "GET /v1/models：列出可用的能力档。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+## 端点
+
+```http
+GET /v1/models
+```
+
+列出你可以作为 `model` 传给 [Answers API](/zh/api-reference/chat) 与 [Agent API](/zh/api-reference/responses) 的能力档。形状兼容 OpenAI。
+
+<Note>
+**公开**：模型目录是静态能力列表（无租户数据），本端点**无需 API key**。若发送了 `Authorization` 头（OpenAI SDK 总会带上），会被忽略。其它所有 `/v1` 端点都需要 `Authorization: Bearer mb_live_*`。
+</Note>
+
+## 能力档
+
+| `model` | 档位 | 适用场景 |
+| --- | --- | --- |
+| `mirobody-flash` | 默认，快速、低成本 | 日常健康问答、高并发 |
+| `mirobody-expert` | 更深入的推理 | 复杂报告解读、多步分析 |
+
+托管模型用量按底层提供方返回的 token 数计量。每次模型响应都包含 `usage.billed_tokens`，把它与当前模型目录里的 `pricing` 结合起来即可估算费用。控制台的用量页展示请求数，不提供 token 级费用。开源引擎是免费软件，自托管时你只需承担自己的基础设施与 LLM 提供方费用。
+
+## 每档元数据
+
+每个条目携带一个保守的容量预算与该档单价：
+
+| 字段 | 含义 |
+| --- | --- |
+| `context_window` | 该能力档公布的输入与输出总容量。它用于容量规划，不保证任意请求形态都能占满。 |
+| `max_output_tokens` | 公布的输出容量，仅为模型目录元数据；agent 模式不会强制执行 `max_tokens` 等请求字段。 |
+| `pricing` | `{input_per_1m_tokens, output_per_1m_tokens, currency}`，用于结合 `usage.billed_tokens` 估算的每 **1M tokens** 标准单价；该对象不体现缓存调整。 |
+
+## 示例
+
+<CodeGroup>
+```bash curl
+# 无需 API key
+curl "$MIROBODY_API_BASE/models"
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+# /v1/models 不使用 api_key，但 SDK 要求该字段有值
+client = OpenAI(api_key="unused", base_url="https://api.mirobody.ai/v1")
+for m in client.models.list().data:
+    print(m.id)
+```
+</CodeGroup>
+
+## 响应
+
+一个 OpenAI 风格的 `{ "object": "list", "data": [ … ] }`，每个档位在标准 model 对象上扩展 `context_window`、`max_output_tokens` 与 `pricing`。以下数值用于展示响应形状；当前值应以实时端点为准：
+
+```jsonc
+{
+  "object": "list",
+  "data": [
+    { "id": "mirobody-flash", "object": "model", "owned_by": "mirobody",
+      "context_window": 65536, "max_output_tokens": 8192,
+      "pricing": { "input_per_1m_tokens": 0.75, "output_per_1m_tokens": 4.50, "currency": "USD" } },
+    { "id": "mirobody-expert", "object": "model", "owned_by": "mirobody",
+      "context_window": 65536, "max_output_tokens": 8192,
+      "pricing": { "input_per_1m_tokens": 5.0, "output_per_1m_tokens": 25.0, "currency": "USD" } }
+  ]
+}
+```
+
+<Note>
+容量、底层提供方与定价可能因集群而异，也可能在稳定能力档 id 不变的情况下调整。请始终从实际调用的集群读取 `pricing`，不要写死示例数值。
+</Note>
+
+`model` 请始终传入稳定的能力档：`mirobody-flash`（默认）或 `mirobody-expert`。
+
+## 另见
+
+- [限流与配额](/zh/api-reference/rate-limits)：按 key 的限流与月度配额。
+- [API 概览](/zh/api-reference/overview)：鉴权与 base URL。
+- [区域概览](/zh/api-reference/regions/overview)：各集群提供哪些能力档。

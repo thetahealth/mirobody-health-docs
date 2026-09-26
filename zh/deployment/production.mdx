@@ -1,0 +1,159 @@
+---
+title: "在服务器上部署"
+description: "为 Docker 栈设置生产登录、独立密钥、HTTPS、受限端口，并验证部署结果。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+仓库中的默认值面向本地、单人的试用：演示账号的登录码是公开的，密钥是占位值，数据库端口发布在宿主机上。本页说明如何从这里走到一套可供他人访问的部署。所依据的安全清单是 <OssLink path="SECURITY.md" />。
+
+## 主机要求
+
+一台装有 Docker Engine 与 **2.24.4 或更新版本的 Compose 插件**、Git 与 Git LFS 的 Linux 主机，并能访问你的模型密钥所属的服务商。不需要 GPU。整套服务运行四个容器：带 pgvector 的 Postgres、Redis、服务端与 worker。主机容量取决于并发用户数和文件处理量；此版本尚未公布经过测量的最低配置。
+
+## 首次启动
+
+请在**首次启动之前**确定部署方式：演示数据在首次启动时写入，数据库密码在数据卷创建时设定。
+
+<Steps>
+  <Step title="克隆仓库">
+    ```bash
+    git clone https://github.com/thetahealth/mirobody.git && cd mirobody
+    git lfs install && git lfs pull
+    ```
+  </Step>
+  <Step title="编写 .env">
+    ```bash .env
+    ENV=prod
+    SEED_DEMO_DATA=false
+    OPENROUTER_API_KEY=...
+    ```
+    `ENV` 指定覆盖文件的名称，即 `config.prod.yaml`。任意一个受支持的模型密钥都可以，见[配置](/zh/configuration#the-model-key)。
+  </Step>
+  <Step title="编写配置覆盖文件与 Compose 覆盖文件">
+    按下面两节设置生产模式与独立密钥。如果反向代理运行在同一主机上，请在启动前把应用端口绑定到回环地址。
+  </Step>
+  <Step title="启动">
+    ```bash
+    ./deploy.sh
+    ```
+    `deploy.sh` 会在 `.env` 缺少两个加密密钥时补上，然后构建镜像并启动。它只在覆盖文件不存在时才生成一份，所以你自己编写的覆盖文件必须带上 `JWT_KEY`。把用户指向这台主机之前，继续完成下方验证。
+  </Step>
+</Steps>
+
+## 已运行过本地演示 {#after-a-local-demo}
+
+保存真实记录时请建立一套**全新部署**。在演示仓库中打开 `PRODUCTION` 只会阻止后续演示数据写入，不会删除已有的演示账号与读数。Postgres 密码在旧数据卷创建时已确定，更换加密密钥也会使已存内容无法读取；沿用旧卷不能得到干净的生产环境。
+
+1. 如果演示环境里有需要保留的内容，先在该环境运行 `shell/backup.sh`，并把备份以及与之匹配的 `.env` 和配置文件存到受保护的位置。这是一份安全副本，**不是**生产环境的初始数据库。
+2. 优先使用新的 Linux 主机或虚拟机。在那里克隆引擎，按[首次启动](#首次启动)从头完成 `SEED_DEMO_DATA=false`、生产密钥、Compose 覆盖文件和 HTTPS，最后再运行 `./deploy.sh`。
+3. 必须复用同一台主机时，先在**演示**仓库运行 `docker compose down`；它会停止演示，但不会删除数据卷。然后把生产代码克隆到**名称不同的目录**，确保 `COMPOSE_PROJECT_NAME` 未设置或与演示不同，并在新目录按[首次启动](#首次启动)操作。Compose 按项目名给命名数据卷加前缀，因此新项目会得到空的 Postgres 和上传文件卷；旧演示环境仍单独保留。
+4. 完成[部署验证](#验证部署)后，注册新账号，只录入需要保存的真实记录。确认界面中没有演示账号或演示读数。演示备份单独保留；把它恢复到新环境会重新带入演示数据。
+
+如果演示环境已经写入必须迁移的真实记录，请保留数据库、上传文件及**与其匹配的加密密钥**，在对外开放生产环境前单独规划数据迁移和账号检查；仅打开 `PRODUCTION` 并不等于完成迁移。
+
+## 生产模式 {#production-posture}
+
+```yaml config.prod.yaml
+PRODUCTION: true
+EMAIL_PREDEFINE_CODES: {}
+```
+
+设置 `PRODUCTION: true` 后，只要还有预置登录码或任何 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值，服务端就拒绝启动，也不会写入演示数据；报错会写明还剩哪些。`EMAIL_PREDEFINE_CODES: {}` 会移除两个演示账号，因为覆盖文件会替换整个值。
+
+之后用户可以通过三种方式登录：在 Web 客户端用密码注册（`POST /password/register`）；配置邮件服务器后用邮箱验证码登录（`EMAIL_FROM` 以及 `EMAIL_SMTP_HOST`、`EMAIL_SMTP_PORT`、`EMAIL_SMTP_USER`、`EMAIL_SMTP_PASS`）；或使用在 `config.devices.yaml` 中配置的 Google、Apple 登录。
+
+如果你自行管理数据库 schema，同时设置 `BOOTSTRAP_SCHEMA: false`。
+
+## 密钥 {#secrets}
+
+请在覆盖文件中设置以下五项。其中四项随仓库提供的是 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值，`JWT_KEY` 则只会写入 `deploy.sh` 自己生成的覆盖文件。每项单独生成：为 `JWT_KEY`、`PG_ENCRYPTION_KEY`、`PG_PASSWORD` 和 `REDIS_PASSWORD` 分别运行一次 `openssl rand -hex 32`；为 `DATABASE_DECRYPTION_KEY` 运行 `openssl rand -hex 16`。后者的 **32 个 ASCII 字符**会被直接用作 32 字节 AES 密钥，不会先按十六进制解码。
+
+```yaml config.prod.yaml
+JWT_KEY: <随机密钥>                     # 签发会话令牌
+PG_ENCRYPTION_KEY: <随机密钥>           # 加密存储的内容
+DATABASE_DECRYPTION_KEY: <32 个 ASCII 字符> # 加密存储的设备凭据
+PG_PASSWORD: <数据库密码>
+REDIS_PASSWORD: <Redis 密码>
+```
+
+Postgres 与 Redis 容器从 `compose.yaml` 读取密码，而不是从覆盖文件读取，所以要在它旁边的 `compose.override.yaml` 中设置相同的值。Compose 会把覆盖文件合并进 `compose.yaml`，但 `command` 会被整体替换：请从 `compose.yaml` 复制 Redis 的 `command`，只修改 `--requirepass`。
+
+```yaml compose.override.yaml
+services:
+  pg:
+    environment:
+      POSTGRES_PASSWORD: <与覆盖文件相同的数据库密码>
+  redis:
+    command: >
+      redis-server
+      --bind 0.0.0.0
+      --port 6379
+      --requirepass <与覆盖文件相同的 Redis 密码>
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --loglevel notice
+      --timeout 60
+      --tcp-keepalive 30
+      --io-threads 4
+      --tcp-backlog 511
+```
+
+Postgres 只在创建空数据卷时应用 `POSTGRES_PASSWORD`。对于已有的数据卷，请先用 `ALTER USER` 修改密码。
+
+`.env` 中的 `CONFIG_ENCRYPTION_KEY` 用于加密覆盖文件中写入的密钥。请把 `.env` 与覆盖文件排除在版本控制之外，也不要在不同环境之间复用这些密钥：用一个密钥加密的数据，无法用另一个密钥读取。备份数据库和上传文件时，也要妥善保存这些密钥文件，以便恢复后读取加密记录。
+
+## 公网地址与 HTTPS {#public-url-and-https}
+
+在服务端前面用反向代理终止 TLS，服务端监听端口 <Fact k="port" />。以下示例在同一台主机上运行 Caddy。先把域名解析到该主机，并开放 80 和 443 端口供证书签发与 HTTPS 使用。在 `compose.override.yaml` 中，把下方服务配置合并到「密钥」一节的覆盖文件：这样应用只接受来自宿主机的连接，并信任 Compose 网络预设网关上的代理。`!override` 不能省略；否则 Compose 会在新增回环绑定的同时保留原来的公网绑定，参见 [Compose 合并规则](https://docs.docker.com/reference/compose-file/merge/)。
+
+```yaml compose.override.yaml
+services:
+  mirobody:
+    ports: !override
+      - "127.0.0.1:18060:18060"
+    environment:
+      - FORWARDED_ALLOW_IPS=10.108.0.1
+```
+
+```caddy Caddyfile
+health.example.com {
+    reverse_proxy 127.0.0.1:18060
+}
+```
+
+把 `health.example.com` 换成你的域名。DNS 与端口就绪后，Caddy 会获取 HTTPS 证书，并转发原始 `Host` 与代理协议，详见 [Caddy 的反向代理指南](https://caddyserver.com/docs/quick-starts/reverse-proxy)。如使用其他代理或网络布局，请将 `FORWARDED_ALLOW_IPS` 设为**应用容器实际看到的代理地址**。
+
+```yaml config.prod.yaml
+MCP_PUBLIC_URL: https://health.example.com
+```
+
+`MCP_PUBLIC_URL` 是这套部署的公网地址，服务端用它生成打印出来的链接与文件 URL。请用 `HTTP_HEADERS` 把 CORS 限制在你实际提供服务的源上。
+
+<Warning>
+个人 MCP URL 以请求到达时的源开头。如果代理地址不在信任名单中，服务端会忽略它发送的 `X-Forwarded-Proto`，生成的 URL 可能以 `http://` 开头。分享之前，请从公网 HTTPS 站点核对该 URL。
+</Warning>
+
+不要把 Postgres 或 Redis 暴露到公网。`compose.yaml` 只在回环地址上发布它们（<Fact k="pgPort" /> 与 <Fact k="redisPort" />），便于本机查看。基础 Compose 文件把应用端口公开发布，因此请保留上面的回环地址覆盖配置。运行 `docker compose config`，确认最终的 `mirobody.ports` **只有**回环绑定。
+
+## 验证部署
+
+在仓库目录检查容器状态和本机健康接口：
+
+```bash
+docker compose ps
+curl -fsS http://127.0.0.1:18060/api/health
+```
+
+`mirobody` 服务应显示为 `healthy`，响应中应有 `version` 和 `agent` 字段。然后打开公网 HTTPS 地址，用真实账号注册或登录，并确认个人 MCP URL 也以 `https://` 开头。生产模式会拒绝预置的演示登录码；启动失败时，先查看 `docker compose logs --tail 80 mirobody` 和[排错](/zh/troubleshooting)。
+
+## 备份与升级
+
+数据保存在 Postgres 数据卷中；当上传文件存放在本地磁盘而不是存储桶时，还保存在上传卷中。恢复演练与恢复操作见[核验与恢复备份](/zh/deployment/restore)；引擎的[备份与恢复参考](/zh/deployment/backup)详细解释各数据卷。
+
+请按[升级部署](/zh/deployment/upgrade)的顺序操作：备份数据与密钥、检查目标版本、切换代码、重启和验证。`deploy.sh` 会先运行 `docker compose down`，再启动新服务，因此要安排维护时段。

@@ -1,0 +1,90 @@
+---
+title: "Verify and Restore a Backup"
+description: "Check a self-hosted backup by restoring it to a scratch database, then recover Postgres and local uploads when needed."
+---
+
+import { OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+This procedure complements the engine's detailed [Backup & Restore reference](/en/deployment/backup). Run it in the engine checkout that owns the Docker stack. Keep the backup and its matching `.env`, config overlay, `.key.yaml` files and `compose.override.yaml` together in protected storage. If uploads use an external bucket, back up that bucket separately.
+
+## Make and check a backup
+
+Run the script while the `pg` service is running, and copy its output off the host:
+
+```bash
+git rev-parse HEAD    # record this commit with this backup batch
+shell/backup.sh
+```
+
+Keep the printed commit with this batch's database dump, upload archive and key files. The backup script does not embed a code version in the archive.
+
+The script runs `pg_dump -Fc`, checks that `pg_restore --list` can read the archive's **table of contents**, and archives the local upload volume if it exists. This detects an empty or unreadable archive at that point; it does **not** prove that every table and file can be restored. A restore rehearsal is the stronger check.
+
+For a database rehearsal, choose the dump to test and run these commands in the checkout. They create a new scratch database; the running application keeps using its existing database:
+
+```bash
+backup_file="backups/mirobody-db-YYYYMMDD-HHMMSS.dump"  # replace with the file you made
+check_db="mirobody_restore_check_$(date +%Y%m%d%H%M%S)"
+docker compose cp "$backup_file" pg:/tmp/restore-check.dump
+docker compose exec -T pg pg_restore --list /tmp/restore-check.dump > /dev/null
+docker compose exec -T pg createdb -U holistic_user "$check_db"
+docker compose exec -T pg pg_restore -U holistic_user -d "$check_db" --no-owner /tmp/restore-check.dump
+docker compose exec -T pg psql -U holistic_user -d "$check_db" -c \
+  "select count(*) from information_schema.tables where table_schema='theta_ai'"
+```
+
+The count should be greater than zero. Review a representative record on an **isolated test deployment** before calling the whole restore verified; a table count alone cannot prove the data and uploaded files are usable. When the scratch database is no longer needed, remove it explicitly:
+
+```bash
+docker compose exec -T pg dropdb -U holistic_user "$check_db"
+```
+
+If local uploads exist, check the archive with `tar tzf backups/mirobody-uploads-YYYYMMDD-HHMMSS.tar.gz` after replacing the filename. An external bucket needs its own restore drill.
+
+For a **full rehearsal**, use a protected, isolated test host: clone the code version recorded with the backup, configure it as a fresh [server deployment](/en/deployment/production) without public access, and copy over the backup plus its matching keys and configuration. Start its empty stack, then run [Recover a deployment](#recover-a-deployment) **on that test host**, including the upload archive or external bucket restore. Sign in, open a representative restored record and an uploaded file, and check the health response. Keep production's volumes and network out of this test. The scratch-database check above is a faster archive check; it does not replace this full rehearsal.
+
+## Recover a deployment {#recover-a-deployment}
+
+Stop application writes but leave Postgres running. Replace the example dump name with the backup you selected:
+
+```bash
+docker compose stop mirobody mirobody_worker
+docker compose cp backups/mirobody-db-YYYYMMDD-HHMMSS.dump pg:/tmp/restore.dump
+docker compose exec -T pg createdb -U holistic_user holistic_db_restored
+docker compose exec -T pg pg_restore -U holistic_user -d holistic_db_restored --no-owner /tmp/restore.dump
+docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
+  "select count(*) from information_schema.tables where table_schema='theta_ai'"
+```
+
+The new database leaves the old one intact; choose another name if `holistic_db_restored` already exists. Set `PG_DBNAME: holistic_db_restored` in the active `config.prod.yaml` (or the overlay selected by `ENV`). Restore the **matching encryption keys and configuration** before starting the app; encrypted records are unreadable under newly generated keys.
+
+If files were stored locally, find the actual upload volume name with `docker volume ls`. A checkout named `mirobody` normally has `mirobody_mirobody_upload`. Confirm the named volume already exists before restoring; otherwise `docker run -v` would silently create an empty one. Restore the matching archive into that volume:
+
+```bash
+upload_volume=mirobody_mirobody_upload  # replace with the volume you found
+docker volume inspect "$upload_volume"
+docker run --rm \
+  -v "$upload_volume":/data \
+  -v "$PWD/backups":/backup \
+  alpine tar xzf /backup/mirobody-uploads-YYYYMMDD-HHMMSS.tar.gz -C /data
+```
+
+Change the volume and archive names to the ones from your deployment. If uploads use an external bucket, restore that bucket through your storage provider's process instead. **Before starting**, if this is a rollback to an earlier release, switch the checkout to the commit recorded with that backup while the app remains stopped:
+
+```bash
+backup_ref="PASTE_RECORDED_COMMIT_HERE"  # only for a rollback
+git fetch --tags origin
+git checkout "$backup_ref"
+```
+
+Confirm that the active overlay, `.env`, and encryption keys match the restored data. Then start the app:
+
+```bash
+docker compose up -d
+docker compose ps
+curl -fsS http://127.0.0.1:18060/api/health
+```
+
+Check a restored record and, when applicable, a restored upload through the web client. Schema upgrades have no automatic down migration; restoring only the old code can leave it reading a newer database. See [Upgrade a Deployment](/en/deployment/upgrade).

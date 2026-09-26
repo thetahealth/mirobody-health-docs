@@ -1,0 +1,200 @@
+---
+title: "Answers API (Chat Completions)"
+description: "POST /v1/chat/completions — a closed, grounded completion over the Subject's real health data."
+---
+
+import BaseUrl from '/snippets/base-url.mdx';
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
+import RegionShell from '/snippets/region-shell.mdx';
+
+<RegionShell />
+
+## Endpoint
+
+```http
+POST /v1/chat/completions
+Authorization: Bearer mb_live_*
+Content-Type:  application/json
+```
+
+The **Answers API** is a **closed, grounded completion**: one question in, one evidence-backed answer out. The platform's agent gathers the Subject's real health data with **server-side tools** (you can't add or remove them here), then returns one clean answer plus a traceable record of the tools it used. Set `stream: true` for SSE.
+
+It is deliberately *closed* — no client tools, no response formatting, no multi-turn state. That makes it easy to embed: call it directly, or [wrap it as one tool inside your own agent](/en/api-reference/use-as-a-tool). If you need client-side tools, stored conversations, or `previous_response_id` chaining, use the [Agent API (`POST /v1/responses`)](/en/api-reference/responses).
+
+<BaseUrl />
+
+## Quickstart
+
+<CodeGroup>
+```bash curl
+curl "$MIROBODY_API_BASE/chat/completions" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "messages": [{"role": "user", "content": "How is my fasting glucose trending?"}],
+        "user": "alice"
+      }'
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
+
+resp = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
+    user="alice",                                 # tenant-isolation key (a Subject)
+)
+print(resp.choices[0].message.content)
+# resp.choices[0].message.reasoning_content      # provider-supplied reasoning text (may be empty)
+# resp.choices[0].message.tool_steps             # server tool trace: {id, name, arguments, result}
+```
+
+```javascript Node.js (OpenAI SDK)
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.MIROBODY_API_KEY,
+  baseURL: "https://api.mirobody.ai/v1",
+});
+
+const resp = await client.chat.completions.create({
+  model: "mirobody-flash",
+  messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
+  user: "alice",
+});
+console.log(resp.choices[0].message.content);
+```
+</CodeGroup>
+
+## Request body
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `model` | string | `mirobody-flash` (default) or `mirobody-expert`. See [Models](/en/api-reference/models). |
+| `messages` | array | OpenAI `{role, content}`. The surface is **stateless** — send the full history each call; a `system` message shapes tone/format (see [System prompts](#system-prompts)). |
+| `stream` | bool | `true` → SSE stream of `chat.completion.chunk` frames. |
+| `user` | string | Tenant-isolation key → a Subject. Pass each end-user's stable id. See [multi-tenancy](/en/api-reference/overview#multi-tenancy-the-user-field). |
+
+<SubjectUserParam />
+
+`retention` and `session_id` are not fields on this stateless surface. Set retention when writing [data](/en/api-reference/data), [files](/en/api-reference/files), or readings stored by [`/v1/standardize`](/en/api-reference/extract). For server-side conversation state, use the [Agent API](/en/api-reference/responses).
+
+## Unsupported parameters
+
+This surface is a closed grounded completion — tools run **server-side only**, and the answer is free-form text. Parameters that contradict that are **explicitly rejected with `400`** (`code: unsupported_parameter`, `param` names the offender) rather than silently swallowed:
+
+| Parameter | Result |
+| --- | --- |
+| `tools`, `functions` | `400 unsupported_parameter` — bring your own tools via the [Agent API](/en/api-reference/function-calling) |
+| `tool_choice`, `function_call` | `400 unsupported_parameter` |
+| `response_format` | `400 unsupported_parameter` — structured output is not available on this surface |
+| `n` > 1 | `400 unsupported_parameter` — always a single choice |
+
+<Note>
+**Sampling parameters are accepted but ignored** (industry norm for agent-backed surfaces): `max_tokens` doesn't cap output; `temperature`, `top_p`, `stop`, and `seed` have no effect. The response always contains a single choice.
+</Note>
+
+<Note>
+**`reasoning_effort` is honored** (`"low" | "medium" | "high"`): it maps to the underlying model's extended-thinking / reasoning budget. The reasoning streams as `delta.reasoning_content` and is included as `message.reasoning_content` in the non-stream response; `usage.completion_tokens_details.reasoning_tokens` counts it. Omit it for the model's default; models without a thinking mode ignore it.
+</Note>
+
+## Response
+
+`message.content` carries **one clean final answer**. Optional provider reasoning text and server tool calls use separate channels, so the answer itself is not mixed with tool narration.
+
+```jsonc
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "created": 1783741077,
+  "model": "mirobody-flash",
+  "choices": [{
+    "index": 0,
+    "finish_reason": "stop",
+    "message": {
+      "role": "assistant",
+      "content": "Your fasting glucose has trended down ~8% over the last 30 days ...",
+      "reasoning_content": "",                                            // provider-supplied reasoning text; may be empty
+      "tool_steps": [                                                     // server tool trace, ordered
+        { "id": "call_abc", "name": "query_health_data",
+          "arguments": { "query": "fasting glucose last 90 days" },
+          "result": "{...}" }
+      ]
+    }
+  }],
+  "usage": {
+    "prompt_tokens": 12,                                                  // YOUR visible input only
+    "completion_tokens": 210,
+    "total_tokens": 222,
+    "prompt_tokens_details": { "system_tokens": 10096 },                  // reported separately from visible prompt_tokens
+    "completion_tokens_details": { "reasoning_tokens": 0 },
+    "billed_tokens": { "input": 20391, "output": 841, "total": 21232 }    // the actual token total you're metered on
+  },
+  "health_records": [ { "tool": "query_health_data", "data": "..." } ],
+  "citations": [ { "tool": "search_medical_evidence", "data": "..." } ]
+}
+```
+
+| Channel | Content |
+| --- | --- |
+| `message.content` | Final answer only (the "reply" channel). |
+| `message.reasoning_content` | Provider-supplied reasoning text. It may be empty and is not a guarantee of complete internal reasoning. |
+| `message.tool_steps[]` | The server tool trace — each `{id, name, arguments, result}`, merged by `id`. **Always returned**; there is no opt-in flag and no truncation switch. |
+| `health_records` | Traceable health-data tool outputs the answer used — `{tool, data}` pairs. This is where the explainability lives. |
+| `citations` | External-evidence outputs (`search_medical_evidence` / `read_source`) — `{tool, data}` pairs; empty when no evidence was consulted. |
+| `usage` | Token accounting — see below. |
+
+`reasoning_content` and `tool_steps` are additive channels — clients that only read `message.content` keep working.
+
+### Usage accounting
+
+`usage.prompt_tokens` reports the input **you actually sent** (your `messages`); the platform's system prompt and tool schemas are reported separately in `prompt_tokens_details.system_tokens`. `completion_tokens_details.reasoning_tokens` reports provider reasoning tokens. Counts are summed across every model call in the agent turn.
+
+`usage.billed_tokens` is the actual token total you're metered on. Multiplying it by the catalog's standard input/output rates gives a cost estimate; prompt-cache discounts can make actual metered cost lower.
+
+## Streaming
+
+With `stream: true`, frames arrive in order. The **first chunk carries `delta.role: "assistant"`** (OpenAI parity — many clients key message init off it), then optional reasoning/tool deltas, then a single uninterrupted answer stream:
+
+```text
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":""}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"reasoning_content":"<fragment>"}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"tool_steps":[{"id":"call_abc","name":"query_health_data","arguments":{...}}]}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{"content":"<answer fragment>"}}]}
+data: {"object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}],"health_records":[...],"citations":[...],"usage":{...}}
+data: [DONE]
+```
+
+Merge `tool_steps` by `id` (streamed steps carry `{id, name, arguments}`; full `result` payloads are available on the non-stream response). The **final** frame (before `[DONE]`) carries the top-level `health_records` / `citations` **and `usage`**. An upstream failure arrives as an SSE `{"error": ...}` frame before the stream ends. Clients that only read `delta.content` keep working.
+
+## System prompts
+
+A `system` message sets the tone, persona, format, and language of the answer. Server-tool availability and Subject scoping remain platform-controlled; the prompt cannot grant access to another Subject or add tools.
+
+## Built-in tools
+
+Beyond plain tool-calling, the hosted agent can **plan** multi-step work, **delegate** subtasks, run **sandboxed code** for numeric analysis (trends, correlations), and read the Subject's uploaded files. You don't invoke any of this — the agent does, against the Subject's data.
+
+The tools the hosted agent can call:
+
+- `query_health_data` — search and aggregate the Subject's records
+- `list_family_members` — resolve care-circle members the Subject is allowed to query
+- `search_medical_evidence` — search literature, guidelines/consensus, and registered trials (feeds `citations`)
+- `read_source` — read one result by its returned ref; arbitrary URL fetching is not supported
+
+The `/v1` agent's main loop is read-only. Health facts mentioned in stored conversations are extracted automatically (see [State & memory](/en/api-reference/state-and-memory)), not written by a tool during the answer. Planning, delegation, and code-analysis tools are internal and not part of the API contract. `ask_user` serves the web app but is **disabled on the `/v1` surfaces** because an API caller has no widget to answer it. Files uploaded through [`/v1/files`](/en/api-reference/files) become readable to the agent once processed.
+
+To add **your own** tools, use the [Agent API's function calling](/en/api-reference/function-calling) — this surface intentionally has no tool injection.
+
+## Charts (vis-chart)
+
+When the answer involves a trend / comparison / distribution, it may embed a fenced ` ```vis-chart ` block of pure-data JSON (`{type, title, axisXTitle, axisYTitle, data}`). **Rendering is the client's job** — the API only returns the data spec. Detect the fenced block and render it (line / area / bar / pie).
+
+## See also
+
+- [Agent API (Responses)](/en/api-reference/responses) — the full agent surface, with your own tools and stored state.
+- [Use the Answers API as a Tool](/en/api-reference/use-as-a-tool) — wrapping this endpoint as one tool inside your own agent.
+- [Streaming](/en/api-reference/streaming) — the SSE frames this endpoint emits.

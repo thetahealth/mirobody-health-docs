@@ -1,0 +1,66 @@
+---
+title: "隐私与合规"
+description: "区域隔离、数据控制与安全审查资料。"
+---
+
+Mirobody 平台围绕 HIPAA 与美国健康数据保护原则设计：访问控制、加密、隔离、留存限制与删除控制。平台运行独立的区域环境：全球与中国区集群已上线，日本与欧盟集群正在筹备中。选择 base URL 前，请先阅读[区域](/zh/api-reference/regions/overview)。
+
+本页说明 API 提供的产品控制，以及可能适用的监管框架，不构成任何合规认证声明。你的义务取决于你的使用场景、合同、数据流与所在区域。
+
+## 产品控制
+
+### Subject 隔离
+
+每个经过认证的 `/v1` 请求都限定在 API key 所属账户内。在账户内部，`user` 字段映射到隔离的 Subject。开发者无法使用自己的 API key 读取其他账户的 Subject。
+
+建议为 `user` 使用稳定且不敏感的标识符。除非你的数据策略明确要求，否则不要在该字段中放入邮箱、病历号或其他直接身份标识。
+
+### API 凭据
+
+API key 使用 `mb_live_*` 格式。完整密钥只在创建时返回一次；服务端保存其哈希，开发者控制台之后仅显示 key 前缀。如怀疑密钥泄露，请立即撤销。
+
+### 留存与删除
+
+API 为各类存储面提供显式控制：
+
+| 范围 | 控制 |
+| --- | --- |
+| 结构化记录 | `DELETE /v1/data`；限时留存（`1h`、`2h`、`6h`、`1d`） |
+| 文件 | `DELETE /v1/files/{file_key}`；限时或会话留存 |
+| 存储响应 | `DELETE /v1/responses/{id}` |
+| 会话范围的数据与文件 | `DELETE /v1/sessions/{id}` |
+| 整个 Subject | [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) |
+
+`DELETE /v1/sessions/{id}` **不会**删除已存储的响应对象。各删除路径的准确行为见[数据生命周期](/zh/api-reference/lifecycle)与[状态与记忆](/zh/api-reference/state-and-memory)。
+
+### 可追溯输出
+
+Agent 响应可返回 `tool_steps`、`health_records` 与 `citations`，便于应用检查回答所使用的工具调用与证据。这些字段是执行轨迹，不代表会暴露模型的私有推理或所有内部操作。
+
+在 Agent API 上，`store:false` 会阻止响应对象与对话线程在请求结束后保留，也会使该轮对话不再纳入该 Subject 的记忆。
+
+### 区域处理
+
+不同区域环境使用独立主机与存储。发往 `api.mirobody.ai/v1` 的数据在全球环境处理，发往 `api.mirobody.cn/v1` 的数据在中国区环境处理。除非你的合规审查允许由此产生的数据传输，否则不要为同一 Subject 切换区域。
+
+## 法规审查
+
+面向美国医疗场景时，请评估你在 [HIPAA 隐私与安全规则](https://www.hhs.gov/hipaa/index.html)下的义务，并确认你的部署是否需要业务伙伴协议（BAA）。仅有产品能力并不足以使某项工作负载符合 HIPAA：相应协议与你自身的安全保障也必须到位。
+
+若你使用**中国区**部署（`api.mirobody.cn`），你的工作负载可能还需遵守中国数据保护法律：
+
+| 法律 | 官方文本 |
+| --- | --- |
+| 《个人信息保护法》 | [全国人民代表大会](http://www.npc.gov.cn/npc/c2/c30834/202108/t20210820_313088.html) |
+| 《数据安全法》 | [国务院](https://www.gov.cn/xinwen/2021-06/11/content_5616919.htm) |
+| 《网络安全法》 | [国务院](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm) |
+
+## 安全与合规资料
+
+如需安全问卷、架构审查、数据处理条款，或确认当前是否可提供 DPA、BAA 与独立评估材料，请联系 [Mirobody Support](mailto:developer@thetahealth.ai)。在发送受监管的生产数据前，应先取得适用文件。
+
+## 另见
+
+- [数据生命周期](/zh/api-reference/lifecycle)：留存、会话清理与 Subject 下线。
+- [API 概览](/zh/api-reference/overview)：`user` 字段与租户隔离方式。
+- [区域概览](/zh/api-reference/regions/overview)：各集群的数据处理位置。

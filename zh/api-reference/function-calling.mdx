@@ -1,0 +1,175 @@
+---
+title: "Function Calling"
+description: "Agent API 上的内置服务端工具 + 你自己的客户端 function 工具，以及两种交接续运行方式。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+[Agent API](/zh/api-reference/responses) 运行两类工具：
+
+1. **内置服务端工具**：平台的健康数据工具。它们在**服务端**运行，你从不需要自己执行；平台只把运行轨迹报告给你，不会把执行工作交给你。
+2. **客户端 function 工具**：**你**在请求上声明的工具。模型需要调用工具时，响应会以 `function_call` 交接给你；你执行工具后，这轮运行继续。
+
+## 内置服务端工具
+
+agent 始终持有针对 Subject 数据的平台工具集（与 [Answers API](/zh/api-reference/chat#内置工具) 同一目录）：
+
+- `query_health_data`：检索并聚合 Subject 的记录
+- `list_family_members`：解析 Subject 有权查询的关爱圈成员
+- `search_medical_evidence`：检索文献、指南/共识与注册试验（供给 `citations`）
+- `read_source`：按检索返回的 ref 读取一条结果；不支持任意 URL 抓取
+
+`/v1` agent 的领域工具只读。它还会运行内部的规划与分析工具。每次服务端工具运行都落在响应对象的**顶层 `tool_steps` 扩展**里，绝不作为 `output` item（以免官方 SDK 解析未知类型）；流式下则通过 [`response.mirobody_tool_call` 旁路事件](/zh/api-reference/streaming#服务端工具旁路通道)返回。
+
+## 声明客户端工具
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "input": "Check my recent glucose and book a follow-up if it is trending up.",
+  "user": "alice",
+  "tools": [
+    {
+      "type": "function",
+      "name": "book_appointment",
+      "description": "Book a clinic appointment for the end user.",
+      "parameters": {
+        "type": "object",
+        "properties": { "date": { "type": "string", "description": "ISO date" } },
+        "required": ["date"]
+      }
+    }
+  ]
+}
+```
+
+规则（违反即显式 `400`，绝不静默丢弃）：
+
+| 规则 | 细节 |
+| --- | --- |
+| 类型 | 支持 `"type": "function"`（客户端交接）与 `"type": "mcp"`（服务端远程工具）。扁平 Responses 形式与 completions 嵌套的 `{"type":"function","function":{...}}` 形式都接受。`{"type": "mcp"}` 接入你的远程 MCP server（服务端执行、无交接），详见 [MCP servers](/zh/api-reference/mcp-servers)。 |
+| 数量 | 每请求最多 **64** 个工具。 |
+| 名称 | 需匹配 `[a-zA-Z0-9_-]{1,64}`；必须唯一；**不得与内置工具重名**（`query_health_data`、`read_file`、`task` 等）。 |
+| `parameters` | JSON Schema 对象（默认 `{"type":"object","properties":{}}`）。 |
+| `tool_choice` | `"auto"`（默认）、`"none"`（本轮禁用**所有**工具，含内置工具，见 [backbone 模式](/zh/api-reference/backbone-mode)）或指名某个客户端工具。其它取值 → `400 unsupported_parameter`。 |
+
+<Warning>
+**安全提示：** agent 持有访问 Subject 健康数据的工具。Subject 隔离已把每次调用限定在该开发者自己的数据内，但你的工具描述与结果同属提示面，因此不要未经审查地把不可信的第三方文本灌进去。
+</Warning>
+
+## 交接
+
+模型调用你的工具时，响应以一个 `function_call` output item **完成**（`status: "completed"`：*响应*已经结束，*对话*还在等你）：
+
+```jsonc
+{
+  "id": "resp_abc...",
+  "object": "response",
+  "status": "completed",
+  "output": [
+    { "type": "function_call", "id": "fc_0", "call_id": "call_9f2...",
+      "status": "completed", "name": "book_appointment",
+      "arguments": "{\"date\": \"2026-07-14\"}" }
+  ],
+  "output_text": "",
+  ...
+}
+```
+
+流式下，同一交接以 `response.output_item.added` → `response.function_call_arguments.delta` / `.done` → `response.output_item.done` 事件组到达（见[流式传输](/zh/api-reference/streaming)）。
+
+执行工具后，用**两种方式之一**续运行：
+
+### 路径 1 —— 有状态续运行（`previous_response_id`）
+
+**只**发送 `function_call_output` item，并引用交接响应。服务端恢复暂停的 agent 线程（无需重发历史）：
+
+```bash
+curl "$MIROBODY_API_BASE/responses" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "previous_response_id": "resp_abc...",
+        "input": [
+          { "type": "function_call_output", "call_id": "call_9f2...",
+            "output": "Booked: Mon 2026-07-14 09:30, Dr. Chen" }
+        ],
+        "user": "alice"
+      }'
+```
+
+要求：输出必须**恰好**覆盖所有待处理 `call_id`（并行调用 → 每个一条 `function_call_output`）；续运行时不得混入 `message` item；一次交接只能续运行**一次**（重复续运行会显式失败）。交接响应必须已被存储（`store=true`，即默认值）。
+
+### 路径 2 —— 无状态全量回放 {#路径-2--无状态全量回放}
+
+**openai-agents** 的默认做法是：把*完整的* item 转录重发在 `input` 中，包含 `function_call` / `function_call_output` 对，且**不带** `previous_response_id`：
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "input": [
+    { "role": "user", "content": "Check my recent glucose and book a follow-up if it is trending up." },
+    { "type": "function_call", "call_id": "call_9f2...", "name": "book_appointment",
+      "arguments": "{\"date\": \"2026-07-14\"}" },
+    { "type": "function_call_output", "call_id": "call_9f2...",
+      "output": "Booked: Mon 2026-07-14 09:30, Dr. Chen" }
+  ],
+  "tools": [ ... ],
+  "user": "alice"
+}
+```
+
+这些成对 item 会被重建为对话历史，运行按新一轮继续。全程可配 `store=false`。
+
+## openai-agents 端到端
+
+SDK 会处理整个闭环，从声明、交接、执行到回放：
+
+```python
+from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url="https://api.mirobody.ai/v1", api_key="mb_live_..."))
+set_tracing_disabled(True)
+
+@function_tool
+def book_appointment(date: str) -> str:
+    """Book a clinic appointment for the end user (ISO date)."""
+    return f"Booked: {date} 09:30, Dr. Chen"
+
+agent = Agent(
+    name="Health assistant",
+    model="mirobody-flash",
+    instructions="Check real health data before acting.",
+    tools=[book_appointment],
+    model_settings=ModelSettings(extra_body={"user": "alice"}),  # 租户隔离——必传
+)
+result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
+print(result.final_output)
+```
+
+<Warning>
+所有会触达 Mirobody 工具的 agents-SDK agent，都必须通过 `model_settings=ModelSettings(extra_body={"user": ...})` 传入 Subject。不传时，这次运行读到的是**账户默认 Subject**，而不是你想要的那个用户。
+</Warning>
+
+模型用**内置服务端工具**读取 Subject 的真实血糖数据，再交接给**你的** `book_appointment`，由 SDK 在本地执行并自动回放转录。
+
+## 续运行错误
+
+| HTTP `400` 消息 | 原因 |
+| --- | --- |
+| `previous response has no pending function calls` | 续运行的响应并非交接（或已被续运行过）。 |
+| `cannot mix message items with function_call_output when resuming via previous_response_id` | 续运行请求只能包含工具输出。 |
+| `unknown call_id(s): [...]` / `missing function_call_output for call_id(s): [...]` | 输出必须与待处理调用严格匹配。 |
+| `previous response has pending function call(s) — provide function_call_output items for: ...` | 在未提供输出的情况下续接一个有待处理交接的对话。 |
+| `function_call_output without matching function_call items — replay the full transcript, or resume via previous_response_id` | 无状态回放必须连同 `function_call` item 一起发。 |
+
+## 另见
+
+- [Agent API（Responses）](/zh/api-reference/responses)：这些工具所在的端点。
+- [MCP Servers](/zh/api-reference/mcp-servers)：改用远程 MCP server 而不是本地工具。
+- [结构化输出](/zh/api-reference/structured-output)：把最终回答约束到一个 schema。

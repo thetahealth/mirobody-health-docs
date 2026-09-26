@@ -1,0 +1,30 @@
+---
+title: "China Region"
+description: "China production endpoints and regional differences."
+---
+
+The China region is live, with its own hosts and storage.
+
+## Hosts
+
+| Role | URL |
+| --- | --- |
+| API (`base_url`) | `https://api.mirobody.cn/v1` |
+| Developer console | `https://platform.mirobody.cn/` |
+| Web app | `https://chat.mirobody.cn/` |
+
+## API contract
+
+The China deployment exposes the same stable `/v1` resources as the global cluster: Models, Answers, Agent, Data, Standardize, Files, Sessions, and Subjects. Model providers and pricing differ by region, so clients must read [`GET /v1/models`](/en/api-reference/models) from the cluster they call.
+
+## Choosing a region
+
+Call the cluster whose data-processing location fits your users: `https://api.mirobody.cn/v1` processes data in the China-region environment, and `https://api.mirobody.ai/v1` in the global environment.
+
+See [Privacy & Compliance](/en/api-reference/compliance) for the controls to review before sending regulated data.
+
+## See also
+
+- [Regions Overview](/en/api-reference/regions/overview) — every cluster and its status.
+- [Global Cluster](/en/api-reference/regions/global) — the other production cluster.
+- [Privacy & Compliance](/en/api-reference/compliance) — regional processing and the compliance package.

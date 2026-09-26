@@ -1,0 +1,237 @@
+---
+title: "Structured Records"
+description: "POST /v1/data, GET /v1/data, DELETE /v1/data — write, read, and erase structured health records."
+---
+
+import SubjectUserParam from '/snippets/subject-user-param.mdx';
+import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
+import RegionShell from '/snippets/region-shell.mdx';
+
+<RegionShell />
+
+Write structured records straight into a Subject's store, and read them back. **Device and wearable data is the main form these records take** ([below](/en/api-reference/data#device-and-wearable-data)). Every write runs through the platform's [standardization pipeline](/en/api-reference/standardization): values and units are parsed, recognized indicators get a LOINC code and a canonical name, and each record is mirrored into FHIR. Rows that don't resolve to a code stay readable. The agent reads the same data with its built-in tools.
+
+<IngestMentalModel />
+
+<SubjectUserParam />
+
+## Write records
+
+```http
+POST /v1/data
+Authorization: Bearer mb_live_*
+Content-Type:  application/json
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `records` | array | Each record `{indicator, value, unit?, time?, end_time?, source?}`. **Max 500 records per request.** `end_time` (optional, ISO time) closes an episode — sleep, a workout — that starts at `time`. `measured_at` / `start_time` are accepted as aliases for `time` — rows from POST /v1/standardize (which returns `measured_at`) can be forwarded as-is. |
+| `user` | string | Subject the records belong to (tenant-isolation key). |
+| `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as an alias of `permanent`). Timed tiers auto-delete when their window is up — `1d` is the longest. Omitting it — or sending any value outside the enum — returns `400` (`code: invalid_retention`). |
+| `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Use a globally unique, opaque id (for example a UUID; never reuse it across Subjects). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) can purge them. |
+
+```bash
+curl "$MIROBODY_API_BASE/data" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "fasting_glucose", "value": 97, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z"},
+          {"indicator": "fasting_glucose", "value": 92, "unit": "mg/dL", "time": "2026-06-17T07:25:00Z"}
+        ]
+      }'
+```
+
+Response — `standardized` counts the records that resolved to a LOINC code on the way in:
+
+```json
+{ "status": "ok", "ingested": 2, "standardized": 2, "subject": "alice" }
+```
+
+<Note>
+**Every write is standardized, not just stored.** Each value and unit is parsed to UCUM, and the indicator name is matched to a LOINC code — never a guessed one, so a low-confidence match stays uncoded. See [How standardization works](/en/api-reference/standardization). To see the result without writing anything, use [`POST /v1/standardize`](/en/api-reference/extract) with `store=false`.
+</Note>
+
+<Warning>
+Writes are not idempotent — a retry can create duplicate records. Check the outcome before retrying a timed-out request, and keep your own ingestion ledger.
+</Warning>
+
+### Episodes (sleep, workouts)
+
+Episode-type records span a period rather than a point in time — put the start in `time` and the end in the optional `end_time`:
+
+```bash
+curl "$MIROBODY_API_BASE/data" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "sleep_duration", "value": 7.5, "unit": "h",
+           "time": "2026-07-09T23:10:00Z", "end_time": "2026-07-10T06:40:00Z",
+           "source": "garmin"}
+        ]
+      }'
+```
+
+## Read records
+
+```http
+GET /v1/data?user=alice&indicator=fasting_glucose&limit=100
+Authorization: Bearer mb_live_*
+```
+
+| Query | Description |
+| --- | --- |
+| `user` | Subject to read from. |
+| `indicator` | Optional filter by indicator name (substring match). |
+| `limit` | `1`–`1000` (default `100`). |
+| `offset` | Skip N records for paging (ordering is stable: newest first). `has_more: true` → request the next page with `offset += limit`. |
+
+The response is an OpenAI-style list, newest first. `value` is the value exactly as written (`"97"`); the unit lives separately in `parsed_unit`, alongside the other machine-readable fields:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": 1287,
+      "indicator": "fasting_glucose",
+      "value": "97",
+      "parsed_value": "97",
+      "parsed_unit": "mg/dL",
+      "loinc_code": "1558-6",
+      "canonical_name": "Fasting glucose [Mass/volume] in Serum or Plasma",
+      "time": "2026-06-16T07:30:00+00",
+      "end_time": null,
+      "source": "api",
+      "comment": ""
+    }
+  ],
+  "has_more": false,
+  "subject": "alice"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `data` | The records (up to `limit`). |
+| `id` | Row id (integer) — pass it to `DELETE /v1/data?id=` for a row-level delete. |
+| `value` | The value as written (string, e.g. `"97"`); the unit lives in `parsed_unit`. |
+| `parsed_value` / `parsed_unit` | Numeric value + **UCUM** unit from the standardization pipeline (`null` when unparseable). |
+| `loinc_code` / `canonical_name` | Deterministic LOINC resolution + its display name (`null` when the name didn't resolve). |
+| `end_time` | End of the period for episode records (sleep, workouts); `null` for point-in-time readings. |
+| `reference_low` / `reference_high` / `reference_text` / `abnormal` | Reference range and abnormality flag, when the source (e.g. a lab report) carried them; `null` otherwise. |
+| `source` / `comment` | How the record was created: `api` (written via `POST /v1/data`), `extract` (from `POST /v1/standardize`), `upload` (read from a `/v1/files` upload), or `consolidation` (drawn from a stored conversation). Any origin tag you sent in a record's own `source` field comes back in `comment`. |
+| `has_more` | `true` when this page hit `limit` — fetch the next page with `offset += limit`. |
+| `subject` | The Subject the records belong to (resolved from `user`). |
+
+## Erase records
+
+```http
+DELETE /v1/data?user=alice&indicator=fasting_glucose
+Authorization: Bearer mb_live_*
+```
+
+**Permanently erases** the Subject's records — right-to-be-forgotten semantics (the data is removed, not merely hidden from reads). Three scopes, from narrowest to widest:
+
+| Query | Scope |
+| --- | --- |
+| `id` | Exactly **one row** — the integer ids `GET /v1/data` returns. Takes precedence over `indicator`. |
+| `indicator` | One indicator (substring match, mirroring the GET filter). |
+| *(neither)* | **All** of the Subject's records. |
+
+```http
+DELETE /v1/data?user=alice&id=1287
+```
+
+```json
+{ "status": "ok", "deleted": 1, "subject": "alice" }
+```
+
+To erase *everything* about a Subject (records + files + conversations + the identity mapping) at once, use [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject) — see [Compliance](/en/api-reference/compliance).
+
+## Device and wearable data
+
+Device data is the main form structured records take. This is the pattern once your
+vendor integration — Terra, Junction, or a vendor API of your own — is already
+delivering samples into your backend.
+
+<Note>
+**Mirobody does not host device OAuth** — there is no Terra-style connect widget.
+Vendor consent screens, token refresh and webhook plumbing stay in your product,
+because every vendor's flow is different and it belongs in your own UX. What happens
+*after* the data arrives — storage, standardization, retention, deletes, AI — is
+Mirobody's job.
+</Note>
+
+<Steps>
+  <Step title="Receive">
+    Your vendor integration delivers samples, by webhook push or periodic pull.
+  </Step>
+  <Step title="Aggregate to daily (recommended)">
+    Roll high-frequency series up to one record per day before writing. Episodes keep their own period.
+  </Step>
+  <Step title="Write with POST /v1/data">
+    Up to 500 records per request, `retention` required — the contract above.
+  </Step>
+</Steps>
+
+### What to aggregate
+
+`POST /v1/data` accepts any granularity, but for most products one row per meaningful
+reading is enough — less write volume, and a series that stays easy to reason about.
+
+- **Daily totals** (steps, calories, distance) — one record per day.
+- **Continuous series** (heart rate, SpO₂ sampled every few minutes) — aggregate to a daily value such as resting or mean heart rate, and write min/max as their own indicators if you need them. Go finer only where your product genuinely needs it.
+- **Episodes** (sleep, workouts) — one record per episode, carrying its period with `time` + `end_time`.
+
+### A day of device records in one call
+
+```bash
+curl "$MIROBODY_API_BASE/data" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "user": "alice",
+        "retention": "permanent",
+        "records": [
+          {"indicator": "steps",              "value": 12450,             "time": "2026-07-10T00:00:00Z", "source": "garmin"},
+          {"indicator": "resting_heart_rate", "value": 58, "unit": "/min", "time": "2026-07-10T00:00:00Z", "source": "garmin"}
+        ]
+      }'
+```
+
+Batch a full day, or a backfill window, per Subject into one call. Tag the vendor in
+`source` — it comes back in the `comment` field when you read the record.
+
+### On-device sample batches
+
+Some samples never pass through a vendor API at all: your app reads them from the phone's
+own health store — Apple HealthKit, Android Health Connect, or a Bluetooth scale pairing
+straight with your app — and uploads them itself. That is the same endpoint, with two
+things to settle in the client:
+
+- **Batch and pre-aggregate on the device.** A month of HealthKit heart-rate samples is
+  tens of thousands of rows; roll them up to the daily values you actually query, then
+  send at most 500 records per request.
+- **Send the sample's own timestamp**, not the upload time — `time` is when the reading was
+  taken, and `end_time` carries the period for sleep and workouts.
+
+Use `source` to record where the samples came from (`"healthkit"`, `"health_connect"`,
+your device model), so a reading stays traceable after the fact.
+
+## Use-and-forget data
+
+There is **no `retention: "none"`** — writing to the store while asking not to store is contradictory, and the value is rejected like any other non-enum value. Two clean patterns instead:
+
+- **Dry-run analysis, zero side effects** — [`POST /v1/standardize`](/en/api-reference/extract) with `store=false` (the default): standardization results out, nothing written.
+- **Short-lived working data** — write with `retention: "1h"` ([auto-expires](/en/api-reference/overview#data-retention) after an hour), or with `retention: "session"` + a `session_id` you [delete](/en/api-reference/lifecycle#sessions) when done.
+
+## See also
+
+- [How Standardization Works](/en/api-reference/standardization) — what happens to a reading on write.
+- [Data Lifecycle](/en/api-reference/lifecycle) — how records leave the platform.

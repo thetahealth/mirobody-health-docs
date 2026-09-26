@@ -1,0 +1,118 @@
+---
+title: "API 概览"
+description: "兼容 OpenAI 的健康数据 API：base URL、鉴权、多租户、留存与错误。"
+---
+
+import BaseUrl from '/snippets/zh/base-url.mdx';
+import AuthKey from '/snippets/zh/auth-key.mdx';
+
+**Mirobody Cloud 兼容 OpenAI。**把任意 OpenAI SDK 指向下方 base URL、传入 `mb_live_*` 密钥，调用 [Answers API](/zh/api-reference/chat)（`/v1/chat/completions`）或 [Agent API](/zh/api-reference/responses)（`/v1/responses`），agent 基于每个终端用户**真实、标准化的健康数据**作答，并返回回答背后的工具轨迹。不确定选哪个？见[选择你的 API](/zh/api-reference/choose-your-api)。同一引擎也可**自托管**：克隆[开源引擎](/zh/self-host)、用 `./deploy.sh` 拉起来；托管 API 在其上叠加托管存储、密钥与计费。
+
+密钥、用量与交互式演练场都在[开发者控制台](https://platform.mirobody.ai/)。这些文档是 API 参考。
+
+## Base URL
+
+<BaseUrl />
+
+全球与中国区是生产集群；日本与欧盟正在筹备中。按数据处理位置选择集群，见[区域](/zh/api-reference/regions/overview)。
+
+## 鉴权
+
+<AuthKey />
+
+控制台登录（邮箱验证码或微信）是控制台自身的独立会话登录，不是 API 凭证，`/v1` key 也不是 JWT。
+
+## OpenAI 兼容性
+
+标准 OpenAI 字段原样可用；Mirobody 扩展通过 `extra_body`（Python SDK）或普通顶层 JSON（curl/fetch）附带。
+
+| | 字段 |
+| --- | --- |
+| **标准** | `model`、`messages` / `input`、`stream`、`user`，在 [Agent API](/zh/api-reference/responses) 上还有：`instructions`、`store`、`previous_response_id`、`tools`、`tool_choice`、`text.format` |
+| **Mirobody 扩展** | `retention`（数据生命周期，见下文）、`session_id`（会话范围；在 [`/v1/responses`](/zh/api-reference/responses) 上绑定永续对话）、`mode` + `builtin_tools`（[backbone 模式](/zh/api-reference/backbone-mode)）、`strict`（严格校验）、`reasoning` / `reasoning_effort`（深度思考档位，见 [Agent API](/zh/api-reference/responses)） |
+| **响应扩展** | `reasoning_content` / `reasoning` item、`tool_steps[]`（服务端工具轨迹）、顶层 `health_records[]` / `citations[]`、`usage.billed_tokens`（你实际被计量的 token 总数） |
+
+<Note>
+**采样参数仅为兼容性而保留，实际生成完全由 agent 自行控制。** `max_tokens` 接受但**不强制**；`temperature`、`top_p`、`stop`、`seed` 接受但**忽略**。在 Answers API 上，`tools` / `tool_choice` / `response_format` / `n>1` 会被**显式拒绝并返回 `400`**，见[不支持的参数](/zh/api-reference/chat#不支持的参数)。
+</Note>
+
+## 多租户：`user` 字段 {#多租户user-字段}
+
+每个请求都携带一个 `user` 字符串：**租户隔离键**。后端把 `(你的账户, user)` 映射为内部**数据主体(Subject)**，各 Subject 完全隔离：为每个终端用户传入其稳定 id，数据就绝不会串。省略时回落到你账户的默认 Subject。Subject 不是网页应用账户；它们对 Mirobody 应用和其他开发者均不可见。
+
+## 数据留存
+
+你写入数据面的任何内容（结构化记录、上传文件、存储的抽取结果）都携带一个 `retention`，决定保留多久：
+
+| `retention` | 含义 | 生命周期 |
+| --- | --- | --- |
+| `permanent`（别名 `persistent`） | 保留至显式删除 | 直到 `DELETE /v1/data` / `DELETE /v1/files/{key}` / `DELETE /v1/subjects/{user}` |
+| `session` | 绑定 `session_id` | 直到 `DELETE /v1/sessions/{id}` |
+| `1d` / `6h` / `2h` / `1h` | 按粒度自动过期 | 到期即从读取中消失，随后被永久清除 |
+
+在 **[`POST /v1/data`](/zh/api-reference/data) 上 `retention` 为必填**：没有默认值；省略（或传枚举之外的值）返回 `400`（`code: invalid_retention`）。`retention=session` 还要求 `session_id`。在 [`POST /v1/standardize`](/zh/api-reference/extract) 上 `store=true` 时必填；在 [`POST /v1/files`](/zh/api-reference/files) 上可选（默认 `permanent`）。
+
+**没有 `retention: "none"`**。用完即弃的分析请用 [`POST /v1/standardize`](/zh/api-reference/extract) 的 `store=false`（dry-run，什么都不持久化），或以 `retention: "1h"` 写入。agent **只会读取 Subject 当前未过期的数据**。
+
+Agent API 上的对话持久化是另一个开关（`store`），见[状态与记忆](/zh/api-reference/state-and-memory)。纯主观记录（日记）请作为存储的单轮 agent 调用录入，见[写日记配方](/zh/api-reference/state-and-memory#写日记journaling)。
+
+## 证据：health_records 与 citations
+
+回答**可解释、可核查**：不是"听着合理"，而是"这个结论来自你的那条记录"。两个 API 面都返回两个顶层证据数组，元素为 `{tool, data}` 对：
+
+- **`health_records`**：回答所依赖的健康数据工具输出（Subject 的真实记录）。
+- **`citations`**：外部医学证据工具（`search_medical_evidence`、`read_source`）的输出；未查外部证据时为空。
+
+完整的服务端工具轨迹（每次调用的参数与结果）在 `tool_steps` 扩展中。
+
+## 错误格式
+
+错误使用 OpenAI 风格的信封：
+
+```json
+{
+  "error": {
+    "message": "`retention` is required.",
+    "type": "invalid_request_error",
+    "code": "invalid_retention",
+    "param": "retention"
+  }
+}
+```
+
+调用方错误的 `type` 一律为 `invalid_request_error`；`code` 与 `param` 定位具体问题。已观察到的（状态码, code）组合：
+
+| HTTP | `code` | 何时 |
+| --- | --- | --- |
+| `400` | `invalid_retention`、`invalid_session`…… | 请求格式错误 / 缺必填字段，`param` 指出字段 |
+| `400` | `unsupported_parameter` | 该接口拒绝的参数（如 Answers API 上的 `tools`、agent 模式下的 `text.format`、`strict` 下的未知顶层参数），`param` 指出它 |
+| `401` | `null` | `Authorization` 头缺失或格式错误 |
+| `401` | `invalid_api_key` | `mb_live_*` 密钥无效或已吊销 |
+| `404` | — | 未知资源（`file_key` / `response_id` / `previous_response_id` / subject） |
+| `413` | — | 上传超出大小上限 |
+| `422` | — | 文件文本抽取失败（`/v1/standardize`） |
+| `429` | `rate_limit_exceeded` | 按 key 的请求限流超额，携带 `Retry-After` + `X-RateLimit-*`。见[限流与配额](/zh/api-reference/rate-limits) |
+| `429` | `insufficient_quota` | 账户月度用量上限达到，次月重置。见[限流与配额](/zh/api-reference/rate-limits) |
+| `500` | `internal_error` | 意外的服务端故障 |
+| `502` | — | 上游 agent 错误，瞬态；退避重试 |
+
+**流式**下，上游失败会在流结束前以 SSE 错误帧到达（Answers API 为 `{"error": ...}`，Agent API 为 `response.failed`）。
+
+## 端点一览
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| `GET` | [`/v1/models`](/zh/api-reference/models) | 列出能力档（`mirobody-flash` / `mirobody-expert`） |
+| `POST` | [`/v1/chat/completions`](/zh/api-reference/chat) | **Answers API**：封闭的有据可循的 completion（流式、证据） |
+| `POST`·`GET`·`DELETE` | [`/v1/responses`](/zh/api-reference/responses) | **Agent API**：客户端工具、存储的对话、`response.*` 流式 |
+| `POST` · `GET` · `DELETE` | [`/v1/data`](/zh/api-reference/data) | 写入 / 读取 / 擦除结构化记录（写入即标准化） |
+| `POST` | [`/v1/standardize`](/zh/api-reference/extract) | 文档 → 标准化指标（默认 dry-run） |
+| `POST` · `GET` · `DELETE` | [`/v1/files`](/zh/api-reference/files) | 上传并解析文件（OCR / Excel）、列出、取文本、删除 |
+| `DELETE` | [`/v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) | 结束会话并清除其会话范围数据 |
+| `DELETE` | [`/v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) | 擦除单个 Subject 的一切（被遗忘权），见[合规](/zh/api-reference/compliance) |
+
+## 另见
+
+- [快速开始](/zh/api-reference/quickstart)：最短的可运行路径。
+- [选择你的 API](/zh/api-reference/choose-your-api)：选 Answers 还是 Agent。
+- [限流与配额](/zh/api-reference/rate-limits)：限流、配额与退避。

@@ -1,0 +1,59 @@
+---
+title: "Rate Limits & Quota"
+description: "Per-key request rate limiting and the per-account usage quota."
+---
+
+Two independent controls protect the platform and your spend. Both return an
+OpenAI-compatible error envelope so the standard SDKs surface them cleanly.
+
+## Request rate limit (per key)
+
+Each API key has a **requests-per-minute** setting (60 by default). The same limit applies across authenticated `/v1` endpoints; it is not a separate allowance for each path.
+On overflow you get HTTP `429` with `Retry-After` plus `X-RateLimit-*` headers:
+
+```text
+HTTP/1.1 429 Too Many Requests
+Retry-After: 12
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 12
+```
+
+```json
+{"error": {"message": "Rate limit exceeded: this API key allows 60 requests per minute. Retry after 12s.",
+           "type": "rate_limit_error", "code": "rate_limit_exceeded"}}
+```
+
+Treat the per-key limit as a floor — brief bursts slightly above it may succeed, so don't rely on it as an exact ceiling. Contact [Mirobody Support](mailto:developer@thetahealth.ai)
+to raise a key's limit.
+
+## Monthly account cap
+
+Hosted environments can enforce a **monthly account cap** in USD. Once it is
+enabled, authenticated `/v1` requests return HTTP `429` with `insufficient_quota`
+as soon as the current month's metered usage reaches the cap — until the next
+calendar month, or until support raises it:
+
+```json
+{"error": {"message": "You have reached your $5 monthly API usage limit (billed $5.00 this month). It resets next month; contact support to raise it.",
+           "type": "insufficient_quota", "code": "insufficient_quota"}}
+```
+
+The cap covers **all keys under the account together**. The error message reports
+the configured cap and the current-month metered amount. To confirm or change your
+account's cap, contact [Mirobody Support](mailto:developer@thetahealth.ai).
+
+## Client pacing
+
+Keep the combined request rate for one key below its configured RPM. Streaming calls count when the request starts. Batch structured records into one `POST /v1/data` request (up to 500 records), and don't poll an uploaded file in a tight loop before its text is ready.
+
+## Client backoff
+
+- On `429 rate_limit_exceeded`, **respect `Retry-After`** — never retry immediately; double the backoff after two consecutive hits, up to 5 minutes.
+- On `429 insufficient_quota`, do **not** retry — the cap resets monthly or on a support change; surface it to the operator.
+
+## See also
+
+- [Models](/en/api-reference/models) — per-tier capacity and price.
+- [API Overview](/en/api-reference/overview) — the error envelope these limits return.
+- [Streaming](/en/api-reference/streaming) — how a stream ends when a limit is hit.

@@ -1,0 +1,164 @@
+---
+title: "SDK Examples"
+description: "End-to-end /v1 examples in curl / Python / Node.js — Answers, Agent (Responses), data, files."
+---
+
+import RegionShell from '/snippets/region-shell.mdx';
+
+Minimal end-to-end examples against Mirobody Cloud.
+
+<RegionShell />
+
+Set `MIROBODY_API_KEY` to a key from the [same region's console](/en/api-reference/quickstart). Keep the key in your shell environment; the Python and Node examples below read it from there.
+
+## curl
+
+```bash
+BASE="$MIROBODY_API_BASE"
+KEY="$MIROBODY_API_KEY"
+
+# 1) Grounded answer (Answers API)
+curl $BASE/chat/completions \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"model":"mirobody-flash","messages":[{"role":"user","content":"How is my fasting glucose trending?"}],"user":"alice"}'
+
+# 2) Write a record (retention is REQUIRED), then ask again
+curl $BASE/data \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"user":"alice","retention":"1h","records":[{"indicator":"fasting_glucose","value":97,"unit":"mg/dL","time":"2026-06-16T07:30:00Z"}]}'
+
+# 3) Upload a report. The original is stored immediately; its extracted text follows shortly after.
+curl $BASE/files -H "Authorization: Bearer $KEY" -F "user=alice" -F "file=@report.pdf"
+
+# 4) Agent API (Responses)
+curl $BASE/responses \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"model":"mirobody-flash","input":"How is my fasting glucose trending?","user":"alice"}'
+```
+
+## Python (OpenAI SDK)
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ["MIROBODY_API_KEY"], base_url=os.environ["MIROBODY_API_BASE"])
+
+# Answers API — non-streaming
+resp = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "How is my fasting glucose trending?"}],
+    user="alice",
+)
+print(resp.choices[0].message.content)
+
+# Answers API — streaming
+stream = client.chat.completions.create(
+    model="mirobody-flash",
+    messages=[{"role": "user", "content": "Summarize my last checkup."}],
+    user="alice",
+    stream=True,
+)
+for chunk in stream:
+    delta = chunk.choices[0].delta
+    if getattr(delta, "content", None):
+        print(delta.content, end="", flush=True)
+
+# Agent API (Responses) — stored by default, chainable
+r1 = client.responses.create(model="mirobody-flash",
+                             input="How is my fasting glucose trending?", user="alice")
+print(r1.output_text)
+r2 = client.responses.create(model="mirobody-flash",
+                             input="And compared with last quarter?",
+                             previous_response_id=r1.id, user="alice")
+print(r2.output_text)
+```
+
+```python
+# File upload uses multipart, so call the REST endpoint directly.
+# status="processed" means the original was accepted, not that text extraction is finished.
+import os
+import requests
+
+up = requests.post(
+    f'{os.environ["MIROBODY_API_BASE"]}/files',
+    headers={"Authorization": f'Bearer {os.environ["MIROBODY_API_KEY"]}'},
+    data={"user": "alice"},
+    files={"file": open("report.pdf", "rb")},
+)
+print(up.json())   # {"object": "file", "id": "...", "filename": "report.pdf",
+                   #  "bytes": 20544, "status": "processed", "created_at": 1782924296,
+                   #  "subject": "alice"}
+```
+
+## openai-agents SDK (your tools + Mirobody's agent)
+
+The [openai-agents SDK](https://github.com/openai/openai-agents-python) works against the [Agent API](/en/api-reference/responses) by changing only the base URL:
+
+```python
+import os
+from agents import Agent, ModelSettings, Runner, function_tool, set_default_openai_client, set_tracing_disabled
+from openai import AsyncOpenAI
+
+set_default_openai_client(AsyncOpenAI(
+    base_url=os.environ["MIROBODY_API_BASE"], api_key=os.environ["MIROBODY_API_KEY"]))
+set_tracing_disabled(True)   # tracing would call api.openai.com
+
+@function_tool
+def book_appointment(date: str) -> str:
+    """Book a clinic appointment for the end user (ISO date)."""
+    return f"Booked: {date} 09:30, Dr. Chen"
+
+agent = Agent(name="Health assistant", model="mirobody-flash", tools=[book_appointment],
+              model_settings=ModelSettings(extra_body={"user": "alice"}))
+result = Runner.run_sync(agent, "Check my recent glucose and book a follow-up if it's trending up.")
+print(result.final_output)
+```
+
+See [Function calling](/en/api-reference/function-calling) for the underlying handoff protocol.
+
+## Node.js (OpenAI SDK)
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.MIROBODY_API_KEY,
+  baseURL: process.env.MIROBODY_API_BASE,
+});
+
+// Answers API — non-streaming
+const resp = await client.chat.completions.create({
+  model: "mirobody-flash",
+  messages: [{ role: "user", content: "How is my fasting glucose trending?" }],
+  user: "alice",
+});
+console.log(resp.choices[0].message.content);
+
+// Answers API — streaming
+const stream = await client.chat.completions.create({
+  model: "mirobody-flash",
+  messages: [{ role: "user", content: "Summarize my last checkup." }],
+  user: "alice",
+  stream: true,
+});
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}
+
+// Agent API (Responses)
+const r = await client.responses.create({
+  model: "mirobody-flash",
+  input: "How is my fasting glucose trending?",
+  user: "alice",
+});
+console.log(r.output_text);
+```
+
+More: [Answers API](/en/api-reference/chat) · [Agent API](/en/api-reference/responses) · [Structured Records](/en/api-reference/data) · [Files / Photos](/en/api-reference/files) · [Standardize](/en/api-reference/extract).
+
+## See also
+
+- [Quickstart](/en/api-reference/quickstart) — the same calls with the setup around them.
+- [Agent API (Responses)](/en/api-reference/responses) — the request and response objects in full.
+- [Use the Answers API as a Tool](/en/api-reference/use-as-a-tool) — calling Mirobody from inside another agent.

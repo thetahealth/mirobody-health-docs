@@ -1,0 +1,116 @@
+---
+title: "自部署 Mirobody"
+description: "在你自己的机器或服务器上运行开源引擎：三种运行方式、各阶段所在的位置，以及一套部署对外提供什么。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+凡是能运行 Python <Fact k="python" /> 或 Docker 的地方都能运行 Mirobody：笔记本、本地服务器或云主机。引擎以 Apache 2.0 许可开源，仓库是 [thetahealth/mirobody](https://github.com/thetahealth/mirobody)，它保存的数据留在你自己运维的 Postgres 里。Mirobody 是什么，以及自部署与 Mirobody Cloud 的区别，见[概览](/zh)。
+
+## 运行方式
+
+按你的目的选一行即可，三者是互相替代的选择，不是先后步骤。
+
+| 你想要 | 方式 | 需要 | 模型密钥 |
+| --- | --- | --- | --- |
+| 在自己的代码里解析指标名称与单位 | [作为库使用](/zh/quickstart#a--the-library) | Python <Fact k="python" /> | 不需要 |
+| 运行完整产品，并带有演示数据 | [Docker 栈](/zh/quickstart#b--the-stack) | Git、Git LFS、带 Compose 的 Docker | 使用模型功能时需要一个 |
+| 修改代码并查看效果 | [源码检出](/zh/quickstart#c--a-checkout) | Python 与带 pgvector 的 Postgres | 使用模型功能时需要一个 |
+
+Docker 栈由四个容器组成：带 pgvector 的 Postgres、Redis、服务端与后台 worker。自带的 Web 客户端运行在 <Fact k="url" code />。
+
+## 第一次在本地运行
+
+安装 Git、Git LFS 和 Docker Compose 后，启动**本地演示环境**：
+
+```bash
+git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
+git lfs install && git lfs pull
+./deploy.sh
+```
+
+脚本会创建使用公开验证码的演示账号，并预置样例读数。查看这些读数不需要模型密钥；文件提取与智能体回答则需要在 `.env` 中写入一个受支持的密钥。脚本随后持续显示服务日志；它显示 `Up` 后，让这个终端保持运行，在引擎仓库目录另开一个终端：
+
+```bash
+docker compose ps
+curl -fsS http://localhost:18060/api/health
+docker compose exec mirobody python -m mirobody doctor
+```
+
+`mirobody` 服务应变为 `healthy`；健康检查会返回 `version` 和 `agent`。最后一条命令在**容器内**检查模型功能是否可用；只有在宿主机另行安装 Python 包时，才能直接运行宿主机上的 `mirobody doctor`。如果启动后才把模型密钥写入 `.env`，先运行 `docker compose restart` 再检查。
+
+打开 <Fact k="url" code />，以 `you@mirobody.ai` 和验证码 `111111` 登录，到 **Data** 查看预置读数。三条运行路径的完整说明与演示上传文件见[快速开始](/zh/quickstart#b--the-stack)。准备保存真实记录时，请在生产部署**首次启动前**按照[在服务器上部署](/zh/deployment/production)设置。如果已经运行过演示，请按该页的[已有演示环境路径](/zh/deployment/production#after-a-local-demo)使用全新数据卷。
+
+自部署的记录保存在你运维的 Postgres 和文件存储中。文件提取与智能体回答会把数据发送给你配置的模型服务商；启用这些功能前，请确认该服务商对健康数据的处理方式。
+
+## 三个阶段所在的位置
+
+代码包与本文档按同样的三个阶段组织。
+
+| 阶段 | 代码包 | 相关页面 |
+| --- | --- | --- |
+| ① 收集 | `mirobody/collect/` | [设备 Provider](/zh/providers/using-providers)、[Apple Health](/zh/providers/apple-health)、[文件处理](/zh/concepts/file-processing) |
+| ② 转译 | `mirobody/engine.py`、`mirobody/translate/` | [标准化](/zh/concepts/indicators)、[设备字段对照](/zh/concepts/device-crosswalk) |
+| ③ 智能体 | `mirobody/agent/` | [内置 Agent](/zh/tools/agents)、[健康数据工具](/zh/tools/overview)、[MCP 接入](/zh/tools/mcp-integration) |
+
+一条读数如何依次经过这三个阶段，见[数据管线](/zh/concepts/architecture)；目录结构见[仓库结构](/zh/concepts/repository-layout)。
+
+## 部署对外提供的入口
+
+| 入口 | 地址 | 使用者 |
+| --- | --- | --- |
+| Web 客户端 | `/` | 终端用户：在 `/data` 管理文档与读数，在 `/ask` 向 agent 提问，以及关爱圈共享 |
+| HTTP API | `/api/*` | 你自己的应用，面向你运行的这套部署 |
+| MCP 端点 | `/mcp` | Claude Desktop、Cursor 或你自己的 agent 循环，见 [MCP 接入](/zh/tools/mcp-integration) |
+
+自部署的引擎不提供 Cloud 的 `/v1` 接口。那一套接口在云端标签页中说明，上表列出的是引擎自身的路由。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="快速开始" icon="rocket" href="/zh/quickstart">
+    安装库、启动整套服务，或运行源码检出。
+  </Card>
+  <Card title="配置" icon="sliders" href="/zh/configuration">
+    模型密钥、配置文件，以及部署时需要修改的设置。
+  </Card>
+  <Card title="完整演示" icon="play" href="/zh/walkthrough">
+    用四个场景走完运行中的整套系统，使用演示数据。
+  </Card>
+  <Card title="在服务器上部署" icon="server" href="/zh/deployment/production">
+    生产模式、密钥、HTTPS 与部署验证。
+  </Card>
+  <Card title="升级部署" icon="arrow-up" href="/zh/deployment/upgrade">
+    备份、核对版本、升级并验证运行中的服务。
+  </Card>
+  <Card title="核验与恢复备份" icon="database" href="/zh/deployment/restore">
+    演练恢复，或恢复 Postgres 与本地上传文件。
+  </Card>
+</CardGroup>
+
+部署无法正常启动时，[排错](/zh/troubleshooting)列出了常见原因与处理方法。
+
+## 参与贡献 {#contributing}
+
+最有价值的贡献是修正解析器解析错的术语。运行 `mirobody resolve "<术语>"`，如果结果错误或为空，可以提交 issue，或者在 <OssLink path="mirobody/res/resolver_overrides.tsv" /> 中加一行，并在 <OssLink path="mirobody/tests/test_engine_coverage.py" /> 中加一个用例。覆盖率得分就是评审标准。
+
+开发环境安装测试依赖后，运行测试套件与导入约束检查：
+
+```bash
+pip install -e '.[test]' && pytest -q && lint-imports
+```
+
+完整的贡献流程见 <OssLink path="CONTRIBUTING.md" />，测试的组织方式见 <OssLink path="docs/testing.md" />。
+
+<CardGroup cols={2}>
+  <Card title="GitHub 仓库" icon="github" href="https://github.com/thetahealth/mirobody">
+    源码、issue 与 pull request。
+  </Card>
+  <Card title="报告问题" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
+    解析出错的化验单是很有价值的 issue，请附上去除个人信息后的样本。
+  </Card>
+</CardGroup>
+
+安全问题请通过私密安全通告提交，不要公开提 issue，见 <OssLink path="SECURITY.md" />。

@@ -1,0 +1,101 @@
+---
+title: "结构化输出"
+description: "text.format：在 backbone 模式下把模型输出约束为 JSON（json_object）或 JSON Schema（json_schema）。"
+---
+
+import RegionShell from '/snippets/zh/region-shell.mdx';
+
+<RegionShell />
+
+在 [`POST /v1/responses`](/zh/api-reference/responses) 上用 `text.format` 请求 JSON 输出。它采用 [OpenAI Responses `text.format` 形状](https://platform.openai.com/docs/api-reference/responses/create#responses-create-text)，**仅在 [backbone 模式](/zh/api-reference/backbone-mode)（`mode:"model"`）下可用**。
+
+<Warning>
+`text.format` 需要 `mode:"model"`。在默认的 agent 模式下它返回 `400 unsupported_parameter`（`param: "text"`）。Answers API（`/v1/chat/completions`）同样以 `400` 拒绝 `response_format`。
+</Warning>
+
+## `json_object`
+
+把输出约束为语法合法的 JSON 对象（无 schema）：
+
+```jsonc
+{
+  "model": "mirobody-flash",
+  "mode": "model",
+  "input": "Reply with a JSON object having keys a and b.",
+  "text": { "format": { "type": "json_object" } }
+}
+```
+
+消息文本是一个由你自行解析的 JSON 字符串：
+
+```jsonc
+{ "output_text": "{\"a\":1,\"b\":2}", "status": "completed", ... }
+```
+
+## `json_schema`
+
+请求输出符合你提供的 schema。`strict: true` 会透传给原生支持 JSON Schema 的 provider：
+
+<CodeGroup>
+```bash curl
+curl "$MIROBODY_API_BASE/responses" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "mirobody-flash",
+        "mode": "model",
+        "input": "Give me a manifest for apples with count 3.",
+        "text": {
+          "format": {
+            "type": "json_schema",
+            "name": "manifest",
+            "strict": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "item":  { "type": "string" },
+                "count": { "type": "integer" }
+              },
+              "required": ["item", "count"],
+              "additionalProperties": false
+            }
+          }
+        }
+      }'
+```
+
+```python Python (OpenAI SDK)
+from openai import OpenAI
+
+client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
+
+resp = client.responses.create(
+    model="mirobody-flash",
+    extra_body={"mode": "model"},
+    input="Give me a manifest for apples with count 3.",
+    text={
+        "format": {
+            "type": "json_schema",
+            "name": "manifest",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {"item": {"type": "string"}, "count": {"type": "integer"}},
+                "required": ["item", "count"],
+                "additionalProperties": False,
+            },
+        }
+    },
+)
+print(resp.output_text)   # {"item":"apples","count":3}
+```
+</CodeGroup>
+
+## Provider 降级
+
+`text.format` 透传给底层模型。如果 provider 拒绝原生 `json_schema`，Mirobody 会用 `json_object` 加系统提示中的 schema 自动重试一次。该降级会引导模型生成目标形状，但**不会**在服务端按你的 schema 校验结果。使用 `output_text` 前请自行解析并校验。
+
+## 另见
+
+- [Backbone 模式](/zh/api-reference/backbone-mode)：`mode:"model"`，`text.format` 的前置条件。
+- [Function calling](/zh/api-reference/function-calling)：需要约束工具参数时，把 `text.format` 与 `tool_choice:"required"` 搭配使用。

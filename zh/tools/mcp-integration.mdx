@@ -1,0 +1,96 @@
+---
+title: "MCP 接入"
+description: "把 Claude Desktop、Cursor 或你自己的 agent 接入自部署的引擎：/mcp 端点、个人 URL，以及每个账号能看到的工具。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+自带 agent 使用的每个工具，也都通过 Model Context Protocol 在 **`/mcp`** 上提供。Claude Desktop、Cursor 或你自己的 agent 循环等 MCP 客户端，调用的是同一组工具、读取的是同一份记录，得到的读数也相同。
+
+## 端点
+
+| 路由 | 识别调用者的方式 | 用途 |
+| --- | --- | --- |
+| `POST /mcp` | `Authorization: Bearer <access token>` | 能发送请求头的客户端 |
+| `POST /mcp/<secret>` | 路径中的 secret | 个人 URL，供无法发送请求头的客户端使用 |
+| `POST /personal/mcp` | `Authorization: Bearer <access token>` | 生成调用者的个人 URL；对同一路由发送 `DELETE` 即吊销 |
+
+设置了 `HTTP_URI_PREFIX` 时，三个路由都位于该前缀之下。在 Docker 栈上，服务端监听端口 <Fact k="port" />。
+
+## 个人 MCP URL
+
+个人 URL 自带凭据，桌面客户端因此不需要走登录流程。Web 客户端在**设置 → MCP** 中显示它；你自己的客户端可以用已持有的 access token 生成：
+
+```bash
+# 用演示账号登录（真实部署按其用户的方式登录）
+TOKEN=$(curl -s -X POST http://localhost:18060/email/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "you@mirobody.ai", "code": "111111"}' | jq -r .data.access_token)
+
+curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{ "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
+```
+
+在有效期内再次生成，返回的是同一个 URL。它在 `MCP_URL_TTL_DAYS` 天后过期（默认 <Fact k="mcpUrlTtlDays" /> 天）。`DELETE /personal/mcp` 会吊销它，之后再生成会得到新的 secret。
+
+<Warning>
+secret 就是完整的凭据：任何持有这个 URL 的人都能读取对应那个人的健康记录。它会出现在客户端配置文件和截图里，所以请像对待密码一样对待它：设备丢失时吊销；部署可从网络访问后，只通过 HTTPS 提供。
+</Warning>
+
+URL 的开头是请求到达时使用的源。位于反向代理之后时，只有服务端信任代理转发的请求头，这个源才正确，见[在服务器上部署](/zh/deployment/production#public-url-and-https)。
+
+## 账号能看到的工具
+
+端点提供以下工具：
+
+<Fact k="tools.mcp" code sep="、" />
+
+`tools/list` 按账号过滤：账号中没有某类数据时，对应的数据工具会被隐藏，客户端因此不会看到一个只能回答“没有数据”的工具。参与过滤的是 <Fact k="tools.gated" code sep="、" />。每个工具接受什么参数、返回什么，见[健康数据工具](/zh/tools/overview)；你自己添加的工具也以同样方式提供，见[添加工具](/zh/tools/adding-tools)。
+
+仅用于对话的工具（文件工具、`eval` 与 `ask_user`）不通过 MCP 提供。
+
+## 连接客户端
+
+把下文中的 URL 换成你的个人 URL。
+
+<Tabs>
+  <Tab title="Cursor">
+    Cursor 可以直接连接远程服务。在 `~/.cursor/mcp.json` 或项目中的 `.cursor/mcp.json` 里添加：
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": { "url": "http://localhost:18060/mcp/<secret>" }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http mirobody http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
+  <Tab title="Claude Desktop">
+    Claude Desktop 以自定义连接器的方式添加远程服务，需要一个它能访问到的 HTTPS 地址。对于运行在你自己机器上的引擎，请改为在 `claude_desktop_config.json` 中通过 stdio 桥接：
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": {
+          "command": "npx",
+          "args": ["-y", "mcp-remote", "http://localhost:18060/mcp/<secret>"]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+你自己的 agent 循环可以用任意 MCP 客户端库调用该端点。服务端使用当前的无状态协议版本，并能为仍使用 `initialize` 握手的客户端协商降级。
+
+协议实现与按账号过滤的逻辑位于 <OssLink path="mirobody/mcp/" />。

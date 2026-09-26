@@ -1,0 +1,55 @@
+---
+title: "内置 Agent"
+description: "引擎自带的唯一一个 agent：每一轮对话能使用什么、配置它的键，以及如何替换它。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+引擎自带一个 agent。它回答在 Web 客户端 `/ask` 页面和对话 API 中提出的问题，依据的是问题所涉及那个人的已编码记录。要增加能力，应当添加一个[工具](/zh/tools/adding-tools)，而不是再加一个 agent。
+
+自带 agent 以外的所有 agent 运行时（Claude Desktop、Cursor、你自己的 agent 循环）都通过 [MCP 端点](/zh/tools/mcp-integration)读取同一份数据，不需要本页的任何内容。
+
+## 每一轮能使用的能力
+
+| | 说明 |
+| --- | --- |
+| 健康数据工具 | <Fact k="tools.mcp" code sep="、" />：与任何 MCP 客户端通过 `/mcp` 看到的是同一组工具，见[健康数据工具](/zh/tools/overview) |
+| 虚拟文件系统 | `/uploads`、`/library` 与 `/memories`：此人文件与档案的只读视图，配有列出、读取与搜索文件的工具 |
+| 代码执行 | `eval` 工具，在沙箱中运行 JavaScript，沙箱内也能调用数据工具 |
+| 向用户提问 | `ask_user`：暂停本轮并向用户提一个问题，用户的下一条消息就是回答。它不会通过 MCP 暴露。 |
+| 记忆 | 按会话保存的对话状态，存放在 Postgres 中 |
+
+每个回答都以带类型的块流式返回（文本、推理、工具调用及其结果、用量），客户端因此可以展示回答背后的工具调用过程。
+
+## 配置 {#configuration}
+
+agent 的配置键不带 agent 名后缀。随仓库提供的值在 `config.llm.yaml` 中，请在覆盖文件里覆盖。
+
+| 键 | 作用 |
+| --- | --- |
+| `MODELS` | 模型选择器：每个对话模型一条。`/api/models` 列出有密钥的条目，对话请求按名称选择其中之一。 |
+| `DEFAULT_MODEL` | 选择器的默认模型；不设置时取第一个有密钥的条目 |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 工具白名单或黑名单，白名单优先。把 `eval` 写进 `DISALLOWED_TOOLS` 即关闭代码执行。 |
+| `PROMPTS` | 系统提示词模板，写法为路径或 `path@name`；第一个是默认值 |
+| `AGENT_NAME` | 提示词中使用的角色名 |
+| `AGENT_CHECKPOINTER` | `true` 按会话保留对话状态；`false` 让每一轮都从头开始 |
+
+模型的选择与密钥见[配置](/zh/configuration#the-model-key)。
+
+## 替换 agent {#replacing-the-agent}
+
+agent 只有一个位置。替换来自两处：声明了 `mirobody.agents` 入口点的已安装包，或 `AGENT_DIRS` 中列出的目录；找到的第一个定义了 `generate_response` 的类，就成为该进程的 agent。无需修改代码包的任何内容。
+
+约定只有两个方法。`generate_response` 接收本轮所涉及的用户（已经过授权，可能是关爱圈成员而不是调用者本人）、本轮的消息，以及 `language`、`session_id`、`timezone` 等关键字参数；它产出的块与自带 agent 流式返回的相同。请接受 `**kwargs`，因为对话层可能会新增参数。
+
+```python
+class MyAgent:
+    def __init__(self, **kwargs): ...
+
+    async def generate_response(self, user_id: str, messages: list[dict], **kwargs):
+        yield {"type": "text", "text": "..."}
+```
+
+如果想在自带的中间件与文件系统后端之上构建另一套 harness，请安装 `mirobody[agent]`。完整约定、块的类型定义与最小示例插件见 <OssLink path="mirobody/agent/README.md" />。

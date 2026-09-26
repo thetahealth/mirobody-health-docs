@@ -1,0 +1,90 @@
+---
+title: "核验与恢复备份"
+description: "把自部署备份恢复到临时数据库以核验，并在需要时恢复 Postgres 与本地上传文件。"
+---
+
+import { OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+本文是引擎[备份与恢复参考](/zh/deployment/backup)的中文操作路径。请在运行 Docker 栈的引擎仓库目录执行命令。备份文件要与对应的 `.env`、配置覆盖文件、`.key.yaml` 文件和 `compose.override.yaml` 一起放在受保护的位置。上传文件存于外部对象存储时，还须单独备份该存储桶。
+
+## 创建并核验备份
+
+保持 `pg` 服务运行，执行备份脚本，并把结果复制到主机外：
+
+```bash
+git rev-parse HEAD    # 将此提交号与本批备份一起记录
+shell/backup.sh
+```
+
+把输出的提交号与本批数据库归档、上传文件归档和密钥文件放在一起；备份脚本不会把代码版本嵌入归档。
+
+脚本运行 `pg_dump -Fc`，用 `pg_restore --list` 检查归档的**目录**是否可读；如果有本地上传文件卷，也会将其归档。这个检查能发现当时的空归档或不可读归档，**不能**证明每张表和每个文件都可恢复。恢复演练才能提供更强的验证。
+
+检查数据库备份时，在引擎仓库目录选择要测试的归档并执行下列命令。命令会创建一个临时数据库，运行中的应用仍使用原数据库：
+
+```bash
+backup_file="backups/mirobody-db-YYYYMMDD-HHMMSS.dump"  # 换成实际文件
+check_db="mirobody_restore_check_$(date +%Y%m%d%H%M%S)"
+docker compose cp "$backup_file" pg:/tmp/restore-check.dump
+docker compose exec -T pg pg_restore --list /tmp/restore-check.dump > /dev/null
+docker compose exec -T pg createdb -U holistic_user "$check_db"
+docker compose exec -T pg pg_restore -U holistic_user -d "$check_db" --no-owner /tmp/restore-check.dump
+docker compose exec -T pg psql -U holistic_user -d "$check_db" -c \
+  "select count(*) from information_schema.tables where table_schema='theta_ai'"
+```
+
+表数量应大于零。还应在**隔离的测试部署**中检查有代表性的记录；只数表，不能证明数据和上传文件可用。临时数据库不再需要时，明确删除它：
+
+```bash
+docker compose exec -T pg dropdb -U holistic_user "$check_db"
+```
+
+如果使用本地上传文件，替换文件名后运行 `tar tzf backups/mirobody-uploads-YYYYMMDD-HHMMSS.tar.gz` 检查归档目录。外部对象存储桶也需要单独演练恢复。
+
+做**完整恢复演练**时，使用受保护、与生产隔离的测试主机：克隆与备份匹配的代码版本，按[在服务器上部署](/zh/deployment/production)配置一套不对公网开放的新部署，把备份及匹配的密钥与配置复制过去。启动空栈后，在**测试主机**执行下方的[恢复部署](#recover-a-deployment)命令，同时恢复上传文件归档或外部存储桶。登录后打开一条有代表性的记录与一个已恢复的上传文件，并检查健康接口。测试不能共用生产的数据卷或网络。上面的临时数据库检查更快，但不能代替完整演练。
+
+## 恢复部署 {#recover-a-deployment}
+
+先停止应用写入，但保持 Postgres 运行。将示例备份名换为实际文件：
+
+```bash
+docker compose stop mirobody mirobody_worker
+docker compose cp backups/mirobody-db-YYYYMMDD-HHMMSS.dump pg:/tmp/restore.dump
+docker compose exec -T pg createdb -U holistic_user holistic_db_restored
+docker compose exec -T pg pg_restore -U holistic_user -d holistic_db_restored --no-owner /tmp/restore.dump
+docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
+  "select count(*) from information_schema.tables where table_schema='theta_ai'"
+```
+
+新数据库不会覆盖旧数据库；如果 `holistic_db_restored` 已存在，请另选数据库名。把当前 `config.prod.yaml`（或 `ENV` 选择的覆盖文件）中的 `PG_DBNAME` 设为 `holistic_db_restored`。启动应用前，恢复**与备份匹配的加密密钥和配置**；用新生成的密钥无法读取原先的加密记录。
+
+如果文件存放在本地，先用 `docker volume ls` 查实际上传卷名称。仓库目录名为 `mirobody` 时，通常是 `mirobody_mirobody_upload`。恢复前确认数据卷已经存在；否则 `docker run -v` 会悄悄创建空卷。把同一批次的文件归档恢复进该卷：
+
+```bash
+upload_volume=mirobody_mirobody_upload  # 换成查到的数据卷名
+docker volume inspect "$upload_volume"
+docker run --rm \
+  -v "$upload_volume":/data \
+  -v "$PWD/backups":/backup \
+  alpine tar xzf /backup/mirobody-uploads-YYYYMMDD-HHMMSS.tar.gz -C /data
+```
+
+按实际部署替换卷名和归档名。如果上传文件使用外部对象存储桶，则改按该服务商的流程恢复存储桶。**启动之前**，如果这是回滚到较早版本，请在应用仍停止时切回备份记录的提交：
+
+```bash
+backup_ref="PASTE_RECORDED_COMMIT_HERE"  # 仅回滚时需要
+git fetch --tags origin
+git checkout "$backup_ref"
+```
+
+确认当前覆盖文件、`.env` 与加密密钥都和恢复的数据匹配，然后启动应用：
+
+```bash
+docker compose up -d
+docker compose ps
+curl -fsS http://127.0.0.1:18060/api/health
+```
+
+在 Web 客户端打开一条恢复的记录，以及适用时的一个上传文件。Schema 升级没有自动回退操作；只切回旧代码，可能让旧版读取新版数据库。参阅[升级部署](/zh/deployment/upgrade)。

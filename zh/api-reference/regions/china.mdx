@@ -1,0 +1,30 @@
+---
+title: "中国区"
+description: "中国区生产端点与区域差异。"
+---
+
+中国区已上线，拥有独立的主机与存储。
+
+## 服务地址
+
+| 角色 | 地址 |
+| --- | --- |
+| API（`base_url`） | `https://api.mirobody.cn/v1` |
+| 开发者控制台 | `https://platform.mirobody.cn/` |
+| 网页应用 | `https://chat.mirobody.cn/` |
+
+## API 契约
+
+中国区部署提供与全球集群一致的稳定 `/v1` 资源：Models、Answers、Agent、Data、Standardize、Files、Sessions 与 Subjects。模型提供方与定价因区域不同，因此客户端必须从实际调用的集群读取 [`GET /v1/models`](/zh/api-reference/models)。
+
+## 区域选择
+
+按数据处理位置选择集群：`https://api.mirobody.cn/v1` 在中国区域环境处理数据，`https://api.mirobody.ai/v1` 在全球环境处理数据。
+
+发送受监管数据前，请先审查[隐私与合规](/zh/api-reference/compliance)中的控制。
+
+## 另见
+
+- [区域概览](/zh/api-reference/regions/overview)：全部集群及其状态。
+- [全球集群](/zh/api-reference/regions/global)：另一个生产集群。
+- [隐私与合规](/zh/api-reference/compliance)：区域处理与合规资料。

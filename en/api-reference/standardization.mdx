@@ -1,0 +1,84 @@
+---
+title: "How Standardization Works"
+description: "How structured readings become coded, unit-normalized, queryable data."
+---
+
+import RegionShell from '/snippets/region-shell.mdx';
+
+<RegionShell />
+
+Health data arrives messy — "血糖(空腹)", "FBG", "Glucose, fasting" all name the same indicator, and the units vary just as much. Mirobody standardizes every **structured reading** written through [`POST /v1/data`](/en/api-reference/data) or stored by [`POST /v1/standardize`](/en/api-reference/extract), so the agent and your queries see one coherent, coded dataset.
+
+[`POST /v1/files`](/en/api-reference/files) is a separate storage and text-extraction surface; uploading a file standardizes its report values into structured readings automatically. `/v1/standardize` is the explicit path for that same extraction — use it to inspect the result (dry-run), or to standardize `text` / `file_key` sources on demand.
+
+## The pipeline
+
+Both a document and a structured record enter the same pipeline:
+
+<Steps>
+  <Step title="Read the source">
+    PDF / image → text (OCR); Excel → rows.
+  </Step>
+  <Step title="Pull out readings">
+    Find each `{indicator, value, unit, date}`. Documents only — a `/v1/data` record is already structured and skips straight to coding.
+  </Step>
+  <Step title="Code the indicator">
+    Match the name to a LOINC code. With no confident match, `loinc_code` stays `null` — never a wrong code.
+  </Step>
+  <Step title="Normalize the unit">
+    Fold the unit spelling to one UCUM form and parse the value to a number: `"mg/dl"` → `mg/dL`.
+  </Step>
+  <Step title="Store as one series">
+    One row per reading on the Subject's timeline, queryable by indicator, code and date.
+  </Step>
+</Steps>
+
+The important part is step 3: **codes are matched, never invented.** A model is great at *reading* a document but shouldn't be trusted to *recite* a code system — a wrong LOINC code is worse than none. So when the match isn't confident, Mirobody keeps the raw name and leaves `loinc_code` null rather than guess.
+
+When self-hosting, the engine runs the same stages on your own infrastructure. How a reading passes through them, from the device connection to the answer, is described in [The Pipeline](/en/concepts/architecture).
+
+## Before / after
+
+What you send to `/v1/data` (or what `/v1/standardize` reads from a report) vs. what the structured store holds:
+
+| | Before (as written) | After (standardized) |
+| --- | --- | --- |
+| Indicator | `"血糖(空腹)"` / `"FBG"` / `"Glucose, fasting"` | `loinc_code: "1558-6"`, `canonical_name: "Fasting glucose [Mass/volume] in Serum or Plasma"` |
+| Value | `"97 mg/dL"` (one string) | `value: "97"` (raw value, no unit), `parsed_value: "97"`, `parsed_unit: "mg/dL"` (UCUM) |
+| Unit spelling | `"mg/dl"`, `"MG/DL"`, `"mg/dL"` | `"mg/dL"` (one UCUM form) |
+| Interop | free text | LOINC code + UCUM unit, the vocabularies FHIR itself uses |
+| Original | — | **kept**: `value` holds the raw value as written (e.g. `97`, no unit appended — the unit rides in `parsed_unit`); raw names/units preserved |
+
+Three spellings of the same test become **one series** — trend queries, the agent's data tools, and your own analytics all see it as one indicator.
+
+## Standardized output in the API
+
+| Surface | What appears |
+| --- | --- |
+| [`POST /v1/data`](/en/api-reference/data) | Response counts `standardized` alongside `ingested`. |
+| [`GET /v1/data`](/en/api-reference/data#read-records) | Every row carries `parsed_value` / `parsed_unit` / `loinc_code` / `canonical_name`, plus the reference range and `abnormal` flag when the source carried them. |
+| [`POST /v1/standardize`](/en/api-reference/extract) | The whole pipeline as a synchronous call — **dry-run by default**, so you can inspect standardization before committing a write. |
+| The agent | Grounded answers query the standardized series — which is why "how's my glucose?" finds records written as "FBG". |
+
+## Cookbook: one call, report → structured data
+
+```bash
+# Inspect first (nothing persisted) …
+curl "$MIROBODY_API_BASE/standardize" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf"
+
+# … then commit the same extraction
+curl "$MIROBODY_API_BASE/standardize" \
+  -H "Authorization: Bearer $MIROBODY_API_KEY" \
+  -F "user=alice" -F "file=@lab_report.pdf" \
+  -F "store=true" -F "retention=permanent"
+```
+
+See [Standardize a report](/en/api-reference/extract) for the full row shape (`indicator_raw`, `loinc_code`, `confidence`, …).
+
+## See also
+
+- [Structured Records](/en/api-reference/data) — the endpoint most writes go through.
+- [Narrative Text & Reports](/en/api-reference/extract) — running the same pipeline on a document.
+- [Models](/en/api-reference/models) — what the answer layer runs on.

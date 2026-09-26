@@ -1,0 +1,13 @@
+# Files in this repository that are not pages of the site.
+node_modules/
+vendor/
+internal/
+scripts/
+.github/
+README.md
+CLAUDE.md
+LICENSE
+oss.lock
+oss-map.json
+package.json
+package-lock.json

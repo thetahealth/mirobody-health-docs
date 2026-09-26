@@ -1,0 +1,99 @@
+---
+title: "快速开始"
+description: "运行 Mirobody 的三种方式：作为库、完整的 Docker 栈、源码检出，以及各自需要什么。"
+source: "docs/quickstart.md@db7c5054f9ccc899c1591492206f0ec9bbc485d4"
+---
+
+import { OssSource } from "/snippets/oss-facts.jsx";
+
+{/* 译自 thetahealth/mirobody 的 docs/quickstart.md，对应提交见 frontmatter 的 source。源文件在上游变化后，check:freshness 会失败，请同步更新译文与 source。标题 id 与英文页保持一致。 */}
+
+<OssSource path="docs/quickstart.md" lang="zh" />
+
+三种运行方式，不是三个步骤：选与你的目的相符的那一行，另外两行可以忽略。
+
+| 你想要 | 前往 | 需要 | 密钥 |
+| --- | --- | --- | --- |
+| 在自己的代码里解析名称与单位 | [A · 作为库使用](#a--the-library) | Python 3.12 | 不需要 |
+| 运行完整产品，并带有数据 | [B · 完整的栈](#b--the-stack) | Docker | 一个 |
+| 修改代码并查看效果 | [C · 源码检出](#c--a-checkout) | Python 与一个 Postgres | 一个 |
+
+托管的[快速开始](/zh/quickstart)附有截图，内容相同。本页是随代码发布的版本，因此不会与本仓库中的命令脱节。
+
+## A · 作为库使用 {#a--the-library}
+
+两个包，唯一的依赖是 numpy。不需要密钥、网络或数据库，本机也不运行任何模型：解析器是基于 LOINC 的词法索引，而不是 LLM。
+
+```bash
+pip install mirobody
+mirobody resolve "LDL cholesterol" 血红蛋白 ヘモグロビン 血脂
+```
+
+`血脂` 指的是一类检查，而不是某一项观测，所以它解析不出结果。这是有意的设计：错误的编码会把两项不同的检查放到同一条趋势线上。
+
+读取厂商导出包不需要任何额外依赖，`zipfile` 与 `xml.etree` 都在标准库中：
+
+```bash
+mirobody import apple ~/Downloads/export.zip
+```
+
+其余功能有两个扩展：`pip install 'mirobody[parse]'` 用于把 PDF、照片或表格变成读数（这一项会调用模型，所以需要密钥）；`pip install 'mirobody[app]'` 用于服务端。上面的用法两者都不需要。
+
+## B · 完整的栈 {#b--the-stack}
+
+Postgres + pgvector、Redis、服务端与 worker，演示记录已经预先写入。
+
+```bash
+git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
+git lfs install && git lfs pull   # LOINC 术语包，40 MB；新克隆的仓库里只有一个指针文件
+./deploy.sh                       # → http://localhost:18060
+```
+
+`deploy.sh` 首次运行时会写出一个 `.env`，并在其中生成各项密钥。在这个文件里写入**一个**模型密钥即可，六个中任意一个都行；`mirobody doctor` 会告诉你它启用了哪些用途：
+
+```bash
+mirobody doctor
+```
+
+以 `you@mirobody.ai` 登录，验证码 `111111`，不需要邮件服务。`SEED_DEMO_DATA` 默认开启，两个账号里已经有共 2,019 条读数。如果打算保存真实数据，请在首次启动前把它设为 `false`，两个账号都不会创建。
+
+[`demo/upload/`](https://github.com/thetahealth/mirobody/tree/db7c5054f9ccc899c1591492206f0ec9bbc485d4/demo) 中有四个文件有意没有预先写入，把其中一个拖到 Data 页面，走的就是真实的处理流程，而不是什么都不发生。
+
+## C · 源码检出 {#c--a-checkout}
+
+`serve` 是部署形态：它读取 `config.{ENV}.yaml`，需要 Redis，并要求各项密钥已经存在。`dev` 是同一个服务端，只是在一个进程里运行，上述条件都不需要：没有配置文件，密钥自动生成，Redis 可选。
+
+```bash
+pip install -e '.[app]'
+mirobody dev --pg-url postgres://user:pw@localhost:5432/mirobody
+```
+
+手头没有 Postgres 时：
+
+```bash
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=mirobody \
+    pgvector/pgvector:pg17
+```
+
+必须是 pgvector，不能是普通的 postgres：schema 中有向量列。schema 本身在首次启动时创建。
+
+**`dev` 提供的是 API，不包括 Web 客户端。** 构建好的客户端位于仓库根目录的 `frontend/`，不在包内，所以源码检出里有，`pip install` 安装的没有。`dev` 用于 API、MCP 接口与 agent；需要界面时请用 B。
+
+`dev` 生成的密钥只在本次运行有效：重启后会话与加密的配置值都会失效。在环境变量中设置 `JWT_KEY`、`CONFIG_ENCRYPTION_KEY` 与 `LOG_ENCRYPTION_KEY` 即可保留。
+
+## 无法正常启动时 {#when-it-does-not-come-up}
+
+| 现象 | 原因 |
+| --- | --- |
+| `mirobody doctor` 输出 `keys present : none` | 没有模型密钥。① 收集与 ② 转译照常工作，抽取与回答不可用。 |
+| 新克隆的仓库在查询 LOINC 时报错 | 还没有执行 `git lfs pull`，术语包仍是指针文件。 |
+| `mirobody dev` 退出并要求提供 Postgres | 传入 `--pg-url`，或在环境变量中设置 `PG_URL` / `DATABASE_URL`。 |
+| 服务端已启动，但设备同步从不执行 | Redis 无法连接。其他功能都能平稳降级，唯独厂商数据拉取不能。 |
+| `mirobody serve` 找不到配置 | `config.yaml` 不在 wheel 包中，这正是 `dev` 的用途。 |
+
+## 下一步 {#next}
+
+[仓库结构](/zh/concepts/repository-layout)是整体地图 ·
+[数据管线](/zh/concepts/architecture)说明一条读数经历了什么 ·
+[完整演示](/zh/walkthrough)用四分钟走完运行中的整套系统 ·
+[设备 Provider](/zh/providers/using-providers)介绍如何启用 Garmin、Oura 或 Whoop。

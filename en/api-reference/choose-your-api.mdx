@@ -1,0 +1,27 @@
+---
+title: "Choose Your API"
+description: "Answers API vs Agent API — pick the right surface in one minute."
+---
+
+Mirobody exposes the same grounded health agent through **two surfaces**. Both answer from the Subject's real, standardized health data, and both return the tool trace behind the answer.
+
+Both are **③ Agent**, the third of the engine's three stages (① Collect → ② Translate → ③ Agent). The choice on this page is not *what* you get but *who drives the loop*: the Answers API closes it server-side and hands you a finished answer, while the Agent API leaves it open so your own tools take part. A self-hosted engine draws the same line: its bundled agent closes the loop inside your deployment, while its `/mcp` endpoint lets an agent loop of your own call the same tools. A decision made here carries over if you later [run it yourself](/en/self-host).
+
+<CardGroup cols={2}>
+  <Card title="Answers API" icon="comment-dots" href="/en/api-reference/chat">
+    `POST /v1/chat/completions` — closed, one-shot, evidence-backed completions. No client tools, no state. Drop-in OpenAI swap.
+  </Card>
+  <Card title="Agent API" icon="robot" href="/en/api-reference/responses">
+    `POST /v1/responses` — OpenAI Responses-compatible. Multi-turn state, your own function tools, `response.*` streaming.
+  </Card>
+</CardGroup>
+
+The **Answers API** speaks the older Chat Completions protocol and stays deliberately closed — no client tools, no stored state, `chat.completion.chunk` streaming only. That's what lets it drop into an existing OpenAI integration unchanged, or [wrap as a single tool](/en/api-reference/use-as-a-tool) inside a larger agent. The **Agent API** speaks the newer Responses protocol: state between turns (`store`, `previous_response_id`, `session_id`), your own function tools with a full `function_call` handoff, `response.*` events. It is what the `openai-agents` SDK talks to out of the box — change only the `base_url`.
+
+Everything else is identical: the same server-side grounding over your [standardized data](/en/api-reference/data), the same `mirobody-flash` / `mirobody-expert` models, the same Subject-based tenancy, the same usage accounting.
+
+## See also
+
+- [Answers API (Chat Completions)](/en/api-reference/chat) — the closed, grounded completion.
+- [Agent API (Responses)](/en/api-reference/responses) — the open agent loop.
+- [Quickstart](/en/api-reference/quickstart) — a key, a record and a first answer.

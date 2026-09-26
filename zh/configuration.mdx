@@ -1,0 +1,97 @@
+---
+title: "配置"
+description: "模型密钥、配置从哪些文件读取，以及部署时需要修改的设置。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+配置由一组 YAML 文件加上环境变量组成。随仓库提供的文件已经是可用于本地运行的默认值：部署时把密钥和模型密钥写进 `.env`，在一个覆盖文件里修改少数需要改的设置即可。
+
+## 配置文件
+
+| 文件 | 内容 | 是否修改 |
+| --- | --- | --- |
+| `config.yaml` | 服务端、数据库、登录、扩展目录 | 不修改：在覆盖文件中覆盖它的值 |
+| `config.llm.yaml` | 模型表（`MODELS`），以及每个用途使用哪个模型 | 需要更换模型时 |
+| `config.devices.yaml` | Garmin、Oura、Whoop 的凭据；Google 与 Apple 登录 | 需要启用某个 provider 时 |
+| `config.{ENV}.yaml` | 你的覆盖文件。`./deploy.sh` 首次运行时生成一份，其中带有生成的 `JWT_KEY` | 修改 |
+| `.env` | `ENV`、两个加密密钥，以及模型 API 密钥 | 修改 |
+
+后加载的来源优先：环境变量，其次是覆盖文件，再次是 `config.devices.yaml` 与 `config.llm.yaml`，最后是 `config.yaml`。**字典不会跨文件合并**：覆盖文件里设置的键会替换整个值，所以在覆盖文件里设置 `EMAIL_PREDEFINE_CODES` 会替换掉演示账号，而不是在其后追加。
+
+`ENV` 只决定加载哪个覆盖文件，并标记日志行，本身不带任何行为。生产模式由下文的 `PRODUCTION` 开关声明，而不是由环境名决定。
+
+覆盖文件中，名称含有 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK` 或 `_TOKEN` 的值，会用 `.env` 里的 `CONFIG_ENCRYPTION_KEY` 加密保存。
+
+## 模型密钥 {#the-model-key}
+
+一个密钥即可驱动所有用途。把下列任意一个写进 `compose.yaml` 旁边的 `.env`，然后重启：
+
+<Fact k="llmKeys" code sep="、" />
+
+```bash
+docker compose restart
+```
+
+每个密钥为四个用途各选一个模型：对话（模型选择器）、视觉（化验单照片与扫描页）、文本（指标抽取、文件标题与摘要）、向量（指标检索）。<OssLink path="config.llm.yaml" /> 开头的表格列出了每个密钥选中的模型，以及各密钥的申请地址。DeepSeek 与 Anthropic 不提供向量模型，只配置其中之一时，指标检索使用词法索引。
+
+`mirobody doctor` 会打印找到的密钥和每个用途选中的模型，并对没有可用模型的用途给出修复方法：
+
+```bash
+docker compose exec mirobody python -m mirobody doctor   # Docker 栈
+mirobody doctor                                          # 源码检出或 pip 安装
+```
+
+服务端与 worker 启动时也会在日志中输出同样的报告。
+
+### 更换模型
+
+- **让某个用途改用另一条配置。** `UTILS_VISION_MODEL`、`UTILS_TEXT_MODEL` 和 `UTILS_EMBEDDING_MODEL` 可以取一个条目名、一组条目名（取第一个有密钥的）、`provider/model` 字符串，或一条内联配置。同名环境变量优先于文件，例如 `UTILS_VISION_MODEL=qwen-utils`。
+- **修改对话的默认模型。** `DEFAULT_MODEL` 指定一个 `MODELS` 条目；不设置时，默认取第一个有密钥的条目。
+- **让某个密钥经由另一个网关。** 在 `.env` 中设置 `<PREFIX>_BASE_URL`（`PREFIX` 是密钥名去掉 `_API_KEY`），读取该密钥的所有条目都会改用另一个兼容 OpenAI 的端点，例如 `OPENROUTER_BASE_URL`。Anthropic 自己的 SDK 也读取 `ANTHROPIC_BASE_URL`，如果机器上已经为其他工具设置了它，Mirobody 也会随之改道；`mirobody doctor` 会打印每个用途实际解析到的端点。
+- **接入其他厂商。** 在 `config.llm.yaml` 的 `MODELS` 中新增一条，写明 `llm_type: openai`、`base_url`、`model`，并把 `api_key` 设为保存密钥的 `.env` 变量的*名称*。用于视觉的条目必须声明 `supports_image: true`。请直接加在 `config.llm.yaml` 中：覆盖文件里的 `MODELS` 会替换整张表。
+
+更换向量模型会使已存储的所有向量失效：不同模型生成的向量不能互相比较。
+
+## 部署设置
+
+| 键 | 默认值 | 何时修改 |
+| --- | --- | --- |
+| `PRODUCTION` | `false` | 部署面向你以外的人。此时只要还有预置登录码或任何 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值，服务端就拒绝启动，并且不会写入演示数据。 |
+| `SEED_DEMO_DATA` | `true` | 部署将保存真实数据。在首次启动前于 `.env` 中设为 `false`，两个演示账号都不会创建。 |
+| `EMAIL_PREDEFINE_CODES` | 两个演示账号 | 面向网络部署前一律修改：删除它，改用真实登录。 |
+| `BOOTSTRAP_SCHEMA` | `true` | 你自行管理数据库 schema。为 `true` 时，每次启动都会重放 schema 文件。 |
+| `MCP_PUBLIC_URL` | 未设置 | 部署有公网 HTTPS 地址时，见[在服务器上部署](/zh/deployment/production#public-url-and-https)。 |
+| `MCP_URL_TTL_DAYS` | <Fact k="mcpUrlTtlDays" /> | 需要缩短或延长个人 MCP URL 的有效期（天）。 |
+| `DEFAULT_TIMEZONE` | `America/Los_Angeles` | 用户主要在其他时区。取 IANA 时区名；用户自己的设置优先。 |
+| `HTTP_HEADERS` | 未设置 | 其他源上的浏览器客户端需要 CORS 头。 |
+| `REQUEST_RATE_LIMITER` | 按路径的限额 | 需要调整登录与对话的限流（每分钟请求数）。 |
+| `ENABLE_INDICATOR_EXTRACTION` | `1` | 上传的文件只保存、不抽取读数时设为 `0`。 |
+
+决定 agent 行为的键见[内置 Agent](/zh/tools/agents#configuration)。
+
+## 密钥
+
+| 密钥 | 位置 | 由谁设置 |
+| --- | --- | --- |
+| `CONFIG_ENCRYPTION_KEY`、`LOG_ENCRYPTION_KEY` | `.env` | `./deploy.sh`，首次运行时 |
+| `JWT_KEY` | 覆盖文件 | `./deploy.sh`，在它生成覆盖文件时 |
+| `PG_PASSWORD`、`REDIS_PASSWORD`、`PG_ENCRYPTION_KEY`、`DATABASE_DECRYPTION_KEY` | 覆盖文件 | 你自己。随仓库提供的是 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值。 |
+
+`PG_ENCRYPTION_KEY` 与 `CONFIG_ENCRYPTION_KEY` 是两个不同的值：前者加密存储的内容，例如对话消息与上传的文件。`DATABASE_DECRYPTION_KEY`（十六进制）加密各 provider 保存的设备凭据。不要在不同环境之间复制这些密钥。在 Docker 栈上替换数据库与 Redis 密码的方法，见[在服务器上部署](/zh/deployment/production#secrets)。
+
+## 扩展目录
+
+引擎启动时扫描三组目录。新增一个目录即可扩展引擎，无需修改代码包。
+
+| 键 | 默认值 | 内容 |
+| --- | --- | --- |
+| `MCP_TOOL_DIRS` | `mirobody/agent/tools` | 工具模块，见[添加工具](/zh/tools/adding-tools) |
+| `AGENT_DIRS` | `mirobody/agent` | agent 类，见[内置 Agent](/zh/tools/agents#replacing-the-agent) |
+| `PROVIDER_DIRS` | `mirobody/collect/providers` | 设备 provider，见[编写 Provider](/zh/development/provider-integration) |
+
+在覆盖文件中设置其中任何一项都会替换整个列表，所以请把默认条目和你自己的目录一起写上。已安装的包也可以通过 `mirobody.tools`、`mirobody.agents` 与 `mirobody.providers` 入口点扩展这三项。
+
+所有配置键的完整说明见 <OssLink path="mirobody/utils/config/README.md" />。

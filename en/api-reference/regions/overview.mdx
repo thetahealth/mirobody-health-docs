@@ -1,0 +1,21 @@
+---
+title: "Regions Overview"
+description: "Pick the cluster that matches your users"
+---
+
+Every code sample in these docs uses the global production `base_url`. Regional environments have separate hosts and storage; use only the endpoint enabled for your account and contract.
+
+| Cluster | API base URL | Console | Web app | Status |
+| --- | --- | --- | --- | --- |
+| [🌐 Global](/en/api-reference/regions/global) | `https://api.mirobody.ai/v1` | [platform.mirobody.ai](https://platform.mirobody.ai/) | [chat.mirobody.ai](https://chat.mirobody.ai/) | Live |
+| [🇨🇳 China](/en/api-reference/regions/china) | `https://api.mirobody.cn/v1` | [platform.mirobody.cn](https://platform.mirobody.cn/) | [chat.mirobody.cn](https://chat.mirobody.cn/) | Live |
+| 🇯🇵 Japan | — | — | — | In preparation |
+| 🇪🇺 EU | — | — | — | In preparation |
+
+Call the cluster whose data-processing location fits your users: the China hosts process data in the China-region environment, the global hosts in the global environment. Model providers and pricing differ by region — read `GET /v1/models` from the cluster you call. See [Privacy & Compliance](/en/api-reference/compliance).
+
+## See also
+
+- [Global Cluster](/en/api-reference/regions/global) — hosts and cluster details.
+- [China Region](/en/api-reference/regions/china) — hosts and cluster details.
+- [Privacy & Compliance](/en/api-reference/compliance) — where data is processed, and the paperwork.

@@ -1,0 +1,51 @@
+---
+title: "限流与配额"
+description: "按 key 的请求限流，以及按账户的用量配额。"
+---
+
+两套相互独立的控制机制保护着平台与你的支出，二者都会返回 OpenAI 兼容的错误信封，标准 SDK 能直接读懂它们。
+
+## 请求限流（按 key）
+
+每把 API key 都有一个**每分钟请求数**设置（默认 60）。同一限额适用于所有需要认证的 `/v1` 端点，而不是给每条路径单独分配额度。超出限额会返回 HTTP `429`，并带上 `Retry-After` 与 `X-RateLimit-*` 响应头：
+
+```text
+HTTP/1.1 429 Too Many Requests
+Retry-After: 12
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 12
+```
+
+```json
+{"error": {"message": "Rate limit exceeded: this API key allows 60 requests per minute. Retry after 12s.",
+           "type": "rate_limit_error", "code": "rate_limit_exceeded"}}
+```
+
+可将按 key 的限额视为下限：短时突发可能略微超过，请勿把它当作精确的全局上限。需要提高某 key 的限额，联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
+
+## 账户月度上限
+
+托管环境可按 USD 为账户设置**月度上限**。启用后，当月计量用量一达到上限，需要认证的 `/v1` 请求就会返回 HTTP `429` `insufficient_quota`，直到下一个自然月，或支持人员上调上限：
+
+```json
+{"error": {"message": "You have reached your $5 monthly API usage limit (billed $5.00 this month). It resets next month; contact support to raise it.",
+           "type": "insufficient_quota", "code": "insufficient_quota"}}
+```
+
+上限按**账户名下所有 key 的合计用量**计算。错误消息会返回当前配置的上限与当月计量金额。确认或调整账户上限，请联系 [Mirobody Support](mailto:developer@thetahealth.ai)。
+
+## 客户端节流
+
+同一 key 的合计请求速率应低于其配置的 RPM。流式调用在请求开始时计数。结构化记录应批量写入同一个 `POST /v1/data` 请求（最多 500 条）；文件上传后，在其文本就绪前不要密集轮询。
+
+## 客户端退避
+
+- 收到 `429 rate_limit_exceeded`，**遵守 `Retry-After`**：切勿立即重试；连续两次后退避翻倍，上限 5 分钟。
+- 收到 `429 insufficient_quota`，**不要重试**：配额按月重置或经支持调整；把它反馈给运维方。
+
+## 另见
+
+- [模型](/zh/api-reference/models)：各档的容量与价格。
+- [API 概览](/zh/api-reference/overview)：这些限制返回的错误信封。
+- [流式传输](/zh/api-reference/streaming)：触发限制时流如何结束。
