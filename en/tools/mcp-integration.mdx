@@ -7,7 +7,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-Every tool the bundled agent uses is also served at **`/mcp`**, over the Model Context Protocol. An MCP client such as Claude Desktop, Cursor or an agent loop of your own calls the same tools over the same record, and gets back the same readings.
+The health-data tools used by the bundled agent are also served at **`/mcp`**, over the Model Context Protocol. An MCP client such as Claude Desktop, Cursor or an agent loop of your own calls those tools over the same personal record. A separate stdio server provides terminology tools without a personal record.
 
 ## Endpoints
 
@@ -92,5 +92,24 @@ Replace the URL below with your personal URL.
 </Tabs>
 
 An agent loop of your own calls the endpoint with any MCP client library. The server speaks the current stateless protocol revision and negotiates down for clients that still use the `initialize` handshake.
+
+## Local terminology over stdio
+
+For terminology lookup without a server or personal record, run `uvx mirobody mcp`. It serves MCP over stdio from the published package. If Mirobody is already installed, `mirobody mcp` starts the same server. No database or model key is needed for reading, complaint, indicator or unit standardization.
+
+In a client that starts local MCP processes, use this configuration:
+
+```json
+{
+  "mcpServers": {
+    "mirobody": {
+      "command": "uvx",
+      "args": ["mirobody", "mcp"]
+    }
+  }
+}
+```
+
+This server offers `standardize_reading` for FHIR Observations with LOINC and UCUM codes, `standardize_complaint` for ICPC-3, and `resolve_indicator`, `normalize_unit` and `convert_unit` for terminology lookup. Its `standardize_report` tool reads a PDF, image, spreadsheet or text report; that tool additionally needs the `mirobody[parse]` extra and a configured model key, and sends the document to the chosen model provider. To enable it with uvx, run `uvx --from 'mirobody[parse]' mirobody mcp`. Use the personal URL above when the client needs a person's stored health record.
 
 The protocol implementation and the per-account filter are in <OssLink path="mirobody/mcp/" />.
