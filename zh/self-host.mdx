@@ -52,7 +52,7 @@ docker compose exec mirobody python -m mirobody doctor
 | 阶段 | 代码包 | 相关页面 |
 | --- | --- | --- |
 | ① 收集 | `mirobody/collect/` | [设备 Provider](/zh/providers/using-providers)、[Apple Health](/zh/providers/apple-health)、[文件处理](/zh/concepts/file-processing) |
-| ② 转译 | `mirobody/engine.py`、`mirobody/translate/` | [标准化](/zh/concepts/indicators)、[设备字段对照](/zh/concepts/device-crosswalk) |
+| ② 转译 | `mirobody/engine/`、`mirobody/translate/` | [标准化](/zh/concepts/indicators)、[设备字段对照](/zh/concepts/device-crosswalk) |
 | ③ 智能体 | `mirobody/agent/` | [内置 Agent](/zh/tools/agents)、[健康数据工具](/zh/tools/overview)、[MCP 接入](/zh/tools/mcp-integration) |
 
 一条读数如何依次经过这三个阶段，见[数据管线](/zh/concepts/architecture)；目录结构见[仓库结构](/zh/concepts/repository-layout)。
@@ -94,7 +94,7 @@ docker compose exec mirobody python -m mirobody doctor
 
 ## 参与贡献 {#contributing}
 
-最有价值的贡献是修正解析器解析错的术语。运行 `mirobody resolve "<术语>"`，如果结果错误或为空，可以提交 issue，或者在 <OssLink path="mirobody/res/resolver_overrides.tsv" /> 中加一行，并在 <OssLink path="mirobody/tests/test_engine_coverage.py" /> 中加一个用例。覆盖率得分就是评审标准。
+最有价值的贡献是修正解析器解析错的术语。运行 `mirobody resolve "<术语>"`，如果结果错误或为空，可以提交 issue，或者在 <OssLink path="mirobody/res/loinc/resolver_overrides.tsv" /> 中加一行，并在 <OssLink path="mirobody/tests/test_engine_coverage.py" /> 中加一个用例。覆盖率得分就是评审标准。
 
 开发环境安装测试依赖后，运行测试套件与导入约束检查：
 

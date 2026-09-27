@@ -52,7 +52,7 @@ The package is organized around the same three stages as this documentation.
 | Stage | Package | Pages |
 | --- | --- | --- |
 | ① Collect | `mirobody/collect/` | [Device Providers](/en/providers/using-providers), [Apple Health](/en/providers/apple-health), [File Processing](/en/concepts/file-processing) |
-| ② Translate | `mirobody/engine.py`, `mirobody/translate/` | [Standardization](/en/concepts/indicators), [Device Crosswalk](/en/concepts/device-crosswalk) |
+| ② Translate | `mirobody/engine/`, `mirobody/translate/` | [Standardization](/en/concepts/indicators), [Device Crosswalk](/en/concepts/device-crosswalk) |
 | ③ Agent | `mirobody/agent/` | [The Agent](/en/tools/agents), [Health-Data Tools](/en/tools/overview), [MCP Integration](/en/tools/mcp-integration) |
 
 How a single reading passes through all three is described in [The Pipeline](/en/concepts/architecture); the directory map is [Repository Layout](/en/concepts/repository-layout).
@@ -94,7 +94,7 @@ When a deployment does not come up, [Troubleshooting](/en/troubleshooting) lists
 
 ## Contributing {#contributing}
 
-The highest-leverage contribution is a term the resolver gets wrong. Run `mirobody resolve "<term>"`; if the answer is wrong or empty, report it, or add a row to <OssLink path="mirobody/res/resolver_overrides.tsv" /> together with a case in <OssLink path="mirobody/tests/test_engine_coverage.py" />. The coverage score is the review.
+The highest-leverage contribution is a term the resolver gets wrong. Run `mirobody resolve "<term>"`; if the answer is wrong or empty, report it, or add a row to <OssLink path="mirobody/res/loinc/resolver_overrides.tsv" /> together with a case in <OssLink path="mirobody/tests/test_engine_coverage.py" />. The coverage score is the review.
 
 A development checkout installs the test extra and runs the suite and the import contracts:
 
