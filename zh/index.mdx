@@ -1,53 +1,58 @@
 ---
 title: "Mirobody"
 sidebarTitle: "概览"
-description: "开源的健康数据引擎：任何来源，一套标准，每个答案都有出处。可以使用 Mirobody Cloud，也可以部署在自己的基础设施上。"
+description: "将不同来源的健康读数整理为一份带规范编码的记录，并获得可追溯的回答。可以使用 Mirobody Cloud，也可以自行运行开源引擎。"
+keywords: ["健康数据", "LOINC", "UCUM", "云端", "自部署"]
 ---
 
-import NameOrigin from '/snippets/zh/name-origin.mdx';
 import RunModes from '/snippets/zh/run-modes.mdx';
-import { Stages } from '/snippets/oss-facts.jsx';
 
 ## 什么是 Mirobody？
 
-**Mirobody** 是一个健康数据引擎。它把任意来源的读数（化验单、可穿戴设备、基因检测、打印报告的手机照片）解析到规范编码，存成一份可以互相比较、可供 AI 推理的记录。
+**Mirobody** 将报告、设备、导出文件和照片中的健康读数整理成可跨来源比较的记录。它为读数分配规范编码与单位，让 agent 基于这份记录回答问题，并指出每条读数的来源。[引擎以 Apache 2.0 许可开源](https://github.com/thetahealth/mirobody)；**Mirobody Cloud** 通过托管 API 提供标准化和 agent 能力。
 
-<NameOrigin />
+## 开始使用
 
-引擎以 Apache 2.0 许可开源，仓库是 [thetahealth/mirobody](https://github.com/thetahealth/mirobody)。**Mirobody Cloud** 是它的托管形态：同一套标准化能力，通过兼容 OpenAI 的 `/v1` 接口提供，存储、模型与密钥由我们运维。
-
-## 收集 · 转译 · 智能体
-
-一条读数从进入系统到被引用，要经过三个阶段。每个阶段都留下记录，所以任何一个答案都能追溯到它出自的那一页。
-
-<Stages lang="zh" />
-
-## 选择 Mirobody 的运行方式
+先选择记录在哪里运行。两条路径采用同一套编码方式，但部署步骤和 API 端点不同。
 
 <RunModes />
 
-| 选择依据 | Mirobody Cloud | 自部署引擎 |
+| 第一个目标 | 从这里开始 | 验证结果 |
 | --- | --- | --- |
-| 首个可用结果 | 创建 API 密钥，调用 `/v1` | 安装库或启动 Docker 栈 |
-| 记录存储 | 由 Mirobody 运维，遵循 API 的留存设置 | 保存在你的 Postgres 与文件存储中 |
-| 模型请求 | 由托管服务处理 | 发往你配置的模型服务商 |
-| 部署与升级 | 由 Mirobody 运维 | 由你负责，步骤见[服务器部署指南](/zh/deployment/production) |
+| 调用托管 API | [Cloud 快速开始](/zh/api-reference/quickstart) | 两条样例读数具有相同的 LOINC 编码，提问时可以引用它们。 |
+| 在本地解析名称或单位 | [作为库使用](/zh/quickstart#a--the-library) | 无须数据库或模型密钥即可返回编码。 |
+| 在本地体验完整产品 | [Docker 演示](/zh/self-host#first-local-result) | 服务健康，**Data** 页面显示演示读数。 |
 
-## 下一步
+## 从数据到回答
+
+<Frame caption="云端与开源引擎采用同样的三个阶段。">
+  <img alt="收集、转译、智能体：健康数据从来源进入编码记录，再用于回答" src="/images/oss/docs/images/collect-translate-agent.zh-CN.svg" className="block dark:hidden" />
+  <img alt="收集、转译、智能体：健康数据从来源进入编码记录，再用于回答" src="/images/oss/docs/images/collect-translate-agent-dark.zh-CN.svg" className="hidden dark:block" />
+</Frame>
+
+| 阶段 | 可验证的结果 | 延伸阅读 |
+| --- | --- | --- |
+| **① 收集** | 文件、设备读数或结构化记录连同来源进入系统。 | [Cloud 数据入口](/zh/api-reference/index#data-inputs) · [开源数据管线](/zh/concepts/architecture) |
+| **② 转译** | 同一项检查的不同名称归入规范的 LOINC 编码；单位采用 UCUM。无法匹配的名称保持未匹配。 | [标准化](/zh/concepts/indicators) |
+| **③ 智能体** | agent 查询编码后的记录，返回带有读数依据的回答。 | [Cloud 问答 API](/zh/api-reference/chat) · [开源 agent](/zh/tools/agents) |
+
+使用 Cloud 时，应用向 `/v1` 提交数据，由托管服务保存和处理。自部署时，引擎运行在你管理的基础设施上。两种方式的能力分别见 [Cloud 简介](/zh/api-reference/index)和[本地部署指南](/zh/self-host)。
+
+## 存储与运维
+
+| 选择依据 | Mirobody Cloud | 自部署 |
+| --- | --- | --- |
+| 记录存储 | 由 Mirobody 运维，遵循 API 的留存设置 | 保存在你的 Postgres 和文件存储中 |
+| 模型请求 | 由托管服务处理 | 发往你配置的模型服务商 |
+| 部署与升级 | 由 Mirobody 运维 | 按[服务器部署指南](/zh/deployment/production)操作 |
+
+## 延伸阅读
 
 <CardGroup cols={2}>
-  <Card title="Cloud 快速开始" icon="rocket" href="/zh/api-reference/quickstart">
-    创建密钥、写入两条样例读数、提一个问题。
+  <Card title="Cloud API 概览" icon="code" href="/zh/api-reference/overview">
+    认证、Subject、留存和 `/v1` 端点一览。
   </Card>
-  <Card title="自己运行 Mirobody" icon="server" href="/zh/self-host">
-    按用途选择库、本地 Docker 演示，或保存真实记录的部署。
-  </Card>
-  <Card title="API 概览" icon="code" href="/zh/api-reference/overview">
-    认证、多租户、留存、错误码，以及全部 `/v1` 端点。
-  </Card>
-  <Card title="GitHub 上的源码" icon="github" href="https://github.com/thetahealth/mirobody">
-    引擎源码、issue，以及参与贡献的方式。
+  <Card title="开源数据管线" icon="diagram-project" href="/zh/concepts/architecture">
+    从原始文件追踪一条读数如何成为有编码依据的回答。
   </Card>
 </CardGroup>
-
-面向 agent 与脚本，整站也以纯文本发布：[`/llms.txt`](https://docs.mirobody.ai/llms.txt) 是全部页面的索引，[`/llms-full.txt`](https://docs.mirobody.ai/llms-full.txt) 是合并成一个文件的全文。

@@ -6,19 +6,20 @@ description: "创建 Cloud 密钥、写入两条样例读数、检查编码并�
 import BaseUrl from '/snippets/zh/base-url.mdx';
 import IngestMentalModel from '/snippets/zh/ingest-mental-model.mdx';
 
-Mirobody 分三步：**① 收集 → ② 转译 → ③ 提问。** 第一次运行只需要 `curl` 和两条**样例**读数。准备好 Cloud 的 `mb_live_*` 密钥，预留约 10 分钟。示例数据保留一小时；真实数据请按自己的留存策略设置。
+第一次运行只需要 `curl` 和两条**样例**读数。你将写入读数，确认两者解析为相同的 LOINC 编码，并针对它们提问。建议预留约 10 分钟。示例数据保留一小时；真实数据请设置合适的留存期限。
 
-<Note>
-请在**将要调用的同一区域**创建密钥：[中国区控制台](https://platform.mirobody.cn/)或[全球区控制台](https://platform.mirobody.ai/)。登录后打开 **API Keys** 创建密钥，出现时立即复制（只显示**一次**）。在终端设置对应的 API 地址和密钥。下面默认中国区；如果账户在全球区，改用注释中的全球区地址：
+## 准备工作
+
+请在**将要调用的同一区域**创建 `mb_live_*` 密钥：[中国区控制台](https://platform.mirobody.cn/)或[全球区控制台](https://platform.mirobody.ai/)。打开 **API Keys**，在密钥出现时立即复制；它只显示一次。在终端设置对应的 API 地址和密钥。下面默认中国区；如果账户在全球区，改用注释中的全球区地址：
 
 ```bash
 export MIROBODY_API_BASE="https://api.mirobody.cn/v1"  # 中国区
 # export MIROBODY_API_BASE="https://api.mirobody.ai/v1" # 全球区：改用这一行
 export MIROBODY_API_KEY="mb_live_..."
 ```
-</Note>
-
 <BaseUrl />
+
+## 运行示例
 
 <Steps>
   <Step title="① 收集：写入两条样例读数">
@@ -89,7 +90,7 @@ export MIROBODY_API_KEY="mb_live_..."
     对一个新 Subject，响应应包含两种名称，它们的 `loinc_code` 相同；ID 等其他字段可能变化。`value` 是字符串形式的原始数值，解析后的单位另列。这就是[标准化管线](/zh/api-reference/standardization)：确定性的名称→LOINC（不让 LLM 猜码）+ UCUM，作用于每次结构化记录写入。
   </Step>
 
-  <Step title="③ 提问：得到有依据的回答">
+  <Step title="③ 智能体：获得有依据的回答">
     用**相同的** `user` 调用[问答 API](/zh/api-reference/chat)。它可以查询刚写入的两条数据，包括名称为 `FBG` 的那条：
 
     ```bash

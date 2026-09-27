@@ -1,0 +1,54 @@
+---
+title: "自部署 HTTP API"
+description: "获取本地部署的令牌，通过 /api/data 写入一条读数，再读取确认。"
+---
+
+自部署引擎在你的部署上提供 `/api/*`，使用该部署的账户令牌，而不是 Cloud 的 `mb_live_*` 密钥。以下示例使用**本地 Docker 演示环境**和公开的演示验证码。服务运行时，可以在 `http://localhost:18060/docs` 查看完整路由与请求结构。
+
+## 第一次本地 API 调用
+
+先启动 [Docker 演示环境](/zh/self-host#first-local-result)，再打开第二个终端。示例请求发送到本机的 `http://localhost:18060`。
+
+<Steps>
+  <Step title="获取演示账户令牌">
+    使用演示邮箱和验证码获取访问令牌：
+
+    ```bash
+    curl -sS http://localhost:18060/email/verify \
+      -H "Content-Type: application/json" \
+      -d '{"email":"you@mirobody.ai","code":"111111"}'
+    ```
+
+    从响应中复制 `data.access_token`，设置到当前终端：
+
+    ```bash
+    export mirobody_demo_token="<data.access_token>"
+    ```
+  </Step>
+  <Step title="写入一条读数">
+    向令牌对应的账户提交结构化记录：
+
+    ```bash
+    curl -sS http://localhost:18060/api/data \
+      -H "Authorization: Bearer $mirobody_demo_token" \
+      -H "Content-Type: application/json" \
+      -d '{"records":[{"indicator":"fasting_glucose","value":97,"unit":"mg/dL","time":"2026-09-28T07:30:00Z"}]}'
+    ```
+
+    成功时，响应包含 `"status":"ok"` 和 `"ingested":1`。检查 `standardized`，确认该读数是否获得编码。
+  </Step>
+  <Step title="读取账户记录">
+    ```bash
+    curl -sS "http://localhost:18060/api/data?limit=10" \
+      -H "Authorization: Bearer $mirobody_demo_token"
+    ```
+
+    响应包含 `"object":"list"` 和 `data` 数组。可根据指标名称、数值和时间查找刚写入的读数；演示环境还包含预置读数。
+  </Step>
+</Steps>
+
+## 云端与本地请求
+
+本地 `POST /api/data` 接收 `records` 数组并返回编码信息，但认证方式是部署账户令牌。Cloud 使用 `/v1/data`、`mb_live_*` 密钥、`user` Subject 标识和 `retention` 留存设置。自部署记录属于登录账户；`user` 与 `retention` 不控制租户隔离或过期时间。云端协议见 [Cloud 快速开始](/zh/api-reference/quickstart)。
+
+演示验证码仅用于本地示例。保存真实记录前，请按[在服务器上部署](/zh/deployment/production)移除演示账户和验证码。

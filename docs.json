@@ -60,6 +60,7 @@
                 "pages": [
                   "en/api-reference/index",
                   "en/api-reference/quickstart",
+                  "en/api-reference/sdk-examples",
                   "en/api-reference/choose-your-api",
                   "en/api-reference/overview",
                   "en/api-reference/models"
@@ -95,12 +96,11 @@
                 ]
               },
               {
-                "group": "Regions & Integration",
+                "group": "Regions & Operations",
                 "pages": [
                   "en/api-reference/regions/overview",
                   "en/api-reference/regions/china",
                   "en/api-reference/regions/global",
-                  "en/api-reference/sdk-examples",
                   "en/api-reference/rate-limits",
                   "en/api-reference/compliance"
                 ]
@@ -115,6 +115,7 @@
                 "pages": [
                   "en/self-host",
                   "en/quickstart",
+                  "en/http-api",
                   "en/configuration",
                   "en/walkthrough",
                   "en/troubleshooting"
@@ -206,6 +207,7 @@
                 "pages": [
                   "zh/api-reference/index",
                   "zh/api-reference/quickstart",
+                  "zh/api-reference/sdk-examples",
                   "zh/api-reference/choose-your-api",
                   "zh/api-reference/overview",
                   "zh/api-reference/models"
@@ -241,12 +243,11 @@
                 ]
               },
               {
-                "group": "区域与接入",
+                "group": "区域与运维",
                 "pages": [
                   "zh/api-reference/regions/overview",
                   "zh/api-reference/regions/china",
                   "zh/api-reference/regions/global",
-                  "zh/api-reference/sdk-examples",
                   "zh/api-reference/rate-limits",
                   "zh/api-reference/compliance"
                 ]
@@ -261,6 +262,7 @@
                 "pages": [
                   "zh/self-host",
                   "zh/quickstart",
+                  "zh/http-api",
                   "zh/configuration",
                   "zh/walkthrough",
                   "zh/troubleshooting"

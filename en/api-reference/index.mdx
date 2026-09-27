@@ -1,78 +1,66 @@
 ---
-title: "Introduction to Mirobody Cloud"
-description: "The hosted form of the Mirobody engine: the three stages on Cloud, the two API surfaces, and where to start."
+title: "Mirobody Cloud"
+sidebarTitle: "Introduction"
+description: "Start with the hosted API, select an input for your health data, and choose an answer or agent workflow."
+keywords: ["health API", "Cloud quickstart", "Responses API", "health data"]
 ---
 
-**Mirobody Cloud** is the hosted form of the open-source Mirobody engine. We operate the storage, the models and the keys, and expose the whole thing behind an OpenAI-compatible `/v1` API, so an existing OpenAI SDK reaches it by changing a base URL and a key. Standardization of structured readings is the same as in the engine you run yourself. What Mirobody is, and how Cloud compares with self-hosting, is on the [overview](/en); running it on your own infrastructure is the [Open Source](/en/self-host) tab.
+Mirobody Cloud provides the hosted `/v1` API for storing health data, standardizing readings, and answering questions over them. Your application collects the data and sends it to the service. For the product overview and the self-hosted path, see [Mirobody](/en).
 
-The fastest path to a working call is the [Quickstart](/en/api-reference/quickstart): create a key, write two sample readings, ask one question.
+## Getting started
 
-## The three stages on Cloud
+<CardGroup cols={2}>
+  <Card title="Run the first request" icon="rocket" href="/en/api-reference/quickstart">
+    Create a key, write two sample readings, check their codes, and ask a question with `curl`.
+  </Card>
+  <Card title="Choose an API" icon="signs-post" href="/en/api-reference/choose-your-api">
+    Select a grounded answer or an agent with tools, state, and streaming.
+  </Card>
+</CardGroup>
 
-The engine does three things — **① Collect → ② Translate → ③ Agent** — and Cloud is the same three, with the operational half handled for you. One difference matters: on Cloud, **collection happens on your side.** You obtain the data (device OAuth, in-app capture, a user uploading a report) and hand it to us; we host, standardize and serve it.
+## Data inputs {#data-inputs}
+
+Send each source to the endpoint that handles its shape. Use the same `user` value for every call that belongs to one Subject.
+
+| Your data | Endpoint | Result |
+| --- | --- | --- |
+| Device readings or other structured records | [`POST /v1/data`](/en/api-reference/data) | Stored readings with normalized names and units |
+| Reports, photos, or spreadsheets | [`POST /v1/files`](/en/api-reference/files) | Stored source file and extracted readings |
+| Narrative text or a preview of extraction | [`POST /v1/standardize`](/en/api-reference/extract) | Synchronous standardization result |
+| A subjective journal entry | [`POST /v1/responses`](/en/api-reference/responses) with `store: true` | A stored conversation entry |
+
+The [quickstart](/en/api-reference/quickstart) shows a complete structured-record request. The [API overview](/en/api-reference/overview) covers authentication, Subjects, errors, and retention.
+
+## Processing stages
 
 <Steps>
-  <Step title="① Collect — match the endpoint to your data shape">
-    Structured readings go to [`POST /v1/data`](/en/api-reference/data). Lab PDFs, photos, and spreadsheets go to [`POST /v1/files`](/en/api-reference/files), which stores the original, extracts its text, and standardizes any readings it finds. [`POST /v1/standardize`](/en/api-reference/extract) runs that same standardization synchronously — for a dry-run preview, or on narrative text.
+  <Step title="① Collect">
+    Your application obtains device data, an uploaded report, or a user entry, then sends it through the matching endpoint above.
   </Step>
-  <Step title="② Translate — every structured reading, automatically">
-    Names resolve to **LOINC** deterministically (no LLM code-guessing), values normalize to **UCUM** units, and a code is matched rather than invented. `"血糖(空腹)"`, `"FBG"` and `"Glucose, fasting"` become one series. See [Standardization](/en/api-reference/standardization).
+  <Step title="② Translate">
+    The service matches measurement names to LOINC codes and parses units with UCUM. Inspect the resulting codes in the [standardization guide](/en/api-reference/standardization).
   </Step>
-  <Step title="③ Agent — put AI on top">
-    Ask the [Answers API](/en/api-reference/chat) for a grounded, evidence-cited answer — or build a full agent on the [Agent API](/en/api-reference/responses): your own tools, stored conversations, and the openai-agents SDK working out of the box. Answering is the most direct use of standardized data, and the same records are what let you mine insights, generate a report, or raise an alert.
+  <Step title="③ Agent">
+    Ask about the stored record through the [Answers API](/en/api-reference/chat), or build an agent through the [Agent API](/en/api-reference/responses).
   </Step>
 </Steps>
 
+## Answer and agent APIs
 
-## Two API surfaces, one engine
+| Workflow | Endpoint | Use it for |
+| --- | --- | --- |
+| Grounded answer | [`POST /v1/chat/completions`](/en/api-reference/chat) | One question with supporting health records |
+| Agent workflow | [`POST /v1/responses`](/en/api-reference/responses) | Tools, conversation state, and streaming |
 
-<CardGroup cols={2}>
-  <Card title="Agent API — recommended" icon="robot" href="/en/api-reference/responses">
-    `POST /v1/responses` (OpenAI Responses-compatible). Your function tools, `previous_response_id` / `session_id` state, `response.*` streaming. The openai-agents SDK needs only a new base URL.
-  </Card>
-  <Card title="Answers API" icon="comment-dots" href="/en/api-reference/chat">
-    `POST /v1/chat/completions`. A closed, grounded completion — one question, one evidence-backed answer. Drop-in for any OpenAI SDK, and ideal as [a tool inside your own agent](/en/api-reference/use-as-a-tool).
-  </Card>
-</CardGroup>
+Both use OpenAI-compatible request formats. For runnable Python and Node examples, see [SDK Examples](/en/api-reference/sdk-examples).
 
-Not sure? [Choose your API](/en/api-reference/choose-your-api).
-
-## Four shapes of data, four endpoints
-
-These are the same three sources the console's **Data** page offers, plus the journal case.
-
-| Source | Endpoint |
-| --- | --- |
-| **Files / photos** — lab reports, checkup PDFs, phone photos | [`POST /v1/files`](/en/api-reference/files) |
-| **Structured records** — device and wearable data above all, plus manual entries | [`POST /v1/data`](/en/api-reference/data) |
-| **Narrative text** — a note or a report with readings inside it | [`POST /v1/standardize`](/en/api-reference/extract) |
-| A purely subjective journal entry | [`POST /v1/responses`](/en/api-reference/responses) with `store: true` |
-
-Which endpoint fits which case, with worked examples, is in the [Quickstart](/en/api-reference/quickstart).
-
-## Why Mirobody
-
-- **Grounded, not plausible** — answers can include `health_records`, `citations`, and the server tool steps used to gather evidence.
-- **Standardized structured data** — LOINC + UCUM coding on records written through `/v1/data` or stored by `/v1/standardize`; your analytics and the agent read the same series.
-- **OpenAI-compatible twice over** — Chat Completions *and* Responses protocols; existing SDKs and agent frameworks just work.
-- **Multi-tenant by design** — one key, an isolated Subject per end-user; per-Subject [right-to-be-forgotten deletes](/en/api-reference/overview#endpoints-at-a-glance).
-- **Open at the core** — Cloud runs the same [open-source engine](/en/self-host), organized around the same three stages. Self-host it and the engine runs ① Collect as well: device providers pull on a schedule, and the terminology layer runs offline inside your own process. See the library path of the [Quickstart](/en/quickstart#a--the-library).
-
-## Start here
+## Further reading
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/en/api-reference/quickstart">
-    Key → data → standardized records → your first agent, in minutes.
-  </Card>
-  <Card title="Choose your API" icon="signs-post" href="/en/api-reference/choose-your-api">
-    Answers and Agent — how to choose between the two surfaces.
-  </Card>
-  <Card title="API Overview" icon="code" href="/en/api-reference/overview">
-    Auth, multi-tenancy, retention, errors, every endpoint.
+  <Card title="API overview" icon="code" href="/en/api-reference/overview">
+    Authentication, Subjects, retention, and the endpoint map.
   </Card>
   <Card title="Regions" icon="location-dot" href="/en/api-reference/regions/overview">
-    Which cluster to use, and what is live in each.
+    Choose a console, key, and API host in the same region.
   </Card>
 </CardGroup>
-
-For agents and scripts, the whole site is also published as plain text: [`/llms.txt`](https://docs.mirobody.ai/llms.txt) indexes every page, and [`/llms-full.txt`](https://docs.mirobody.ai/llms-full.txt) is the full corpus in one file.

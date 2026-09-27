@@ -5,7 +5,7 @@ description: "Answers API vs Agent API：一分钟选对接口。"
 
 Mirobody 通过**两个接口**暴露同一个有据可循的健康 agent。两者都基于 Subject 真实、标准化的健康数据作答，也都返回回答背后的工具轨迹。
 
-两者都属于**③ 智能体**，即引擎三个步骤里的第三个（① 收集 → ② 转译 → ③ 智能体）。这一页要选的不是*你能获得什么*，而是*这个循环由谁来驱动*：Answers API 在服务端把循环闭合、直接交给你一个成品答案；Agent API 把它留开，让你自己的工具参与进来。自部署的引擎也有同样的区分：自带的 agent 在你的部署内部闭合循环，而 `/mcp` 端点让你自己的 agent 循环调用同一组工具。因此在这里做的决定，等你以后[自己运行一套](/zh/self-host)时依然成立。
+两者都属于**③ 智能体**，即引擎三个阶段中的第三个（① 收集 → ② 转译 → ③ 智能体）。选择依据是由谁驱动执行循环：Answers API 返回完整回答；Agent API 允许你的工具参与。自部署引擎提供内置 agent，也提供供外部 agent 调用工具的 `/mcp` 端点。以后[自行部署](/zh/self-host)时，可以沿用这一架构选择；请求格式和凭证需要调整。Cloud 使用 `/v1` 与云端密钥，自部署集成使用该部署的 [HTTP API](/zh/http-api) 或 `/mcp`。
 
 <CardGroup cols={2}>
   <Card title="Answers API" icon="comment-dots" href="/zh/api-reference/chat">

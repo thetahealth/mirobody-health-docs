@@ -1,53 +1,58 @@
 ---
 title: "Mirobody"
 sidebarTitle: "Overview"
-description: "An open-source health data engine: every source, one standard, answers that cite their source. Run it on Mirobody Cloud or on your own infrastructure."
+description: "Bring health readings into one coded record, then ask questions with traceable answers. Use Mirobody Cloud or run the open-source engine yourself."
+keywords: ["health data", "LOINC", "UCUM", "Mirobody Cloud", "self-host"]
 ---
 
-import NameOrigin from '/snippets/name-origin.mdx';
 import RunModes from '/snippets/run-modes.mdx';
-import { Stages } from '/snippets/oss-facts.jsx';
 
 ## What is Mirobody?
 
-**Mirobody** is a health data engine. It takes readings from any source — lab reports, wearables, genetic tests, phone photos of a printed report — resolves each one to a canonical code, and stores it as a comparable record an AI can reason over.
+**Mirobody** turns health readings from reports, devices, exports and photos into a record that can be compared across sources. It assigns standard codes and units, then lets an agent answer questions over that record while pointing back to the source of each reading. The [engine is open source](https://github.com/thetahealth/mirobody) under Apache 2.0; **Mirobody Cloud** offers its standardization and agent capabilities as a hosted API.
 
-<NameOrigin />
+## First steps
 
-The engine is open source under Apache 2.0, at [thetahealth/mirobody](https://github.com/thetahealth/mirobody). **Mirobody Cloud** is its hosted form: the same standardization behind an OpenAI-compatible `/v1` API, with storage, models and keys operated for you.
-
-## Collect · Translate · Agent
-
-A reading takes three stages from arriving to being cited, and each one leaves a trace, so an answer can be followed back to the page it came from.
-
-<Stages lang="en" />
-
-## Choose how you run Mirobody
+Choose where the record will run. The two paths use the same coding approach, but have different setup and API endpoints.
 
 <RunModes />
 
-| Decision | Mirobody Cloud | Self-hosted engine |
+| Your first goal | Start here | Result to check |
 | --- | --- | --- |
-| First working result | Create an API key and call `/v1` | Install the library or start the Docker stack |
+| Call a hosted API | [Cloud quickstart](/en/api-reference/quickstart) | Two sample readings share a LOINC code; a question can cite them. |
+| Resolve a name or unit locally | [Library path](/en/quickstart#a--the-library) | A code is returned without a database or model key. |
+| Explore the full product locally | [Docker demo](/en/self-host#first-local-result) | The service is healthy and demo readings appear in **Data**. |
+
+## From data to answers
+
+<Frame caption="The same three stages organize Cloud and the open-source engine.">
+  <img alt="Collect, Translate, Agent: health data moves from sources to coded records and answers" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
+  <img alt="Collect, Translate, Agent: health data moves from sources to coded records and answers" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
+</Frame>
+
+| Stage | What you can observe | Read more |
+| --- | --- | --- |
+| **① Collect** | A file, device reading or structured record enters the system with its source. | [Cloud data inputs](/en/api-reference/index#data-inputs) · [Open Source collection](/en/concepts/architecture) |
+| **② Translate** | Different names for the same test resolve to a standard LOINC code; units use UCUM. Unmatched names remain unmatched. | [Standardization](/en/concepts/indicators) |
+| **③ Agent** | A question runs over the coded record and returns an answer with its supporting readings. | [Cloud Answers API](/en/api-reference/chat) · [Open Source agent](/en/tools/agents) |
+
+On Cloud, your application sends data to `/v1`; the service stores and processes it. In a self-hosted deployment, the engine runs on infrastructure you manage. See [Cloud capabilities](/en/api-reference/index) and [the local setup guide](/en/self-host) for their respective paths.
+
+## Storage and operations
+
+| Decision | Mirobody Cloud | Self-Host |
+| --- | --- | --- |
 | Stored records | Operated by Mirobody, under the API's retention settings | In your Postgres and file storage |
 | Model requests | Handled by the hosted service | Sent to the model provider you configure |
-| Deployment and upgrades | Operated by Mirobody | Your responsibility; follow the [server guide](/en/deployment/production) |
+| Deployment and upgrades | Operated by Mirobody | Follow the [server deployment guide](/en/deployment/production) |
 
-## Next steps
+## Further reading
 
 <CardGroup cols={2}>
-  <Card title="Cloud quickstart" icon="rocket" href="/en/api-reference/quickstart">
-    Create a key, write two sample readings, ask one question.
+  <Card title="Cloud API overview" icon="code" href="/en/api-reference/overview">
+    Authentication, Subjects, retention and the `/v1` endpoint map.
   </Card>
-  <Card title="Run it yourself" icon="server" href="/en/self-host">
-    Choose the library, a local Docker demo, or a deployment for real records.
-  </Card>
-  <Card title="API overview" icon="code" href="/en/api-reference/overview">
-    Authentication, multi-tenancy, retention, errors and every `/v1` endpoint.
-  </Card>
-  <Card title="Source on GitHub" icon="github" href="https://github.com/thetahealth/mirobody">
-    The engine, its issues, and how to contribute.
+  <Card title="Open Source architecture" icon="diagram-project" href="/en/concepts/architecture">
+    Follow a reading from its original file to a coded answer.
   </Card>
 </CardGroup>
-
-For agents and scripts, the whole site is also published as plain text: [`/llms.txt`](https://docs.mirobody.ai/llms.txt) indexes every page, and [`/llms-full.txt`](https://docs.mirobody.ai/llms-full.txt) is the full corpus in one file.

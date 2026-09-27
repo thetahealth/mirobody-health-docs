@@ -6,19 +6,20 @@ description: "Create a Cloud key, write two sample readings, inspect their codes
 import BaseUrl from '/snippets/base-url.mdx';
 import IngestMentalModel from '/snippets/ingest-mental-model.mdx';
 
-Mirobody in three steps: **① Collect → ② Translate → ③ Ask.** This first run uses only `curl` and two **sample** readings. Allow about 10 minutes and have a Cloud `mb_live_*` key ready. The example keeps the readings for one hour; use your own retention policy for real data.
+This first run uses `curl` and two **sample** readings. You will write them, confirm that they resolve to the same LOINC code, and ask a question about them. Allow about 10 minutes. The example keeps the readings for one hour; set an appropriate retention period for real data.
 
-<Note>
-Create a key in the console for **the same region you will call**: [Global](https://platform.mirobody.ai/) or [China](https://platform.mirobody.cn/). Sign in, open **API Keys**, and copy the secret when it appears (it is shown **once**). Set the matching API base URL and key in your shell. This example selects Global; for a China account, use the commented China line instead:
+## Preparation
+
+Create a `mb_live_*` key in the console for **the same region you will call**: [Global](https://platform.mirobody.ai/) or [China](https://platform.mirobody.cn/). Open **API Keys** and copy the secret when it appears; it is shown once. Set the matching API base URL and key in your shell. This example selects Global; for a China account, use the commented China line instead:
 
 ```bash
 export MIROBODY_API_BASE="https://api.mirobody.ai/v1"   # Global
 # export MIROBODY_API_BASE="https://api.mirobody.cn/v1" # China: use this instead
 export MIROBODY_API_KEY="mb_live_..."
 ```
-</Note>
-
 <BaseUrl />
+
+## Run the example
 
 <Steps>
   <Step title="① Collect: write two sample readings">
@@ -89,7 +90,7 @@ export MIROBODY_API_KEY="mb_live_..."
     On a fresh Subject, the response should include both names with the same `loinc_code`; IDs and other fields may vary. `value` is the original number as a string, and the parsed unit is separate. That's the [standardization pipeline](/en/api-reference/standardization): deterministic name→LOINC (no LLM code-guessing) + UCUM on every structured-record write.
   </Step>
 
-  <Step title="③ Ask: get a grounded answer">
+  <Step title="③ Agent: get a grounded answer">
     Call the [Answers API](/en/api-reference/chat) with the **same** `user`. It can consult the rows you just wrote, including the one named `FBG`:
 
     ```bash

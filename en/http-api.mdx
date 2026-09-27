@@ -1,0 +1,54 @@
+---
+title: "Self-Hosted HTTP API"
+description: "Get a local deployment token, write a reading through /api/data, and read it back."
+---
+
+The self-hosted engine exposes `/api/*` on your deployment. It uses that deployment's account tokens, rather than Cloud `mb_live_*` keys. The example below uses the **local Docker demo** and its published demo sign-in code. For the complete route and request schema, open `http://localhost:18060/docs` while the server is running.
+
+## First local API request
+
+Start the [Docker demo](/en/self-host#first-local-result), then use a second terminal. The example runs against your own machine at `http://localhost:18060`.
+
+<Steps>
+  <Step title="Get a demo account token">
+    Exchange the demo email and code for an access token:
+
+    ```bash
+    curl -sS http://localhost:18060/email/verify \
+      -H "Content-Type: application/json" \
+      -d '{"email":"you@mirobody.ai","code":"111111"}'
+    ```
+
+    Copy `data.access_token` from the response into your shell:
+
+    ```bash
+    export mirobody_demo_token="<data.access_token>"
+    ```
+  </Step>
+  <Step title="Write one reading">
+    Send a structured record to the account represented by the token:
+
+    ```bash
+    curl -sS http://localhost:18060/api/data \
+      -H "Authorization: Bearer $mirobody_demo_token" \
+      -H "Content-Type: application/json" \
+      -d '{"records":[{"indicator":"fasting_glucose","value":97,"unit":"mg/dL","time":"2026-09-28T07:30:00Z"}]}'
+    ```
+
+    A successful response includes `"status":"ok"` and `"ingested":1`. Check `standardized` to see whether the reading received a code.
+  </Step>
+  <Step title="Read the account records">
+    ```bash
+    curl -sS "http://localhost:18060/api/data?limit=10" \
+      -H "Authorization: Bearer $mirobody_demo_token"
+    ```
+
+    The response has `"object":"list"` and a `data` array. Find the new reading by its indicator, value, and time. The demo also contains seeded readings.
+  </Step>
+</Steps>
+
+## Cloud and local requests
+
+The local `POST /api/data` accepts a `records` array and returns coding information, but it authenticates with a deployment account token. Cloud uses `/v1/data`, an `mb_live_*` key, a `user` Subject key, and a `retention` setting. On a self-hosted deployment, records belong to the signed-in account; `user` and `retention` do not control tenancy or expiry. See the [Cloud quickstart](/en/api-reference/quickstart) for that contract.
+
+The demo code is for a local example. Before accepting real records, follow [Deploy on a Server](/en/deployment/production) to remove demo accounts and codes.

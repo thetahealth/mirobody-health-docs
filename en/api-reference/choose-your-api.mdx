@@ -5,7 +5,7 @@ description: "Answers API vs Agent API — pick the right surface in one minute.
 
 Mirobody exposes the same grounded health agent through **two surfaces**. Both answer from the Subject's real, standardized health data, and both return the tool trace behind the answer.
 
-Both are **③ Agent**, the third of the engine's three stages (① Collect → ② Translate → ③ Agent). The choice on this page is not *what* you get but *who drives the loop*: the Answers API closes it server-side and hands you a finished answer, while the Agent API leaves it open so your own tools take part. A self-hosted engine draws the same line: its bundled agent closes the loop inside your deployment, while its `/mcp` endpoint lets an agent loop of your own call the same tools. A decision made here carries over if you later [run it yourself](/en/self-host).
+Both are **③ Agent**, the third of the engine's three stages (① Collect → ② Translate → ③ Agent). The choice is who drives the loop: the Answers API returns a completed answer, while the Agent API lets your tools take part. A self-hosted engine offers a bundled agent and an `/mcp` endpoint for your own agent loop. That design choice carries over if you [run the engine yourself](/en/self-host); the requests and credentials do not. Cloud uses `/v1` and a Cloud key, while self-hosted integrations use the deployment's [HTTP API](/en/http-api) or `/mcp`.
 
 <CardGroup cols={2}>
   <Card title="Answers API" icon="comment-dots" href="/en/api-reference/chat">
