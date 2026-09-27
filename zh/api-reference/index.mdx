@@ -1,78 +1,66 @@
 ---
-title: "Mirobody Cloud 简介"
-description: "Mirobody 引擎的托管形态：Cloud 上的三个步骤、两个 API 面，以及从哪里开始。"
+title: "Mirobody Cloud"
+sidebarTitle: "简介"
+description: "从托管 API 开始，按健康数据形态选择入口，并决定使用问答还是智能体。"
+keywords: ["健康数据 API", "云端快速开始", "Responses API", "健康数据"]
 ---
 
-**Mirobody Cloud** 是开源 Mirobody 引擎的托管形态。由我们运维存储、模型与密钥，并以兼容 OpenAI 的 `/v1` 接口对外提供，因此现有的 OpenAI SDK 只需改一个 base URL 和一个密钥即可接入。结构化读数的标准化与你自己运行的引擎完全一致。Mirobody 是什么、Cloud 与自部署如何比较，见[概览](/zh)；在自己的基础设施上运行，请看[开源部署](/zh/self-host)标签页。
+Mirobody Cloud 提供托管的 `/v1` API，用于保存健康数据、标准化读数并基于记录回答问题。你的应用负责收集数据，再将其发送给服务。产品概览与自部署路径见 [Mirobody](/zh)。
 
-最快跑通一次调用的路径是[快速开始](/zh/api-reference/quickstart)：创建密钥、写入两条样例读数、提一个问题。
+## 开始使用
 
-## Cloud 上的三个步骤
+<CardGroup cols={2}>
+  <Card title="完成第一次调用" icon="rocket" href="/zh/api-reference/quickstart">
+    创建密钥，用 `curl` 写入两条样例读数、检查编码并提问。
+  </Card>
+  <Card title="选择 API" icon="signs-post" href="/zh/api-reference/choose-your-api">
+    根据任务选择有数据依据的问答，或支持工具、状态与流式输出的 agent。
+  </Card>
+</CardGroup>
 
-引擎只做三件事：**① 收集 → ② 转译 → ③ 智能体**。Cloud 就是同样这三件，只是运维那一半由我们承担。有一处差别需要说明：在 Cloud 上，**收集发生在你那一侧。** 数据由你获取（设备 OAuth、App 内采集、用户上传一份报告），交给我们；我们负责托管、标准化，并把它交给 AI 回答。
+## 数据入口 {#data-inputs}
+
+按来源的数据形态选择端点。同一个 Subject 的所有调用应使用相同的 `user` 值。
+
+| 数据 | 端点 | 结果 |
+| --- | --- | --- |
+| 设备读数及其他结构化记录 | [`POST /v1/data`](/zh/api-reference/data) | 保存的读数，以及规范化后的名称和单位 |
+| 报告、照片或表格 | [`POST /v1/files`](/zh/api-reference/files) | 保存的源文件和提取出的读数 |
+| 叙事文本或提取结果预览 | [`POST /v1/standardize`](/zh/api-reference/extract) | 同步返回的标准化结果 |
+| 主观日记 | [`POST /v1/responses`](/zh/api-reference/responses) 并设置 `store: true` | 保存的对话条目 |
+
+[快速开始](/zh/api-reference/quickstart)提供完整的结构化记录请求。[API 概览](/zh/api-reference/overview)说明认证、Subject、错误和留存。
+
+## 处理阶段
 
 <Steps>
-  <Step title="① 收集：按数据形态选对入口">
-    结构化读数走 [`POST /v1/data`](/zh/api-reference/data)。化验 PDF、照片与表格走 [`POST /v1/files`](/zh/api-reference/files)，它保存原件、抽取文本，并把其中的读数标准化。[`POST /v1/standardize`](/zh/api-reference/extract) 同步执行同一套标准化，用于 dry-run 预览，或处理叙事文本。
+  <Step title="① 收集">
+    你的应用获取设备数据、用户上传的报告或手动记录，再通过上表对应的端点提交。
   </Step>
-  <Step title="② 转译：每条结构化读数自动完成">
-    名称确定性解析到 **LOINC**（不让 LLM 猜码），值归一到 **UCUM** 单位，编码只匹配、不臆造。`"血糖(空腹)"`、`"FBG"`、`"Glucose, fasting"` 归成一条序列。见[标准化](/zh/api-reference/standardization)。
+  <Step title="② 转译">
+    服务将检查项目名称匹配到 LOINC 编码，并使用 UCUM 解析单位。如何检查结果见[标准化](/zh/api-reference/standardization)。
   </Step>
-  <Step title="③ 智能体：让 AI 在其上工作">
-    向 [Answers API](/zh/api-reference/chat) 要一条有依据、带证据的回答，或在 [Agent API](/zh/api-reference/responses) 上构建完整 agent：你自己的工具、存储的对话，openai-agents SDK 开箱即用。回答是标准化数据最直接的用法，而同一批记录也让你可以发掘洞察、生成报告或发出预警。
+  <Step title="③ 智能体">
+    通过[问答 API](/zh/api-reference/chat)查询已保存的记录，或通过[智能体 API](/zh/api-reference/responses)构建 agent。
   </Step>
 </Steps>
 
+## 问答与智能体 API
 
-## 两个 API 接口，一套引擎
+| 用途 | 端点 | 适用场景 |
+| --- | --- | --- |
+| 有数据依据的回答 | [`POST /v1/chat/completions`](/zh/api-reference/chat) | 提出一个问题，获得附有健康记录依据的回答 |
+| 智能体工作流 | [`POST /v1/responses`](/zh/api-reference/responses) | 使用工具、对话状态与流式输出 |
 
-<CardGroup cols={2}>
-  <Card title="Agent API（推荐）" icon="robot" href="/zh/api-reference/responses">
-    `POST /v1/responses`（兼容 OpenAI Responses）。你的 function 工具、`previous_response_id` / `session_id` 状态、`response.*` 流式。openai-agents SDK 只需改 base URL。
-  </Card>
-  <Card title="Answers API" icon="comment-dots" href="/zh/api-reference/chat">
-    `POST /v1/chat/completions`。封闭、有据可循的 completion：一个问题、一条有证据的回答。任何 OpenAI SDK 直接替换，也非常适合[作为你自己 agent 里的一个工具](/zh/api-reference/use-as-a-tool)。
-  </Card>
-</CardGroup>
+两者均采用兼容 OpenAI 的请求格式。可运行的 Python 和 Node 示例见 [SDK 示例](/zh/api-reference/sdk-examples)。
 
-拿不准？[选择你的 API](/zh/api-reference/choose-your-api)。
-
-## 四种数据形态与对应端点
-
-这就是控制台**数据**页提供的同样三种来源，再加上日记这一种。
-
-| 来源 | 端点 |
-| --- | --- |
-| **文件 / 照片** —— 化验单、体检 PDF、手机照片 | [`POST /v1/files`](/zh/api-reference/files) |
-| **结构化记录** —— 首要是设备与可穿戴数据，另有手动记录 | [`POST /v1/data`](/zh/api-reference/data) |
-| **叙事文本** —— 含读数的笔记或报告 | [`POST /v1/standardize`](/zh/api-reference/extract) |
-| 纯主观的日记 | [`POST /v1/responses`](/zh/api-reference/responses) 带 `store: true` |
-
-哪种情况用哪个端点、以及可运行的示例，见[快速开始](/zh/api-reference/quickstart)。
-
-## 为什么选 Mirobody
-
-- **有依据，而非听着合理**：回答可附 `health_records`、`citations` 与服务端采集证据时使用的工具步骤。
-- **结构化数据标准化**：通过 `/v1/data` 写入或由 `/v1/standardize` 存储的记录都会经过 LOINC + UCUM 编码；你的分析与 agent 读取同一份序列。
-- **双重 OpenAI 兼容**：Chat Completions *与* Responses 两个协议；现有 SDK 与 agent 框架直接可用。
-- **天生多租户**：一个 key，每个终端用户一个隔离 Subject；按 Subject 的[被遗忘权删除](/zh/api-reference/overview#端点一览)。
-- **内核开放**：Cloud 运行的就是同一个[开源引擎](/zh/self-host)，而且是按同样这三个步骤组织的。自己托管时，① 收集也由引擎完成：设备 provider 按计划拉取，术语层在你自己的进程里离线运行。见[快速开始](/zh/quickstart#a--the-library)中作为库使用的方式。
-
-## 从这里开始
+## 延伸阅读
 
 <CardGroup cols={2}>
-  <Card title="快速开始" icon="rocket" href="/zh/api-reference/quickstart">
-    密钥 → 数据 → 标准化记录 → 第一个 agent，几分钟即可完成。
-  </Card>
-  <Card title="选择你的 API" icon="signs-post" href="/zh/api-reference/choose-your-api">
-    Answers 与 Agent：两个接口的选择依据。
-  </Card>
   <Card title="API 概览" icon="code" href="/zh/api-reference/overview">
-    鉴权、多租户、留存、错误与全部端点。
+    认证、Subject、留存和端点一览。
   </Card>
   <Card title="区域" icon="location-dot" href="/zh/api-reference/regions/overview">
-    各集群的选择依据与当前上线情况。
+    在同一区域选择控制台、密钥和 API 地址。
   </Card>
 </CardGroup>
-
-面向 agent 与脚本，整站另有纯文本形式：[`/llms.txt`](https://docs.mirobody.ai/llms.txt) 是全站页面索引，[`/llms-full.txt`](https://docs.mirobody.ai/llms-full.txt) 是单文件全文。

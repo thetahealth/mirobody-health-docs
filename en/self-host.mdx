@@ -21,33 +21,48 @@ Pick the row that matches what you want; the three are alternatives, not steps.
 
 The Docker stack is four containers: Postgres with pgvector, Redis, the server and the background worker. It serves the bundled web client at <Fact k="url" code />.
 
-## First local result
+## First local result {#first-local-result}
 
-With Git, Git LFS and Docker Compose installed, start the **local demo**:
+With Git, Git LFS and Docker Compose installed, run the local demo and check its seeded readings. Model features require a supported key in `.env`; the sample readings are available without one.
 
-```bash
-git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
-git lfs install && git lfs pull
-./deploy.sh
-```
+<Steps>
+  <Step title="Start the demo">
+    Clone the engine and start the stack. The script creates demo accounts and example readings, then follows the service logs.
 
-It creates demo accounts with a published sign-in code and seeds example readings. You can inspect those readings without a model key; extraction and agent answers need one of the supported keys in `.env`. The script follows the service logs; when it reports `Up`, leave that terminal open and use a second terminal in the engine checkout:
+    ```bash
+    git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
+    git lfs install && git lfs pull
+    ./deploy.sh
+    ```
+  </Step>
+  <Step title="Check the services">
+    When the script reports `Up`, keep that terminal open. In another terminal, run these commands from the engine checkout:
 
-```bash
-docker compose ps
-curl -fsS http://localhost:18060/api/health
-docker compose exec mirobody python -m mirobody doctor
-```
+    ```bash
+    docker compose ps
+    curl -fsS http://localhost:18060/api/health
+    docker compose exec mirobody python -m mirobody doctor
+    ```
 
-The `mirobody` service should become `healthy`; the health response includes `version` and `agent`. The last command checks which model features are available. It runs **inside the container**; a host shell only has `mirobody doctor` if you separately installed the Python package. If you added a model key to `.env` after startup, run `docker compose restart` before checking it.
+    The `mirobody` service should become `healthy`, and the health response includes `version` and `agent`. The last command checks model features **inside the container**. If you add a model key to `.env` after startup, run `docker compose restart` before checking it.
+  </Step>
+  <Step title="Inspect the readings">
+    Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111`, then open **Data**. The seeded readings should appear there. The [Quickstart](/en/quickstart#b--the-stack) also covers demo upload files and the other run modes.
+  </Step>
+</Steps>
 
-Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111`, and open **Data** to inspect its seeded readings. For the full three-path guide and the demo upload files, see [Quickstart](/en/quickstart#b--the-stack). For a deployment holding real records, choose the production settings in [Deploy on a Server](/en/deployment/production) **before its first start**. If you already ran the demo, follow the [existing-demo path](/en/deployment/production#after-a-local-demo) to start with clean data volumes.
+For real records, apply the settings in [Deploy on a Server](/en/deployment/production) **before the first start**. After running the demo, follow the [existing-demo path](/en/deployment/production#after-a-local-demo) to start with clean data volumes.
 
 Self-hosting keeps the stored record in the Postgres and file storage you operate. Extraction and agent answers send data to whichever model provider you configure; review that provider's handling of health data before enabling those features.
 
 ## Where the three stages live
 
 The package is organized around the same three stages as this documentation.
+
+<Frame caption="A reading moves through collection, standardization, and agent access.">
+  <img alt="Collect, Translate, Agent: three stages from left to right" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
+  <img alt="Collect, Translate, Agent: three stages from left to right" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
+</Frame>
 
 | Stage | Package | Pages |
 | --- | --- | --- |
@@ -62,7 +77,7 @@ How a single reading passes through all three is described in [The Pipeline](/en
 | Surface | Address | Used by |
 | --- | --- | --- |
 | Web client | `/` | People: documents and readings at `/data`, the agent at `/ask`, and care-circle sharing |
-| HTTP API | `/api/*` | Your own application, against the deployment you run |
+| HTTP API | `/api/*` | Your own application; begin with the [local HTTP API guide](/en/http-api) |
 | MCP endpoint | `/mcp` | Claude Desktop, Cursor, or an agent loop of your own; see [MCP Integration](/en/tools/mcp-integration) |
 
 A self-hosted engine does not serve the Cloud `/v1` API. The Cloud tab documents that surface; the routes above are the engine's own.
@@ -75,6 +90,9 @@ A self-hosted engine does not serve the Cloud `/v1` API. The Cloud tab documents
   </Card>
   <Card title="Configuration" icon="sliders" href="/en/configuration">
     The model key, the configuration files, and the settings a deployment changes.
+  </Card>
+  <Card title="HTTP API" icon="code" href="/en/http-api">
+    Get a local token, write a reading, and read it back.
   </Card>
   <Card title="Walkthrough" icon="play" href="/en/walkthrough">
     The running stack in four scenes, with the demo record.

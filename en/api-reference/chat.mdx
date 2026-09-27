@@ -25,6 +25,12 @@ It is deliberately *closed* — no client tools, no response formatting, no mult
 
 ## Quickstart
 
+Set the key for the same region as `MIROBODY_API_BASE` before running any example:
+
+```bash
+export MIROBODY_API_KEY="mb_live_..."
+```
+
 <CodeGroup>
 ```bash curl
 curl "$MIROBODY_API_BASE/chat/completions" \
@@ -38,9 +44,10 @@ curl "$MIROBODY_API_BASE/chat/completions" \
 ```
 
 ```python Python (OpenAI SDK)
+import os
 from openai import OpenAI
 
-client = OpenAI(api_key="mb_live_...", base_url="https://api.mirobody.ai/v1")
+client = OpenAI(api_key=os.environ["MIROBODY_API_KEY"], base_url=os.environ["MIROBODY_API_BASE"])
 
 resp = client.chat.completions.create(
     model="mirobody-flash",
@@ -57,7 +64,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.MIROBODY_API_KEY,
-  baseURL: "https://api.mirobody.ai/v1",
+  baseURL: process.env.MIROBODY_API_BASE,
 });
 
 const resp = await client.chat.completions.create({

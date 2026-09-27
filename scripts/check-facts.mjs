@@ -61,7 +61,9 @@ function upstreamKeys() {
 }
 const KEYS = upstreamKeys();
 
-const ports = new Set([facts.port, facts.pgPort, facts.redisPort, 5432, 6379].filter(Boolean).map(String));
+const devPort = /p_dev\.add_argument\("--port", type=int, default=(\d+)/.exec(readFileSync(join(VENDOR, "mirobody/cli.py"), "utf8"))?.[1];
+if (!devPort) throw new Error("facts: could not read the `mirobody dev` port from mirobody/cli.py");
+const ports = new Set([facts.port, facts.pgPort, facts.redisPort, devPort, 5432, 6379].filter(Boolean).map(String));
 const accounts = new Set(facts.accounts);
 const cli = new Set(facts.cli);
 const tools = new Set([...facts.tools.mcp, "ask_user", "eval"]);
@@ -79,7 +81,7 @@ for (const file of new Set(files)) {
   lines.forEach((line, i) => {
     const at = `${file}:${i + 1}`;
     for (const [, port] of line.matchAll(/(?:localhost|127\.0\.0\.1):(\d{2,5})\b/g)) {
-      if (!ports.has(port)) problems.push(`${at}: port ${port} is not a port of the ${facts.version} stack (${[...ports].join(", ")})`);
+      if (!ports.has(port)) problems.push(`${at}: port ${port} is not a port of the ${facts.version} stack or dev server (${[...ports].join(", ")})`);
     }
     for (const [email] of line.matchAll(/\b[\w.+-]+@mirobody\.ai\b/g)) {
       if (!accounts.has(email)) problems.push(`${at}: ${email} is not a predefined account at ${facts.version}`);

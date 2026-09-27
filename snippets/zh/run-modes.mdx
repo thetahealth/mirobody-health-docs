@@ -1,10 +1,10 @@
 <CardGroup cols={2}>
   <Card title="Mirobody Cloud" icon="cloud" href="/zh/api-reference/quickstart">
-    无需安装。在控制台创建 `mb_live_*` 密钥，直接调用托管集群上兼容 OpenAI 的 `/v1` 接口。
+    创建密钥、写入样例读数，再通过 `/v1` 提问。存储与模型由 Mirobody 运维。
   </Card>
   <Card title="自部署" icon="server" href="/zh/self-host">
-    在自己运维的基础设施上运行开源引擎并存储记录。使用模型功能时，请求会发送给你配置的模型服务商。
+    自行运行库或 Docker 栈。记录保存在你运维的存储中；模型功能使用你配置的服务商。
   </Card>
 </CardGroup>
 
-两者运行的是同样三个步骤、同一套标准化，区别在于由谁运维存储与模型，以及各自暴露的接口：Cloud 是 `/v1`，自部署是 `/api/*` 加一个 `/mcp` 端点。
+Cloud 提供 `/v1`；自部署服务提供自身的 `/api/*` 和 `/mcp` 端点。
