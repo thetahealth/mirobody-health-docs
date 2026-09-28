@@ -42,21 +42,29 @@
         },
         "tabs": [
           {
-            "tab": "Home",
+            "tab": "Getting Started",
             "groups": [
               {
-                "group": "Mirobody",
+                "group": "Start here",
+                "icon": "compass",
+                "root": "en/index",
                 "pages": [
-                  "en/index"
+                  "en/index",
+                  "en/api-reference/index",
+                  "en/api-reference/quickstart",
+                  "en/self-host",
+                  "en/quickstart",
+                  "en/http-api"
                 ]
               }
-            ]
+            ],
+            "icon": "rocket"
           },
           {
             "tab": "Cloud",
             "groups": [
               {
-                "group": "Getting Started",
+                "group": "Start with Cloud API",
                 "pages": [
                   "en/api-reference/index",
                   "en/api-reference/quickstart",
@@ -64,17 +72,21 @@
                   "en/api-reference/choose-your-api",
                   "en/api-reference/overview",
                   "en/api-reference/models"
-                ]
+                ],
+                "icon": "rocket",
+                "root": "en/api-reference/index"
               },
               {
-                "group": "Data",
+                "group": "Data inputs",
                 "pages": [
-                  "en/api-reference/files",
                   "en/api-reference/data",
+                  "en/api-reference/files",
                   "en/api-reference/extract",
                   "en/api-reference/standardization",
                   "en/api-reference/lifecycle"
-                ]
+                ],
+                "icon": "database",
+                "root": "en/api-reference/data"
               },
               {
                 "group": "Agent API",
@@ -86,14 +98,18 @@
                   "en/api-reference/mcp-servers",
                   "en/api-reference/streaming",
                   "en/api-reference/state-and-memory"
-                ]
+                ],
+                "icon": "robot",
+                "root": "en/api-reference/responses"
               },
               {
                 "group": "Answers API",
                 "pages": [
                   "en/api-reference/chat",
                   "en/api-reference/use-as-a-tool"
-                ]
+                ],
+                "icon": "comment-dots",
+                "root": "en/api-reference/chat"
               },
               {
                 "group": "Regions & Operations",
@@ -103,15 +119,18 @@
                   "en/api-reference/regions/global",
                   "en/api-reference/rate-limits",
                   "en/api-reference/compliance"
-                ]
+                ],
+                "icon": "globe",
+                "root": "en/api-reference/regions/overview"
               }
-            ]
+            ],
+            "icon": "cloud"
           },
           {
             "tab": "Open Source",
             "groups": [
               {
-                "group": "Getting Started",
+                "group": "Start with Self-Host",
                 "pages": [
                   "en/self-host",
                   "en/quickstart",
@@ -119,14 +138,18 @@
                   "en/configuration",
                   "en/walkthrough",
                   "en/troubleshooting"
-                ]
+                ],
+                "icon": "rocket",
+                "root": "en/self-host"
               },
               {
                 "group": "Architecture",
                 "pages": [
                   "en/concepts/architecture",
                   "en/concepts/repository-layout"
-                ]
+                ],
+                "icon": "diagram-project",
+                "root": "en/concepts/architecture"
               },
               {
                 "group": "① Collect",
@@ -134,14 +157,18 @@
                   "en/providers/using-providers",
                   "en/providers/apple-health",
                   "en/concepts/file-processing"
-                ]
+                ],
+                "icon": "download",
+                "root": "en/providers/using-providers"
               },
               {
                 "group": "② Translate",
                 "pages": [
                   "en/concepts/indicators",
                   "en/concepts/device-crosswalk"
-                ]
+                ],
+                "icon": "wand-magic-sparkles",
+                "root": "en/concepts/indicators"
               },
               {
                 "group": "③ Agent",
@@ -150,14 +177,18 @@
                   "en/tools/overview",
                   "en/tools/medications",
                   "en/tools/mcp-integration"
-                ]
+                ],
+                "icon": "robot",
+                "root": "en/tools/agents"
               },
               {
                 "group": "Extend",
                 "pages": [
                   "en/tools/adding-tools",
                   "en/development/provider-integration"
-                ]
+                ],
+                "icon": "puzzle-piece",
+                "root": "en/tools/adding-tools"
               },
               {
                 "group": "Deploy",
@@ -166,9 +197,12 @@
                   "en/deployment/backup",
                   "en/deployment/restore",
                   "en/deployment/upgrade"
-                ]
+                ],
+                "icon": "server",
+                "root": "en/deployment/production"
               }
-            ]
+            ],
+            "icon": "github"
           }
         ]
       },
@@ -189,21 +223,29 @@
         },
         "tabs": [
           {
-            "tab": "首页",
+            "tab": "开始使用",
             "groups": [
               {
-                "group": "Mirobody",
+                "group": "从这里开始",
+                "icon": "compass",
+                "root": "zh/index",
                 "pages": [
-                  "zh/index"
+                  "zh/index",
+                  "zh/api-reference/index",
+                  "zh/api-reference/quickstart",
+                  "zh/self-host",
+                  "zh/quickstart",
+                  "zh/http-api"
                 ]
               }
-            ]
+            ],
+            "icon": "rocket"
           },
           {
             "tab": "云端",
             "groups": [
               {
-                "group": "开始使用",
+                "group": "从这里开始",
                 "pages": [
                   "zh/api-reference/index",
                   "zh/api-reference/quickstart",
@@ -211,17 +253,21 @@
                   "zh/api-reference/choose-your-api",
                   "zh/api-reference/overview",
                   "zh/api-reference/models"
-                ]
+                ],
+                "icon": "rocket",
+                "root": "zh/api-reference/index"
               },
               {
-                "group": "数据",
+                "group": "数据入口",
                 "pages": [
-                  "zh/api-reference/files",
                   "zh/api-reference/data",
+                  "zh/api-reference/files",
                   "zh/api-reference/extract",
                   "zh/api-reference/standardization",
                   "zh/api-reference/lifecycle"
-                ]
+                ],
+                "icon": "database",
+                "root": "zh/api-reference/data"
               },
               {
                 "group": "Agent API",
@@ -233,14 +279,17 @@
                   "zh/api-reference/mcp-servers",
                   "zh/api-reference/streaming",
                   "zh/api-reference/state-and-memory"
-                ]
+                ],
+                "icon": "robot",
+                "root": "zh/api-reference/responses"
               },
               {
                 "group": "Answers API",
                 "pages": [
                   "zh/api-reference/chat",
                   "zh/api-reference/use-as-a-tool"
-                ]
+                ],
+                "root": "zh/api-reference/chat"
               },
               {
                 "group": "区域与运维",
@@ -250,15 +299,18 @@
                   "zh/api-reference/regions/global",
                   "zh/api-reference/rate-limits",
                   "zh/api-reference/compliance"
-                ]
+                ],
+                "icon": "globe",
+                "root": "zh/api-reference/regions/overview"
               }
-            ]
+            ],
+            "icon": "cloud"
           },
           {
             "tab": "开源部署",
             "groups": [
               {
-                "group": "开始使用",
+                "group": "从自部署开始",
                 "pages": [
                   "zh/self-host",
                   "zh/quickstart",
@@ -266,14 +318,18 @@
                   "zh/configuration",
                   "zh/walkthrough",
                   "zh/troubleshooting"
-                ]
+                ],
+                "icon": "rocket",
+                "root": "zh/self-host"
               },
               {
                 "group": "架构",
                 "pages": [
                   "zh/concepts/architecture",
                   "zh/concepts/repository-layout"
-                ]
+                ],
+                "icon": "diagram-project",
+                "root": "zh/concepts/architecture"
               },
               {
                 "group": "① 收集",
@@ -281,14 +337,18 @@
                   "zh/providers/using-providers",
                   "zh/providers/apple-health",
                   "zh/concepts/file-processing"
-                ]
+                ],
+                "icon": "download",
+                "root": "zh/providers/using-providers"
               },
               {
                 "group": "② 转译",
                 "pages": [
                   "zh/concepts/indicators",
                   "zh/concepts/device-crosswalk"
-                ]
+                ],
+                "icon": "wand-magic-sparkles",
+                "root": "zh/concepts/indicators"
               },
               {
                 "group": "③ 智能体",
@@ -297,14 +357,18 @@
                   "zh/tools/overview",
                   "zh/tools/medications",
                   "zh/tools/mcp-integration"
-                ]
+                ],
+                "icon": "robot",
+                "root": "zh/tools/agents"
               },
               {
                 "group": "扩展",
                 "pages": [
                   "zh/tools/adding-tools",
                   "zh/development/provider-integration"
-                ]
+                ],
+                "icon": "puzzle-piece",
+                "root": "zh/tools/adding-tools"
               },
               {
                 "group": "部署",
@@ -313,9 +377,12 @@
                   "zh/deployment/backup",
                   "zh/deployment/restore",
                   "zh/deployment/upgrade"
-                ]
+                ],
+                "icon": "server",
+                "root": "zh/deployment/production"
               }
-            ]
+            ],
+            "icon": "github"
           }
         ]
       }
@@ -502,5 +569,8 @@
       "source": "/zh/api-reference/device-data",
       "destination": "/zh/api-reference/data#设备与可穿戴数据"
     }
-  ]
+  ],
+  "styling": {
+    "eyebrows": "breadcrumbs"
+  }
 }

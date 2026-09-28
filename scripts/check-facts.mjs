@@ -42,6 +42,7 @@ const FOREIGN_KEYS = new Map([
   ["TOKEN", "a shell variable in an example"],
   ["TARGET_REF", "the operator's selected release tag or commit in the upgrade guide"],
   ["MIROBODY_API_BASE", "the reader-selected Cloud region in API examples; not an engine config key"],
+  ["MIROBODY_API_KEY", "the reader's Cloud API key in examples; not an engine config key"],
 ]);
 
 /** Every UPPER_SNAKE token in the repository's config, compose, scripts and Python. */
