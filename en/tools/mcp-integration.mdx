@@ -17,7 +17,8 @@ The health-data tools used by the bundled agent are also served at **`/mcp`**, o
 | `POST /mcp/<secret>` | The secret in the path | A personal URL, for a client that cannot send a header |
 | `GET /personal/mcp` | `Authorization: Bearer <access token>` | Lists the links the caller made and the ones reading the caller's record |
 | `POST /personal/mcp` | `Authorization: Bearer <access token>` | Replaces the caller's personal URL (or, with `user_id` in the body, a family member's link to that person) |
-| `DELETE /personal/mcp/<id>` | `Authorization: Bearer <access token>` | Revokes one link, made by the caller or reading the caller's record |
+| `DELETE /personal/mcp` | `Authorization: Bearer <access token>` | Revokes the link the caller made for that person (their own, or with `user_id` in the body, a family member's) |
+| `DELETE /personal/mcp/<id>` | `Authorization: Bearer <access token>` | Revokes one link by id, made by the caller or reading the caller's record |
 
 All of these sit under `HTTP_URI_PREFIX` when one is set. On the Docker stack the server listens on port <Fact k="port" />.
 

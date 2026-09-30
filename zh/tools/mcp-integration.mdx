@@ -17,6 +17,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | `POST /mcp/<secret>` | 路径中的 secret | 个人 URL，供无法发送请求头的客户端使用 |
 | `GET /personal/mcp` | `Authorization: Bearer <access token>` | 列出调用者创建的链接，以及别人创建的、能读取调用者本人记录的链接 |
 | `POST /personal/mcp` | `Authorization: Bearer <access token>` | 替换调用者的个人 URL（body 中带 `user_id` 时，替换的是某位家庭成员指向该人的链接） |
+| `DELETE /personal/mcp` | `Authorization: Bearer <access token>` | 吊销调用者为该人创建的链接（自己的，或请求体带 `user_id` 时为家庭成员创建的那条） |
 | `DELETE /personal/mcp/<id>` | `Authorization: Bearer <access token>` | 按 id 吊销一条链接，无论它是调用者创建的还是读取调用者本人记录的 |
 
 设置了 `HTTP_URI_PREFIX` 时，以上路由都位于该前缀之下。在 Docker 栈上，服务端监听端口 <Fact k="port" />。
