@@ -10,8 +10,8 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 Start with the doctor report and the container log. Most failures name their own fix in one of the two.
 
 ```bash
-docker compose exec mirobody python -m mirobody doctor   # which model each surface selected
-docker compose logs --tail 80 mirobody                  # the server's own log
+docker compose exec mirobody mirobody doctor   # which model each surface selected
+docker compose logs --tail 80 mirobody         # the server's own log
 ```
 
 ## The doctor report
@@ -20,7 +20,7 @@ docker compose logs --tail 80 mirobody                  # the server's own log
 
 | Line | Meaning |
 | --- | --- |
-| `keys present : none` | No model key is set. ① Collect and ② Translate still work; file extraction and the agent do not. Put one key in `.env` and run `docker compose restart`. |
+| `keys present : none` | No model key is set. ① Collect and ② Translate still work; file extraction and the agent do not. Put one key in `.env` and run `docker compose up -d`. |
 | A surface marked `OK` | The entry and model that surface selected. |
 | A surface marked `--` | Nothing is available for that surface; the next line names the missing key or entry. |
 | `retired keys` | A key from an earlier release that is no longer read. Move the setting to a `MODELS` entry or a `UTILS_*` route in `config.llm.yaml`. |
@@ -30,11 +30,10 @@ docker compose logs --tail 80 mirobody                  # the server's own log
 
 | What you see | Cause and fix |
 | --- | --- |
-| `deploy.sh` stops: a port is held by another container | Another project publishes <Fact k="port" />, <Fact k="pgPort" /> or <Fact k="redisPort" />. `deploy.sh` does not stop containers it does not own: free the port, or change this project's ports. |
-| `deploy.sh` stops: a Docker network already uses the stack's subnet | `compose.yaml` pins one subnet, so only one checkout runs at a time. Remove the unused network the message names, or move this stack to a free subnet and point `PG_HOST` and `REDIS_HOST` at the new addresses in your overlay. |
+| `deploy.sh` stops: a port is held by another container | Another project publishes <Fact k="port" /> or <Fact k="pgPort" />. `deploy.sh` does not stop containers it does not own: free the port, or change this project's ports. |
 | Compose rejects a named volume (`Host path binding is rejected`) | Rootless or hardened Docker. Copy <OssLink path="compose.override.yaml.example" /> to `compose.override.yaml` and create the directories it lists. |
-| Image pulls fail, or the build cannot reach Docker Hub | `deploy.sh` falls back to a registry mirror when Docker Hub does not answer. Behind a proxy, the Docker daemon itself needs the proxy setting, not only your shell. |
-| The first start takes many minutes | The first boot installs the Python dependencies into a volume before the server binds its port. Set `PIP_INDEX_URL` in `.env` to use a closer package index. |
+| Image pulls fail, or the build cannot reach Docker Hub | `deploy.sh` falls back to the `docker.1ms.run` mirror when Docker Hub does not answer, and only builds locally when the image cannot be pulled at all. Behind a proxy, the Docker daemon itself needs the proxy setting, not only your shell. |
+| The first start takes many minutes | The image could not be pulled, so `deploy.sh` built it from this checkout. Set `PIP_INDEX_URL` in the shell that runs `./deploy.sh` (it is passed as a build argument, not read from `.env`) to use a closer package index. |
 | The server refuses to start with `PRODUCTION: true` | Predefined sign-in codes or a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder remain. The log names which; see [Deploy on a Server](/en/deployment/production#production-posture). |
 | `mirobody serve` finds no configuration | `config.yaml` is not part of the PyPI package. Run from a checkout, or use `mirobody dev`, which needs no configuration file. |
 | `mirobody dev` exits asking for a Postgres | Pass `--pg-url`, or set `PG_URL` or `DATABASE_URL`. The database needs the pgvector extension. |
@@ -44,7 +43,7 @@ docker compose logs --tail 80 mirobody                  # the server's own log
 | What you see | Cause and fix |
 | --- | --- |
 | A LOINC lookup raises on a fresh clone | The terminology bundle is stored with Git LFS and the clone holds a pointer file. Run `git lfs install && git lfs pull`. |
-| Device sync never runs, while the rest works | Redis is unreachable. Every other feature degrades cleanly; the vendor pull does not. |
+| Device sync never runs, while the rest works | Check the worker logs and the Postgres connection: device pulls and task state both use Postgres. |
 | Model calls fail with `Cannot connect to host` behind a proxy | A container does not inherit the shell's proxy. Set `HTTP_PROXY` and `HTTPS_PROXY` in `.env`; `compose.yaml` passes them to the server. |
 | Uploads are stored but no readings appear | No vision or text model is selected (see the doctor report), or `ENABLE_INDICATOR_EXTRACTION` is `0`. |
 | Sign-in with the demo account fails | `SEED_DEMO_DATA` was `false` at first start, or an overlay replaced `EMAIL_PREDEFINE_CODES`; overlay dictionaries replace, they do not merge. |

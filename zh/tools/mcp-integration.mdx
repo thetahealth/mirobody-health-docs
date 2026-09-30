@@ -15,9 +15,11 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | --- | --- | --- |
 | `POST /mcp` | `Authorization: Bearer <access token>` | 能发送请求头的客户端 |
 | `POST /mcp/<secret>` | 路径中的 secret | 个人 URL，供无法发送请求头的客户端使用 |
-| `POST /personal/mcp` | `Authorization: Bearer <access token>` | 生成调用者的个人 URL；对同一路由发送 `DELETE` 即吊销 |
+| `GET /personal/mcp` | `Authorization: Bearer <access token>` | 列出调用者创建的链接，以及别人创建的、能读取调用者本人记录的链接 |
+| `POST /personal/mcp` | `Authorization: Bearer <access token>` | 替换调用者的个人 URL（body 中带 `user_id` 时，替换的是某位家庭成员指向该人的链接） |
+| `DELETE /personal/mcp/<id>` | `Authorization: Bearer <access token>` | 按 id 吊销一条链接，无论它是调用者创建的还是读取调用者本人记录的 |
 
-设置了 `HTTP_URI_PREFIX` 时，三个路由都位于该前缀之下。在 Docker 栈上，服务端监听端口 <Fact k="port" />。
+设置了 `HTTP_URI_PREFIX` 时，以上路由都位于该前缀之下。在 Docker 栈上，服务端监听端口 <Fact k="port" />。
 
 ## 个人 MCP URL
 
@@ -36,7 +38,13 @@ curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $T
 { "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
 ```
 
-在有效期内再次生成，返回的是同一个 URL。它在 `MCP_URL_TTL_DAYS` 天后过期（默认 <Fact k="mcpUrlTtlDays" /> 天）。`DELETE /personal/mcp` 会吊销它，之后再生成会得到新的 secret。
+再次生成会**替换**原来的 URL：它会吊销同一对创建者与被读取人之间正在生效的链接，并签发一个新的 secret，有效期从这一刻起算 `MCP_URL_TTL_DAYS` 天（默认 <Fact k="mcpUrlTtlDays" /> 天），使用不会延长有效期。`GET /personal/mcp` 列出调用者能看到的所有生效链接：自己创建的（为自己，或在拥有关爱圈读权限时为他人创建的），以及某位家庭成员创建的、读取调用者本人记录的链接。`DELETE /personal/mcp/<id>` 按 `id` 吊销一条链接，无论调用者是创建者还是被读取的本人；调用者管不到的链接一律回应 404，与不存在的链接一样。
+
+停止共享、退出关爱圈，或创建者的账号被原持有人收回，都会让链接在下一次使用时失效；停止共享或被移出关爱圈还会直接吊销链接，所以之后重新共享也不会让旧链接自动恢复。
+
+<Warning>
+1.5.3 之前创建的每一条个人 MCP 链接都已失效：旧的存储方式只按被读取人记录一条链接，没有创建者信息可核对，无法区分谁的链接是谁的。请在设置中重新生成。
+</Warning>
 
 <Warning>
 secret 就是完整的凭据：任何持有这个 URL 的人都能读取对应那个人的健康记录。它会出现在客户端配置文件和截图里，所以请像对待密码一样对待它：设备丢失时吊销；部署可从网络访问后，只通过 HTTPS 提供。

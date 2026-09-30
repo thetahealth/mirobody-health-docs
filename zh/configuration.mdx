@@ -16,8 +16,8 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | `config.yaml` | 服务端、数据库、登录、扩展目录 | 不修改：在覆盖文件中覆盖它的值 |
 | `config.llm.yaml` | 模型表（`MODELS`），以及每个用途使用哪个模型 | 需要更换模型时 |
 | `config.devices.yaml` | Garmin、Oura、Whoop 的凭据；Google 与 Apple 登录 | 需要启用某个 provider 时 |
-| `config.{ENV}.yaml` | 你的覆盖文件。`./deploy.sh` 首次运行时生成一份，其中带有生成的 `JWT_KEY` | 修改 |
-| `.env` | `ENV`、两个加密密钥，以及模型 API 密钥 | 修改 |
+| `config.{ENV}.yaml` | `config.yaml` 的覆盖文件，可选：在 `.env` 的 `MIROBODY_CONFIG_FILE` 中指定一份；`./deploy.sh` 只会沿用旧版本已经生成的覆盖文件 | 修改 |
+| `.env` | `ENV`、自动生成的各项密钥，以及模型 API 密钥 | 修改 |
 
 后加载的来源优先：环境变量，其次是覆盖文件，再次是 `config.devices.yaml` 与 `config.llm.yaml`，最后是 `config.yaml`。**字典不会跨文件合并**：覆盖文件里设置的键会替换整个值，所以在覆盖文件里设置 `EMAIL_PREDEFINE_CODES` 会替换掉演示账号，而不是在其后追加。
 
@@ -27,21 +27,23 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 ## 模型密钥 {#the-model-key}
 
-一个密钥即可驱动所有用途。把下列任意一个写进 `compose.yaml` 旁边的 `.env`，然后重启：
+一个密钥即可驱动所有用途。把下列任意一个写进 `compose.yaml` 旁边的 `.env`，然后使其生效：
 
 <Fact k="llmKeys" code sep="、" />
 
 ```bash
-docker compose restart
+docker compose up -d
 ```
+
+`docker compose restart` 不会重新读取 `.env`，`up -d` 才会。
 
 每个密钥为四个用途各选一个模型：对话（模型选择器）、视觉（化验单照片与扫描页）、文本（指标抽取、文件标题与摘要）、向量（指标检索）。<OssLink path="config.llm.yaml" /> 开头的表格列出了每个密钥选中的模型，以及各密钥的申请地址。DeepSeek 与 Anthropic 不提供向量模型，只配置其中之一时，指标检索使用词法索引。
 
 `mirobody doctor` 会打印找到的密钥和每个用途选中的模型，并对没有可用模型的用途给出修复方法：
 
 ```bash
-docker compose exec mirobody python -m mirobody doctor   # Docker 栈
-mirobody doctor                                          # 源码检出或 pip 安装
+docker compose exec mirobody mirobody doctor   # Docker 栈
+mirobody doctor                                # 源码检出或 pip 安装
 ```
 
 服务端与 worker 启动时也会在日志中输出同样的报告。
@@ -76,11 +78,10 @@ mirobody doctor                                          # 源码检出或 pip �
 
 | 密钥 | 位置 | 由谁设置 |
 | --- | --- | --- |
-| `CONFIG_ENCRYPTION_KEY`、`LOG_ENCRYPTION_KEY` | `.env` | `./deploy.sh`，首次运行时 |
-| `JWT_KEY` | 覆盖文件 | `./deploy.sh`，在它生成覆盖文件时 |
-| `PG_PASSWORD`、`REDIS_PASSWORD`、`PG_ENCRYPTION_KEY`、`DATABASE_DECRYPTION_KEY` | 覆盖文件 | 你自己。随仓库提供的是 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值。 |
+| `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`LOG_ENCRYPTION_KEY`、`JWT_KEY` | `.env` | `./deploy.sh`，首次运行时用 `openssl rand -hex 32` 生成 |
+| `DATABASE_DECRYPTION_KEY` | `config.devices.yaml`，或在 `.env` 中覆盖 | 你自己。随仓库提供的是 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值；环境变量的优先级高于任何配置文件。 |
 
-`PG_ENCRYPTION_KEY` 与 `CONFIG_ENCRYPTION_KEY` 是两个不同的值：前者加密存储的内容，例如对话消息与上传的文件。`DATABASE_DECRYPTION_KEY`（十六进制）加密各 provider 保存的设备凭据。不要在不同环境之间复制这些密钥。在 Docker 栈上替换数据库与 Redis 密码的方法，见[在服务器上部署](/zh/deployment/production#secrets)。
+`PG_ENCRYPTION_KEY` 与 `CONFIG_ENCRYPTION_KEY` 是两个不同的值：前者加密存储的内容，例如对话消息与上传的文件。`DATABASE_DECRYPTION_KEY`（十六进制）加密各 provider 保存的设备凭据。不要在不同环境之间复制这些密钥。自行生成这些密钥并迁移到另一台主机的方法，见[在服务器上部署](/zh/deployment/production#secrets)。
 
 ## 扩展目录
 

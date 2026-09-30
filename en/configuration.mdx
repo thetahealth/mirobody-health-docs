@@ -16,8 +16,8 @@ Configuration is a set of YAML files plus environment variables. The shipped fil
 | `config.yaml` | Server, database, sign-in, extension directories | No: override its values in the overlay |
 | `config.llm.yaml` | The model table (`MODELS`) and which model each surface uses | To change a model |
 | `config.devices.yaml` | Garmin, Oura and Whoop credentials; Google and Apple sign-in | To turn a provider on |
-| `config.{ENV}.yaml` | Your overlay. `./deploy.sh` creates one on first run, with a generated `JWT_KEY` | Yes |
-| `.env` | `ENV`, the two encryption keys, and the model API key | Yes |
+| `config.{ENV}.yaml` | Your overlay for `config.yaml`. Optional: point `.env`'s `MIROBODY_CONFIG_FILE` at one; `./deploy.sh` only reuses an overlay already present from an earlier release | Yes |
+| `.env` | `ENV`, the generated secrets, and the model API key | Yes |
 
 Later sources win: environment variables, then the overlay, then `config.devices.yaml` and `config.llm.yaml`, then `config.yaml`. **A dictionary does not merge across files**: a key set in the overlay replaces the whole value, so an overlay that sets `EMAIL_PREDEFINE_CODES` replaces the demo accounts rather than adding to them.
 
@@ -27,21 +27,23 @@ In the overlay, a value whose name contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`
 
 ## The model key {#the-model-key}
 
-One key runs every surface. Put one of these in the `.env` next to `compose.yaml`, then restart:
+One key runs every surface. Put one of these in the `.env` next to `compose.yaml`, then apply it:
 
 <Fact k="llmKeys" code />
 
 ```bash
-docker compose restart
+docker compose up -d
 ```
+
+`docker compose restart` does not re-read `.env`; `up -d` does.
 
 Each key selects a model for four surfaces: chat (the model picker), vision (report photos and scanned pages), text (indicator extraction, file titles and summaries) and embeddings (indicator search). The table at the top of <OssLink path="config.llm.yaml" /> lists what each key selects and where each key is issued. DeepSeek and Anthropic serve no embedding model; with one of those keys alone, indicator search uses the lexical index.
 
 `mirobody doctor` prints the keys it found and the model each surface selected, and names the fix for a surface that has none:
 
 ```bash
-docker compose exec mirobody python -m mirobody doctor   # the Docker stack
-mirobody doctor                                          # a checkout or a pip install
+docker compose exec mirobody mirobody doctor   # the Docker stack
+mirobody doctor                                # a checkout or a pip install
 ```
 
 The server and the worker log the same report at startup.
@@ -76,11 +78,10 @@ The keys that decide how the agent behaves are described in [The Agent](/en/tool
 
 | Secret | Where | Set by |
 | --- | --- | --- |
-| `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY` | `.env` | `./deploy.sh`, on first run |
-| `JWT_KEY` | the overlay | `./deploy.sh`, when it creates the overlay |
-| `PG_PASSWORD`, `REDIS_PASSWORD`, `PG_ENCRYPTION_KEY`, `DATABASE_DECRYPTION_KEY` | the overlay | You. They ship as `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholders. |
+| `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY`, `JWT_KEY` | `.env` | `./deploy.sh`, generated with `openssl rand -hex 32` on first run |
+| `DATABASE_DECRYPTION_KEY` | `config.devices.yaml`, or `.env` to override it | You. Ships as a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder; environment variables take precedence over every config file. |
 
-`PG_ENCRYPTION_KEY` is a separate value from `CONFIG_ENCRYPTION_KEY`: it encrypts stored content such as chat messages and uploaded files. `DATABASE_DECRYPTION_KEY` (hex) encrypts the device credentials the providers store. Do not copy either key between environments. Replacing the database and Redis passwords on the Docker stack is described in [Deploy on a Server](/en/deployment/production#secrets).
+`PG_ENCRYPTION_KEY` is a separate value from `CONFIG_ENCRYPTION_KEY`: it encrypts stored content such as chat messages and uploaded files. `DATABASE_DECRYPTION_KEY` (hex) encrypts the device credentials the providers store. Do not copy either key between environments. Generating these secrets yourself and moving them to another host is described in [Deploy on a Server](/en/deployment/production#secrets).
 
 ## Extension directories
 

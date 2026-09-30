@@ -17,22 +17,21 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | 你想要 | 方式 | 需要 | 模型密钥 |
 | --- | --- | --- | --- |
 | 在自己的代码里解析指标名称与单位 | [作为库使用](/zh/quickstart#a--the-library) | Python <Fact k="python" /> | 不需要 |
-| 运行完整产品，并带有演示数据 | [Docker 栈](/zh/quickstart#b--the-stack) | Git、Git LFS、带 Compose 的 Docker | 使用模型功能时需要一个 |
+| 运行完整产品，并带有演示数据 | [Docker 栈](/zh/quickstart#b--the-stack) | Git、带 Compose 的 Docker | 使用模型功能时需要一个 |
 | 修改代码并查看效果 | [源码检出](/zh/quickstart#c--a-checkout) | Python 与带 pgvector 的 Postgres | 使用模型功能时需要一个 |
 
-Docker 栈由四个容器组成：带 pgvector 的 Postgres、Redis、服务端与后台 worker。自带的 Web 客户端运行在 <Fact k="url" code />。
+Docker 栈由三个容器组成：带 pgvector 的 Postgres、服务端与后台 worker。自带的 Web 客户端运行在 <Fact k="url" code />。
 
 ## 第一次在本地运行 {#first-local-result}
 
-安装 Git、Git LFS 和 Docker Compose 后，启动本地演示环境并检查预置读数。模型功能需要在 `.env` 中设置受支持的密钥；查看样例读数无需密钥。
+安装 Git 和 Docker Compose 后，启动本地演示环境并检查预置读数。模型功能需要在 `.env` 中设置受支持的密钥；查看样例读数无需密钥。
 
 <Steps>
   <Step title="启动演示环境">
-    检出引擎并启动服务。脚本会创建演示账号、写入样例读数，随后持续显示服务日志。
+    检出引擎并启动服务。脚本会拉取应用镜像、创建演示账号、写入样例读数，随后持续显示服务日志。
 
     ```bash
     git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
-    git lfs install && git lfs pull
     ./deploy.sh
     ```
   </Step>
@@ -42,10 +41,10 @@ Docker 栈由四个容器组成：带 pgvector 的 Postgres、Redis、服务端�
     ```bash
     docker compose ps
     curl -fsS http://localhost:18060/api/health
-    docker compose exec mirobody python -m mirobody doctor
+    docker compose exec mirobody mirobody doctor
     ```
 
-    `mirobody` 服务应变为 `healthy`，健康检查会返回 `version` 和 `agent`。最后一条命令在**容器内**检查模型功能。启动后才在 `.env` 中添加密钥时，请先运行 `docker compose restart` 再检查。
+    `mirobody` 服务应变为 `healthy`，健康检查会返回 `version` 和 `agent`。最后一条命令在**容器内**检查模型功能。启动后才在 `.env` 中添加密钥时，请运行 `docker compose up -d`；`docker compose restart` 不会重新读取 `.env`。
   </Step>
   <Step title="查看样例读数">
     打开 <Fact k="url" code />，使用 `you@mirobody.ai` 和验证码 `111111` 登录，再打开 **Data**。页面应显示预置读数。[快速开始](/zh/quickstart#b--the-stack)也介绍了演示上传文件和其他运行方式。

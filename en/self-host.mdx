@@ -17,22 +17,21 @@ Pick the row that matches what you want; the three are alternatives, not steps.
 | You want | Path | Needs | Model key |
 | --- | --- | --- | --- |
 | Names and units resolved in your own code | [The library](/en/quickstart#a--the-library) | Python <Fact k="python" /> | none |
-| The whole product running, with demo data in it | [The Docker stack](/en/quickstart#b--the-stack) | Git, Git LFS, Docker with Compose | one for model features |
+| The whole product running, with demo data in it | [The Docker stack](/en/quickstart#b--the-stack) | Git, Docker with Compose | one for model features |
 | To change the code and see the result | [A source checkout](/en/quickstart#c--a-checkout) | Python and a Postgres with pgvector | one for model features |
 
-The Docker stack is four containers: Postgres with pgvector, Redis, the server and the background worker. It serves the bundled web client at <Fact k="url" code />.
+The Docker stack is three containers: Postgres with pgvector, the server and the background worker. It serves the bundled web client at <Fact k="url" code />.
 
 ## First local result {#first-local-result}
 
-With Git, Git LFS and Docker Compose installed, run the local demo and check its seeded readings. Model features require a supported key in `.env`; the sample readings are available without one.
+With Git and Docker Compose installed, run the local demo and check its seeded readings. Model features require a supported key in `.env`; the sample readings are available without one.
 
 <Steps>
   <Step title="Start the demo">
-    Clone the engine and start the stack. The script creates demo accounts and example readings, then follows the service logs.
+    Clone the engine and start the stack. The script pulls the application image and creates demo accounts and example readings, then follows the service logs.
 
     ```bash
     git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
-    git lfs install && git lfs pull
     ./deploy.sh
     ```
   </Step>
@@ -42,10 +41,10 @@ With Git, Git LFS and Docker Compose installed, run the local demo and check its
     ```bash
     docker compose ps
     curl -fsS http://localhost:18060/api/health
-    docker compose exec mirobody python -m mirobody doctor
+    docker compose exec mirobody mirobody doctor
     ```
 
-    The `mirobody` service should become `healthy`, and the health response includes `version` and `agent`. The last command checks model features **inside the container**. If you add a model key to `.env` after startup, run `docker compose restart` before checking it.
+    The `mirobody` service should become `healthy`, and the health response includes `version` and `agent`. The last command checks model features **inside the container**. If you add a model key to `.env` after startup, run `docker compose up -d`; `docker compose restart` does not re-read `.env`.
   </Step>
   <Step title="Inspect the readings">
     Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111`, then open **Data**. The seeded readings should appear there. The [Quickstart](/en/quickstart#b--the-stack) also covers demo upload files and the other run modes.
