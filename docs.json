@@ -165,7 +165,8 @@
                 "group": "② Translate",
                 "pages": [
                   "en/concepts/indicators",
-                  "en/concepts/device-crosswalk"
+                  "en/concepts/device-crosswalk",
+                  "en/concepts/genetics"
                 ],
                 "icon": "wand-magic-sparkles",
                 "root": "en/concepts/indicators"
@@ -345,7 +346,8 @@
                 "group": "② 转译",
                 "pages": [
                   "zh/concepts/indicators",
-                  "zh/concepts/device-crosswalk"
+                  "zh/concepts/device-crosswalk",
+                  "zh/concepts/genetics"
                 ],
                 "icon": "wand-magic-sparkles",
                 "root": "zh/concepts/indicators"

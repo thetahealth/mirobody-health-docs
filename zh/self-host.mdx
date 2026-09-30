@@ -122,6 +122,8 @@ pip install -e '.[test]' && pytest -q && lint-imports
 
 完整的贡献流程见 <OssLink path="CONTRIBUTING.md" />，测试的组织方式见 <OssLink path="docs/testing.md" />。
 
+`benchmarks/` 目录下的两个公开基准可以在克隆下来的仓库里直接运行，不需要任何私有数据：`python -m unittest benchmarks.health_records.test_cases`（13 条合成读数与 26 句主诉短语，覆盖五种语言，核对各自的 LOINC/UCUM 与 ICPC-3 结果）以及 `python -m unittest discover -s benchmarks/genomics -p 'test_*.py'`（13 个公开的 1000 Genomes 位点调用，覆盖十种文件形态）。参见 <OssLink path="benchmarks/health_records/README.md" /> 与 <OssLink path="benchmarks/genomics/README.md" />。
+
 <CardGroup cols={2}>
   <Card title="GitHub 仓库" icon="github" href="https://github.com/thetahealth/mirobody">
     源码、issue 与 pull request。

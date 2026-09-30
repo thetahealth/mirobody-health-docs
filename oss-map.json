@@ -101,6 +101,16 @@
       }
     },
     {
+      "slug": "concepts/genetics",
+      "source": "docs/genetics.md",
+      "zhSource": "docs/genetics.zh-CN.md",
+      "label": { "en": "Genetics", "zh": "基因数据" },
+      "description": {
+        "en": "How a raw genotype upload becomes site calls and CPIC drug-gene coverage, and the boundaries the two tools keep on purpose.",
+        "zh": "原始基因型上传如何变成位点检出结果和 CPIC 药物-基因覆盖情况，以及这两个工具有意保留的边界。"
+      }
+    },
+    {
       "slug": "tools/overview",
       "source": "docs/answers.md",
       "zhIntro": "本页是健康数据工具的参数、返回格式和调用约束参考。若目标是连接现成的 MCP 客户端，先看中文的[MCP 接入](/zh/tools/mcp-integration)；需要实现工具调用时，再查下方英文定义。",

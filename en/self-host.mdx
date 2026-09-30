@@ -122,6 +122,8 @@ pip install -e '.[test]' && pytest -q && lint-imports
 
 The full contributor workflow is in <OssLink path="CONTRIBUTING.md" />, and the test layout in <OssLink path="docs/testing.md" />.
 
+Public benchmarks under `benchmarks/` run from a clone with no private data: `python -m unittest benchmarks.health_records.test_cases` (13 synthetic readings and 26 complaint phrases in five languages, checked against their LOINC/UCUM and ICPC-3 codes) and `python -m unittest discover -s benchmarks/genomics -p 'test_*.py'` (13 public 1000 Genomes calls in ten file shapes). See <OssLink path="benchmarks/health_records/README.md" /> and <OssLink path="benchmarks/genomics/README.md" />.
+
 <CardGroup cols={2}>
   <Card title="GitHub repository" icon="github" href="https://github.com/thetahealth/mirobody">
     Source code, issues and pull requests.
