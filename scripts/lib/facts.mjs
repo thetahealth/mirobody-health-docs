@@ -21,7 +21,12 @@ function fail(what) {
 
 /** "127.0.0.1:18062:5432" / "18060:18060" → the host-side port. */
 function hostPort(mapping) {
-  const parts = String(mapping).split(":");
+  // 1.5.3's compose.yaml writes host ports as Compose variable defaults
+  // ("${PG_HOST_PORT:-18062}"), not literals; substitute before splitting.
+  const literal = String(mapping)
+    .replace(/\$\{([A-Z_][A-Z0-9_]*):-([^}]*)\}/g, "$2")
+    .replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, "");
+  const parts = literal.split(":");
   return Number(parts.length === 3 ? parts[1] : parts[0]);
 }
 
