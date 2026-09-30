@@ -11,7 +11,7 @@ The defaults in the repository are tuned for a local, single-user trial: demo ac
 
 ## Host requirements
 
-A Linux host with Docker Engine and the Compose plugin **2.24.4 or newer**, Git with Git LFS, and outbound access to the model provider your key belongs to. No GPU is needed. The stack runs four containers: Postgres with pgvector, Redis, the server and the worker. Capacity depends on concurrent users and file processing; this release does not publish a measured minimum host size.
+A Linux host with Docker Engine and the Compose plugin **2.24.4 or newer**, Git, and outbound access to the model provider your key belongs to. No GPU is needed. The stack runs three containers: Postgres with pgvector, the server and the worker, plus a one-shot container that fixes upload-volume ownership on each start. Capacity depends on concurrent users and file processing; this release does not publish a measured minimum host size.
 
 ## First start
 
@@ -21,7 +21,6 @@ Decide the posture **before** the first start: demo data is seeded on first boot
   <Step title="Clone the repository">
     ```bash
     git clone https://github.com/thetahealth/mirobody.git && cd mirobody
-    git lfs install && git lfs pull
     ```
   </Step>
   <Step title="Write .env">
@@ -32,14 +31,14 @@ Decide the posture **before** the first start: demo data is seeded on first boot
     ```
     `ENV` names the overlay, `config.prod.yaml`. Any one of the supported model keys works; see [Configuration](/en/configuration#the-model-key).
   </Step>
-  <Step title="Write the overlay and the Compose override">
-    Set the production posture and separate secrets below. Bind the app port to loopback before starting if the reverse proxy runs on this host.
+  <Step title="Write the overlay">
+    Create `config.prod.yaml` with the production posture below. `deploy.sh` wires in an overlay file already present under that name; it does not create one for you. Bind the app port to loopback in a `compose.override.yaml` before starting if the reverse proxy runs on this host.
   </Step>
   <Step title="Start the stack">
     ```bash
     ./deploy.sh
     ```
-    `deploy.sh` adds the two encryption keys to `.env` when they are missing, builds the image and starts the stack. It writes an overlay only when none exists, so the overlay you wrote must carry its own `JWT_KEY`. Continue with the checks below before directing users to this host.
+    `deploy.sh` generates `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY` and `JWT_KEY` into `.env` when they are missing, pulls the application image (or builds it from this checkout when it cannot), and starts Postgres, the server and the worker. Continue with the checks below before directing users to this host.
   </Step>
 </Steps>
 
@@ -48,7 +47,7 @@ Decide the posture **before** the first start: demo data is seeded on first boot
 Use a **fresh deployment** for real records. Turning on `PRODUCTION` in the demo checkout stops future demo seeding, but it does not erase existing demo accounts or readings. Its Postgres password was fixed when the original volume was created, and changing encryption keys would make stored content unreadable. Reusing that volume is not a clean production start.
 
 1. If you entered anything you need to keep in the demo, run `shell/backup.sh` there and store the backup and its matching `.env` and config files somewhere protected. This is a safety copy, **not** the starting database for production.
-2. Prefer a new Linux host or VM. Clone the engine there and follow [First start](#first-start) from the beginning, including `SEED_DEMO_DATA=false`, production secrets, the Compose override and HTTPS **before** running `./deploy.sh`.
+2. Prefer a new Linux host or VM. Clone the engine there and follow [First start](#first-start) from the beginning, including `SEED_DEMO_DATA=false`, the production overlay, `DATABASE_DECRYPTION_KEY` and HTTPS **before** running `./deploy.sh`.
 3. If you must reuse the same host, run `docker compose down` in the **demo** checkout first. It stops the demo without deleting its volumes. Clone into a **different directory name** for production, keep `COMPOSE_PROJECT_NAME` unset or distinct, and follow [First start](#first-start) there. Compose prefixes named volumes with the project name; a different project gives the new stack empty Postgres and upload volumes. The old demo remains stopped and separate.
 4. After the [deployment checks](#verify-the-deployment), register a new account and enter only the real records you intend to keep. Check that no demo accounts or demo readings appear. Keep the demo backup separate; restoring it into the new stack would bring the demo data back.
 
@@ -69,44 +68,19 @@ Set `BOOTSTRAP_SCHEMA: false` as well if you provision the database schema yours
 
 ## Secrets {#secrets}
 
-Set these five in the overlay. Four ship as `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholders, and `JWT_KEY` is otherwise generated only into an overlay that `deploy.sh` creates itself. Generate each value independently. Run `openssl rand -hex 32` four times for `JWT_KEY`, `PG_ENCRYPTION_KEY`, `PG_PASSWORD` and `REDIS_PASSWORD`. For `DATABASE_DECRYPTION_KEY`, run `openssl rand -hex 16`: its **32 ASCII characters** are used directly as a 32-byte AES key, rather than decoded from hex.
+`./deploy.sh` writes `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY` and `JWT_KEY` into `.env` on first run, each `openssl rand -hex 32`, and never overwrites a value already there (`.env` itself is written `chmod 600`). Compose passes `.env` to every container through `env_file`, so `PG_PASSWORD` reaches both the `pg` service (`POSTGRES_PASSWORD`) and the app; nothing else needs to carry it.
 
-```yaml config.prod.yaml
-JWT_KEY: <random key>                   # signs session tokens
-PG_ENCRYPTION_KEY: <random key>         # encrypts stored content
-DATABASE_DECRYPTION_KEY: <32 ASCII characters> # encrypts stored device credentials
-PG_PASSWORD: <database password>
-REDIS_PASSWORD: <Redis password>
+`DATABASE_DECRYPTION_KEY` is the one secret `deploy.sh` does not generate: it ships in `config.devices.yaml` as a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder, and `PRODUCTION: true` refuses to start while that placeholder remains. Set it yourself, in `.env`, where it overrides the config file (environment variables take precedence over every config source):
+
+```bash .env
+DATABASE_DECRYPTION_KEY=<32 ASCII characters>
 ```
 
-The Postgres and Redis containers read their passwords from `compose.yaml`, not from the overlay, so give them the same values in a `compose.override.yaml` next to it. Compose merges the override into `compose.yaml`, but a `command` is replaced as a whole: copy the Redis `command` from `compose.yaml` and change only `--requirepass`.
+Generate it with `openssl rand -hex 16`: the resulting **32 ASCII characters** are used directly as a 32-byte AES key, not decoded from hex.
 
-```yaml compose.override.yaml
-services:
-  pg:
-    environment:
-      POSTGRES_PASSWORD: <the same database password>
-  redis:
-    command: >
-      redis-server
-      --bind 0.0.0.0
-      --port 6379
-      --requirepass <the same Redis password>
-      --maxmemory 512mb
-      --maxmemory-policy noeviction
-      --appendonly yes
-      --appendfilename "appendonly.aof"
-      --appendfsync everysec
-      --loglevel notice
-      --timeout 60
-      --tcp-keepalive 30
-      --io-threads 4
-      --tcp-backlog 511
-```
+Postgres applies `POSTGRES_PASSWORD` only when it creates an empty data volume. To move `PG_PASSWORD` onto an existing volume, change it with `ALTER USER` first, then update `.env` to match.
 
-Postgres applies `POSTGRES_PASSWORD` only when it creates an empty data volume. On an existing volume, change the password with `ALTER USER` first.
-
-`CONFIG_ENCRYPTION_KEY` in `.env` encrypts the secrets written in the overlay. Keep `.env` and the overlay out of version control, and do not reuse any of these keys between environments: data encrypted under one key cannot be read with another. Preserve the key files alongside database and upload backups so a restore can read encrypted records.
+Keep `.env` out of version control, and do not reuse any of these keys between environments: data encrypted under one key cannot be read with another. Preserve `.env` alongside database and upload backups so a restore can read encrypted records. `CONFIG_ENCRYPTION_KEY` encrypts secret-shaped values (`_KEY`, `_PASSWORD`, and similar) that you add to the overlay itself, such as a device provider credential in `config.prod.yaml`; it has no effect on `.env`.
 
 ## Public URL and HTTPS {#public-url-and-https}
 
@@ -139,7 +113,7 @@ MCP_PUBLIC_URL: https://health.example.com
 The personal MCP URL starts with the origin of the incoming request. If a proxy is outside the trusted address list, the server ignores its `X-Forwarded-Proto` and may issue an `http://` URL. Verify the URL from the public HTTPS site before sharing it.
 </Warning>
 
-Do not expose Postgres or Redis. `compose.yaml` publishes them on the loopback interface only (<Fact k="pgPort" /> and <Fact k="redisPort" />), for local inspection. The application port is public in the base Compose file, so retain the loopback override above. Run `docker compose config` and confirm the effective `mirobody.ports` contains **only** the loopback binding.
+Do not expose Postgres. `compose.yaml` already publishes it on the loopback interface only (<Fact k="pgPort" />), for local inspection, so nothing to change there. The application port is public in the base Compose file, so retain the loopback override above. Run `docker compose config` and confirm the effective `mirobody.ports` contains **only** the loopback binding.
 
 ## Verify the deployment
 
@@ -156,4 +130,4 @@ The `mirobody` service should report `healthy`. The response contains `version` 
 
 The data lives in the Postgres volume and, when uploads are stored on local disk rather than in a bucket, in the upload volume. Use [Verify and Restore a Backup](/en/deployment/restore) for a restore rehearsal and recovery procedure; the engine's [Backup & Restore reference](/en/deployment/backup) explains the volumes in detail.
 
-Use [Upgrade a Deployment](/en/deployment/upgrade) for the sequence: back up data and keys, review the target release, change the checkout, restart and verify. `deploy.sh` runs `docker compose down` before it starts the new stack, so plan a maintenance window.
+Use [Upgrade a Deployment](/en/deployment/upgrade) for the sequence: back up data and keys, review the target release, change the checkout, restart and verify. `deploy.sh` runs `docker compose up -d --remove-orphans`, which recreates a changed service in place; plan a maintenance window for the brief restart.

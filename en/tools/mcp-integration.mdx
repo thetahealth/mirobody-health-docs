@@ -15,9 +15,12 @@ The health-data tools used by the bundled agent are also served at **`/mcp`**, o
 | --- | --- | --- |
 | `POST /mcp` | `Authorization: Bearer <access token>` | A client that can send a header |
 | `POST /mcp/<secret>` | The secret in the path | A personal URL, for a client that cannot send a header |
-| `POST /personal/mcp` | `Authorization: Bearer <access token>` | Mints the caller's personal URL; `DELETE` on the same route revokes it |
+| `GET /personal/mcp` | `Authorization: Bearer <access token>` | Lists the links the caller made and the ones reading the caller's record |
+| `POST /personal/mcp` | `Authorization: Bearer <access token>` | Replaces the caller's personal URL (or, with `user_id` in the body, a family member's link to that person) |
+| `DELETE /personal/mcp` | `Authorization: Bearer <access token>` | Revokes the link the caller made for that person (their own, or with `user_id` in the body, a family member's) |
+| `DELETE /personal/mcp/<id>` | `Authorization: Bearer <access token>` | Revokes one link by id, made by the caller or reading the caller's record |
 
-All three sit under `HTTP_URI_PREFIX` when one is set. On the Docker stack the server listens on port <Fact k="port" />.
+All of these sit under `HTTP_URI_PREFIX` when one is set. On the Docker stack the server listens on port <Fact k="port" />.
 
 ## Personal MCP URL
 
@@ -36,7 +39,13 @@ curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $T
 { "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
 ```
 
-Minting again returns the same URL while it is valid. It expires after `MCP_URL_TTL_DAYS` days (<Fact k="mcpUrlTtlDays" /> by default). `DELETE /personal/mcp` revokes it, and the next mint issues a new secret.
+Minting again **replaces** the URL: it revokes any live link for the same caller and subject and issues a new secret, valid for `MCP_URL_TTL_DAYS` days from that moment (<Fact k="mcpUrlTtlDays" /> by default), never extended by use. `GET /personal/mcp` lists every live link the caller can see: the ones they made (for themselves or, with a care-circle read grant, for someone else) and the ones a family member made that read the caller's own record. `DELETE /personal/mcp/<id>` revokes one link by its `id`, whether the caller made it or it reads the caller's record; a link nobody may act on answers 404, the same as one that does not exist.
+
+Sharing stopping, a circle membership ending, or the creator's account being taken back over all end the link the next time it is used, and unsharing or removal also revoke it outright so sharing again later does not silently restore it.
+
+<Warning>
+Every personal MCP link made before 1.5.3 stopped working: the old store kept a link by subject alone, with no creator to check, so nobody's old link can be told apart from anyone else's. Make a new one in Settings.
+</Warning>
 
 <Warning>
 The secret is the whole credential: anyone holding the URL can read that person's health record. It ends up in client configuration files and screenshots, so treat it like a password, revoke it when a device is lost, and serve it only over HTTPS once the deployment is reachable from a network.

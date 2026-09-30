@@ -7,7 +7,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-This procedure is for the Docker deployment described in [Deploy on a Server](/en/deployment/production). `deploy.sh` stops the current stack before starting the new one, so reserve a maintenance window. Database schema changes are additive on startup; there is no automatic down migration. A code checkout alone is not a rollback.
+This procedure is for the Docker deployment described in [Deploy on a Server](/en/deployment/production). `deploy.sh` recreates any changed service in place (`docker compose up -d --remove-orphans`), which briefly interrupts the running stack, so reserve a maintenance window. Database schema changes are additive on startup; there is no automatic down migration. A code checkout alone is not a rollback. Upgrading from 1.5.2 removes Redis from the stack; see [Backup & Restore, "Upgrading from 1.5.2"](/en/deployment/backup#upgrading-from-152) for the extra steps that release needs.
 
 ## Before changing code
 
@@ -55,7 +55,7 @@ This procedure is for the Docker deployment described in [Deploy on a Server](/e
     ./deploy.sh
     ```
 
-    The script rebuilds the image if its definition changed, starts the four services and tails their logs. Watch for startup or schema errors. The first boot may reinstall Python dependencies.
+    The script pulls the release image `compose.yaml` names (falling back to the `docker.1ms.run` mirror, or building locally from this checkout only when neither pull succeeds), then starts Postgres, the server and the worker, plus the one-shot container that fixes upload-volume ownership, and waits for them to report healthy. No Python dependencies install at boot; that only happens inside a local build. Watch for startup or schema errors with `docker compose logs -f mirobody` in another terminal.
   </Step>
   <Step title="Check the result">
     In another terminal, run:
