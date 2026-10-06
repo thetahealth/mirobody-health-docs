@@ -1,0 +1,73 @@
+---
+title: "用于测试的合成数据：mirobody-gen"
+sidebarTitle: "合成数据"
+description: "可重放的合成虚拟人——其文档、可穿戴推送、健康库批次与基因导出全部带逐行真值，是 Mirobody 每一条摄入路径的测试语料。"
+---
+
+用真实病历测试一条摄入管线，在问到关键问题之前一直是好用的：*那一格读对了吗？是哪种版式
+现象让这份文件变难？同一个人的 Garmin 流和化验单有没有合并成一份档案？* 真实文件无法在规模上
+回答这些问题——没有真值，没有具名的难度，也没有合法的分享方式。
+
+[mirobody-gen](https://github.com/thetahealth/mirobody-gen) 就是为回答这些问题而建的。它是一个
+独立的生成器项目，职责是产出**广泛、拟真、完全可溯源的个人健康数据**：60 个虚拟人、8 种原型、
+跨多年的事件时间线，纵向一致地出现在**四条交付通道**上——而这四条通道正好就是 Mirobody 的四条
+摄入路径。一个合成人因此可以端到端地跑完整个引擎。
+
+| 通道 | 一个人交上来的材料 | Mirobody 入口 |
+| --- | --- | --- |
+| 文档 | 化验单、体检报告书、门诊病历、心电/超声/影像报告、家庭记录、App 导出——以文本层 PDF、XLSX、CSV 与 24 种扫描/拍照/复印/截屏场景 | [文件上传管线](/zh/concepts/file-processing) |
+| 手机健康库 | 每批 ≤500 条，字段名照抄 Apple/华为/小米/Health Connect 的 crosswalk 表，可直接 POST | [设备 crosswalk](/zh/concepts/device-crosswalk) |
+| 厂商云 | 字节级对标的 HealthKit JSON、Garmin Health API、Oura v2、WHOOP v2 推送，形状以 `kernel/decoders/samples/` 的验收记录为锚 | [provider 解码器](/zh/providers/using-providers) |
+| 基因 | WeGene、23andMe、AncestryDNA、MyHeritage 与 VCF 导出，41 个 PGx 位点按祖源频率抽取 | [遗传学处理器](/zh/concepts/genetics) |
+
+## 两层真值 {#two-layers-of-truth}
+
+一次构建中的每份文件都带两层独立的真值：
+
+- **印刷层**——纸上写了什么（项目名称、值、单位、参考范围、标记；即
+  [MedRepBench](https://arxiv.org/abs/2508.16674) 五字段）；
+- **语义层**——它意味着什么（指标键、LOINC 编码、UCUM 单位、观测日期）。
+
+提取可以对着第一层评分，标准化对着第二层，而两层之间的差异本身就是一个可量化的失败。
+这是只有转写真值的语料给不了的性质：在 `unit.missing` 这类陷阱下，一次忠实的转写**合法地**
+让印刷单位为空，而语义真值仍然说这一行是 mmol/L 的血糖——于是不变性检查必须放在语义层。
+
+## 具名的难度与最小对照对 {#named-difficulty}
+
+每份文件声明它携带的陷阱类。分类学从对 627 份真实文档的研究中蒸馏出 62 类
+（`unit.glued_to_value` 出现在 22% 的真实文档上，`unit.in_header_or_reference_only` 在 9%）。
+对每一类可造的陷阱，生成器把同一个人同一次就诊渲染两遍——干净版与带陷阱版——于是"这种现象
+代价多大"成为一个配对的因果估计，而不是观察性相关。
+
+## 服从生理学的数值 {#values-that-obey-physiology}
+
+没有任何值是在拟合了患者数据的分布上采样出来的。参考区间注明 WS/T 404（生化）与
+WS/T 405（血细胞分析）系列出处；个体内/个体间变异按公开的 EFLM/Westgard 表；派生量
+（BMI、LDL、MCH/MCHC、eGFR）按定义恒等式计算。项目在自己的体检单上做的一次跨生成器审计很说明
+问题：Synthea 与 PySynthea 的完整血常规多数违反红细胞恒等式 MCH = MCHC × MCV，且不带参考区间。
+ESL-Doc 两者都有，这是构造出来的，不是碰巧。
+
+## 构造层面的隐私 {#privacy-by-construction}
+
+一次构建中没有任何内容来自真实的人。文档*形态*统计以格式记号与聚合计数的形式来自一份私有脱敏
+参考集，每条带来源标签，由 allow-list `.gitignore`、pre-commit 隐私钩子和 n-gram 回放门
+把守。威胁模型写在仓库的 `docs/PRIVACY.md` 里，包括"如果你认为某个文件不是合成的该怎么办"。
+
+## 用法 {#using-it}
+
+```bash
+pip install -e ".[render]"
+mirobody-gen build --seed 7 --out out/p3 --render --pairs 12
+mirobody-gen audit-clinical    out/p3/manifest.jsonl
+mirobody-gen audit-readability out/p3/files.jsonl out/p3/pairs.jsonl
+mirobody-gen audit-privacy     --targets mirobody_gen/resources out/p3
+mirobody-gen score             out/p3/files.jsonl out/p3/pred.jsonl
+```
+
+同种子（以及同 `--lang-mix`、同 `--paraphrase`）的两次构建字节一致，`out/` 可丢弃，
+生成器加种子**就是**交付物。
+
+**现状。** Mirobody 通过一个指向构建目录的环境变量接入；截至引擎 1.5.3 版这一接入尚未落地
+（`feat/1.5.4` 尚不读取 mirobody-gen 的构建），目前的消费方是评分 CLI 和以解码器测试套件形状
+锚定的厂商推送。将这份语料与 [ESL-Bench](https://arxiv.org/abs/2604.02834) 组合的工作论文——
+基准暂定名 **ESL-Doc**——在仓库的 `docs/zh-CN/paper.md`。
