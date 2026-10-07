@@ -2,15 +2,15 @@
 title: "Mirobody"
 sidebarTitle: "Overview"
 icon: "compass"
-description: "Bring health readings into one coded record, then ask questions with traceable answers. Use Mirobody Cloud or run the open-source engine yourself."
-keywords: ["health data", "LOINC", "UCUM", "Mirobody Cloud", "self-host"]
+description: "A health record you own: lab reports, wearables and genetic files on one standard, in a database you run, answered by an agent that cites its sources. Run it yourself, with a vendor key or with every model on your own machine, or use Mirobody Cloud."
+keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.cpp", "Mirobody Cloud"]
 ---
 
 import RunModes from '/snippets/run-modes.mdx';
 
 ## What is Mirobody?
 
-**Mirobody** turns health readings from reports, devices, exports and photos into a record that can be compared across sources. It assigns standard codes and units, then lets an agent answer questions over that record while pointing back to the source of each reading. The [engine is open source](https://github.com/thetahealth/mirobody) under Apache 2.0; **Mirobody Cloud** offers its standardization and agent capabilities as a hosted API.
+**Mirobody** is an open-source health data engine you run yourself. It reads lab reports, wearable exports, photos and genetic files, assigns one standard code and unit to each value, keeps the record in a Postgres you operate, and lets an agent answer questions over it while naming the source of every reading. Since 1.5.4 every model can run on the same machine, on [llama.cpp](/en/local-models), so your documents and questions need not leave it, and the record exports, backs up and restores as files you hold. The engine is [open source](https://github.com/thetahealth/mirobody) under Apache 2.0, built by Theta Health, and is the engine under its Theta Wellness app. **Mirobody Cloud** offers the same standardization and agent capabilities as a hosted API.
 
 ## First steps
 
@@ -23,6 +23,8 @@ Choose where the record will run. The two paths use the same coding approach, bu
 | Call a hosted API | [Cloud quickstart](/en/api-reference/quickstart) | Two sample readings share a LOINC code; a question can cite them. |
 | Resolve a name or unit locally | [Library path](/en/quickstart#a--the-library) | A code is returned without a database or model key. |
 | Explore the full product locally | [Docker demo](/en/self-host#first-local-result) | The service is healthy and demo readings appear in **Data**. |
+| Keep every question and document on one machine | [Run locally](/en/local-models) | With no key in `.env`, `mirobody doctor --probe` reports PASS for the local entries. |
+| Choose a model for the privacy and answers you need | [Choosing a model](/en/model-choice) | `mirobody doctor --probe` reports PASS for the model you chose. |
 
 ## From data to answers
 
@@ -44,7 +46,9 @@ On Cloud, your application sends data to `/v1`; the service stores and processes
 | Decision | Mirobody Cloud | Self-Host |
 | --- | --- | --- |
 | Stored records | Operated by Mirobody, under the API's retention settings | In your Postgres and file storage |
-| Model requests | Handled by the hosted service | Sent to the model provider you configure |
+| Model requests, with a vendor key | Handled by the hosted service | Sent to the vendor whose key you paste, under its terms |
+| Model requests, 100% on this machine | Not offered: Cloud runs the models | Served by llama.cpp on the same machine; nothing about you is sent |
+| Taking data out | [Data lifecycle](/en/api-reference/lifecycle): retention and Subject offboarding | CSV, JSON and NDJSON exports, VCF for genotypes, and a backup script; see [Export Your Data](/en/deployment/export) |
 | Deployment and upgrades | Operated by Mirobody | Follow the [server deployment guide](/en/deployment/production) |
 
 ## Further reading
@@ -55,5 +59,11 @@ On Cloud, your application sends data to `/v1`; the service stores and processes
   </Card>
   <Card title="Open Source architecture" icon="diagram-project" href="/en/concepts/architecture">
     Follow a reading from its original file to a coded answer.
+  </Card>
+  <Card title="Run locally" icon="microchip" href="/en/local-models">
+    Every model on your own machine with llama.cpp: what each size needs and how to start it.
+  </Card>
+  <Card title="Export your data" icon="file-export" href="/en/deployment/export">
+    The export routes, their formats and limits, and the backup that is the complete copy.
   </Card>
 </CardGroup>

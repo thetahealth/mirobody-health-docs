@@ -1,23 +1,23 @@
 ---
 title: "Configuration"
-description: "The model key, the files configuration is read from, and the settings a deployment changes."
+description: "A vendor key or the local models, the files configuration is read from, and the settings a deployment changes."
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-Configuration is a set of YAML files plus environment variables. The shipped files hold working defaults for a local stack: a deployment puts its secrets and the model key in `.env`, and changes the few settings it needs in one overlay file.
+Configuration is a set of YAML files plus environment variables. The shipped files hold working defaults for a local stack: a deployment puts its secrets in `.env`, chooses its models there or on the first-run page, and changes the few settings it needs in one overlay file.
 
 ## Configuration files
 
 | File | Holds | Edit it |
 | --- | --- | --- |
 | `config.yaml` | Server, database, sign-in, extension directories | No: override its values in the overlay |
-| `config.llm.yaml` | The model table (`MODELS`) and which model each surface uses | To change a model |
+| `config.llm.yaml` | The model table (`MODELS`), which entry each surface uses, and what the first-run page offers for running locally (`LOCAL_SETUP`) | To add a model |
 | `config.devices.yaml` | Garmin, Oura and Whoop credentials; Google and Apple sign-in | To turn a provider on |
 | `config.{ENV}.yaml` | Your overlay for `config.yaml`. Optional: point `.env`'s `MIROBODY_CONFIG_FILE` at one; `./deploy.sh` only reuses an overlay already present from an earlier release | Yes |
-| `.env` | `ENV`, the generated secrets, and the model API key | Yes |
+| `.env` | `ENV`, the generated secrets and the setup token, a model API key or a local server's address, and the Compose profile that runs the models | Yes |
 
 Later sources win: environment variables, then the overlay, then `config.devices.yaml` and `config.llm.yaml`, then `config.yaml`. **A dictionary does not merge across files**: a key set in the overlay replaces the whole value, so an overlay that sets `EMAIL_PREDEFINE_CODES` replaces the demo accounts rather than adding to them.
 
@@ -25,9 +25,13 @@ Later sources win: environment variables, then the overlay, then `config.devices
 
 In the overlay, a value whose name contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK` or `_TOKEN` is encrypted with `CONFIG_ENCRYPTION_KEY` from `.env`.
 
-## The model key {#the-model-key}
+## Models {#the-model-key}
 
-One key runs every surface. Put one of these in the `.env` next to `compose.yaml`, then apply it:
+Every surface runs on one vendor key **or** on the local models. The first-run page (`./deploy.sh` prints its link while no model is set up; **Settings › Model** later) saves either choice encrypted in the database, applies it without a restart, and never overrides a value set in `.env`. Saving takes the `SETUP_TOKEN` from `.env` and, once a model is set up, a signed-in session as well.
+
+### A vendor key
+
+Put one of these in the `.env` next to `compose.yaml`, then apply it:
 
 <Fact k="llmKeys" code />
 
@@ -35,27 +39,50 @@ One key runs every surface. Put one of these in the `.env` next to `compose.yaml
 docker compose up -d
 ```
 
-`docker compose restart` does not re-read `.env`; `up -d` does.
+`docker compose restart` does not re-read `.env`; `up -d` does. `./deploy.sh` writes a key given in its environment into `.env` (`OPENROUTER_API_KEY=sk-or-... ./deploy.sh`), so a first run needs no second step.
 
-Each key selects a model for four surfaces: chat (the model picker), vision (report photos and scanned pages), text (indicator extraction, file titles and summaries) and embeddings (indicator search). The table at the top of <OssLink path="config.llm.yaml" /> lists what each key selects and where each key is issued. DeepSeek and Anthropic serve no embedding model; with one of those keys alone, indicator search uses the lexical index.
+Each key selects a model for three surfaces: chat (the model picker), vision (report photos and scanned pages) and text (indicator extraction, file titles, summaries and journal sentences). The table at the top of <OssLink path="config.llm.yaml" /> lists what each key selects and where each key is issued. The model's name is yours to change: the first-run page shows it beside the key, and in `.env` the variable each entry names as its `model_env` (`OPENROUTER_CHAT_MODEL`, for one) replaces it; a vendor model is checked with one real request before it is kept.
 
-`mirobody doctor` prints the keys it found and the model each surface selected, and names the fix for a surface that has none:
+### Local models {#local-models}
+
+With no key, the `local`, `local-utils` and `local-ocr` entries serve every surface from an OpenAI-compatible server on your machine. The runtime Mirobody ships a preset for is [llama.cpp](/en/local-models)'s `llama-server`: the first-run page finds the server, lists what it serves and loads the size you choose. The same choice, written in `.env`:
 
 ```bash
-docker compose exec mirobody mirobody doctor   # the Docker stack
-mirobody doctor                                # a checkout or a pip install
+LOCAL_BASE_URL=http://host.docker.internal:8080/v1        # the app in Docker, llama-server on the host
+LOCAL_OCR_BASE_URL=http://host.docker.internal:8080/v1    # with a Compose profile: http://llama:8080/v1 for both
+LOCAL_MODEL=minicpm5-2b                                   # the answering model: minicpm5-2b (Small, the default) or qwen3.8-27b (Large)
+LOCAL_OCR_MODEL=glm-ocr                                   # the document reader
+COMPOSE_PROFILES=local-cpu                                # llama.cpp beside the stack on the CPU; `local` on an NVIDIA GPU
+```
+
+`UTILS_OCR_MODEL` is a fourth surface: a document-OCR model that reads report photos and scanned pages before any other model, and whose tables are read by their headers, with no model. Its shipped value is the `local-ocr` entry. `HF_ENDPOINT` in `.env` points the one-time model download at a Hugging Face mirror.
+
+A vendor key in `.env` outranks the local entries, and the first-run page refuses **100% on this machine** while one is there. To run the local models beside a key anyway:
+
+```bash
+DEFAULT_MODEL=local
+UTILS_VISION_MODEL=local-utils
+UTILS_TEXT_MODEL=local-utils
+```
+
+### The doctor report
+
+`mirobody doctor` prints the keys and local servers it found and the entry each surface selected, and names the fix for a surface that has none. `--probe` sends each surface one real request (a tool call, a schema-bound answer, an image, the OCR passes) and checks that a local server runs the model its entry names; it costs a few tokens on a vendor and minutes on a local model.
+
+```bash
+docker compose exec mirobody mirobody doctor           # the Docker stack
+docker compose exec mirobody mirobody doctor --probe   # one real request per surface
+mirobody doctor                                        # a checkout or a pip install
 ```
 
 The server and the worker log the same report at startup.
 
 ### Changing a model
 
-- **Point a surface at another entry.** `UTILS_VISION_MODEL`, `UTILS_TEXT_MODEL` and `UTILS_EMBEDDING_MODEL` each take an entry name, a list of names (the first whose key is present wins), a `provider/model` string, or an inline entry. An environment variable of the same name overrides the file, for example `UTILS_VISION_MODEL=qwen-utils`.
-- **Change the chat default.** `DEFAULT_MODEL` names a `MODELS` entry; unset, the first entry whose key is present is the default.
+- **Point a surface at another entry.** `UTILS_VISION_MODEL`, `UTILS_TEXT_MODEL` and `UTILS_OCR_MODEL` each take an entry name, a list of names (the first whose key or server is present wins), a `provider/model` string, or an inline entry. An environment variable of the same name overrides the file, for example `UTILS_VISION_MODEL=qwen-utils`.
+- **Change the chat default.** `DEFAULT_MODEL` names a `MODELS` entry; unset, the first entry whose key or server is present is the default.
 - **Route a key through another gateway.** `<PREFIX>_BASE_URL` in `.env`, where `PREFIX` is the key's name without `_API_KEY`, redirects every entry that reads that key to another OpenAI-compatible endpoint, for example `OPENROUTER_BASE_URL`. `ANTHROPIC_BASE_URL` is also read by Anthropic's own SDK, so a machine that already sets it for another tool redirects Mirobody too; `mirobody doctor` prints the endpoint each surface resolved.
 - **Add a vendor.** Add an entry to `MODELS` in `config.llm.yaml` with `llm_type: openai`, its `base_url`, `model`, and `api_key` set to the *name* of the `.env` variable that holds the secret. An entry used for vision must declare `supports_image: true`. Add it to `config.llm.yaml` itself: a `MODELS` block in the overlay would replace the whole table.
-
-Changing the embedding model invalidates every vector already stored: vectors from different models are not comparable.
 
 ## Deployment settings
 
@@ -79,6 +106,7 @@ The keys that decide how the agent behaves are described in [The Agent](/en/tool
 | Secret | Where | Set by |
 | --- | --- | --- |
 | `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY`, `JWT_KEY` | `.env` | `./deploy.sh`, generated with `openssl rand -hex 32` on first run |
+| `SETUP_TOKEN` | `.env` | `./deploy.sh`. The first-run page requires it before it changes where health data is sent; once a model is set up, a signed-in session is required as well, and the link carrying the token is no longer printed. |
 | `DATABASE_DECRYPTION_KEY` | `config.devices.yaml`, or `.env` to override it | You. Ships as a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder; environment variables take precedence over every config file. |
 
 `PG_ENCRYPTION_KEY` is a separate value from `CONFIG_ENCRYPTION_KEY`: it encrypts stored content such as chat messages and uploaded files. `DATABASE_DECRYPTION_KEY` (hex) encrypts the device credentials the providers store. Do not copy either key between environments. Generating these secrets yourself and moving them to another host is described in [Deploy on a Server](/en/deployment/production#secrets).

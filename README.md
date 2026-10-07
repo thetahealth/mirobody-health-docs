@@ -32,7 +32,8 @@ npm run oss:sync    # render the mapped files into en/ and zh/, copy images, reg
 ```
 
 The remaining Open Source pages (the landing page, configuration, troubleshooting,
-the agent, MCP integration, server deployment, backup verification and upgrade procedure) are written here. They quote engine
+the agent, MCP integration, server deployment, the export guide, backup verification
+and upgrade procedure) are written here. They quote engine
 facts through `<Fact k="…"/>` from `snippets/oss-facts.jsx`, and `check:facts`
 re-reads every port, account, version, command, tool name, path and config key
 they state against the pinned commit.

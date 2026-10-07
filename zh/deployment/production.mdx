@@ -11,7 +11,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 ## 主机要求
 
-一台装有 Docker Engine 与 **2.24.4 或更新版本的 Compose 插件**、Git 的 Linux 主机，并能访问你的模型密钥所属的服务商。不需要 GPU。整套服务运行三个容器：带 pgvector 的 Postgres、服务端与 worker，外加一个每次启动都会运行一次、用于修正上传卷属主的一次性容器。主机容量取决于并发用户数和文件处理量；此版本尚未公布经过测量的最低配置。
+一台装有 Docker Engine 与 **2.24.4 或更新版本的 Compose 插件**、Git 的 Linux 主机，并且能访问你的模型密钥所属的服务商，**或者**让本地模型跟整套服务一起运行：NVIDIA 显卡上用 `local` Compose profile（需安装 NVIDIA Container Toolkit），只有 CPU 时用 `local-cpu`，这是最慢的方式。不用本地模型时不需要 GPU。整套服务运行三个容器：带 pgvector 的 Postgres、服务端与 worker，外加一个每次启动都会运行一次、用于修正上传卷属主的一次性容器；用 profile 运行模型时还有 `llama` 服务。主机容量取决于并发用户数和文件处理量；此版本尚未公布经过测量的最低配置，每种本地规模需要的内存见[本地运行](/zh/local-models)。
 
 ## 首次启动
 
@@ -28,8 +28,12 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
     ENV=prod
     SEED_DEMO_DATA=false
     OPENROUTER_API_KEY=...
+    # 或者不用密钥，让本地模型跟整套服务一起运行：
+    # COMPOSE_PROFILES=local
+    # LOCAL_BASE_URL=http://llama:8080/v1
+    # LOCAL_OCR_BASE_URL=http://llama:8080/v1
     ```
-    `ENV` 指定覆盖文件的名称，即 `config.prod.yaml`。任意一个受支持的模型密钥都可以，见[配置](/zh/configuration#the-model-key)。
+    `ENV` 指定覆盖文件的名称，即 `config.prod.yaml`。任意一个受支持的模型密钥都可以，也可以完全不用密钥、改用本地模型，见[配置](/zh/configuration#the-model-key)。首次设置页在服务器上同样可用：尚未设置模型时，`./deploy.sh` 会打印带 `SETUP_TOKEN` 的链接。
   </Step>
   <Step title="编写配置覆盖文件">
     按下一节的内容创建 `config.prod.yaml`。`deploy.sh` 只会接入一份已经以这个名字存在的覆盖文件，不会替你创建。如果反向代理运行在同一主机上，请在启动前在 `compose.override.yaml` 中把应用端口绑定到回环地址。
@@ -65,6 +69,8 @@ EMAIL_PREDEFINE_CODES: {}
 之后用户可以通过三种方式登录：在 Web 客户端用密码注册（`POST /password/register`）；配置邮件服务器后用邮箱验证码登录（`EMAIL_FROM` 以及 `EMAIL_SMTP_HOST`、`EMAIL_SMTP_PORT`、`EMAIL_SMTP_USER`、`EMAIL_SMTP_PASS`）；或使用在 `config.devices.yaml` 中配置的 Google、Apple 登录。
 
 如果你自行管理数据库 schema，同时设置 `BOOTSTRAP_SCHEMA: false`。
+
+首次设置页在生产环境中仍然可用，因为它决定健康数据发往哪里。修改它需要 `.env` 中的 `SETUP_TOKEN`；一旦设置过模型，还需要已登录的会话，所以请像保护其他密钥一样保护 `.env`。在 `.env` 中设定的模型，页面永远不会替换。
 
 ## 密钥 {#secrets}
 

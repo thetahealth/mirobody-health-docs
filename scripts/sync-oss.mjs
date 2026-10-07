@@ -64,7 +64,12 @@ function sitePath(slug, locale, hash = "") {
   return `/${locale}/${slug}${hash}`;
 }
 
-/** Heading ids of a repository document, exactly as render() assigns them. */
+/**
+ * The ids a link can land on in a repository document: its headings' ids, exactly
+ * as render() assigns them, and each `<a id="…">` it writes. A Chinese edition
+ * carries its English edition's ids that way (walkthrough's #the-four-promises),
+ * since its headings slug to other ids; render() passes the element through.
+ */
 const idCache = new Map();
 function headingIds(repoPath) {
   if (!idCache.has(repoPath)) {
@@ -74,12 +79,15 @@ function headingIds(repoPath) {
     const slugger = new GithubSlugger();
     const ids = new Set();
     visit(tree, "heading", (node) => ids.add(slugger.slug(toString(node))));
+    visit(tree, "html", (node) => {
+      for (const m of node.value.matchAll(/<a\s+id="([^"]+)"/g)) ids.add(m[1]);
+    });
     idCache.set(repoPath, ids);
   }
   return idCache.get(repoPath);
 }
 
-/** anchor fixes applied, and anchors that match no heading — both reported for upstream. */
+/** anchor fixes applied, and anchors that match no heading or anchor — both reported for upstream. */
 const repairedAnchors = [];
 const brokenAnchors = [];
 
@@ -98,7 +106,7 @@ function checkAnchor(hash, targetRepoPath, ctx) {
     repairedAnchors.push(`${ctx.repoPath}: #${wanted} → #${candidates[0]} (in ${targetRepoPath})`);
     return `#${candidates[0]}`;
   }
-  brokenAnchors.push(`${ctx.repoPath}: #${wanted} matches no heading of ${targetRepoPath}`);
+  brokenAnchors.push(`${ctx.repoPath}: #${wanted} matches no heading or anchor of ${targetRepoPath}`);
   return hash;
 }
 
@@ -512,7 +520,7 @@ if (repairedAnchors.length) {
   for (const m of [...new Set(repairedAnchors)]) console.log(`  ~ ${m}`);
 }
 if (brokenAnchors.length) {
-  console.log("anchors that match no heading (fix upstream):");
+  console.log("anchors that match no heading or anchor (fix upstream):");
   for (const m of [...new Set(brokenAnchors)]) console.log(`  ! ${m}`);
 }
 

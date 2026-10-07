@@ -79,7 +79,9 @@ export function readFacts() {
   const code = String(Object.values(codes)[0]);
 
   const llm = parseYaml(readVendor("config.llm.yaml"));
-  const llmKeys = [...new Set(Object.values(llm.MODELS ?? fail("MODELS (config.llm.yaml)")).map((m) => m.api_key))];
+  // Since 1.5.4 the `local*` entries read a base URL and declare no api_key; they are
+  // not keys a reader can paste, so they must not render as "null" in the key list.
+  const llmKeys = [...new Set(Object.values(llm.MODELS ?? fail("MODELS (config.llm.yaml)")).map((m) => m.api_key).filter(Boolean))];
 
   const exported = existsSync(join(VENDOR, "docs/facts.json")) ? JSON.parse(readVendor("docs/facts.json")) : null;
   const cli = exported?.cli ?? cliFromSource();

@@ -7,7 +7,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-本流程适用于[在服务器上部署](/zh/deployment/production)所述的 Docker 服务。`deploy.sh` 会原地重建发生变化的服务（`docker compose up -d --remove-orphans`），运行中的服务会因此短暂中断，请安排维护时段。数据库 schema 在启动时向前变更，没有自动回退迁移；只切回旧代码不能完成回滚。从 1.5.2 升级会把 Redis 从整套服务中移除；该版本需要的额外步骤见[备份与恢复「从 1.5.2 升级」](/zh/deployment/backup#upgrading-from-152)。
+本流程适用于[在服务器上部署](/zh/deployment/production)所述的 Docker 服务。`deploy.sh` 会原地重建发生变化的服务（`docker compose up -d --remove-orphans`），运行中的服务会因此短暂中断，请安排维护时段。数据库 schema 在启动时向前变更，没有自动回退迁移；只切回旧代码不能完成回滚。从 1.5.2 升级会把 Redis 从整套服务中移除；该版本需要的额外步骤见[备份与恢复「从 1.5.2 升级」](/zh/deployment/backup#upgrading-from-152)。升级到 1.5.4 会删除 1.5.0 所取代的那几张读数表；1.5.0 之前保存全部读数的那张表，只有在 `mirobody migrate-observations` 证明每一行都已迁移之后才会删除，何时运行、带哪个参数，见 <OssLink path="CHANGELOG.md" /> 中该版本的说明。
 
 ## 更改代码前
 
@@ -55,7 +55,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
     ./deploy.sh
     ```
 
-    脚本会拉取 `compose.yaml` 指定的发布镜像（拉取不到时改用 `docker.1ms.run` 镜像源，两者都失败时才从本地检出构建），然后启动 Postgres、服务端与 worker，外加修正上传卷属主的一次性容器，并等待它们变为 healthy。首次启动不会安装 Python 依赖，那只发生在本地构建时。可在另一个终端用 `docker compose logs -f mirobody` 查看启动或 schema 错误。
+    脚本会拉取 `compose.yaml` 指定的发布镜像（拉取不到时改用 `docker.1ms.run` 镜像源，两者都失败时才从本地检出构建），然后启动 Postgres、服务端与 worker，外加修正上传卷属主的一次性容器，并等待它们变为 healthy。首次启动不会安装 Python 依赖，那只发生在本地构建时。运行本地模型的部署会保留它们：`.env` 中的 `COMPOSE_PROFILES` 会再次启动 `llama` 服务，模型数据卷照常复用，不会第二次下载。可在另一个终端用 `docker compose logs -f mirobody` 查看启动或 schema 错误。
   </Step>
   <Step title="核对运行结果">
     在另一个终端运行：

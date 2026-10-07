@@ -20,6 +20,37 @@
       }
     },
     {
+      "slug": "local-models",
+      "source": "docs/local-models.md",
+      "zhIntro": "本页说明如何让所有模型都在你自己的机器上运行，不需要任何模型 API 密钥：本地模型运行时是 llama.cpp 的 `llama-server`，GLM-OCR 读报告照片与页面，另一个模型回答问题；页面列出各平台的启动命令、首次设置页中「100% 在本机运行」的选择方式，以及每个模型能从照片里读出什么。中文读者可先看[自部署](/zh/self-host#what-leaves-the-machine)中「什么会离开这台机器」一节，再按下方英文原文操作。",
+      "title": "Run Every Model Locally",
+      "label": { "en": "Run Locally", "zh": "本地运行" },
+      "description": {
+        "en": "Run every model on your own machine with llama.cpp: the two models, the sizes offered, the start command per platform, and what each can read in a photo.",
+        "zh": "用 llama.cpp 让所有模型都在你自己的机器上运行：两个模型、可选的规模、各平台的启动命令，以及每个模型能从照片里读出什么。"
+      }
+    },
+    {
+      "slug": "local-models-roadmap",
+      "source": "docs/local-models-roadmap.md",
+      "zhSource": "docs/local-models-roadmap.zh-CN.md",
+      "label": { "en": "Local Models Measured", "zh": "本地模型实测" },
+      "description": {
+        "en": "The local models measured side by side, what GLM-OCR can and cannot read in a photo, and the plan for a small post-trained pair.",
+        "zh": "逐一实测的本地模型、GLM-OCR 能从照片里读出与读不出的内容，以及小型后训练模型组合的计划。"
+      }
+    },
+    {
+      "slug": "model-choice",
+      "source": "docs/model-choice.md",
+      "zhSource": "docs/model-choice.zh-CN.md",
+      "label": { "en": "Choosing a Model", "zh": "选择模型" },
+      "description": {
+        "en": "Which model to run, by who may read your health data and how good the answers must be: the two local sizes, five cloud models measured on one evaluation, and the Mirobody model coming in 1.6.0.",
+        "zh": "按谁能读到你的健康数据、回答需要多好来选择模型：两档本地规模、在同一评测上实测的五个云端模型，以及 1.6.0 将推出的 Mirobody 模型。"
+      }
+    },
+    {
       "slug": "walkthrough",
       "source": "docs/walkthrough.md",
       "zhSource": "docs/walkthrough.zh-CN.md",
@@ -139,6 +170,17 @@
       "description": {
         "en": "Write a Python function or Service class and the engine serves it as an MCP tool, to the agent and to every MCP client.",
         "zh": "写一个 Python 函数或 Service 类，引擎就把它作为 MCP 工具提供给 agent 和所有 MCP 客户端。"
+      }
+    },
+    {
+      "slug": "tools/skills",
+      "source": "skills/README.md",
+      "zhIntro": "本页介绍两份可安装到 Claude Code、Codex、Cursor 或 Gemini CLI 的技能：一份用库把原始健康数据变成带编码的行，一份运行整套引擎并通过 MCP 连接。需要直接接入 MCP 客户端时，先看中文的 [MCP 接入](/zh/tools/mcp-integration)，再按下方英文命令安装。",
+      "title": "Agent Skills",
+      "label": { "en": "Agent Skills", "zh": "Agent 技能" },
+      "description": {
+        "en": "Two installable skills that teach a coding agent to use the library or to run the stack and connect over MCP.",
+        "zh": "两份可安装的技能，让编码 agent 学会使用库，或运行整套引擎并通过 MCP 连接。"
       }
     },
     {

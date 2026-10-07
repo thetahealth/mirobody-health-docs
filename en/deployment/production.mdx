@@ -11,7 +11,7 @@ The defaults in the repository are tuned for a local, single-user trial: demo ac
 
 ## Host requirements
 
-A Linux host with Docker Engine and the Compose plugin **2.24.4 or newer**, Git, and outbound access to the model provider your key belongs to. No GPU is needed. The stack runs three containers: Postgres with pgvector, the server and the worker, plus a one-shot container that fixes upload-volume ownership on each start. Capacity depends on concurrent users and file processing; this release does not publish a measured minimum host size.
+A Linux host with Docker Engine and the Compose plugin **2.24.4 or newer**, Git, and either outbound access to the vendor your key belongs to **or** the local models beside the stack: the `local` Compose profile on an NVIDIA GPU (with the NVIDIA Container Toolkit installed), or `local-cpu` on the CPU alone, which is the slowest. Without the local models no GPU is needed. The stack runs three containers: Postgres with pgvector, the server and the worker, plus a one-shot container that fixes upload-volume ownership on each start, and the `llama` service when a profile runs the models. Capacity depends on concurrent users and file processing; this release does not publish a measured minimum host size, and the memory each local size needs is listed on [Run Locally](/en/local-models).
 
 ## First start
 
@@ -28,8 +28,12 @@ Decide the posture **before** the first start: demo data is seeded on first boot
     ENV=prod
     SEED_DEMO_DATA=false
     OPENROUTER_API_KEY=...
+    # or, with the local models beside the stack and no key:
+    # COMPOSE_PROFILES=local
+    # LOCAL_BASE_URL=http://llama:8080/v1
+    # LOCAL_OCR_BASE_URL=http://llama:8080/v1
     ```
-    `ENV` names the overlay, `config.prod.yaml`. Any one of the supported model keys works; see [Configuration](/en/configuration#the-model-key).
+    `ENV` names the overlay, `config.prod.yaml`. Any one of the supported model keys works, or the local models with no key at all; see [Configuration](/en/configuration#the-model-key). The first-run page works on a server too: while no model is set up, `./deploy.sh` prints its link, which carries the `SETUP_TOKEN`.
   </Step>
   <Step title="Write the overlay">
     Create `config.prod.yaml` with the production posture below. `deploy.sh` wires in an overlay file already present under that name; it does not create one for you. Bind the app port to loopback in a `compose.override.yaml` before starting if the reverse proxy runs on this host.
@@ -65,6 +69,8 @@ With `PRODUCTION: true` the server refuses to start while any predefined sign-in
 People then sign in in one of three ways: by registering with a password in the web client (`POST /password/register`), with an email code once a mail server is configured (`EMAIL_FROM` and `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASS`), or with Google or Apple sign-in, configured in `config.devices.yaml`.
 
 Set `BOOTSTRAP_SCHEMA: false` as well if you provision the database schema yourself.
+
+The first-run page stays available in production, because it decides where health data is sent. Changing that takes the `SETUP_TOKEN` from `.env` and, once a model is set up, a signed-in session as well, so keep `.env` as protected as the other secrets. A model set in `.env` is never replaced from the page.
 
 ## Secrets {#secrets}
 

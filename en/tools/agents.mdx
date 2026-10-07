@@ -9,7 +9,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 The engine ships one agent. It answers the questions asked at `/ask` in the web client and through the chat API, over the coded record of the person the question is about. Adding a capability means adding a [tool](/en/tools/adding-tools), not another agent.
 
-Every agent runtime other than the bundled one (Claude Desktop, Cursor, an agent loop of your own) reaches the same data through the [MCP endpoint](/en/tools/mcp-integration) and needs nothing from this page.
+Every agent runtime other than the bundled one (Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop, an agent loop of your own) reaches the same data through the [MCP endpoint](/en/tools/mcp-integration) and needs nothing from this page.
 
 ## What a turn can use
 
@@ -29,7 +29,7 @@ The agent's keys have no agent-name suffix. The shipped values live in `config.l
 
 | Key | What it sets |
 | --- | --- |
-| `MODELS` | The model picker: one entry per chat model. `/api/models` lists the entries whose key is present, and a chat request picks one by name. |
+| `MODELS` | The model picker: one entry per chat model. `/api/models` lists the entries whose key or server is present, and a chat request picks one by name. The `local` entry appears once `LOCAL_BASE_URL` is set, labelled with the model it runs. |
 | `DEFAULT_MODEL` | The picker's default; unset, the first entry whose key is present |
 | `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | A tool whitelist or blacklist; the whitelist wins. Listing `eval` in `DISALLOWED_TOOLS` turns code execution off. |
 | `PROMPTS` | System prompt templates, as a path or `path@name`; the first is the default |
