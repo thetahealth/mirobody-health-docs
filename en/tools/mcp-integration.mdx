@@ -1,13 +1,13 @@
 ---
 title: "MCP Integration"
-description: "Connect Claude Desktop, Cursor or your own agent to a self-hosted engine: the /mcp endpoint, personal URLs, and the tools each account sees."
+description: "Connect Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop or your own agent to a self-hosted engine: the /mcp endpoint, personal URLs, and the tools each account sees."
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-The health-data tools used by the bundled agent are also served at **`/mcp`**, over the Model Context Protocol. An MCP client such as Claude Desktop, Cursor or an agent loop of your own calls those tools over the same personal record. A separate stdio server provides terminology tools without a personal record.
+The health-data tools used by the bundled agent are also served at **`/mcp`**, over the Model Context Protocol. An MCP client such as Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop or an agent loop of your own calls those tools over the same personal record. A separate stdio server provides terminology tools without a personal record. The tools read the record and call no model, so what an MCP client does with your readings is up to that client: they go wherever it sends its prompts. A cloud-hosted assistant receives them even when the stack runs the [local models](/en/local-models); a client on the same machine with a local model of its own keeps the loop on that machine.
 
 ## Endpoints
 
@@ -84,6 +84,16 @@ Replace the URL below with your personal URL.
     claude mcp add --transport http mirobody http://localhost:18060/mcp/<secret>
     ```
   </Tab>
+  <Tab title="Codex">
+    ```bash
+    codex mcp add mirobody --url http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
+  <Tab title="Gemini CLI">
+    ```bash
+    gemini mcp add --transport http mirobody http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
   <Tab title="Claude Desktop">
     Claude Desktop adds remote servers as custom connectors, which need an HTTPS URL it can reach. For an engine on your own machine, bridge the URL over stdio instead, in `claude_desktop_config.json`:
 
@@ -100,11 +110,11 @@ Replace the URL below with your personal URL.
   </Tab>
 </Tabs>
 
-An agent loop of your own calls the endpoint with any MCP client library. The server speaks the current stateless protocol revision and negotiates down for clients that still use the `initialize` handshake.
+ChatGPT and claude.ai connect from the cloud as well, so they need an HTTPS address they can reach: [deploy the stack on a server](/en/deployment/production) first. An agent loop of your own calls the endpoint with any MCP client library. The server speaks the current stateless protocol revision and negotiates down for clients that still use the `initialize` handshake.
 
 ## Local terminology over stdio
 
-For terminology lookup without a server or personal record, run `uvx mirobody mcp`. It serves MCP over stdio from the published package. If Mirobody is already installed, `mirobody mcp` starts the same server. No database or model key is needed for reading, complaint, indicator or unit standardization.
+For terminology lookup without a server or personal record, run `uvx --python 3.12 mirobody mcp`. It serves MCP over stdio from the published package; `--python 3.12` lets uv fetch the interpreter the package needs, since an older default picks a release from before 1.2. If Mirobody is already installed, `mirobody mcp` starts the same server. No database or model key is needed for reading, complaint, indicator or unit standardization.
 
 In a client that starts local MCP processes, use this configuration:
 
@@ -113,12 +123,12 @@ In a client that starts local MCP processes, use this configuration:
   "mcpServers": {
     "mirobody": {
       "command": "uvx",
-      "args": ["mirobody", "mcp"]
+      "args": ["--python", "3.12", "mirobody", "mcp"]
     }
   }
 }
 ```
 
-This server offers `standardize_reading` for FHIR Observations with LOINC and UCUM codes, `standardize_complaint` for ICPC-3, and `resolve_indicator`, `normalize_unit` and `convert_unit` for terminology lookup. Its `standardize_report` tool reads a PDF, image, spreadsheet or text report; that tool additionally needs the `mirobody[parse]` extra and a configured model key, and sends the document to the chosen model provider. To enable it with uvx, run `uvx --from 'mirobody[parse]' mirobody mcp`. Use the personal URL above when the client needs a person's stored health record.
+This server offers `standardize_reading` for FHIR Observations with LOINC and UCUM codes, `standardize_complaint` for ICPC-3, and `resolve_indicator`, `normalize_unit` and `convert_unit` for terminology lookup. Its `standardize_report` tool reads a PDF, image, spreadsheet or text report; that tool additionally needs the `mirobody[parse]` extra and a configured model key, and sends the document to the chosen model provider. To enable it with uvx, run `uvx --python 3.12 --from 'mirobody[parse]' mirobody mcp`. Use the personal URL above when the client needs a person's stored health record.
 
 The protocol implementation and the per-account filter are in <OssLink path="mirobody/mcp/" />.

@@ -1,6 +1,6 @@
 ---
 title: "Troubleshooting"
-description: "Reading the doctor report, and the common reasons a self-hosted deployment does not come up."
+description: "Reading the doctor report, the common reasons a self-hosted deployment does not come up, and what to check when the local models misbehave."
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
@@ -16,15 +16,17 @@ docker compose logs --tail 80 mirobody         # the server's own log
 
 ## The doctor report
 
-`mirobody doctor` prints one line for the keys it found, then one line per surface:
+`mirobody doctor` prints one line for the keys and local servers it found, then one line per surface:
 
 | Line | Meaning |
 | --- | --- |
-| `keys present : none` | No model key is set. ① Collect and ② Translate still work; file extraction and the agent do not. Put one key in `.env` and run `docker compose up -d`. |
+| `keys present : none` | No vendor key and no local model server. ① Collect and ② Translate still work; file extraction and the agent do not. Open the first-run page link `./deploy.sh` printed, or put one key, or `LOCAL_BASE_URL`, in `.env` and run `docker compose up -d`. |
 | A surface marked `OK` | The entry and model that surface selected. |
-| A surface marked `--` | Nothing is available for that surface; the next line names the missing key or entry. |
+| A surface marked `--` | Nothing is available for that surface; the next line names the missing key, server or entry. |
 | `retired keys` | A key from an earlier release that is no longer read. Move the setting to a `MODELS` entry or a `UTILS_*` route in `config.llm.yaml`. |
 | `unread fields` | A field in a `MODELS` entry that nothing reads, usually a misspelling. |
+
+`mirobody doctor --probe` goes one step further and sends each surface a real request; a surface that selects a model but fails the probe has a server or a model that cannot do the job, not a missing key.
 
 ## Startup failures
 
@@ -44,9 +46,23 @@ docker compose logs --tail 80 mirobody         # the server's own log
 | --- | --- |
 | A LOINC lookup raises on a fresh clone | The terminology bundle is stored with Git LFS and the clone holds a pointer file. Run `git lfs install && git lfs pull`. |
 | Device sync never runs, while the rest works | Check the worker logs and the Postgres connection: device pulls and task state both use Postgres. |
-| Model calls fail with `Cannot connect to host` behind a proxy | A container does not inherit the shell's proxy. Set `HTTP_PROXY` and `HTTPS_PROXY` in `.env`; `compose.yaml` passes them to the server. |
-| Uploads are stored but no readings appear | No vision or text model is selected (see the doctor report), or `ENABLE_INDICATOR_EXTRACTION` is `0`. |
+| Model calls fail with `Cannot connect to host` behind a proxy | A container does not inherit the shell's proxy. Set `HTTP_PROXY` and `HTTPS_PROXY` in `.env`; `compose.yaml` passes them to the server and keeps a model server on this machine out of the proxy. |
+| Uploads are stored but no readings appear | No vision, OCR or text model is selected (see the doctor report), or `ENABLE_INDICATOR_EXTRACTION` is `0`. |
 | Sign-in with the demo account fails | `SEED_DEMO_DATA` was `false` at first start, or an overlay replaced `EMAIL_PREDEFINE_CODES`; overlay dictionaries replace, they do not merge. |
 | A device provider does not appear | Its credentials are missing, so it skipped itself at startup; the boot log says which. See [Device Providers](/en/providers/using-providers#troubleshooting). |
+
+## Local models
+
+The setup is described in [Run Locally](/en/local-models); these are the ways it goes wrong.
+
+| What you see | Cause and fix |
+| --- | --- |
+| The first-run page refuses **100% on this machine** | A vendor key in `.env` always outranks the local entries. Remove the key and run `docker compose up -d`, then choose local again; or keep the key and set the three overrides in [Configuration](/en/configuration#local-models). |
+| The page finds no server, on a Linux host | `host.docker.internal` is the Docker bridge there, so a `llama-server` on the host must listen on the bridge address (`--host 172.17.0.1`, from `ip -4 addr show docker0`), not on `127.0.0.1`. The `local` and `local-cpu` Compose profiles need no host networking. |
+| `failed to initialize router models: ... Is a directory` in the `llama` log | Docker could not see the checkout and mounted an empty directory where the preset should be. Colima shares only your home directory by default: keep the checkout under it, or add the path to its mounts. |
+| The first question after choosing a size does not answer for a long time | The models are downloading from Hugging Face; the first-run page shows each model's state, and `docker compose logs llama` shows the download when a Compose profile runs the models. Where huggingface.co is unreachable, set `HF_ENDPOINT` to a mirror in `.env`. |
+| An answer takes minutes and nothing streams | Expected on a local model: nothing streams while it reads the prompt, and the first turn after loading is the slow one. The `local` entry allows 600 s of silence before giving up. |
+| `llama-server` holds far more memory than the model weights | llama.cpp's prompt cache defaults to 8 GiB per model server. The shipped preset caps it at 1 GiB for each answering model and at zero for the document reader (`cache-ram` in <OssLink path="docker/local-models.ini" />); a preset of your own needs the same lines, or the machine swaps. |
+| A photo in the chat is answered from its printed text only | The answering model cannot see, and was sent the photo's OCR text instead: the Small size is text-only. Choose Large, which looks at photos, or a vendor key. |
 
 Anything not covered here makes a useful issue on [GitHub](https://github.com/thetahealth/mirobody/issues): include the doctor report and the last lines of the container log, with personal data removed.

@@ -67,7 +67,9 @@ mirobody-gen score             out/p3/files.jsonl out/p3/pred.jsonl
 同种子（以及同 `--lang-mix`、同 `--paraphrase`）的两次构建字节一致，`out/` 可丢弃，
 生成器加种子**就是**交付物。
 
-**现状。** Mirobody 通过一个指向构建目录的环境变量接入；截至引擎 1.5.3 版这一接入尚未落地
-（`feat/1.5.4` 尚不读取 mirobody-gen 的构建），目前的消费方是评分 CLI 和以解码器测试套件形状
-锚定的厂商推送。将这份语料与 [ESL-Bench](https://arxiv.org/abs/2604.02834) 组合的工作论文——
-基准暂定名 **ESL-Doc**——在仓库的 `docs/zh-CN/paper.md`。
+**现状。** 从引擎 1.5.4 版起，Mirobody 的模型评测建立在它之上：`benchmarks/local_models/`
+把种子 7 的构建变成 24 个带预期事实的问题、12 份文档和 15 句日记，通过产品自己的 API 把这些人
+载入账户，并给每个回答打分；`benchmarks/local_ocr/` 用印刷页与手写页的行级真值给三个文档 OCR
+模型打分。[选择模型](/zh/model-choice)报告了两者的结果和复现方法。引擎本身在运行时不读取任何构建。
+将这份语料与 [ESL-Bench](https://arxiv.org/abs/2604.02834) 组合的配套论文（基准暂定名
+**ESL-Doc**）正在撰写中。

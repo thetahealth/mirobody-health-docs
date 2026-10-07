@@ -9,7 +9,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 引擎自带一个 agent。它回答在 Web 客户端 `/ask` 页面和对话 API 中提出的问题，依据的是问题所涉及那个人的已编码记录。要增加能力，应当添加一个[工具](/zh/tools/adding-tools)，而不是再加一个 agent。
 
-自带 agent 以外的所有 agent 运行时（Claude Desktop、Cursor、你自己的 agent 循环）都通过 [MCP 端点](/zh/tools/mcp-integration)读取同一份数据，不需要本页的任何内容。
+自带 agent 以外的所有 agent 运行时（Claude Code、Codex、Cursor、Gemini CLI、Claude Desktop、你自己的 agent 循环）都通过 [MCP 端点](/zh/tools/mcp-integration)读取同一份数据，不需要本页的任何内容。
 
 ## 每一轮能使用的能力
 
@@ -29,7 +29,7 @@ agent 的配置键不带 agent 名后缀。随仓库提供的值在 `config.llm.
 
 | 键 | 作用 |
 | --- | --- |
-| `MODELS` | 模型选择器：每个对话模型一条。`/api/models` 列出有密钥的条目，对话请求按名称选择其中之一。 |
+| `MODELS` | 模型选择器：每个对话模型一条。`/api/models` 列出有密钥或有服务的条目，对话请求按名称选择其中之一。设置了 `LOCAL_BASE_URL` 后，`local` 条目会出现，并以它运行的模型命名。 |
 | `DEFAULT_MODEL` | 选择器的默认模型；不设置时取第一个有密钥的条目 |
 | `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 工具白名单或黑名单，白名单优先。把 `eval` 写进 `DISALLOWED_TOOLS` 即关闭代码执行。 |
 | `PROMPTS` | 系统提示词模板，写法为路径或 `path@name`；第一个是默认值 |

@@ -2,15 +2,15 @@
 title: "Mirobody"
 sidebarTitle: "概览"
 icon: "compass"
-description: "将不同来源的健康读数整理为一份带规范编码的记录，并获得可追溯的回答。可以使用 Mirobody Cloud，也可以自行运行开源引擎。"
-keywords: ["健康数据", "LOINC", "UCUM", "云端", "自部署"]
+description: "一份属于你自己的健康记录：化验单、穿戴设备和基因文件落到同一套标准，存在你自己运行的数据库里，由一个每个数字都有出处的智能体来回答。可以自己运行（用模型厂商的密钥，或让所有模型都在本机运行），也可以使用 Mirobody Cloud。"
+keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.cpp", "云端"]
 ---
 
 import RunModes from '/snippets/zh/run-modes.mdx';
 
 ## 什么是 Mirobody？
 
-**Mirobody** 将报告、设备、导出文件和照片中的健康读数整理成可跨来源比较的记录。它为读数分配规范编码与单位，让 agent 基于这份记录回答问题，并指出每条读数的来源。[引擎以 Apache 2.0 许可开源](https://github.com/thetahealth/mirobody)；**Mirobody Cloud** 通过托管 API 提供标准化和 agent 能力。
+**Mirobody** 是一套你自己运行的开源健康数据引擎。它读入化验单、穿戴设备导出、照片和基因文件，为每个值分配一个规范编码与单位，把记录保存在你自己运维的 Postgres 中，并让 agent 基于这份记录回答问题、说明每条读数的来源。从 1.5.4 起，所有模型都可以在同一台机器上运行（基于 [llama.cpp](/zh/local-models)），你的文档和提问就不必离开这台机器；记录可以导出、备份和恢复为你自己保管的文件。引擎以 Apache 2.0 许可[开源](https://github.com/thetahealth/mirobody)，由 Theta Health 开发，也是其 Theta Wellness 应用底层的引擎。**Mirobody Cloud** 以托管 API 的形式提供同样的标准化与 agent 能力。
 
 ## 开始使用
 
@@ -23,6 +23,8 @@ import RunModes from '/snippets/zh/run-modes.mdx';
 | 调用托管 API | [Cloud 快速开始](/zh/api-reference/quickstart) | 两条样例读数具有相同的 LOINC 编码，提问时可以引用它们。 |
 | 在本地解析名称或单位 | [作为库使用](/zh/quickstart#a--the-library) | 无须数据库或模型密钥即可返回编码。 |
 | 在本地体验完整产品 | [Docker 演示](/zh/self-host#first-local-result) | 服务健康，**Data** 页面显示演示读数。 |
+| 把提问和文档都留在一台机器上 | [本地运行](/zh/local-models) | `.env` 中没有任何密钥时，`mirobody doctor --probe` 对本地条目报告 PASS。 |
+| 按你需要的隐私和回答质量选择模型 | [选择模型](/zh/model-choice) | `mirobody doctor --probe` 对你选的模型报告 PASS。 |
 
 ## 从数据到回答
 
@@ -44,7 +46,9 @@ import RunModes from '/snippets/zh/run-modes.mdx';
 | 选择依据 | Mirobody Cloud | 自部署 |
 | --- | --- | --- |
 | 记录存储 | 由 Mirobody 运维，遵循 API 的留存设置 | 保存在你的 Postgres 和文件存储中 |
-| 模型请求 | 由托管服务处理 | 发往你配置的模型服务商 |
+| 模型请求（模型厂商密钥） | 由托管服务处理 | 发往你粘贴密钥的那家厂商，受其条款约束 |
+| 模型请求（100% 在本机运行） | 不提供：Cloud 自行运行模型 | 由同一台机器上的 llama.cpp 提供；与你有关的任何数据都不会发出 |
+| 取回数据 | [数据生命周期](/zh/api-reference/lifecycle)：留存与 Subject 下线 | CSV、JSON 与 NDJSON 导出，基因型导出为 VCF，以及备份脚本，见[导出数据](/zh/deployment/export) |
 | 部署与升级 | 由 Mirobody 运维 | 按[服务器部署指南](/zh/deployment/production)操作 |
 
 ## 延伸阅读
@@ -55,5 +59,11 @@ import RunModes from '/snippets/zh/run-modes.mdx';
   </Card>
   <Card title="开源数据管线" icon="diagram-project" href="/zh/concepts/architecture">
     从原始文件追踪一条读数如何成为有编码依据的回答。
+  </Card>
+  <Card title="本地运行" icon="microchip" href="/zh/local-models">
+    用 llama.cpp 让所有模型都在你自己的机器上运行：每种规模需要什么、如何启动。
+  </Card>
+  <Card title="导出数据" icon="file-export" href="/zh/deployment/export">
+    导出接口、格式与限制，以及作为完整副本的备份。
   </Card>
 </CardGroup>

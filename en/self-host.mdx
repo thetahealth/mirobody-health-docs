@@ -1,6 +1,6 @@
 ---
 title: "Self-Host Mirobody"
-description: "Run the open-source engine on your own machine or server: the three ways in, where each stage lives, and what a running deployment serves."
+description: "Run the open-source engine on your own machine or server: the three ways in, where the models run, what leaves the machine, and what a running deployment serves."
 icon: "server"
 ---
 
@@ -8,35 +8,50 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-Mirobody runs anywhere Python <Fact k="python" /> or Docker runs: a laptop, an on-premises server or a cloud VM. The engine is open source under Apache 2.0 at [thetahealth/mirobody](https://github.com/thetahealth/mirobody), and the data it holds stays in a Postgres you operate. What Mirobody is, and how self-hosting compares with Mirobody Cloud, is on the [overview](/en).
+Mirobody runs anywhere Python <Fact k="python" /> or Docker runs: a laptop, an on-premises server or a cloud VM. The engine is open source under Apache 2.0 at [thetahealth/mirobody](https://github.com/thetahealth/mirobody). The record it holds stays in a Postgres you operate, and with the local models every question and document stays on that machine too. What Mirobody is, and how self-hosting compares with Mirobody Cloud, is on the [overview](/en).
 
 ## Ways to run it
 
 Pick the row that matches what you want; the three are alternatives, not steps.
 
-| You want | Path | Needs | Model key |
+| You want | Path | Needs | Models |
 | --- | --- | --- | --- |
-| Names and units resolved in your own code | [The library](/en/quickstart#a--the-library) | Python <Fact k="python" /> | none |
-| The whole product running, with demo data in it | [The Docker stack](/en/quickstart#b--the-stack) | Git, Docker with Compose | one for model features |
-| To change the code and see the result | [A source checkout](/en/quickstart#c--a-checkout) | Python and a Postgres with pgvector | one for model features |
+| Names and units resolved in your own code | [The library](/en/quickstart#a--the-library) | Python <Fact k="python" /> | None: the vocabulary ships in the package |
+| The whole product running, with demo data in it | [The Docker stack](/en/quickstart#b--the-stack) | Docker with Compose; Git is optional, since a source tarball is the same checkout | One vendor key, **or** [every model on this machine](/en/local-models) |
+| To change the code and see the result | [A source checkout](/en/quickstart#c--a-checkout) | Python and a Postgres with pgvector | One vendor key, or a local model server |
 
-The Docker stack is three containers: Postgres with pgvector, the server and the background worker. It serves the bundled web client at <Fact k="url" code />.
+The Docker stack is three containers: Postgres with pgvector, the server and the background worker, plus the `llama` service when a Compose profile runs the models beside them. It serves the bundled web client at <Fact k="url" code />.
+
+## Where the models run {#models}
+
+Reading a report, answering a question and writing a summary run wherever you point them. The first-run page asks once; **Settings › Model** changes it later, without a restart.
+
+| | Where the models run | You need | What leaves the machine |
+| --- | --- | --- | --- |
+| **A vendor key** | At the vendor whose key you paste: OpenRouter, OpenAI, Gemini, Anthropic, DeepSeek, DashScope, or any OpenAI-compatible gateway | Docker and one key | Your questions, the rows the agent reads, and your documents' page images and text go to that vendor, under its terms; table rows read by their headers stay here |
+| **100% on this machine** | [llama.cpp](/en/local-models)'s `llama-server` beside the stack, the local model runtime Mirobody ships a preset for: GLM-OCR reads documents, and an answering model of the size you choose | Docker, plus the memory and disk of the size you choose; [Run Locally](/en/local-models#choose-a-size) lists what each size downloads and needs | Nothing about you; the model weights download once from Hugging Face |
+| **The library alone** | No model: `pip install mirobody` resolves names to LOINC and units to UCUM | Python <Fact k="python" /> | Nothing: the vocabulary ships in the package |
+
+The first-run page offers two sizes, Small (the default, for any computer with 16 GB of memory) and Large, and they differ only in the answering model. Every size reads documents with the same GLM-OCR model and reads tables by their headers, with no model, so a lab report's readings come out the same; what changes is how well questions are answered, how fast, and whether a photo in the chat is looked at or read as its text. A vendor key in `.env` outranks the local models; [Configuration](/en/configuration#local-models) has the three variables that reverse that. [Choosing a model](/en/model-choice) compares both sizes with five cloud models on one evaluation, and says what each mode sends where.
 
 ## First local result {#first-local-result}
 
-With Git and Docker Compose installed, run the local demo and check its seeded readings. Model features require a supported key in `.env`; the sample readings are available without one.
+With Docker Compose installed, run the local demo, choose where the models run, and check the seeded readings. The sample readings are there without a key or a model; reading a document and asking a question need one or the other.
 
 <Steps>
   <Step title="Start the demo">
-    Clone the engine and start the stack. The script pulls the application image and creates demo accounts and example readings, then follows the service logs.
+    Clone the engine and start the stack. The script writes the secrets into `.env`, pulls the application image, creates the demo accounts and example readings, and ends by printing the address or, while no model is set up, a link to the first-run page.
 
     ```bash
     git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
     ./deploy.sh
     ```
   </Step>
+  <Step title="Choose where the models run">
+    Open the printed link. Paste one vendor key, which is kept only after one real request through it works, or choose **100% on this machine**: the page looks for a `llama-server` on this computer, lists the models it serves and loads the size you pick. [Run Locally](/en/local-models) has the start command for each platform. The choice is stored encrypted and applies without a restart. With a key already in hand, `OPENROUTER_API_KEY=sk-or-... ./deploy.sh` skips the page.
+  </Step>
   <Step title="Check the services">
-    When the script reports `Up`, keep that terminal open. In another terminal, run these commands from the engine checkout:
+    From the engine checkout:
 
     ```bash
     docker compose ps
@@ -44,16 +59,33 @@ With Git and Docker Compose installed, run the local demo and check its seeded r
     docker compose exec mirobody mirobody doctor
     ```
 
-    The `mirobody` service should become `healthy`, and the health response includes `version` and `agent`. The last command checks model features **inside the container**. If you add a model key to `.env` after startup, run `docker compose up -d`; `docker compose restart` does not re-read `.env`.
+    The `mirobody` service should be `healthy`, and the health response includes `version` and `agent`. The last command names, **inside the container**, the entry each model surface selected; `mirobody doctor --probe` sends each one a real request. A key added to `.env` later takes `docker compose up -d`; `docker compose restart` does not re-read `.env`.
   </Step>
   <Step title="Inspect the readings">
-    Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111`, then open **Data**. The seeded readings should appear there. The [Quickstart](/en/quickstart#b--the-stack) also covers demo upload files and the other run modes.
+    Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111` on the Email code tab, then open **Data**. The seeded readings should appear there. The [Quickstart](/en/quickstart#b--the-stack) also covers the demo upload files and the other run modes.
   </Step>
 </Steps>
 
 For real records, apply the settings in [Deploy on a Server](/en/deployment/production) **before the first start**. After running the demo, follow the [existing-demo path](/en/deployment/production#after-a-local-demo) to start with clean data volumes.
 
-Self-hosting keeps the stored record in the Postgres and file storage you operate. Extraction and agent answers send data to whichever model provider you configure; review that provider's handling of health data before enabling those features.
+## What leaves the machine {#what-leaves-the-machine}
+
+Your record lives in your own Postgres, in containers you run, and nothing here reports usage anywhere. What leaves depends on who reads it:
+
+| | With a vendor key | 100% on this machine |
+| --- | --- | --- |
+| Your documents and questions | Sent to that vendor, under its terms, except the table rows read here by their headers | Stay here |
+| A name to a code, a unit to UCUM (② Translate) | Here, from a bundle inside the package, with no network | The same |
+| Model weights | None | Downloaded once from Hugging Face; `HF_ENDPOINT` in `.env` names a mirror |
+| A device vendor (Garmin, Oura, Whoop) | Only after you link one: its tokens and your own data | The same |
+| Container images | Pulled by `./deploy.sh` from Docker Hub, or from a mirror when Docker Hub does not answer (`DOCKER_MIRROR=` in `.env` turns the mirror off) | The same, plus llama.cpp's image when a Compose profile runs the models |
+| Sign-in mail | Only once `EMAIL_SMTP_HOST` is configured: the address and the code, to your own mail server | The same |
+
+Encryption at rest covers chat, uploaded files, medication text and your profile, not yet readings or genotypes. Before this reaches a network you do not control, read <OssLink path="SECURITY.md" />, which lists every address the server can call.
+
+## Export and backup {#export-and-backup}
+
+The record is yours to take out. Readings export as CSV or JSON, the visible record streams as NDJSON with a footer that says whether it finished, genotypes export as VCF or FHIR, and `shell/backup.sh` makes the one complete copy: the database and the uploaded files, which a documented restore brings back. [Export Your Data](/en/deployment/export) has the routes and their limits.
 
 ## Where the three stages live
 
@@ -78,7 +110,7 @@ How a single reading passes through all three is described in [The Pipeline](/en
 | --- | --- | --- |
 | Web client | `/` | People: documents and readings at `/data`, the agent at `/ask`, and care-circle sharing |
 | HTTP API | `/api/*` | Your own application; begin with the [local HTTP API guide](/en/http-api) |
-| MCP endpoint | `/mcp` | Claude Desktop, Cursor, or an agent loop of your own; see [MCP Integration](/en/tools/mcp-integration) |
+| MCP endpoint | `/mcp` | Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop through `mcp-remote`, or an agent loop of your own; see [MCP Integration](/en/tools/mcp-integration) |
 
 A self-hosted engine does not serve the Cloud `/v1` API. The Cloud tab documents that surface; the routes above are the engine's own.
 
@@ -88,14 +120,20 @@ A self-hosted engine does not serve the Cloud `/v1` API. The Cloud tab documents
   <Card title="Quickstart" icon="rocket" href="/en/quickstart">
     Install the library, bring up the stack, or run a checkout.
   </Card>
+  <Card title="Run locally" icon="microchip" href="/en/local-models">
+    Every model on this machine with llama.cpp: the sizes, the start command per platform, and what each reads in a photo.
+  </Card>
   <Card title="Configuration" icon="sliders" href="/en/configuration">
-    The model key, the configuration files, and the settings a deployment changes.
+    A vendor key or the local models, the configuration files, and the settings a deployment changes.
   </Card>
   <Card title="HTTP API" icon="code" href="/en/http-api">
     Get a local token, write a reading, and read it back.
   </Card>
   <Card title="Walkthrough" icon="play" href="/en/walkthrough">
     The running stack in four scenes, with the demo record.
+  </Card>
+  <Card title="Export your data" icon="file-export" href="/en/deployment/export">
+    CSV, JSON, NDJSON and VCF exports, and the backup that is the complete copy.
   </Card>
   <Card title="Deploy on a Server" icon="server" href="/en/deployment/production">
     Production posture, secrets, HTTPS and a deployment check.

@@ -1,7 +1,7 @@
 ---
 title: "快速开始"
 description: "运行 Mirobody 的三种方式：作为库、完整的 Docker 栈、源码检出，以及各自需要什么。"
-source: "docs/quickstart.md@c1aae297b4f3fad5cb87c5fc5bffc5163f7758c9"
+source: "docs/quickstart.md@43892ca6d85e3df1203fca8ceb547debd7947e74"
 ---
 
 import { OssSource } from "/snippets/oss-facts.jsx";
@@ -15,7 +15,7 @@ import { OssSource } from "/snippets/oss-facts.jsx";
 | 你想要 | 前往 | 需要 | 密钥 |
 | --- | --- | --- | --- |
 | 在自己的代码里解析名称与单位 | [A · 作为库使用](#a--the-library) | Python 3.12 | 不需要 |
-| 运行完整产品，并带有数据 | [B · 完整的栈](#b--the-stack) | Docker | 使用模型功能时需一个 |
+| 运行完整产品，并带有数据 | [B · 完整的栈](#b--the-stack) | Docker | 使用模型功能时需一个；用 llama.cpp 上的本地模型则不需要 |
 | 修改代码并查看效果 | [C · 源码检出](#c--a-checkout) | Python 与一个 Postgres | 一个 |
 
 如果使用托管 API 密钥和 `/v1` 接口，请阅读单独的 [Cloud 快速开始](/zh/api-reference/quickstart)。本页介绍开源引擎及其运行命令。
@@ -45,10 +45,10 @@ Postgres + pgvector、服务端与 worker，演示记录已经预先写入。
 
 ```bash
 git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
-./deploy.sh                       # → http://localhost:18060
+./deploy.sh                       # → 在 http://localhost:18060 上打印首次设置页的链接
 ```
 
-`deploy.sh` 会拉取应用镜像（其中已包含 LOINC 术语包），并在首次运行时写出带有自动生成密钥的 `.env`。Docker 方式不需要 Git LFS。在 `.env` 中设置**一个**模型密钥，然后用 `docker compose up -d` 重启服务端与 worker。在服务容器内检查可用的模型功能：
+`deploy.sh` 会拉取应用镜像（其中已包含 LOINC 术语包），并在首次运行时写出带有自动生成密钥的 `.env`。Docker 方式不需要 Git LFS。尚未设置模型时，它会打印首次设置页的链接：在那里粘贴**一个**模型密钥，或者选择**100% 在本机运行**，让所有模型都在本地的 [llama.cpp](/zh/local-models) 上运行（`llama-server`，Mirobody 自带预设的本地模型运行时；默认的一对模型需要 16 GB 内存、不需要 GPU，没有 GPU 时第一个回答要 2–3 分钟）。密钥也可以写进 `.env`，然后执行 `docker compose up -d`（`restart` 不会重新读取 `.env`）。在服务容器内检查可用的模型功能：
 
 ```bash
 docker compose exec mirobody mirobody doctor
@@ -56,7 +56,7 @@ docker compose exec mirobody mirobody doctor
 
 以 `you@mirobody.ai` 登录，验证码 `111111`，不需要邮件服务。`SEED_DEMO_DATA` 默认开启，两个账号里已经有共 2,019 条读数。如果打算保存真实数据，请在首次启动前把它设为 `false`，两个账号都不会创建。
 
-[`demo/upload/`](https://github.com/thetahealth/mirobody/tree/c1aae297b4f3fad5cb87c5fc5bffc5163f7758c9/demo) 中有四个文件有意没有预先写入，把其中一个拖到 Data 页面，就会执行实际的文件处理流程。
+[`demo/upload/`](https://github.com/thetahealth/mirobody/tree/43892ca6d85e3df1203fca8ceb547debd7947e74/demo) 中有四个文件有意没有预先写入，把其中一个拖到 Data 页面，就会执行实际的文件处理流程。
 
 ## C · 源码检出 {#c--a-checkout}
 
@@ -97,7 +97,7 @@ curl -fsS http://127.0.0.1:18090/api/health
 
 | 现象 | 原因 |
 | --- | --- |
-| `mirobody doctor` 输出 `keys present : none` | 没有模型密钥。① 收集与 ② 转译照常工作，抽取与回答不可用。 |
+| `mirobody doctor` 输出 `keys present : none`，且每个用途都是 `--` | 没有模型密钥，也没有本地模型服务。① 收集与 ② 转译照常工作，抽取与回答不可用。打开 `./deploy.sh` 打印的链接。 |
 | 新克隆的仓库在查询 LOINC 时报错 | 还没有执行 `git lfs pull`，术语包仍是指针文件。 |
 | `mirobody dev` 退出并要求提供 Postgres | 传入 `--pg-url`，或在环境变量中设置 `PG_URL` / `DATABASE_URL`。 |
 | 服务端已启动，但设备同步从不执行 | 检查 worker 日志与 Postgres 连接：设备拉取与任务状态都保存在 Postgres 中。 |

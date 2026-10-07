@@ -54,6 +54,8 @@
                   "en/api-reference/quickstart",
                   "en/self-host",
                   "en/quickstart",
+                  "en/local-models",
+                  "en/model-choice",
                   "en/http-api"
                 ]
               }
@@ -143,6 +145,16 @@
                 "root": "en/self-host"
               },
               {
+                "group": "Models",
+                "pages": [
+                  "en/model-choice",
+                  "en/local-models",
+                  "en/local-models-roadmap"
+                ],
+                "icon": "microchip",
+                "root": "en/model-choice"
+              },
+              {
                 "group": "Architecture",
                 "pages": [
                   "en/concepts/architecture",
@@ -178,7 +190,8 @@
                   "en/tools/agents",
                   "en/tools/overview",
                   "en/tools/medications",
-                  "en/tools/mcp-integration"
+                  "en/tools/mcp-integration",
+                  "en/tools/skills"
                 ],
                 "icon": "robot",
                 "root": "en/tools/agents"
@@ -196,6 +209,7 @@
                 "group": "Deploy",
                 "pages": [
                   "en/deployment/production",
+                  "en/deployment/export",
                   "en/deployment/backup",
                   "en/deployment/restore",
                   "en/deployment/upgrade"
@@ -237,6 +251,8 @@
                   "zh/api-reference/quickstart",
                   "zh/self-host",
                   "zh/quickstart",
+                  "zh/local-models",
+                  "zh/model-choice",
                   "zh/http-api"
                 ]
               }
@@ -325,6 +341,16 @@
                 "root": "zh/self-host"
               },
               {
+                "group": "模型",
+                "pages": [
+                  "zh/model-choice",
+                  "zh/local-models",
+                  "zh/local-models-roadmap"
+                ],
+                "icon": "microchip",
+                "root": "zh/model-choice"
+              },
+              {
                 "group": "架构",
                 "pages": [
                   "zh/concepts/architecture",
@@ -360,7 +386,8 @@
                   "zh/tools/agents",
                   "zh/tools/overview",
                   "zh/tools/medications",
-                  "zh/tools/mcp-integration"
+                  "zh/tools/mcp-integration",
+                  "zh/tools/skills"
                 ],
                 "icon": "robot",
                 "root": "zh/tools/agents"
@@ -378,6 +405,7 @@
                 "group": "部署",
                 "pages": [
                   "zh/deployment/production",
+                  "zh/deployment/export",
                   "zh/deployment/backup",
                   "zh/deployment/restore",
                   "zh/deployment/upgrade"

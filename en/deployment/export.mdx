@@ -1,0 +1,61 @@
+---
+title: "Export Your Data"
+description: "Take the record out of a self-hosted deployment: CSV and JSON for readings, an NDJSON stream of the record, VCF and FHIR for genotypes, and the backup that is the complete copy."
+---
+
+import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="en" />
+
+The record in a self-hosted deployment is yours to take out, in formats another program can read, and only the owner can: a care-circle member who may read your record page by page cannot download a copy of it. Every route below takes the deployment's own account token, as the [local HTTP API](/en/http-api) does.
+
+## What you can export
+
+| Data | Route | Format | Notes |
+| --- | --- | --- | --- |
+| Readings, with their standardized value and unit | `GET /api/v1/health-indicators/export` | CSV (a download), or JSON with `format=json` | The same filters as the records table (`kind`, `modality`, `start_time`, `end_time`, `created_since`, `keywords`). Up to 100,000 rows; a larger record gets the first 100,000 and the response header `X-Export-Truncated: true`. |
+| The visible record, as one stream | `GET /api/user/data-export` | A JSON page, or NDJSON with `Accept: application/x-ndjson` | The path and shape are the same on Mirobody Cloud, so one client can take a person's data out of either deployment. The stream ends with a footer whose `complete` field is the only proof it finished. |
+| Genotypes, from the active upload | `GET /api/v1/genomics/export.vcf?build=GRCh38` and `GET /api/v1/genomics/export.fhir.json?rsids=…` | VCF 4.2; FHIR | `build` is `GRCh37` or `GRCh38`; the FHIR export takes one to fifty rsIDs. |
+| Everything: readings, files, medications, the care circle and the accounts | `shell/backup.sh` in the checkout | A `pg_dump` archive and a tar of the uploaded files | The one complete copy. [Verify and Restore a Backup](/en/deployment/restore) rehearses the restore. |
+
+The web client offers the readings export on your own record.
+
+## Export with curl
+
+The example uses the local Docker demo and its demo account; a real deployment signs in the way its users do.
+
+<Steps>
+  <Step title="Get a token">
+    ```bash
+    TOKEN=$(curl -s -X POST http://localhost:18060/email/verify \
+      -H 'Content-Type: application/json' \
+      -d '{"email": "you@mirobody.ai", "code": "111111"}' | jq -r .data.access_token)
+    ```
+  </Step>
+  <Step title="Download the readings as CSV">
+    ```bash
+    curl -sS -H "Authorization: Bearer $TOKEN" \
+      'http://localhost:18060/api/v1/health-indicators/export?format=csv' -o mirobody-indicators.csv
+    head -3 mirobody-indicators.csv
+    ```
+
+    The first line names the columns, the standardized value and unit among them.
+  </Step>
+  <Step title="Stream the record as NDJSON">
+    ```bash
+    curl -sS -H "Authorization: Bearer $TOKEN" -H 'Accept: application/x-ndjson' \
+      http://localhost:18060/api/user/data-export -o mirobody-export.ndjson
+    tail -n 1 mirobody-export.ndjson
+    ```
+
+    The last line is the footer: `"complete": true` with the row count per dataset. A file whose last line is not a footer was cut off, and a footer with `"complete": false` names the dataset that changed while it streamed; run it again.
+  </Step>
+</Steps>
+
+## Scope of the export {#scope}
+
+The NDJSON stream holds the visible observation set and names it in its manifest; files, medications, the care circle and the accounts are not in it yet, and the manifest says so by listing only what is. Nothing reads this export back into a deployment: moving a record from one Mirobody to another is the backup and restore below. What does import is other sources: an Apple Health export (`mirobody import apple`), CDA documents, genotype exports from 23andMe, AncestryDNA, MyHeritage, FTDNA and WeGene or a VCF, and the 23 file types the Data page reads. Open items are tracked in <OssLink path="docs/roadmap.md" />.
+
+## The complete copy
+
+`shell/backup.sh` dumps the database and archives the uploaded files, and checks that the archive's table of contents can be read. Keep it with the matching `.env`: encrypted content is unreadable without the keys in it. [Backup & Restore](/en/deployment/backup) explains the volumes, and [Verify and Restore a Backup](/en/deployment/restore) walks through a rehearsal and a recovery. To erase a stack that uses the default named volumes, `docker compose down -v` in its checkout removes the containers and the Postgres, upload and model volumes together.

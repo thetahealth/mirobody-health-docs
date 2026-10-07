@@ -1,0 +1,61 @@
+---
+title: "导出数据"
+description: "把记录从自部署中取出来：读数导出为 CSV 与 JSON，整份记录以 NDJSON 流式导出，基因型导出为 VCF 与 FHIR，以及作为完整副本的备份。"
+---
+
+import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="zh" />
+
+自部署中的记录是你的，可以随时取出，格式都是其他程序能读的；并且只有记录的所有者能导出：关爱圈成员可以逐页查看你的记录，但不能下载一份副本。下面的每个接口都使用这套部署自己的账号令牌，与[本地 HTTP API](/zh/http-api) 相同。
+
+## 可导出的内容
+
+| 数据 | 接口 | 格式 | 说明 |
+| --- | --- | --- | --- |
+| 读数，连同标准化后的值与单位 | `GET /api/v1/health-indicators/export` | CSV（直接下载），或加 `format=json` 得到 JSON | 筛选条件与记录表相同（`kind`、`modality`、`start_time`、`end_time`、`created_since`、`keywords`）。最多 100,000 行；更大的记录只返回前 100,000 行，并带响应头 `X-Export-Truncated: true`。 |
+| 可见记录，整体一条流 | `GET /api/user/data-export` | 一页 JSON，或带 `Accept: application/x-ndjson` 时为 NDJSON | 路径与结构和 Mirobody Cloud 一致，一个客户端就能从任一种部署里取出一个人的数据。流的末尾是一条 footer，其中的 `complete` 字段是它完整结束的唯一证明。 |
+| 基因型，来自当前生效的上传 | `GET /api/v1/genomics/export.vcf?build=GRCh38` 与 `GET /api/v1/genomics/export.fhir.json?rsids=…` | VCF 4.2；FHIR | `build` 取 `GRCh37` 或 `GRCh38`；FHIR 导出接受 1 到 50 个 rsID。 |
+| 全部：读数、文件、用药、关爱圈与账号 | 检出目录中的 `shell/backup.sh` | 一份 `pg_dump` 归档和一份上传文件的 tar 包 | 唯一的完整副本。[核验与恢复备份](/zh/deployment/restore)演练恢复过程。 |
+
+Web 客户端在你自己的记录上提供读数导出。
+
+## 用 curl 导出
+
+示例使用本地 Docker 演示环境及其演示账号；真实部署按其用户的方式登录。
+
+<Steps>
+  <Step title="获取令牌">
+    ```bash
+    TOKEN=$(curl -s -X POST http://localhost:18060/email/verify \
+      -H 'Content-Type: application/json' \
+      -d '{"email": "you@mirobody.ai", "code": "111111"}' | jq -r .data.access_token)
+    ```
+  </Step>
+  <Step title="把读数下载为 CSV">
+    ```bash
+    curl -sS -H "Authorization: Bearer $TOKEN" \
+      'http://localhost:18060/api/v1/health-indicators/export?format=csv' -o mirobody-indicators.csv
+    head -3 mirobody-indicators.csv
+    ```
+
+    第一行是列名，标准化后的值与单位也在其中。
+  </Step>
+  <Step title="以 NDJSON 流式导出记录">
+    ```bash
+    curl -sS -H "Authorization: Bearer $TOKEN" -H 'Accept: application/x-ndjson' \
+      http://localhost:18060/api/user/data-export -o mirobody-export.ndjson
+    tail -n 1 mirobody-export.ndjson
+    ```
+
+    最后一行是 footer：`"complete": true`，并带每个数据集的行数。最后一行不是 footer 的文件是被截断的；footer 中 `"complete": false` 则写明了导出期间发生变化的数据集，请重新执行。
+  </Step>
+</Steps>
+
+## 导出的范围 {#scope}
+
+NDJSON 流包含可见的观测集合，并在清单（manifest）中列出；文件、用药、关爱圈与账号暂不在其中，清单只列出实际包含的内容。目前没有任何功能把这份导出读回一套部署：把记录从一个 Mirobody 搬到另一个，走的是下文的备份与恢复。能导入的是其他来源：Apple Health 导出包（`mirobody import apple`）、CDA 文档、来自 23andMe、AncestryDNA、MyHeritage、FTDNA、WeGene 的基因型导出或 VCF，以及 Data 页能读取的 23 种文件类型。待办事项记录在 <OssLink path="docs/roadmap.md" />。
+
+## 完整副本
+
+`shell/backup.sh` 转储数据库、归档上传的文件，并检查归档的目录可以读取。请把它和对应的 `.env` 放在一起保存：没有其中的密钥，加密内容无法读取。[备份与恢复](/zh/deployment/backup)说明各数据卷，[核验与恢复备份](/zh/deployment/restore)逐步演练恢复与灾备。要清除一套使用默认具名卷的部署，在其检出目录中执行 `docker compose down -v`，容器连同 Postgres、上传文件和模型三个数据卷一起删除。
