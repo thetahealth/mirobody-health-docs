@@ -178,7 +178,8 @@
                 "pages": [
                   "en/concepts/indicators",
                   "en/concepts/device-crosswalk",
-                  "en/concepts/genetics"
+                  "en/concepts/genetics",
+                  "en/concepts/synthetic-data"
                 ],
                 "icon": "wand-magic-sparkles",
                 "root": "en/concepts/indicators"
@@ -373,7 +374,8 @@
                 "pages": [
                   "zh/concepts/indicators",
                   "zh/concepts/device-crosswalk",
-                  "zh/concepts/genetics"
+                  "zh/concepts/genetics",
+                  "zh/concepts/synthetic-data"
                 ],
                 "icon": "wand-magic-sparkles",
                 "root": "zh/concepts/indicators"

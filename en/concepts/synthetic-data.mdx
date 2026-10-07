@@ -1,0 +1,86 @@
+---
+title: "Synthetic data for testing: mirobody-gen"
+sidebarTitle: "Synthetic Data"
+description: "Regenerable synthetic people whose documents, wearable pushes, health-store batches and genotype exports carry row-level ground truth — the test corpus for every ingestion path Mirobody has."
+---
+
+Testing an ingestion pipeline against real patient files works until you ask the questions that
+matter: *was that cell read correctly? which layout phenomenon made this file harder? did the
+Garmin stream and the lab slip on the same person merge into one record?* Real files cannot answer
+them at scale — there is no ground truth, no named difficulty, and no legal way to share the
+corpus.
+
+[mirobody-gen](https://github.com/thetahealth/mirobody-gen) is the project built to answer them.
+It is a standalone generator whose job is producing **broad, realistic, fully-attributable
+personal health data**: 60 synthetic people across 8 archetypes, each with multi-year event
+timelines, rendered coherently across **four delivery channels** — and those four channels are
+exactly the four ingestion paths Mirobody has. That is what makes one synthetic person able to
+exercise the whole engine end to end.
+
+| Channel | What a person hands over | Mirobody entry point |
+| --- | --- | --- |
+| Documents | Lab slips, check-up books, clinic notes, ECG / ultrasound / imaging reports, home logs, app exports — as text-layer PDF, XLSX, CSV, and 24 scan/photo/copy/screenshot scenes | [file upload pipeline](/en/concepts/file-processing) |
+| Phone health store | Batches of ≤500 records in Apple / Huawei / Xiaomi / Health Connect field names, ready to POST | [device crosswalk](/en/concepts/device-crosswalk) |
+| Vendor cloud | Byte-level HealthKit JSON, Garmin Health API, Oura v2 and WHOOP v2 payloads shaped to the acceptance records in `kernel/decoders/samples/` | [provider decoders](/en/providers/using-providers) |
+| Genomics | WeGene, 23andMe, AncestryDNA, MyHeritage and VCF exports, 41 PGx sites at ancestry-correct frequencies | [genetics handler](/en/concepts/genetics) |
+
+## Two layers of truth {#two-layers-of-truth}
+
+Every file in a build carries two independent truth layers:
+
+- the **printed layer** — what the page says (item name, value, unit, reference range, flag; the
+  five [MedRepBench](https://arxiv.org/abs/2508.16674) fields)?
+- the **semantic layer** — what it means (indicator key, LOINC code, UCUM unit, observation date).
+
+Extraction can be scored against the first; standardisation against the second; and a discrepancy
+between the two is itself a measurable failure. This is the property a transcription-only corpus
+cannot offer: under a hazard like `unit.missing`, a faithful transcription legitimately leaves the
+printed unit empty while the semantic truth still says *glucose, mmol/L* — and an invariance check
+must therefore live at the semantic layer.
+
+## Named difficulty and minimal pairs {#named-difficulty}
+
+Every file declares which hazard classes it carries, from a taxonomy of 62 classes distilled from a
+study of 627 real documents (`unit.glued_to_value` appears on 22% of real documents;
+`unit.in_header_or_reference_only` on 9%). For each generatable class, the generator renders the
+same person's same visit twice — clean and hazard-bearing — so "how much does this phenomenon
+cost" becomes a paired, causal estimate rather than an observational correlation.
+
+## Values that obey physiology {#values-that-obey-physiology}
+
+No value is sampled from a distribution fitted to patient data. Reference intervals cite China's
+WS/T 404 (biochemistry) and WS/T 405 (haematology) series; within- and between-subject variation
+follows the public EFLM / Westgard tables; derived quantities (BMI, LDL, MCH/MCHC, eGFR) are
+computed by their defining identities. A cross-generator audit the project runs on its own
+check-ups is telling: Synthea and PySynthea complete blood counts mostly violate the red-cell
+identity MCH = MCHC × MCV and carry zero reference intervals. ESL-Doc carries both, by
+construction.
+
+## Privacy by construction {#privacy-by-construction}
+
+Nothing in a build is derived from a real person. The document-*shape* statistics came from a
+private de-identified reference set as format tokens and aggregate counts only, each carrying a
+provenance tag (`source`), behind an allow-list `.gitignore`, a pre-commit privacy hook, and an
+n-gram replay gate. The threat model is written down in the repository's `docs/PRIVACY.md`,
+including what to do if you believe a file is not synthetic.
+
+## Using it {#using-it}
+
+```bash
+pip install -e ".[render]"
+mirobody-gen build --seed 7 --out out/p3 --render --pairs 12
+mirobody-gen audit-clinical    out/p3/manifest.jsonl
+mirobody-gen audit-readability out/p3/files.jsonl out/p3/pairs.jsonl
+mirobody-gen audit-privacy     --targets mirobody_gen/resources out/p3
+mirobody-gen score             out/p3/files.jsonl out/p3/pred.jsonl
+```
+
+Two builds with the same seed (and the same `--lang-mix`, the same `--paraphrase`) are
+byte-identical, so `out/` is disposable and the generator plus the seed **is** the artefact.
+
+**Status.** Mirobody reads a build directory through an environment variable; as of engine
+release 1.5.3 this is not yet wired (`feat/1.5.4` does not yet read a mirobody-gen build), and
+today's consumers are the scoring CLIs plus the vendor-payload shapes pinned against the decoder
+test suite. The working article composing this corpus with
+[ESL-Bench](https://arxiv.org/abs/2604.02834) — provisionally the **ESL-Doc** benchmark — lives in
+the repository's `docs/zh-CN/paper.md`.
