@@ -78,9 +78,12 @@ mirobody-gen score             out/p3/files.jsonl out/p3/pred.jsonl
 Two builds with the same seed (and the same `--lang-mix`, the same `--paraphrase`) are
 byte-identical, so `out/` is disposable and the generator plus the seed **is** the artefact.
 
-**Status.** Mirobody reads a build directory through an environment variable; as of engine
-release 1.5.3 this is not yet wired (`feat/1.5.4` does not yet read a mirobody-gen build), and
-today's consumers are the scoring CLIs plus the vendor-payload shapes pinned against the decoder
-test suite. The working article composing this corpus with
-[ESL-Bench](https://arxiv.org/abs/2604.02834) — provisionally the **ESL-Doc** benchmark — lives in
-the repository's `docs/zh-CN/paper.md`.
+**Status.** Since engine release 1.5.4, Mirobody's model evaluations are built on it.
+`benchmarks/local_models/` turns a seed-7 build into 24 questions with their expected facts,
+12 documents and 15 journal sentences, loads the people into accounts through the product's own
+API and grades every answer; `benchmarks/local_ocr/` scores three document-OCR models against the
+row-level truth of printed and handwritten pages.
+[Choosing a model](/en/model-choice#how-it-was-measured-and-how-to-rerun-it) reports both and how
+to rerun them. The engine itself reads no build at runtime. A companion article composing this
+corpus with [ESL-Bench](https://arxiv.org/abs/2604.02834), provisionally the **ESL-Doc**
+benchmark, is in preparation.
