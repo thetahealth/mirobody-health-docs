@@ -14,8 +14,13 @@
  *      or the English text under a notice.
  *   C. frontmatter has a title and a description in both languages
  *   D. no two pages in one tab share a sidebar label (sidebarTitle, else title)
+ *   E. each page has one place in its language's navigation. A page listed in two
+ *      tabs opens under the first, so the second tab's own links (its tab link
+ *      included) send the reader to the other tab; a group root that is also in
+ *      the group's pages is highlighted twice and its Next link points at itself.
+ *   F. no listed page is the source of a redirect: the redirect hides the page
  */
-import { frontmatter, generatedPages, navEntries, pagesOnDisk, read } from "./lib/pages.mjs";
+import { DOCS_JSON, frontmatter, generatedPages, navEntries, pagesOnDisk, read } from "./lib/pages.mjs";
 
 const COMPONENTS = ["Card", "CardGroup", "Columns", "Step", "Steps", "Accordion", "AccordionGroup", "Tab", "Tabs", "CodeGroup", "Frame", "ParamField", "ResponseField", "Note", "Info", "Tip", "Warning", "Check", "Fact", "OssLink", "OssSource", "OssVersion", "Stages"];
 
@@ -79,10 +84,26 @@ for (const e of entries) {
   const fm = frontmatter(text);
   const label = fm.sidebarTitle || fm.title;
   const key = `${e.locale} · ${e.tab} · ${label}`;
-  labels.set(key, [...(labels.get(key) ?? []), e.page]);
+  labels.set(key, [...new Set([...(labels.get(key) ?? []), e.page])]);
 }
 for (const [key, pages] of labels) {
   if (pages.length > 1) problems.push(`duplicate sidebar label [${key}]: ${pages.join(", ")}`);
+}
+
+// E. one place per page
+const places = new Map();
+for (const e of entries) {
+  places.set(e.page, [...(places.get(e.page) ?? []), `${e.tab} › ${e.group}${e.root ? " (root)" : ""}`]);
+}
+for (const [page, where] of places) {
+  if (where.length > 1) problems.push(`${page} is listed ${where.length} times: ${where.join(" · ")}`);
+}
+
+// F. no listed page is redirected away
+const redirected = new Set((DOCS_JSON.redirects ?? []).map((r) => r.source.replace(/^\/+|\/+$/g, "")));
+for (const page of places.keys()) {
+  const path = page.replace(/\/index$/, "");
+  if (redirected.has(path)) problems.push(`${page} is in the navigation but /${path} redirects elsewhere`);
 }
 
 console.log(`parity check: ${en.length} page pairs (${[...generated].filter((p) => p.startsWith("en/")).length} generated)`);
