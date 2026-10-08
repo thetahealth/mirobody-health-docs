@@ -12,17 +12,17 @@
     {
       "slug": "quickstart",
       "source": "docs/quickstart.md",
-      "zh": "translation",
+      "zhSource": "docs/quickstart.zh-CN.md",
       "label": { "en": "Quickstart", "zh": "快速开始" },
       "description": {
-        "en": "Three ways to run Mirobody — the library, the Docker stack, or a source checkout — and what each one needs.",
-        "zh": "运行 Mirobody 的三种方式：作为库、完整的 Docker 栈、源码检出，以及各自需要什么。"
+        "en": "Start with Docker for the whole product, or use one part of it: the library, the stack, or a source checkout, and what each needs.",
+        "zh": "用 Docker 体验完整产品，或只使用其中一部分：作为库、Docker 栈、源码检出，以及各自需要什么。"
       }
     },
     {
       "slug": "local-models",
       "source": "docs/local-models.md",
-      "zhIntro": "本页说明如何让所有模型都在你自己的机器上运行，不需要任何模型 API 密钥：本地模型运行时是 llama.cpp 的 `llama-server`，GLM-OCR 读报告照片与页面，另一个模型回答问题；页面列出各平台的启动命令、首次设置页中「100% 在本机运行」的选择方式，以及每个模型能从照片里读出什么。中文读者可先看[自部署](/zh/self-host#what-leaves-the-machine)中「什么会离开这台机器」一节，再按下方英文原文操作。",
+      "zhSource": "docs/local-models.zh-CN.md",
       "title": "Run Every Model Locally",
       "label": { "en": "Run Locally", "zh": "本地运行" },
       "description": {
@@ -56,8 +56,8 @@
       "zhSource": "docs/walkthrough.zh-CN.md",
       "label": { "en": "Walkthrough", "zh": "完整演示" },
       "description": {
-        "en": "The running stack in four scenes: sign in, upload a report, ask about your own record, ask about someone in your care circle.",
-        "zh": "用四个场景走完运行中的整套系统：登录、上传报告、查询自己的记录、查询关爱圈成员的记录。"
+        "en": "The running stack in five scenes: sign in, upload a report, read its codes, ask across reports and a shared record, and write a journal entry.",
+        "zh": "用五个场景走完运行中的整套系统：登录、上传报告、查看编码、跨报告和共享记录提问，以及写一句健康日记。"
       }
     },
     {
@@ -190,9 +190,9 @@
       "jumpTo": [
         { "anchor": "before-you-write-a-provider-do-you-need-one", "en": "Decide whether you need a provider", "zh": "判断是否需要新 Provider" },
         { "anchor": "what-a-provider-is-made-of", "en": "Understand its four parts", "zh": "了解 Provider 的四个部分" },
-        { "anchor": "3-implementation-requirements", "en": "Implement the provider", "zh": "实现 Provider" },
-        { "anchor": "4-core-methods-reference", "en": "Look up method signatures", "zh": "查方法签名" },
-        { "anchor": "6-testing-your-provider", "en": "Test the integration", "zh": "测试集成" }
+        { "anchor": "writing-the-io-shell", "en": "Write the IO shell", "zh": "编写 IO 外壳" },
+        { "anchor": "the-class", "en": "Look up method signatures", "zh": "查方法签名" },
+        { "anchor": "testing", "en": "Test the integration", "zh": "测试集成" }
       ],
       "label": { "en": "Writing a Provider", "zh": "编写 Provider" },
       "description": {
