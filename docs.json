@@ -121,10 +121,9 @@
               {
                 "group": "Start with Self-Host",
                 "pages": [
-                  "en/quickstart",
-                  "en/http-api",
-                  "en/configuration",
                   "en/walkthrough",
+                  "en/quickstart",
+                  "en/configuration",
                   "en/troubleshooting"
                 ],
                 "icon": "rocket",
@@ -160,8 +159,7 @@
                 "group": "② Translate",
                 "pages": [
                   "en/concepts/device-crosswalk",
-                  "en/concepts/genetics",
-                  "en/concepts/synthetic-data"
+                  "en/concepts/genetics"
                 ],
                 "icon": "wand-magic-sparkles",
                 "root": "en/concepts/indicators"
@@ -180,7 +178,9 @@
               {
                 "group": "Extend",
                 "pages": [
-                  "en/development/provider-integration"
+                  "en/http-api",
+                  "en/development/provider-integration",
+                  "en/concepts/synthetic-data"
                 ],
                 "icon": "puzzle-piece",
                 "root": "en/tools/adding-tools"
@@ -188,10 +188,10 @@
               {
                 "group": "Deploy",
                 "pages": [
-                  "en/deployment/export",
+                  "en/deployment/upgrade",
                   "en/deployment/backup",
                   "en/deployment/restore",
-                  "en/deployment/upgrade"
+                  "en/deployment/export"
                 ],
                 "icon": "server",
                 "root": "en/deployment/production"
@@ -296,10 +296,9 @@
               {
                 "group": "从自部署开始",
                 "pages": [
-                  "zh/quickstart",
-                  "zh/http-api",
-                  "zh/configuration",
                   "zh/walkthrough",
+                  "zh/quickstart",
+                  "zh/configuration",
                   "zh/troubleshooting"
                 ],
                 "icon": "rocket",
@@ -335,8 +334,7 @@
                 "group": "② 转译",
                 "pages": [
                   "zh/concepts/device-crosswalk",
-                  "zh/concepts/genetics",
-                  "zh/concepts/synthetic-data"
+                  "zh/concepts/genetics"
                 ],
                 "icon": "wand-magic-sparkles",
                 "root": "zh/concepts/indicators"
@@ -355,7 +353,9 @@
               {
                 "group": "扩展",
                 "pages": [
-                  "zh/development/provider-integration"
+                  "zh/http-api",
+                  "zh/development/provider-integration",
+                  "zh/concepts/synthetic-data"
                 ],
                 "icon": "puzzle-piece",
                 "root": "zh/tools/adding-tools"
@@ -363,10 +363,10 @@
               {
                 "group": "部署",
                 "pages": [
-                  "zh/deployment/export",
+                  "zh/deployment/upgrade",
                   "zh/deployment/backup",
                   "zh/deployment/restore",
-                  "zh/deployment/upgrade"
+                  "zh/deployment/export"
                 ],
                 "icon": "server",
                 "root": "zh/deployment/production"
