@@ -34,6 +34,7 @@
       "slug": "local-models-roadmap",
       "source": "docs/local-models-roadmap.md",
       "zhSource": "docs/local-models-roadmap.zh-CN.md",
+      "title": "Local Models Measured",
       "label": { "en": "Local Models Measured", "zh": "本地模型实测" },
       "description": {
         "en": "The local models measured side by side, what GLM-OCR can and cannot read in a photo, and the plan for a small post-trained pair.",
@@ -44,6 +45,7 @@
       "slug": "model-choice",
       "source": "docs/model-choice.md",
       "zhSource": "docs/model-choice.zh-CN.md",
+      "title": "Choosing a Model",
       "label": { "en": "Choosing a Model", "zh": "选择模型" },
       "description": {
         "en": "Which model to run, by who may read your health data and how good the answers must be: the two local sizes, five cloud models measured on one evaluation, and the Mirobody model coming in 1.6.0.",
@@ -54,6 +56,7 @@
       "slug": "walkthrough",
       "source": "docs/walkthrough.md",
       "zhSource": "docs/walkthrough.zh-CN.md",
+      "title": "Walkthrough",
       "label": { "en": "Walkthrough", "zh": "完整演示" },
       "description": {
         "en": "The running stack in five scenes: sign in, upload a report, read its codes, ask across reports and a shared record, and write a journal entry.",
@@ -64,6 +67,7 @@
       "slug": "concepts/architecture",
       "source": "docs/pipeline.md",
       "zhIntro": "从文件进入系统到智能体引用读数，本页逐段解释处理管线。想先看到实际效果，可从[完整演示](/zh/walkthrough)进入；查每个阶段的约束与未处理情况时，再读下方英文原文。",
+      "title": "The Pipeline",
       "label": { "en": "The Pipeline", "zh": "数据管线" },
       "description": {
         "en": "The eleven stages a reading passes through, the invariant each one holds, and what is deliberately not done.",
@@ -74,6 +78,7 @@
       "slug": "concepts/repository-layout",
       "source": "docs/repository-layout.md",
       "zhSource": "docs/repository-layout.zh-CN.md",
+      "title": "Repository Layout",
       "label": { "en": "Repository Layout", "zh": "仓库结构" },
       "description": {
         "en": "Where each of the three stages lives in the repository, and the two forms the code ships in: library and application.",
@@ -84,6 +89,7 @@
       "slug": "providers/using-providers",
       "source": "docs/provider-setup.md",
       "zhSource": "docs/provider-setup.zh-CN.md",
+      "title": "Connect a Device Provider",
       "label": { "en": "Device Providers", "zh": "设备 Provider" },
       "description": {
         "en": "Turn on Garmin, Oura and Whoop: vendor credentials, callback URLs, and how to confirm a provider is running.",
@@ -105,6 +111,7 @@
       "slug": "providers/apple-health",
       "source": "docs/apple-health.md",
       "zhIntro": "本页介绍 Apple Health 导出包、CDA 文档和手机客户端推送数据的入口。准备接入前，先确认要处理的是离线导出文件，还是持续推送的 HealthKit 数据。",
+      "title": "Apple Health Import",
       "label": { "en": "Apple Health", "zh": "Apple Health" },
       "description": {
         "en": "Importing an Apple Health export and CDA documents, and the endpoint a phone client pushes HealthKit data to.",
@@ -115,6 +122,7 @@
       "slug": "concepts/indicators",
       "source": "docs/standardization.md",
       "zhSource": "docs/standardization.zh-CN.md",
+      "title": "Standardization",
       "label": { "en": "Standardization", "zh": "标准化" },
       "description": {
         "en": "② Translate in depth: the alias tiers, which LOINC release ships, and what the bundled cut does and does not cover.",
@@ -125,6 +133,7 @@
       "slug": "concepts/device-crosswalk",
       "source": "docs/device-crosswalk.md",
       "zhIntro": "本页逐项列出设备厂商字段与标准编码的对应关系，并注明来源和置信度。先读[标准化](/zh/concepts/indicators)了解编码规则；需要核对某个字段时，再检索下方英文表格。",
+      "title": "Device Crosswalk",
       "label": { "en": "Device Crosswalk", "zh": "设备字段对照" },
       "description": {
         "en": "Thirteen wearable vendors' fields mapped to LOINC, with a confidence and a source per row.",
@@ -135,6 +144,7 @@
       "slug": "concepts/genetics",
       "source": "docs/genetics.md",
       "zhSource": "docs/genetics.zh-CN.md",
+      "title": "Genetics",
       "label": { "en": "Genetics", "zh": "基因数据" },
       "description": {
         "en": "How a raw genotype upload becomes site calls and CPIC drug-gene coverage, and the boundaries the two tools keep on purpose.",
@@ -145,6 +155,7 @@
       "slug": "tools/overview",
       "source": "docs/answers.md",
       "zhIntro": "本页是健康数据工具的参数、返回格式和调用约束参考。若目标是连接现成的 MCP 客户端，先看中文的[MCP 接入](/zh/tools/mcp-integration)；需要实现工具调用时，再查下方英文定义。",
+      "title": "Health-Data Tools",
       "label": { "en": "Health-Data Tools", "zh": "健康数据工具" },
       "description": {
         "en": "The tools the agent and MCP clients read health data through: their schemas, the response envelope, and what stops a loop.",
@@ -165,7 +176,7 @@
       "slug": "tools/adding-tools",
       "source": "mirobody/agent/tools/README.md",
       "zhIntro": "本页解释如何把 Python 函数或 Service 类注册为引擎工具，并提供给智能体和 MCP 客户端。开始前先看[MCP 接入](/zh/tools/mcp-integration)了解工具暴露方式，再按下方英文步骤实现。",
-      "title": "Developing Mirobody Tools",
+      "title": "Adding Tools",
       "label": { "en": "Adding Tools", "zh": "添加工具" },
       "description": {
         "en": "Write a Python function or Service class and the engine serves it as an MCP tool, to the agent and to every MCP client.",
@@ -194,6 +205,7 @@
         { "anchor": "the-class", "en": "Look up method signatures", "zh": "查方法签名" },
         { "anchor": "testing", "en": "Test the integration", "zh": "测试集成" }
       ],
+      "title": "Writing a Provider",
       "label": { "en": "Writing a Provider", "zh": "编写 Provider" },
       "description": {
         "en": "Writing a device data provider end to end: the decode table, the IO shell, samples and coverage.",
@@ -204,7 +216,8 @@
       "slug": "deployment/backup",
       "source": "docs/backup-restore.md",
       "zhIntro": "本页说明数据库、上传文件和其他数据卷的备份与恢复。升级前请先备份并核验结果；密钥与配置文件要单独保存，具体顺序见中文的[升级部署](/zh/deployment/upgrade)。",
-      "label": { "en": "Backup & Restore", "zh": "备份与恢复" },
+      "title": "Backup and Restore Reference",
+      "label": { "en": "Backup Reference", "zh": "备份参考" },
       "description": {
         "en": "What holds your data, how to copy it and get it back, and what changes when you upgrade.",
         "zh": "数据存放在哪里、如何备份与恢复，以及升级时会发生什么变化。"

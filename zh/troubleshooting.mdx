@@ -59,8 +59,8 @@ docker compose logs --tail 80 mirobody         # 服务端自身的日志
 | --- | --- |
 | 首次设置页拒绝**100% 在本机运行** | `.env` 中的厂商密钥始终优先于本地条目。删掉密钥并执行 `docker compose up -d`，再选一次本地；或者保留密钥，按[配置](/zh/configuration#local-models)设置那三个覆盖变量。 |
 | 在 Linux 主机上，页面找不到模型服务 | 在 Linux 上 `host.docker.internal` 指向 Docker 网桥，宿主机上的 `llama-server` 必须监听网桥地址（`--host 172.17.0.1`，由 `ip -4 addr show docker0` 查得），而不是 `127.0.0.1`。`local` 与 `local-cpu` 两个 Compose profile 不需要宿主机网络。 |
-| `llama` 服务日志里出现 `failed to initialize router models: ... Is a directory` | Docker 看不到这份检出，于是把一个空目录挂到了预设文件的位置。Colima 默认只共享你的主目录：把检出放在主目录下，或把路径加进它的挂载列表。 |
-| 选好规模后的第一个问题很久没有回答 | 模型正在从 Hugging Face 下载；首次设置页显示每个模型的状态，用 Compose profile 运行模型时 `docker compose logs llama` 能看到下载进度。无法访问 huggingface.co 时，在 `.env` 中把 `HF_ENDPOINT` 设为镜像。 |
+| 模型服务的日志里出现 `failed to initialize router models: ... Is a directory` | Docker 看不到这份检出，于是把一个空目录挂到了预设文件的位置。Colima 默认只共享你的主目录：把检出放在主目录下，或把路径加进它的挂载列表。 |
+| 选好规模后的第一个问题很久没有回答 | 模型正在从 Hugging Face 下载；首次设置页显示每个模型的状态，用 Compose profile 运行模型时，`docker compose logs -f llama_cpu`（NVIDIA 显卡上为 `llama`）能看到下载进度。无法访问 huggingface.co 时，在 `.env` 中把 `HF_ENDPOINT` 设为镜像。 |
 | 一个回答要好几分钟，而且没有流式输出 | 本地模型的正常表现：读取提示词期间没有任何输出，加载后的第一轮最慢。`local` 条目允许 600 秒的静默后才放弃。 |
 | `llama-server` 占用的内存远超模型权重 | llama.cpp 的提示词缓存默认每个模型服务 8 GiB。随仓库提供的预设把每个回答模型的缓存限制为 1 GiB、文档阅读模型为零（<OssLink path="docker/local-models.ini" /> 中的 `cache-ram`）；自己写的预设需要同样的几行，否则机器会开始交换内存。 |
 | 聊天里的照片只按其中的印刷文字回答 | 回答问题的模型看不见图片，收到的是照片的 OCR 文字：小规模只处理文本。请选择能看图的大规模，或改用厂商密钥。 |
