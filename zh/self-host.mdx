@@ -59,7 +59,7 @@ Docker 栈就是完整的产品：Web 应用、保存你记录的 Postgres、后
 | --- | --- | --- |
 | 由谁运行模型 | 你填写 Key 的那家服务商 | [llama.cpp](/zh/local-models) 的 `llama-server`，与服务一起运行或运行在宿主机上 |
 | 你需要 | Docker 和一个 Key | Docker；默认规模需要 16 GB 内存，其中至少 8 GB 分配给 Docker |
-| 速度 | 取决于服务商和所选模型 | 16 GB M1 Pro 的 GPU 上约 30 秒；只用 CPU 时需要几分钟 |
+| 速度 | 取决于服务商和所选模型 | 16 GB Apple 芯片笔记本的 GPU 上约 30 秒；只用 CPU 时需要几分钟 |
 
 若要让模型在 Docker 中随服务一起运行，用 Compose profile 启动，代替单独的 `./deploy.sh`：
 
@@ -68,7 +68,7 @@ COMPOSE_PROFILES=local-cpu ./deploy.sh     # 任何电脑，不需要显卡
 COMPOSE_PROFILES=local ./deploy.sh         # NVIDIA 显卡
 ```
 
-脚本会把 Mirobody 指向模型服务，设置页无需再做选择；第一个问题要等待一次性下载约 3 GB 的模型。没有显卡时，第一个回答在 M1 Pro 的 CPU 上约需 2–3 分钟，在 4 vCPU 的 x86 服务器上最长约 15 分钟。在 Mac 上，`llama-server` 直接在宿主机上使用 GPU 运行，设置页会自动找到它。各平台的做法、两档规模及其需求见[本地运行](/zh/local-models)；[选择模型](/zh/model-choice)把它们与五个云端模型放在一起比较。`.env` 中的厂商 Key 优先于本地模型，[配置](/zh/configuration#local-models)列出了反转这一顺序的三个变量。
+脚本会把 Mirobody 指向模型服务，设置页无需再做选择；第一个问题要等待一次性下载约 3 GB 的模型。没有显卡时，第一个回答在 Apple 芯片笔记本的 CPU 上约需 2–3 分钟，在 4 vCPU 的 x86 服务器上最长约 15 分钟。在 Mac 上，`llama-server` 直接在宿主机上使用 GPU 运行，设置页会自动找到它。各平台的做法、两档规模及其需求见[本地运行](/zh/local-models)；[选择模型](/zh/model-choice)把它们与五个云端模型放在一起比较。`.env` 中的厂商 Key 优先于本地模型，[配置](/zh/configuration#local-models)列出了反转这一顺序的三个变量。
 
 ## 离开这台机器的数据 {#what-leaves-the-machine}
 

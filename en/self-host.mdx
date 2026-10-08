@@ -59,7 +59,7 @@ The [walkthrough](/en/walkthrough) follows the same record through five scenes. 
 | --- | --- | --- |
 | Who runs the models | The vendor whose key you paste | [llama.cpp](/en/local-models)'s `llama-server`, beside the stack or on the host |
 | You need | Docker and one key | Docker and 16 GB of memory for the default size, at least 8 GB of it for Docker |
-| Speed | Set by the vendor and the model you choose | About 30 s on a 16 GB M1 Pro's GPU; minutes on a CPU alone |
+| Speed | Set by the vendor and the model you choose | About 30 s on a 16 GB Apple-silicon laptop's GPU; minutes on a CPU alone |
 
 To run the models in Docker beside the stack, start it with a Compose profile instead of the plain `./deploy.sh`:
 
@@ -68,7 +68,7 @@ COMPOSE_PROFILES=local-cpu ./deploy.sh     # any computer, no GPU
 COMPOSE_PROFILES=local ./deploy.sh         # an NVIDIA GPU
 ```
 
-The script points Mirobody at the model service, so the setup page has nothing to ask; the first question waits for a one-time download of about 3 GB. Without a GPU a first answer takes 2–3 minutes on an M1 Pro's cores and up to about 15 on a 4-vCPU x86 server. On a Mac, `llama-server` runs natively on the GPU and the setup page finds it. [Run Locally](/en/local-models) has every platform, the two sizes and what each needs; [Choosing a Model](/en/model-choice) compares them with five cloud models. A vendor key in `.env` outranks the local models; [Configuration](/en/configuration#local-models) has the three variables that reverse that.
+The script points Mirobody at the model service, so the setup page has nothing to ask; the first question waits for a one-time download of about 3 GB. Without a GPU a first answer takes 2–3 minutes on an Apple-silicon laptop's cores and up to about 15 on a 4-vCPU x86 server. On a Mac, `llama-server` runs natively on the GPU and the setup page finds it. [Run Locally](/en/local-models) has every platform, the two sizes and what each needs; [Choosing a Model](/en/model-choice) compares them with five cloud models. A vendor key in `.env` outranks the local models; [Configuration](/en/configuration#local-models) has the three variables that reverse that.
 
 ## What leaves the machine {#what-leaves-the-machine}
 
