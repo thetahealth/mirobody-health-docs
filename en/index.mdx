@@ -2,7 +2,7 @@
 title: "Mirobody"
 sidebarTitle: "Overview"
 icon: "compass"
-description: "A health record you own: lab reports, wearables and genetic files on one standard, in a database you run, answered by an agent that cites its sources. Run it yourself, with a vendor key or with every model on your own machine, or use Mirobody Cloud."
+description: "Turn scattered health data into answers you can trace. Lab reports, wearables and genetic files in one record, self-hosted with one model key or local models, or through the Mirobody Cloud API."
 keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.cpp", "Mirobody Cloud"]
 ---
 
@@ -10,60 +10,32 @@ import RunModes from '/snippets/run-modes.mdx';
 
 ## What is Mirobody?
 
-**Mirobody** is an open-source health data engine you run yourself. It reads lab reports, wearable exports, photos and genetic files, assigns one standard code and unit to each value, keeps the record in a Postgres you operate, and lets an agent answer questions over it while naming the source of every reading. Since 1.5.4 every model can run on the same machine, on [llama.cpp](/en/local-models), so your documents and questions need not leave it, and the record exports, backs up and restores as files you hold. The engine is [open source](https://github.com/thetahealth/mirobody) under Apache 2.0, built by Theta Health, and is the engine under its Theta Wellness app. **Mirobody Cloud** offers the same standardization and agent capabilities as a hosted API.
+**Mirobody turns scattered health data into answers you can trace.** It reads lab reports, wearable data, photos and genetic files, gives each value one standard code and unit, and lets an agent answer questions over the record while naming the file behind every number. The engine is [open source](https://github.com/thetahealth/mirobody) under Apache 2.0, built by Theta Health, and runs under its Theta Wellness app. **Mirobody Cloud** offers the same standardization and agent as a hosted API.
 
-## First steps
+<Frame caption="Collect, translate, and ask: the same three stages in Cloud and in the open-source engine.">
+  <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
+  <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
+</Frame>
 
-Choose where the record will run. The two paths use the same coding approach, but have different setup and API endpoints.
+## Two ways to run it
 
 <RunModes />
 
-| Your first goal | Start here | Result to check |
-| --- | --- | --- |
-| Call a hosted API | [Cloud quickstart](/en/api-reference/quickstart) | Two sample readings share a LOINC code; a question can cite them. |
-| Resolve a name or unit locally | [Library path](/en/quickstart#a--the-library) | A code is returned without a database or model key. |
-| Explore the full product locally | [Docker demo](/en/self-host#first-local-result) | The service is healthy and demo readings appear in **Data**. |
-| Keep every question and document on one machine | [Run locally](/en/local-models) | With no key in `.env`, `mirobody doctor --probe` reports PASS for the local entries. |
-| Choose a model for the privacy and answers you need | [Choosing a model](/en/model-choice) | `mirobody doctor --probe` reports PASS for the model you chose. |
-
-## From data to answers
-
-<Frame caption="The same three stages organize Cloud and the open-source engine.">
-  <img alt="Collect, Translate, Agent: health data moves from sources to coded records and answers" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
-  <img alt="Collect, Translate, Agent: health data moves from sources to coded records and answers" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
-</Frame>
-
-| Stage | What you can observe | Read more |
-| --- | --- | --- |
-| **① Collect** | A file, device reading or structured record enters the system with its source. | [Cloud data inputs](/en/api-reference/index#data-inputs) · [Open Source collection](/en/concepts/architecture) |
-| **② Translate** | Different names for the same test resolve to a standard LOINC code; units use UCUM. Unmatched names remain unmatched. | [Standardization](/en/concepts/indicators) |
-| **③ Agent** | A question runs over the coded record and returns an answer with its supporting readings. | [Cloud Answers API](/en/api-reference/chat) · [Open Source agent](/en/tools/agents) |
-
-On Cloud, your application sends data to `/v1`; the service stores and processes it. In a self-hosted deployment, the engine runs on infrastructure you manage. See [Cloud capabilities](/en/api-reference/index) and [the local setup guide](/en/self-host) for their respective paths.
-
-## Storage and operations
-
-| Decision | Mirobody Cloud | Self-Host |
-| --- | --- | --- |
-| Stored records | Operated by Mirobody, under the API's retention settings | In your Postgres and file storage |
-| Model requests, with a vendor key | Handled by the hosted service | Sent to the vendor whose key you paste, under its terms |
-| Model requests, 100% on this machine | Not offered: Cloud runs the models | Served by llama.cpp on the same machine; nothing about you is sent |
-| Taking data out | [Data lifecycle](/en/api-reference/lifecycle): retention and Subject offboarding | CSV, JSON and NDJSON exports, VCF for genotypes, and a backup script; see [Export Your Data](/en/deployment/export) |
-| Deployment and upgrades | Operated by Mirobody | Follow the [server deployment guide](/en/deployment/production) |
-
-## Further reading
+## Start from what you need
 
 <CardGroup cols={2}>
-  <Card title="Cloud API overview" icon="code" href="/en/api-reference/overview">
-    Authentication, Subjects, retention and the `/v1` endpoint map.
+  <Card title="Keep every model on your machine" icon="microchip" href="/en/local-models">
+    No model key: llama.cpp serves the models beside the stack. What each size needs, per platform.
   </Card>
-  <Card title="Open Source architecture" icon="diagram-project" href="/en/concepts/architecture">
-    Follow a reading from its original file to a coded answer.
+  <Card title="Connect your own agent" icon="plug" href="/en/tools/mcp-integration">
+    Your record in Claude Code, Codex, Cursor or Gemini CLI over MCP.
   </Card>
-  <Card title="Run locally" icon="microchip" href="/en/local-models">
-    Every model on your own machine with llama.cpp: what each size needs and how to start it.
+  <Card title="Resolve names in Python" icon="code" href="/en/quickstart#a--the-library">
+    `pip install mirobody`: names to LOINC and units to UCUM, offline, with no key.
   </Card>
-  <Card title="Export your data" icon="file-export" href="/en/deployment/export">
-    The export routes, their formats and limits, and the backup that is the complete copy.
+  <Card title="See it in five scenes" icon="play" href="/en/walkthrough">
+    Upload, standardize, ask across reports, share with family, write a journal entry.
   </Card>
 </CardGroup>
+
+The source, issues and releases are on [GitHub](https://github.com/thetahealth/mirobody). If Mirobody is useful to you, a star there helps others find it.

@@ -1,10 +1,10 @@
 <CardGroup cols={2}>
-  <Card title="Mirobody Cloud" icon="cloud" href="/zh/api-reference/quickstart">
-    创建密钥、写入样例读数，再通过 `/v1` 提问。存储与模型由 Mirobody 运维。
-  </Card>
   <Card title="自部署" icon="server" href="/zh/self-host">
-    自行运行库或 Docker 栈。记录保存在你运维的存储中；模型在你选的厂商那里运行，或者完全在你自己的机器上运行。
+    在 Docker 中运行完整的 Web 应用和示例记录：`./deploy.sh`，再配置一个模型 Key，或让所有模型在本机运行。记录保存在你自己运行的 Postgres 中。
+  </Card>
+  <Card title="Mirobody Cloud" icon="cloud" href="/zh/api-reference/quickstart">
+    托管 API，无需运行服务器：创建 Key、写入读数，再通过 `/v1` 提问。存储与模型由 Mirobody 运维。
   </Card>
 </CardGroup>
 
-Cloud 提供 `/v1`；自部署服务提供自身的 `/api/*` 和 `/mcp` 端点。
+自部署服务提供自己的 Web 应用、`/api/*` 和 `/mcp`；Cloud 提供 `/v1`。
