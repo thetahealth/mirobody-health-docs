@@ -2,68 +2,55 @@
 title: "Mirobody"
 sidebarTitle: "概览"
 icon: "compass"
-description: "一份属于你自己的健康记录：化验单、穿戴设备和基因文件落到同一套标准，存在你自己运行的数据库里，由一个每个数字都有出处的智能体来回答。可以自己运行（用模型厂商的密钥，或让所有模型都在本机运行），也可以使用 Mirobody Cloud。"
+description: "把分散的健康数据，变成有据可查的答案。化验单、穿戴设备和基因文件汇成一份记录，可以用一个模型 Key 或本地模型自部署，也可以使用 Mirobody Cloud API。"
 keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.cpp", "云端"]
 ---
 
 import RunModes from '/snippets/zh/run-modes.mdx';
 
+<div className="mb-hero not-prose mt-2 mb-10">
+  <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">开源 · 自部署 · Apache 2.0</p>
+  <p className="mb-headline mt-3 text-gray-900 dark:text-white">把分散的健康数据，变成有据可查的答案。</p>
+  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">化验单、穿戴设备和基因文件汇成一份记录。Docker 启动后配置一个模型 Key 即可使用，也可以让所有模型在本机运行。</p>
+  <div className="mt-6 flex flex-wrap gap-3">
+    <a className="mb-button mb-button-primary" href="/zh/self-host">Docker 启动 →</a>
+    <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
+    <a className="mb-button mb-button-secondary" href="https://chat.mirobody.ai/demo">在线体验</a>
+  </div>
+</div>
+
+<Frame caption="不同医院，不同写法。放进同一条趋势，回看每个数值的来源。">
+  <img alt="用中文问胆固醇怎么变化：agent 找到三份用不同写法记录同一项检查的文件，画出一条趋势，并标出每个数字来自哪份文件" src="/images/oss/docs/images/ask-own-demo.zh-CN.gif" />
+</Frame>
+
 ## 什么是 Mirobody？
 
-**Mirobody** 是一套你自己运行的开源健康数据引擎。它读入化验单、穿戴设备导出、照片和基因文件，为每个值分配一个规范编码与单位，把记录保存在你自己运维的 Postgres 中，并让 agent 基于这份记录回答问题、说明每条读数的来源。从 1.5.4 起，所有模型都可以在同一台机器上运行（基于 [llama.cpp](/zh/local-models)），你的文档和提问就不必离开这台机器；记录可以导出、备份和恢复为你自己保管的文件。引擎以 Apache 2.0 许可[开源](https://github.com/thetahealth/mirobody)，由 Theta Health 开发，也是其 Theta Wellness 应用底层的引擎。**Mirobody Cloud** 以托管 API 的形式提供同样的标准化与 agent 能力。
+**Mirobody 把分散的健康数据，变成有据可查的答案。** 它读入化验单、穿戴设备数据、照片和基因文件，为每个值确定一个规范编码和单位，并让 agent 基于这份记录回答问题，标出每个数字来自哪份文件。引擎以 Apache 2.0 许可[开源](https://github.com/thetahealth/mirobody)，由 Theta Health 开发，也是其 Theta Wellness 应用所用的引擎。**Mirobody Cloud** 以托管 API 的形式提供同样的标准化与 agent 能力。
 
-## 开始使用
+<Frame caption="收集、转译、提问：Cloud 与开源引擎采用同样的三个阶段。">
+  <img alt="收集报告、设备数据和基因数据；统一名称与单位，让不同来源可比较；在整份记录上提问，每个回答都能追溯来源" src="/images/oss/docs/images/collect-translate-agent.zh-CN.svg" className="block dark:hidden" />
+  <img alt="收集报告、设备数据和基因数据；统一名称与单位，让不同来源可比较；在整份记录上提问，每个回答都能追溯来源" src="/images/oss/docs/images/collect-translate-agent-dark.zh-CN.svg" className="hidden dark:block" />
+</Frame>
 
-先选择记录在哪里运行。两条路径采用同一套编码方式，但部署步骤和 API 端点不同。
+## 两种运行方式
 
 <RunModes />
 
-| 第一个目标 | 从这里开始 | 验证结果 |
-| --- | --- | --- |
-| 调用托管 API | [Cloud 快速开始](/zh/api-reference/quickstart) | 两条样例读数具有相同的 LOINC 编码，提问时可以引用它们。 |
-| 在本地解析名称或单位 | [作为库使用](/zh/quickstart#a--the-library) | 无须数据库或模型密钥即可返回编码。 |
-| 在本地体验完整产品 | [Docker 演示](/zh/self-host#first-local-result) | 服务健康，**Data** 页面显示演示读数。 |
-| 把提问和文档都留在一台机器上 | [本地运行](/zh/local-models) | `.env` 中没有任何密钥时，`mirobody doctor --probe` 对本地条目报告 PASS。 |
-| 按你需要的隐私和回答质量选择模型 | [选择模型](/zh/model-choice) | `mirobody doctor --probe` 对你选的模型报告 PASS。 |
-
-## 从数据到回答
-
-<Frame caption="云端与开源引擎采用同样的三个阶段。">
-  <img alt="收集、转译、智能体：健康数据从来源进入编码记录，再用于回答" src="/images/oss/docs/images/collect-translate-agent.zh-CN.svg" className="block dark:hidden" />
-  <img alt="收集、转译、智能体：健康数据从来源进入编码记录，再用于回答" src="/images/oss/docs/images/collect-translate-agent-dark.zh-CN.svg" className="hidden dark:block" />
-</Frame>
-
-| 阶段 | 可验证的结果 | 延伸阅读 |
-| --- | --- | --- |
-| **① 收集** | 文件、设备读数或结构化记录连同来源进入系统。 | [Cloud 数据入口](/zh/api-reference/index#data-inputs) · [开源数据管线](/zh/concepts/architecture) |
-| **② 转译** | 同一项检查的不同名称归入规范的 LOINC 编码；单位采用 UCUM。无法匹配的名称保持未匹配。 | [标准化](/zh/concepts/indicators) |
-| **③ 智能体** | agent 查询编码后的记录，返回带有读数依据的回答。 | [Cloud 问答 API](/zh/api-reference/chat) · [开源 agent](/zh/tools/agents) |
-
-使用 Cloud 时，应用向 `/v1` 提交数据，由托管服务保存和处理。自部署时，引擎运行在你管理的基础设施上。两种方式的能力分别见 [Cloud 简介](/zh/api-reference/index)和[本地部署指南](/zh/self-host)。
-
-## 存储与运维
-
-| 选择依据 | Mirobody Cloud | 自部署 |
-| --- | --- | --- |
-| 记录存储 | 由 Mirobody 运维，遵循 API 的留存设置 | 保存在你的 Postgres 和文件存储中 |
-| 模型请求（模型厂商密钥） | 由托管服务处理 | 发往你粘贴密钥的那家厂商，受其条款约束 |
-| 模型请求（100% 在本机运行） | 不提供：Cloud 自行运行模型 | 由同一台机器上的 llama.cpp 提供；与你有关的任何数据都不会发出 |
-| 取回数据 | [数据生命周期](/zh/api-reference/lifecycle)：留存与 Subject 下线 | CSV、JSON 与 NDJSON 导出，基因型导出为 VCF，以及备份脚本，见[导出数据](/zh/deployment/export) |
-| 部署与升级 | 由 Mirobody 运维 | 按[服务器部署指南](/zh/deployment/production)操作 |
-
-## 延伸阅读
+## 按需求开始
 
 <CardGroup cols={2}>
-  <Card title="Cloud API 概览" icon="code" href="/zh/api-reference/overview">
-    认证、Subject、留存和 `/v1` 端点一览。
+  <Card title="让所有模型留在本机" icon="microchip" href="/zh/local-models">
+    无需模型 Key：由 llama.cpp 在服务旁运行模型。各平台、各规模的需求。
   </Card>
-  <Card title="开源数据管线" icon="diagram-project" href="/zh/concepts/architecture">
-    从原始文件追踪一条读数如何成为有编码依据的回答。
+  <Card title="接入你自己的 agent" icon="plug" href="/zh/tools/mcp-integration">
+    通过 MCP 在 Claude Code、Codex、Cursor 或 Gemini CLI 中查询你的记录。
   </Card>
-  <Card title="本地运行" icon="microchip" href="/zh/local-models">
-    用 llama.cpp 让所有模型都在你自己的机器上运行：每种规模需要什么、如何启动。
+  <Card title="在 Python 中解析名称" icon="code" href="/zh/quickstart#a--the-library">
+    `pip install mirobody`：名称到 LOINC、单位到 UCUM，离线，无需 Key。
   </Card>
-  <Card title="导出数据" icon="file-export" href="/zh/deployment/export">
-    导出接口、格式与限制，以及作为完整副本的备份。
+  <Card title="五个场景看完整流程" icon="play" href="/zh/walkthrough">
+    上传、标准化、跨报告提问、与家人共享、记健康日记。
   </Card>
 </CardGroup>
+
+源码、issue 和版本发布都在 [GitHub](https://github.com/thetahealth/mirobody)。如果 Mirobody 对你有帮助，在那里点一颗 Star，能让更多人发现它。

@@ -1,6 +1,7 @@
 ---
-title: "Self-Host Mirobody"
-description: "Run the open-source engine on your own machine or server: the three ways in, where the models run, what leaves the machine, and what a running deployment serves."
+title: "Self-Host with Docker"
+sidebarTitle: "Self-Host Mirobody"
+description: "Run the whole open-source product on your own machine: two commands, one model key or local models, and a first answer over the demo record."
 icon: "server"
 ---
 
@@ -8,49 +9,31 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-Mirobody runs anywhere Python <Fact k="python" /> or Docker runs: a laptop, an on-premises server or a cloud VM. The engine is open source under Apache 2.0 at [thetahealth/mirobody](https://github.com/thetahealth/mirobody). The record it holds stays in a Postgres you operate, and with the local models every question and document stays on that machine too. What Mirobody is, and how self-hosting compares with Mirobody Cloud, is on the [overview](/en).
+The Docker stack is the complete product: the web app, a Postgres with your record, a background worker, and a synthetic demo record to try it on. It needs Docker with Compose; on Windows, run the commands in a WSL 2 terminal. No Python, Node.js or GPU is required. The engine is open source under Apache 2.0 at [thetahealth/mirobody](https://github.com/thetahealth/mirobody).
 
-## Ways to run it
-
-Pick the row that matches what you want; the three are alternatives, not steps.
-
-| You want | Path | Needs | Models |
-| --- | --- | --- | --- |
-| Names and units resolved in your own code | [The library](/en/quickstart#a--the-library) | Python <Fact k="python" /> | None: the vocabulary ships in the package |
-| The whole product running, with demo data in it | [The Docker stack](/en/quickstart#b--the-stack) | Docker with Compose; Git is optional, since a source tarball is the same checkout | One vendor key, **or** [every model on this machine](/en/local-models) |
-| To change the code and see the result | [A source checkout](/en/quickstart#c--a-checkout) | Python and a Postgres with pgvector | One vendor key, or a local model server |
-
-The Docker stack is three containers: Postgres with pgvector, the server and the background worker, plus the `llama` service when a Compose profile runs the models beside them. It serves the bundled web client at <Fact k="url" code />.
-
-## Where the models run {#models}
-
-Reading a report, answering a question and writing a summary run wherever you point them. The first-run page asks once; **Settings › Model** changes it later, without a restart.
-
-| | Where the models run | You need | What leaves the machine |
-| --- | --- | --- | --- |
-| **A vendor key** | At the vendor whose key you paste: OpenRouter, OpenAI, Gemini, Anthropic, DeepSeek, DashScope, or any OpenAI-compatible gateway | Docker and one key | Your questions, the rows the agent reads, and your documents' page images and text go to that vendor, under its terms; table rows read by their headers stay here |
-| **100% on this machine** | [llama.cpp](/en/local-models)'s `llama-server` beside the stack, the local model runtime Mirobody ships a preset for: GLM-OCR reads documents, and an answering model of the size you choose | Docker, plus the memory and disk of the size you choose; [Run Locally](/en/local-models#choose-a-size) lists what each size downloads and needs | Nothing about you; the model weights download once from Hugging Face |
-| **The library alone** | No model: `pip install mirobody` resolves names to LOINC and units to UCUM | Python <Fact k="python" /> | Nothing: the vocabulary ships in the package |
-
-The first-run page offers two sizes, Small (the default, for any computer with 16 GB of memory) and Large, and they differ only in the answering model. Every size reads documents with the same GLM-OCR model and reads tables by their headers, with no model, so a lab report's readings come out the same; what changes is how well questions are answered, how fast, and whether a photo in the chat is looked at or read as its text. A vendor key in `.env` outranks the local models; [Configuration](/en/configuration#local-models) has the three variables that reverse that. [Choosing a model](/en/model-choice) compares both sizes with five cloud models on one evaluation, and says what each mode sends where.
-
-## First local result {#first-local-result}
-
-With Docker Compose installed, run the local demo, choose where the models run, and check the seeded readings. The sample readings are there without a key or a model; reading a document and asking a question need one or the other.
+## First answer in three steps {#first-local-result}
 
 <Steps>
-  <Step title="Start the demo">
-    Clone the engine and start the stack. The script writes the secrets into `.env`, pulls the application image, creates the demo accounts and example readings, and ends by printing the address or, while no model is set up, a link to the first-run page.
-
+  <Step title="Start the stack">
     ```bash
     git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
     ./deploy.sh
     ```
+
+    The script writes the secrets into `.env` (it needs OpenSSL for that), pulls the application image, creates the demo accounts and readings, and prints a link to the setup page.
   </Step>
-  <Step title="Choose where the models run">
-    Open the printed link. Paste one vendor key, which is kept only after one real request through it works, or choose **100% on this machine**: the page looks for a `llama-server` on this computer, lists the models it serves and loads the size you pick. [Run Locally](/en/local-models) has the start command for each platform. The choice is stored encrypted and applies without a restart. With a key already in hand, `OPENROUTER_API_KEY=sk-or-... ./deploy.sh` skips the page.
+  <Step title="Choose a model">
+    Open the printed link and paste one model key: OpenRouter, OpenAI, Gemini, Anthropic, DeepSeek, DashScope, or any OpenAI-compatible gateway. The key is kept only after one real request through it works, and is stored encrypted; **Settings › Model** changes it later, without a restart. To keep every model on this machine instead, see [Where the models run](#models).
   </Step>
-  <Step title="Check the services">
+  <Step title="Sign in and ask">
+    Open <Fact k="url" code /> and sign in as `you@mirobody.ai` with code `111111` on the Email code tab. Ask "How has my cholesterol changed?": the answer charts the trend and names the file behind each number. Then upload a file from `demo/upload/` on the **Data** page, or switch to the record `mom@mirobody.ai` shares with you.
+  </Step>
+</Steps>
+
+The [walkthrough](/en/walkthrough) follows the same record through five scenes. For real records, apply the settings in [Deploy on a Server](/en/deployment/production) **before the first start**; after a demo, follow the [existing-demo path](/en/deployment/production#after-a-local-demo) to start with clean data volumes.
+
+<AccordionGroup>
+  <Accordion title="Check the services">
     From the engine checkout:
 
     ```bash
@@ -59,116 +42,72 @@ With Docker Compose installed, run the local demo, choose where the models run, 
     docker compose exec mirobody mirobody doctor
     ```
 
-    The `mirobody` service should be `healthy`, and the health response includes `version` and `agent`. The last command names, **inside the container**, the entry each model surface selected; `mirobody doctor --probe` sends each one a real request. A key added to `.env` later takes `docker compose up -d`; `docker compose restart` does not re-read `.env`.
-  </Step>
-  <Step title="Inspect the readings">
-    Open <Fact k="url" code />, sign in as `you@mirobody.ai` with code `111111` on the Email code tab, then open **Data**. The seeded readings should appear there. The [Quickstart](/en/quickstart#b--the-stack) also covers the demo upload files and the other run modes.
-  </Step>
-</Steps>
+    The `mirobody` service should be `healthy`, and the health response includes `version` and `agent`. `mirobody doctor` names the entry each model surface selected; `--probe` sends each a real request. A key added to `.env` later takes `docker compose up -d`; `docker compose restart` does not re-read `.env`. [Troubleshooting](/en/troubleshooting) lists the common failures.
+  </Accordion>
+  <Accordion title="No Git on this machine">
+    The source tarball is the same checkout:
 
-For real records, apply the settings in [Deploy on a Server](/en/deployment/production) **before the first start**. After running the demo, follow the [existing-demo path](/en/deployment/production#after-a-local-demo) to start with clean data volumes.
+    ```bash
+    curl -L https://github.com/thetahealth/mirobody/archive/refs/heads/main.tar.gz | tar xz && cd mirobody-main
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Where the models run {#models}
+
+| | A model key | 100% on this machine |
+| --- | --- | --- |
+| Who runs the models | The vendor whose key you paste | [llama.cpp](/en/local-models)'s `llama-server`, beside the stack or on the host |
+| You need | Docker and one key | Docker and 16 GB of memory for the default size, at least 8 GB of it for Docker |
+| Speed | Set by the vendor and the model you choose | About 30 s on a 16 GB M1 Pro's GPU; minutes on a CPU alone |
+
+To run the models in Docker beside the stack, start it with a Compose profile instead of the plain `./deploy.sh`:
+
+```bash
+COMPOSE_PROFILES=local-cpu ./deploy.sh     # any computer, no GPU
+COMPOSE_PROFILES=local ./deploy.sh         # an NVIDIA GPU
+```
+
+The script points Mirobody at the model service, so the setup page has nothing to ask; the first question waits for a one-time download of about 3 GB. Without a GPU a first answer takes 2–3 minutes on an M1 Pro's cores and up to about 15 on a 4-vCPU x86 server. On a Mac, `llama-server` runs natively on the GPU and the setup page finds it. [Run Locally](/en/local-models) has every platform, the two sizes and what each needs; [Choosing a Model](/en/model-choice) compares them with five cloud models. A vendor key in `.env` outranks the local models; [Configuration](/en/configuration#local-models) has the three variables that reverse that.
 
 ## What leaves the machine {#what-leaves-the-machine}
 
-Your record lives in your own Postgres, in containers you run, and nothing here reports usage anywhere. What leaves depends on who reads it:
+Your record lives in your own Postgres, and nothing here reports usage anywhere. What leaves depends on who reads it:
 
-| | With a vendor key | 100% on this machine |
+| | With a model key | 100% on this machine |
 | --- | --- | --- |
-| Your documents and questions | Sent to that vendor, under its terms, except the table rows read here by their headers | Stay here |
+| Your documents and questions | Sent to that vendor, under its terms, except table rows read here by their headers | Stay here |
 | A name to a code, a unit to UCUM (② Translate) | Here, from a bundle inside the package, with no network | The same |
 | Model weights | None | Downloaded once from Hugging Face; `HF_ENDPOINT` in `.env` names a mirror |
 | A device vendor (Garmin, Oura, Whoop) | Only after you link one: its tokens and your own data | The same |
-| Container images | Pulled by `./deploy.sh` from Docker Hub, or from a mirror when Docker Hub does not answer (`DOCKER_MIRROR=` in `.env` turns the mirror off) | The same, plus llama.cpp's image when a Compose profile runs the models |
+| Container images | Pulled from Docker Hub, or from a mirror when it does not answer (`DOCKER_MIRROR=` in `.env` turns the mirror off) | The same, plus llama.cpp's image |
 | Sign-in mail | Only once `EMAIL_SMTP_HOST` is configured: the address and the code, to your own mail server | The same |
 
-Encryption at rest covers chat, uploaded files, medication text and your profile, not yet readings or genotypes. Before this reaches a network you do not control, read <OssLink path="SECURITY.md" />, which lists every address the server can call.
+Encryption at rest covers chat, uploaded files, medication text and your profile, not yet readings or genotypes. The app listens on `127.0.0.1` only; before it reaches a network you do not control, read <OssLink path="SECURITY.md" />, which lists every address the server can call.
 
 ## Export and backup {#export-and-backup}
 
-The record is yours to take out. Readings export as CSV or JSON, the visible record streams as NDJSON with a footer that says whether it finished, genotypes export as VCF or FHIR, and `shell/backup.sh` makes the one complete copy: the database and the uploaded files, which a documented restore brings back. [Export Your Data](/en/deployment/export) has the routes and their limits.
-
-## Where the three stages live
-
-The package is organized around the same three stages as this documentation.
-
-<Frame caption="A reading moves through collection, standardization, and agent access.">
-  <img alt="Collect, Translate, Agent: three stages from left to right" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
-  <img alt="Collect, Translate, Agent: three stages from left to right" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
-</Frame>
-
-| Stage | Package | Pages |
-| --- | --- | --- |
-| ① Collect | `mirobody/collect/` | [Device Providers](/en/providers/using-providers), [Apple Health](/en/providers/apple-health), [File Processing](/en/concepts/file-processing) |
-| ② Translate | `mirobody/engine/`, `mirobody/translate/` | [Standardization](/en/concepts/indicators), [Device Crosswalk](/en/concepts/device-crosswalk) |
-| ③ Agent | `mirobody/agent/` | [The Agent](/en/tools/agents), [Health-Data Tools](/en/tools/overview), [MCP Integration](/en/tools/mcp-integration) |
-
-How a single reading passes through all three is described in [The Pipeline](/en/concepts/architecture); the directory map is [Repository Layout](/en/concepts/repository-layout).
-
-## What a deployment serves
-
-| Surface | Address | Used by |
-| --- | --- | --- |
-| Web client | `/` | People: documents and readings at `/data`, the agent at `/ask`, and care-circle sharing |
-| HTTP API | `/api/*` | Your own application; begin with the [local HTTP API guide](/en/http-api) |
-| MCP endpoint | `/mcp` | Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop through `mcp-remote`, or an agent loop of your own; see [MCP Integration](/en/tools/mcp-integration) |
-
-A self-hosted engine does not serve the Cloud `/v1` API. The Cloud tab documents that surface; the routes above are the engine's own.
+Readings export as CSV or JSON, the visible record streams as NDJSON, genotypes export as VCF or FHIR, and `shell/backup.sh` makes the complete copy of the database and uploaded files. [Export Your Data](/en/deployment/export) has the routes and their limits.
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/en/quickstart">
-    Install the library, bring up the stack, or run a checkout.
+  <Card title="Connect your agent" icon="plug" href="/en/tools/mcp-integration">
+    Claude Code, Codex, Cursor or Gemini CLI over MCP, with a personal link from Settings.
   </Card>
-  <Card title="Run locally" icon="microchip" href="/en/local-models">
-    Every model on this machine with llama.cpp: the sizes, the start command per platform, and what each reads in a photo.
+  <Card title="Use your own data" icon="file-medical" href="/en/concepts/file-processing">
+    Reports, photos and spreadsheets, then devices and Apple Health exports.
   </Card>
   <Card title="Configuration" icon="sliders" href="/en/configuration">
-    A vendor key or the local models, the configuration files, and the settings a deployment changes.
-  </Card>
-  <Card title="HTTP API" icon="code" href="/en/http-api">
-    Get a local token, write a reading, and read it back.
-  </Card>
-  <Card title="Walkthrough" icon="play" href="/en/walkthrough">
-    The running stack in four scenes, with the demo record.
-  </Card>
-  <Card title="Export your data" icon="file-export" href="/en/deployment/export">
-    CSV, JSON, NDJSON and VCF exports, and the backup that is the complete copy.
+    Model keys, local models, configuration files and deployment settings.
   </Card>
   <Card title="Deploy on a Server" icon="server" href="/en/deployment/production">
-    Production posture, secrets, HTTPS and a deployment check.
-  </Card>
-  <Card title="Upgrade a Deployment" icon="arrow-up" href="/en/deployment/upgrade">
-    Back up, review a release, upgrade and verify the running stack.
-  </Card>
-  <Card title="Verify and Restore a Backup" icon="database" href="/en/deployment/restore">
-    Rehearse a restore and recover Postgres and local uploads.
+    Production settings, secrets, HTTPS, upgrades and backups.
   </Card>
 </CardGroup>
 
-When a deployment does not come up, [Troubleshooting](/en/troubleshooting) lists the common causes and their fixes.
+To resolve names and units in your own code without the stack, see [the library](/en/quickstart#a--the-library). A self-hosted engine serves the web client at `/`, its own [HTTP API](/en/http-api) at `/api/*` and MCP at `/mcp`; it does not serve the Cloud `/v1` API.
 
 ## Contributing {#contributing}
 
-The highest-leverage contribution is a term the resolver gets wrong. Run `mirobody resolve "<term>"`; if the answer is wrong or empty, report it, or add a row to <OssLink path="mirobody/res/loinc/resolver_overrides.tsv" /> together with a case in <OssLink path="mirobody/tests/test_engine_coverage.py" />. The coverage score is the review.
-
-A development checkout installs the test extra and runs the suite and the import contracts:
-
-```bash
-pip install -e '.[test]' && pytest -q && lint-imports
-```
-
-The full contributor workflow is in <OssLink path="CONTRIBUTING.md" />, and the test layout in <OssLink path="docs/testing.md" />.
-
-Public benchmarks under `benchmarks/` run from a clone with no private data: `python -m unittest benchmarks.health_records.test_cases` (13 synthetic readings and 26 complaint phrases in five languages, checked against their LOINC/UCUM and ICPC-3 codes) and `python -m unittest discover -s benchmarks/genomics -p 'test_*.py'` (13 public 1000 Genomes calls in ten file shapes). See <OssLink path="benchmarks/health_records/README.md" /> and <OssLink path="benchmarks/genomics/README.md" />.
-
-<CardGroup cols={2}>
-  <Card title="GitHub repository" icon="github" href="https://github.com/thetahealth/mirobody">
-    Source code, issues and pull requests.
-  </Card>
-  <Card title="Report a problem" icon="bug" href="https://github.com/thetahealth/mirobody/issues">
-    A report that parses incorrectly makes a valuable issue; attach a de-identified sample.
-  </Card>
-</CardGroup>
-
-Security reports go through a private advisory, not a public issue; see <OssLink path="SECURITY.md" />.
+The most useful contribution is a term the resolver gets wrong. Run `mirobody resolve "<term>"`; if the answer is wrong or empty, [report it](https://github.com/thetahealth/mirobody/issues), or add a row to <OssLink path="mirobody/res/loinc/resolver_overrides.tsv" /> together with a case in <OssLink path="mirobody/tests/test_engine_coverage.py" />. The full workflow is in <OssLink path="CONTRIBUTING.md" />; security reports go through a private advisory, as <OssLink path="SECURITY.md" /> describes.

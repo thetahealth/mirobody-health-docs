@@ -198,21 +198,35 @@ function jsxAttributes(properties, ctx) {
   return out;
 }
 
-/** `<picture>` with light/dark `<source>`s → the light/dark `<img>` pair Mintlify styles. */
+/**
+ * `<picture>` with light/dark `<source>`s → the light/dark `<img>` pair Mintlify styles.
+ * A `(max-width: …)` source is a phone layout: it becomes a second pair shown below
+ * Tailwind's `sm` breakpoint (640px), and never stands in for the wide image.
+ */
 function expandPicture(node) {
   const img = node.children.find((c) => c.type === "element" && c.tagName === "img");
   const sources = node.children.filter((c) => c.type === "element" && c.tagName === "source");
-  const byScheme = (scheme) =>
-    sources.find((s) => String(s.properties.media ?? "").includes(`prefers-color-scheme: ${scheme}`));
+  const media = (s) => String(s.properties.media ?? "");
+  const narrow = sources.filter((s) => media(s).includes("max-width"));
+  const wide = sources.filter((s) => !narrow.includes(s));
+  const isDark = (s) => media(s).includes("prefers-color-scheme: dark");
   const srcOf = (s) => (s ? [].concat(s.properties.srcSet)[0].split(/\s+/)[0] : undefined);
-  const light = srcOf(byScheme("light")) ?? img?.properties.src;
-  const dark = srcOf(byScheme("dark"));
+  const light = srcOf(wide.find((s) => media(s).includes("prefers-color-scheme: light"))) ?? img?.properties.src;
+  const dark = srcOf(wide.find(isDark));
   const base = { ...(img?.properties ?? {}) };
   delete base.src;
-  if (!dark) return [{ type: "element", tagName: "img", properties: { ...base, src: light }, children: [] }];
+  const image = (src, className) => ({ type: "element", tagName: "img", properties: { ...base, src, className }, children: [] });
+  if (!narrow.length) {
+    if (!dark) return [image(light)];
+    return [image(light, ["block", "dark:hidden"]), image(dark, ["hidden", "dark:block"])];
+  }
+  const phoneLight = srcOf(narrow.find((s) => !isDark(s)));
+  const phoneDark = srcOf(narrow.find(isDark)) ?? phoneLight;
   return [
-    { type: "element", tagName: "img", properties: { ...base, src: light, className: ["block", "dark:hidden"] }, children: [] },
-    { type: "element", tagName: "img", properties: { ...base, src: dark, className: ["hidden", "dark:block"] }, children: [] },
+    image(light, ["hidden", "sm:block", "dark:hidden"]),
+    image(dark ?? light, ["hidden", "sm:dark:block"]),
+    image(phoneLight, ["block", "sm:hidden", "dark:hidden"]),
+    image(phoneDark, ["hidden", "dark:block", "sm:dark:hidden"]),
   ];
 }
 

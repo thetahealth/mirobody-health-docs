@@ -1,0 +1,103 @@
+/* Site-wide polish. Mintlify loads every .css file at the repository root. */
+
+/* Diagrams and recordings sit in a frame that matches the page, not a grey well. */
+.frame {
+  background: transparent;
+  border: 1px solid rgb(15 23 42 / 0.08);
+  padding: 0.5rem;
+}
+.dark .frame {
+  border-color: rgb(255 255 255 / 0.08);
+}
+.mdx-content img {
+  border-radius: 0.75rem;
+}
+
+/* Tables: a quiet header row, rounded outline, tighter cells. */
+.mdx-content table {
+  font-size: 0.9rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.mdx-content table thead th {
+  background: rgb(35 92 171 / 0.06);
+  font-weight: 600;
+}
+.dark .mdx-content table thead th {
+  background: rgb(122 167 240 / 0.08);
+}
+.mdx-content table th,
+.mdx-content table td {
+  padding: 0.6rem 0.85rem;
+  vertical-align: top;
+}
+
+/* Cards lift slightly and take the brand colour on hover. */
+.card {
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+a.card:hover,
+a:hover > .card {
+  transform: translateY(-2px);
+  border-color: rgb(35 92 171 / 0.45);
+  box-shadow: 0 8px 24px -12px rgb(14 56 128 / 0.35);
+}
+.dark a.card:hover,
+.dark a:hover > .card {
+  border-color: rgb(122 167 240 / 0.5);
+  box-shadow: none;
+}
+
+/* Home page hero. */
+.mb-hero .mb-headline {
+  font-size: clamp(2rem, 4.2vw, 3rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+.mb-hero .mb-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.mb-hero .mb-button-primary {
+  background: #0e3880;
+  color: #ffffff;
+}
+.mb-hero .mb-button-primary:hover {
+  background: #235cab;
+}
+.mb-hero .mb-button-secondary {
+  border-color: rgb(15 23 42 / 0.15);
+  color: inherit;
+}
+.mb-hero .mb-button-secondary:hover {
+  border-color: #235cab;
+}
+.dark .mb-hero .mb-button-primary {
+  background: #7aa7f0;
+  color: #0d1117;
+}
+.dark .mb-hero .mb-button-secondary {
+  border-color: rgb(255 255 255 / 0.18);
+}
+
+/* On the home page the hero carries the title; the page header stays for screen readers. */
+#content-area:has(.mb-hero) > #header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+#content-area:has(.mb-hero) .mdx-content {
+  margin-top: 0;
+}
