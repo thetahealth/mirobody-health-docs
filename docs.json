@@ -47,16 +47,8 @@
               {
                 "group": "Start here",
                 "icon": "compass",
-                "root": "en/index",
                 "pages": [
-                  "en/index",
-                  "en/api-reference/index",
-                  "en/api-reference/quickstart",
-                  "en/self-host",
-                  "en/quickstart",
-                  "en/local-models",
-                  "en/model-choice",
-                  "en/http-api"
+                  "en/index"
                 ]
               }
             ],
@@ -68,7 +60,6 @@
               {
                 "group": "Start with Cloud API",
                 "pages": [
-                  "en/api-reference/index",
                   "en/api-reference/quickstart",
                   "en/api-reference/sdk-examples",
                   "en/api-reference/choose-your-api",
@@ -81,7 +72,6 @@
               {
                 "group": "Data inputs",
                 "pages": [
-                  "en/api-reference/data",
                   "en/api-reference/files",
                   "en/api-reference/extract",
                   "en/api-reference/standardization",
@@ -93,7 +83,6 @@
               {
                 "group": "Agent API",
                 "pages": [
-                  "en/api-reference/responses",
                   "en/api-reference/backbone-mode",
                   "en/api-reference/function-calling",
                   "en/api-reference/structured-output",
@@ -107,7 +96,6 @@
               {
                 "group": "Answers API",
                 "pages": [
-                  "en/api-reference/chat",
                   "en/api-reference/use-as-a-tool"
                 ],
                 "icon": "comment-dots",
@@ -116,7 +104,6 @@
               {
                 "group": "Regions & Operations",
                 "pages": [
-                  "en/api-reference/regions/overview",
                   "en/api-reference/regions/china",
                   "en/api-reference/regions/global",
                   "en/api-reference/rate-limits",
@@ -134,7 +121,6 @@
               {
                 "group": "Start with Self-Host",
                 "pages": [
-                  "en/self-host",
                   "en/quickstart",
                   "en/http-api",
                   "en/configuration",
@@ -147,7 +133,6 @@
               {
                 "group": "Models",
                 "pages": [
-                  "en/model-choice",
                   "en/local-models",
                   "en/local-models-roadmap"
                 ],
@@ -157,7 +142,6 @@
               {
                 "group": "Architecture",
                 "pages": [
-                  "en/concepts/architecture",
                   "en/concepts/repository-layout"
                 ],
                 "icon": "diagram-project",
@@ -166,7 +150,6 @@
               {
                 "group": "① Collect",
                 "pages": [
-                  "en/providers/using-providers",
                   "en/providers/apple-health",
                   "en/concepts/file-processing"
                 ],
@@ -176,7 +159,6 @@
               {
                 "group": "② Translate",
                 "pages": [
-                  "en/concepts/indicators",
                   "en/concepts/device-crosswalk",
                   "en/concepts/genetics",
                   "en/concepts/synthetic-data"
@@ -187,7 +169,6 @@
               {
                 "group": "③ Agent",
                 "pages": [
-                  "en/tools/agents",
                   "en/tools/overview",
                   "en/tools/medications",
                   "en/tools/mcp-integration",
@@ -199,7 +180,6 @@
               {
                 "group": "Extend",
                 "pages": [
-                  "en/tools/adding-tools",
                   "en/development/provider-integration"
                 ],
                 "icon": "puzzle-piece",
@@ -208,7 +188,6 @@
               {
                 "group": "Deploy",
                 "pages": [
-                  "en/deployment/production",
                   "en/deployment/export",
                   "en/deployment/backup",
                   "en/deployment/restore",
@@ -244,16 +223,8 @@
               {
                 "group": "从这里开始",
                 "icon": "compass",
-                "root": "zh/index",
                 "pages": [
-                  "zh/index",
-                  "zh/api-reference/index",
-                  "zh/api-reference/quickstart",
-                  "zh/self-host",
-                  "zh/quickstart",
-                  "zh/local-models",
-                  "zh/model-choice",
-                  "zh/http-api"
+                  "zh/index"
                 ]
               }
             ],
@@ -265,7 +236,6 @@
               {
                 "group": "从这里开始",
                 "pages": [
-                  "zh/api-reference/index",
                   "zh/api-reference/quickstart",
                   "zh/api-reference/sdk-examples",
                   "zh/api-reference/choose-your-api",
@@ -278,7 +248,6 @@
               {
                 "group": "数据入口",
                 "pages": [
-                  "zh/api-reference/data",
                   "zh/api-reference/files",
                   "zh/api-reference/extract",
                   "zh/api-reference/standardization",
@@ -290,7 +259,6 @@
               {
                 "group": "Agent API",
                 "pages": [
-                  "zh/api-reference/responses",
                   "zh/api-reference/backbone-mode",
                   "zh/api-reference/function-calling",
                   "zh/api-reference/structured-output",
@@ -304,7 +272,6 @@
               {
                 "group": "Answers API",
                 "pages": [
-                  "zh/api-reference/chat",
                   "zh/api-reference/use-as-a-tool"
                 ],
                 "root": "zh/api-reference/chat"
@@ -312,7 +279,6 @@
               {
                 "group": "区域与运维",
                 "pages": [
-                  "zh/api-reference/regions/overview",
                   "zh/api-reference/regions/china",
                   "zh/api-reference/regions/global",
                   "zh/api-reference/rate-limits",
@@ -330,7 +296,6 @@
               {
                 "group": "从自部署开始",
                 "pages": [
-                  "zh/self-host",
                   "zh/quickstart",
                   "zh/http-api",
                   "zh/configuration",
@@ -343,7 +308,6 @@
               {
                 "group": "模型",
                 "pages": [
-                  "zh/model-choice",
                   "zh/local-models",
                   "zh/local-models-roadmap"
                 ],
@@ -353,7 +317,6 @@
               {
                 "group": "架构",
                 "pages": [
-                  "zh/concepts/architecture",
                   "zh/concepts/repository-layout"
                 ],
                 "icon": "diagram-project",
@@ -362,7 +325,6 @@
               {
                 "group": "① 收集",
                 "pages": [
-                  "zh/providers/using-providers",
                   "zh/providers/apple-health",
                   "zh/concepts/file-processing"
                 ],
@@ -372,7 +334,6 @@
               {
                 "group": "② 转译",
                 "pages": [
-                  "zh/concepts/indicators",
                   "zh/concepts/device-crosswalk",
                   "zh/concepts/genetics",
                   "zh/concepts/synthetic-data"
@@ -383,7 +344,6 @@
               {
                 "group": "③ 智能体",
                 "pages": [
-                  "zh/tools/agents",
                   "zh/tools/overview",
                   "zh/tools/medications",
                   "zh/tools/mcp-integration",
@@ -395,7 +355,6 @@
               {
                 "group": "扩展",
                 "pages": [
-                  "zh/tools/adding-tools",
                   "zh/development/provider-integration"
                 ],
                 "icon": "puzzle-piece",
@@ -404,7 +363,6 @@
               {
                 "group": "部署",
                 "pages": [
-                  "zh/deployment/production",
                   "zh/deployment/export",
                   "zh/deployment/backup",
                   "zh/deployment/restore",
@@ -498,10 +456,6 @@
       "destination": "/en/tools/overview"
     },
     {
-      "source": "/en/tools/skills",
-      "destination": "/en/tools/adding-tools"
-    },
-    {
       "source": "/en/tools/adding-mcps",
       "destination": "/en/tools/mcp-integration"
     },
@@ -576,10 +530,6 @@
     {
       "source": "/zh/tools/built-in",
       "destination": "/zh/tools/overview"
-    },
-    {
-      "source": "/zh/tools/skills",
-      "destination": "/zh/tools/adding-tools"
     },
     {
       "source": "/zh/tools/adding-mcps",

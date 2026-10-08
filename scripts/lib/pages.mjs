@@ -13,15 +13,18 @@ import { ROOT, readMap } from "./oss.mjs";
 
 export const DOCS_JSON = JSON.parse(readFileSync(join(ROOT, "docs.json"), "utf8"));
 
-/** [{ locale, tab, tabIndex, group, page }] for every page in the navigation. */
+/**
+ * [{ locale, tab, tabIndex, group, page, root }] for every page in the navigation,
+ * in sidebar order: a group's root page (its title) first, then its pages.
+ */
 export function navEntries() {
   const out = [];
   for (const language of DOCS_JSON.navigation.languages) {
     language.tabs.forEach((tab, tabIndex) => {
       for (const group of tab.groups) {
-        for (const page of group.pages) {
-          out.push({ locale: language.language, tab: tab.tab, tabIndex, group: group.group, page });
-        }
+        const base = { locale: language.language, tab: tab.tab, tabIndex, group: group.group };
+        if (group.root) out.push({ ...base, page: group.root, root: true });
+        for (const page of group.pages) out.push({ ...base, page, root: false });
       }
     });
   }
