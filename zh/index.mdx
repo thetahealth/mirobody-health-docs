@@ -8,6 +8,21 @@ keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.
 
 import RunModes from '/snippets/zh/run-modes.mdx';
 
+<div className="mb-hero not-prose mt-2 mb-10">
+  <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">开源 · 自部署 · Apache 2.0</p>
+  <p className="mb-headline mt-3 text-gray-900 dark:text-white">把分散的健康数据，变成有据可查的答案。</p>
+  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">化验单、穿戴设备和基因文件汇成一份记录。Docker 启动后配置一个模型 Key 即可使用，也可以让所有模型在本机运行。</p>
+  <div className="mt-6 flex flex-wrap gap-3">
+    <a className="mb-button mb-button-primary" href="/zh/self-host">Docker 启动 →</a>
+    <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
+    <a className="mb-button mb-button-secondary" href="https://chat.mirobody.ai/demo">在线体验</a>
+  </div>
+</div>
+
+<Frame caption="不同医院，不同写法。放进同一条趋势，回看每个数值的来源。">
+  <img alt="用中文问胆固醇怎么变化：agent 找到三份用不同写法记录同一项检查的文件，画出一条趋势，并标出每个数字来自哪份文件" src="/images/oss/docs/images/ask-own-demo.zh-CN.gif" />
+</Frame>
+
 ## 什么是 Mirobody？
 
 **Mirobody 把分散的健康数据，变成有据可查的答案。** 它读入化验单、穿戴设备数据、照片和基因文件，为每个值确定一个规范编码和单位，并让 agent 基于这份记录回答问题，标出每个数字来自哪份文件。引擎以 Apache 2.0 许可[开源](https://github.com/thetahealth/mirobody)，由 Theta Health 开发，也是其 Theta Wellness 应用所用的引擎。**Mirobody Cloud** 以托管 API 的形式提供同样的标准化与 agent 能力。

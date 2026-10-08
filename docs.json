@@ -3,17 +3,17 @@
   "theme": "mint",
   "name": "Mirobody",
   "colors": {
-    "primary": "#0E3880",
-    "light": "#4A7AD6",
-    "dark": "#0D1E3A"
+    "primary": "#235CAB",
+    "light": "#7AA7F0",
+    "dark": "#0E3880"
   },
   "fonts": {
-    "family": "Source Sans 3"
+    "family": "Inter"
   },
   "background": {
     "color": {
-      "light": "#F4F1EC",
-      "dark": "#0E1118"
+      "light": "#FFFFFF",
+      "dark": "#0D1117"
     }
   },
   "favicon": "/favicon.svg",
