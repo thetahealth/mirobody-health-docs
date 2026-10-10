@@ -19,9 +19,12 @@ Every agent runtime other than the bundled one (Claude Code, Codex, Cursor, Gemi
 | Virtual filesystem | `/uploads`, `/library` and `/memories`: read-only views of the person's files and profile, with file tools to list, read and search them |
 | Code execution | An `eval` tool that runs JavaScript in a sandbox, with the data tools reachable inside it |
 | One question back | `ask_user`, which pauses the turn to ask the person a question; the next message answers it. It is never exposed over MCP. |
+| Medical knowledge | `search_medical_knowledge` and `read_medical_source`: MedlinePlus health topics and lab test pages and FDA labels from a local index, plus PubMed and ClinicalTrials.gov when online search is on. They never read the record; over MCP they answer a signed-in caller, and they are listed only while the deployment has one of the two. |
 | Memory | Conversation state per session, stored in Postgres |
 
-Each answer streams as typed blocks (text, reasoning, tool calls and their results, usage), so a client can show the tool trace behind an answer.
+Each answer streams as typed blocks (text, reasoning, tool calls and their results, usage), so a client can show the tool trace behind an answer. The web client shows it as it happens: the reasoning streams into a panel and each tool call is a step in the reader's language, folded to one line ("Thought for 12s · 4 steps") once the answer starts.
+
+Every number in an answer cites what it rests on: a row a tool showed in the conversation (`r3`), a reference passage (`ref:medlineplus_test:alt-blood-test`), or lines of a document (`/library/report.pdf#L12-L14`). The web client draws each cite as a numbered chip; `GET /api/citations` resolves it to the reading as it is now, its file, or the reference page.
 
 ## Configuration {#configuration}
 
@@ -35,6 +38,11 @@ The agent's keys have no agent-name suffix. The shipped values live in `config.l
 | `PROMPTS` | System prompt templates, as a path or `path@name`; the first is the default |
 | `AGENT_NAME` | The persona name used in the prompt |
 | `AGENT_CHECKPOINTER` | `true` keeps conversation state per session; `false` makes every turn start fresh |
+| `AGENT_THINKING` | How much every chat model reasons between its tool calls: `off`, `low`, `medium` (the default) or `high`. A `MODELS` entry's `thinking_level` overrides it. |
+| `KNOWLEDGE_INDEX` | The local medical-knowledge index `mirobody fetch knowledge` builds; unset, `~/.mirobody/knowledge/medref.sqlite3`. The Docker image ships one. Without the file the local tier is off. |
+| `KNOWLEDGE_ONLINE` | `true` adds PubMed (through Europe PMC) and ClinicalTrials.gov to the knowledge search. Each search sends its words to those hosts, never record data. |
+
+A `MODELS` entry can also set `eval_fetch: false`, which keeps `eval` to arithmetic on numbers a tool call returned first (the shipped `local` entry does), and `profile: max_input_tokens`, which sets when the agent compacts a long conversation.
 
 Model selection and keys are described in [Configuration](/en/configuration#the-model-key).
 
