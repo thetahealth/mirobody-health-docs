@@ -76,7 +76,7 @@ Authorization: Bearer mb_live_*
 
 Right to be forgotten in a single call. It erases **everything** about one Subject:
 
-1. **Structured records** — everything written via [`POST /v1/data`](/en/api-reference/data), plus stored extractions, whatever their `retention`uded.
+1. **Structured records** — everything written via [`POST /v1/data`](/en/api-reference/data), plus stored extractions, whatever their `retention`.
 2. **Files** — everything uploaded via [`POST /v1/files`](/en/api-reference/files), immediately gone from the API.
 3. **Stored Agent API conversations** — immediately unreadable (`GET /v1/responses/{id}` returns `404`) and then permanently deleted.
 4. **The identity mapping** — the Subject itself becomes unreachable. A later request that passes the same `user` [mints a fresh, empty Subject](/en/api-reference/overview#multi-tenancy-the-user-field) with no connection to the erased one.

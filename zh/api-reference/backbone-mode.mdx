@@ -61,9 +61,9 @@ Model 模式是**无状态**的。续运行要在 `input` 里重发完整的 ite
 { "builtin_tools": "auto" | "none" | ["query_health_data", ...] }   // 默认 "auto"
 ```
 
-控制服务端**领域工具族**（健康、临床记录与外部医学证据工具）：
+控制服务端**领域工具族**（健康数据、关爱圈与外部医学证据工具）：
 
-`query_health_data` · `list_clinical_records` · `list_family_members` · `search_medical_evidence` · `read_source`
+`query_health_data` · `list_family_members` · `search_medical_evidence` · `read_source`
 
 外部证据层只接受 `search_medical_evidence` 与 `read_source`。系统不提供任意 URL 抓取能力：`read_source` 只接受检索结果返回的 `pmid:`、`pmc:`、`nct:` 或 `doi:` ref，不接受模型构造的 URL。
 

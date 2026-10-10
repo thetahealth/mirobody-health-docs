@@ -55,7 +55,7 @@ The file's identifier is **`id`** (a slash-containing key) — use it as `{file_
 `status: "processed"` confirms the original was accepted and stored — its text may still be processing. A `GET /v1/files/{file_key}` immediately after upload can return an empty `extracted_text`; retry after a short delay.
 </Note>
 
-An upload makes the document's text readable by the agent, and Mirobody also pulls the report's readings out of it — [standardized](/en/api-reference/standardization) exactly like a `POST /v1/data` write — and stores them as records. Query them from [`GET /v1/data`](/en/api-reference/data) without re-entering anything; re-uploading the same file creates no duplicates. Prefer [`POST /v1/standardize`](/en/api-reference/extract) when you'd rather run that extraction yourself and check the readings first. Already have structured records? Send them to [`POST /v1/data`](/en/api-reference/data).
+An upload makes the document's text readable by the agent, and Mirobody also pulls the report's readings out of it — [standardized](/en/api-reference/standardization) exactly like a `POST /v1/data` write — and stores them as records. Query them from [`GET /v1/data`](/en/api-reference/data) without re-entering anything; re-uploading the same file creates no duplicate records. Prefer [`POST /v1/standardize`](/en/api-reference/extract) when you'd rather run that extraction yourself and check the readings first. Already have structured records? Send them to [`POST /v1/data`](/en/api-reference/data).
 
 ## List files
 
@@ -83,6 +83,8 @@ Authorization: Bearer mb_live_*
 ```
 
 `data` holds the files; `subject` echoes the Subject. Each item exposes both `id` and `file_key` (identical values). `created_at` is **epoch seconds**, matching the upload response.
+
+The list holds the Subject's **newest 200 files**; the endpoint takes no paging parameters. Each upload is its own file, so a document uploaded twice is listed twice, while its readings are stored once.
 
 ## Fetch parsed text
 
@@ -121,6 +123,19 @@ Frame sequence (all JSON text frames):
 3. **You → server**, per 256 KB chunk: `{"type": "upload_chunk", "messageId", "filename", "chunk": "<base64>", "chunkIndex", "totalChunks"}`.
 4. **You → server**: `{"type": "upload_end", "messageId"}` → server replies `upload_end_response` when every original file has been stored. Its text may still be processing.
 
+The server reports progress on the same socket:
+
+| `type` | Sent when | Fields |
+| --- | --- | --- |
+| `connection_established` | The socket is ready. | — |
+| `upload_start` | Echoes your `upload_start`. | `messageId`, `files` |
+| `file_progress` | After each chunk. | `messageId`, `filename`, `progress` (`0`–`99`), `status: "uploading"`, `message` |
+| `file_received`, then `parsing` | A file's chunks are complete and it is being stored. | `messageId`, `filename` |
+| `file_done` | A file is stored. | `messageId`, plus the file object an upload returns: `object`, `id`, `filename`, `bytes`, `status`, `created_at` |
+| `error` | A chunk isn't valid base64, a file exceeds 100 MB, a file can't be stored, or a frame isn't JSON. | `message` |
+| `upload_end_response` | After `upload_end`, once every file in the batch is stored. | `success`, `messageId`, `files` (the stored file objects), `retention`, `session_id` |
+| `pong` | Replies to a `{"type": "ping"}` you send. | — |
+
 Same 100 MB per-file cap, same Subject isolation, and the stored files are identical to a `POST /v1/files` upload — list them with `GET /v1/files`.
 
 ## Delete a file
@@ -137,7 +152,7 @@ Removes the file from the API surface immediately (`404` if it isn't the Subject
 ```
 
 <Note>
-Deleting a file removes the **file** but **not** the records auto-extracted from it. To remove those, delete them from the data plane with [`DELETE /v1/data`](/en/api-reference/data#erase-records) (by `indicator` or `id`), or erase the whole Subject with [`DELETE /v1/subjects/{user}`](/en/api-reference/lifecycle#offboarding-a-subject). (Session-scoped uploads **are** erased together with their session-scoped records by [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions).)
+Deleting a file also removes the records auto-extracted from it. The records of a `retention=session` upload belong to its session instead: [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) removes them together with the file.
 </Note>
 
 Time-bounded uploads are also removed automatically at **[retention](/en/api-reference/overview#data-retention) expiry** — an expired file disappears from every `GET /v1/files*` read immediately and is then permanently deleted. To erase everything about a Subject at once, use `DELETE /v1/subjects/{user}` — see [Compliance](/en/api-reference/compliance).

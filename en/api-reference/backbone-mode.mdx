@@ -61,9 +61,9 @@ Model mode is **stateless**. Continue a run by resending the full item transcrip
 { "builtin_tools": "auto" | "none" | ["query_health_data", ...] }   // default "auto"
 ```
 
-Controls the server-side **domain-tool family** — the health, clinical-record, and external-evidence tools:
+Controls the server-side **domain-tool family** — the health-data, care-circle, and external-evidence tools:
 
-`query_health_data` · `list_clinical_records` · `list_family_members` · `search_medical_evidence` · `read_source`
+`query_health_data` · `list_family_members` · `search_medical_evidence` · `read_source`
 
 The external-evidence surface accepts only `search_medical_evidence` and `read_source`. Arbitrary URL fetching is not available: `read_source` accepts refs returned by search (`pmid:`, `pmc:`, `nct:`, or `doi:`), not model-constructed URLs.
 

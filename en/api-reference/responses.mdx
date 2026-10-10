@@ -75,7 +75,7 @@ print(resp.output_text)
 | Field | Type | Description |
 | --- | --- | --- |
 | `model` | string | `mirobody-flash` (default) or `mirobody-expert`. See [Models](/en/api-reference/models). |
-| `input` | string \| array | **Required.** A string (one user turn) or an array of items: `message` items (`{role, content}`), and — when continuing a tool handoff — `function_call` / `function_call_output` items. See [Function calling](/en/api-reference/function-calling). |
+| `input` | string \| array | **Required.** A string (one user turn) or an array of items: `message` items (`{role, content}`; `content` may include [images](#image-input)), and — when continuing a tool handoff — `function_call` / `function_call_output` items. See [Function calling](/en/api-reference/function-calling). |
 | `instructions` | string | System-level instruction for this turn (prepended as a system message). |
 | `stream` | bool | `true` → SSE of standard `response.*` events. See [Streaming](/en/api-reference/streaming). |
 | `store` | bool | **Default `true`.** Persist the response + conversation: 30-day TTL, or permanent when bound to a `session_id`. Enables `previous_response_id` and `GET /v1/responses/{id}`. |
@@ -90,6 +90,19 @@ print(resp.output_text)
 | `user` | string | Tenant-isolation key → a Subject. |
 
 <SubjectUserParam />
+
+### Image input
+
+A `message` item's `content` can be a list that mixes text and images:
+
+```json
+{"role": "user", "content": [
+  {"type": "input_text", "text": "What does this lab report say about my glucose?"},
+  {"type": "input_image", "image_url": "data:image/jpeg;base64,/9j/4AAQ..."}
+]}
+```
+
+`image_url` is an `https` URL or a `data:` URI. Each image is converted to text by OCR before the model reads it, so the model sees the text of a report or label, not the picture itself. Images are not stored in the Subject's files; upload a document you want to keep with [`POST /v1/files`](/en/api-reference/files). A request takes up to 8 images. A ninth image, or any block other than text and images (`input_file`, for example), returns `400 unsupported_content_block`.
 
 ### Response object
 
