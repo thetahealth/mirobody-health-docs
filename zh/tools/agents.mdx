@@ -19,9 +19,14 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | 虚拟文件系统 | `/uploads`、`/library` 与 `/memories`：此人文件与档案的只读视图，配有列出、读取与搜索文件的工具 |
 | 代码执行 | `eval` 工具，在沙箱中运行 JavaScript，沙箱内也能调用数据工具 |
 | 向用户提问 | `ask_user`：暂停本轮并向用户提一个问题，用户的下一条消息就是回答。它不会通过 MCP 暴露。 |
+| 医学知识 | `search_medical_knowledge` 与 `read_medical_source`：本地索引里的 MedlinePlus 健康主题、化验项目页和 FDA 药品说明书；打开联网检索后还包括 PubMed 和 ClinicalTrials.gov。它们从不读取记录；通过 MCP 时只回答已登录的调用方，并且只在部署具备其中一档时才列出。 |
 | 记忆 | 按会话保存的对话状态，存放在 Postgres 中 |
 
 每个回答都以带类型的块流式返回（文本、推理、工具调用及其结果、用量），客户端因此可以展示回答背后的工具调用过程。
+Web 客户端会实时展示：推理流进一个面板，每次工具调用按读者的语言显示成一步，答案开始后收成一行（「已思考 12 秒 · 4 步」）。
+
+回答里的每个数字都标注它依据的来源：对话中某个工具展示过的一行（`r3`）、一段参考资料（`ref:medlineplus_test:alt-blood-test`），或文档中的几行（`/library/report.pdf#L12-L14`）。
+Web 客户端把每个引用画成带编号的小标；`GET /api/citations` 把它解析成这条读数的当前值、它的文件，或参考资料的页面。
 
 ## 配置 {#configuration}
 
@@ -35,6 +40,11 @@ agent 的配置键不带 agent 名后缀。随仓库提供的值在 `config.llm.
 | `PROMPTS` | 系统提示词模板，写法为路径或 `path@name`；第一个是默认值 |
 | `AGENT_NAME` | 提示词中使用的角色名 |
 | `AGENT_CHECKPOINTER` | `true` 按会话保留对话状态；`false` 让每一轮都从头开始 |
+| `AGENT_THINKING` | 所有对话模型在工具调用之间推理的程度：`off`、`low`、`medium`（默认）或 `high`。`MODELS` 条目的 `thinking_level` 会覆盖它。 |
+| `KNOWLEDGE_INDEX` | `mirobody fetch knowledge` 构建的本地医学知识索引；不设置时为 `~/.mirobody/knowledge/medref.sqlite3`。Docker 镜像自带一份。没有这个文件，本地这一档就不开启。 |
+| `KNOWLEDGE_ONLINE` | `true` 在知识检索里加入 PubMed（经 Europe PMC）和 ClinicalTrials.gov。每次检索只把检索词发给这两个站点，从不发送记录数据。 |
+
+`MODELS` 条目还可以设置 `eval_fetch: false`，让 `eval` 只对工具调用先返回的数字做计算（随仓库的 `local` 条目就是这样）；`profile: max_input_tokens` 决定 agent 何时压缩一段长对话。
 
 模型的选择与密钥见[配置](/zh/configuration#the-model-key)。
 
