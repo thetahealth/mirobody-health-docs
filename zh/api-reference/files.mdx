@@ -84,6 +84,8 @@ Authorization: Bearer mb_live_*
 
 `data` 存放文件；`subject` 回显该 Subject。每一项都同时暴露 `id` 和 `file_key`（二者值相同）。`created_at` 是 **epoch 秒**，与上传响应一致。
 
+列表只包含该 Subject **最新的 200 个文件**，端点不提供分页参数。每次上传都是一个独立文件，同一份文档上传两次会列出两条，但其中的读数只保存一份。
+
 ## 获取解析后的文本
 
 ```http
@@ -121,6 +123,19 @@ wss://api.mirobody.ai/v1/files/stream?key=mb_live_...&user=alice&retention=perma
 3. **你 → 服务端**，每 256 KB 一块：`{"type": "upload_chunk", "messageId", "filename", "chunk": "<base64>", "chunkIndex", "totalChunks"}`。
 4. **你 → 服务端**：`{"type": "upload_end", "messageId"}` → 全部原文件保存后，服务端返回 `upload_end_response`；此时文本可能仍在处理中。
 
+服务端在同一连接上报告进度：
+
+| `type` | 发送时机 | 字段 |
+| --- | --- | --- |
+| `connection_established` | 连接已就绪。 | — |
+| `upload_start` | 回显你发送的 `upload_start`。 | `messageId`、`files` |
+| `file_progress` | 每收到一个分块。 | `messageId`、`filename`、`progress`（`0`–`99`）、`status: "uploading"`、`message` |
+| `file_received`，随后 `parsing` | 一个文件的分块已收齐，正在保存。 | `messageId`、`filename` |
+| `file_done` | 一个文件已保存。 | `messageId`，以及上传接口返回的文件对象：`object`、`id`、`filename`、`bytes`、`status`、`created_at` |
+| `error` | 分块不是合法的 base64、文件超过 100 MB、文件无法保存，或帧不是 JSON。 | `message` |
+| `upload_end_response` | 收到 `upload_end` 且本批文件全部保存之后。 | `success`、`messageId`、`files`（已保存的文件对象）、`retention`、`session_id` |
+| `pong` | 回应你发送的 `{"type": "ping"}`。 | — |
+
 单文件 100 MB 上限、Subject 隔离与 `POST /v1/files` 完全一致，用 `GET /v1/files` 可列出。
 
 ## 删除文件
@@ -137,7 +152,7 @@ Authorization: Bearer mb_live_*
 ```
 
 <Note>
-删除文件只移除**文件本身**，**不会**移除从它自动抽取出的记录。要删除这些记录，请用 [`DELETE /v1/data`](/zh/api-reference/data#擦除记录)（按 `indicator` 或 `id`）从数据面删除，或用 [`DELETE /v1/subjects/{user}`](/zh/api-reference/lifecycle#下线一个-subject) 擦除整个 Subject。（会话级的上传**会**与其会话级记录一起被 [`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 擦除。）
+删除文件时，从它自动抽取出的记录也会一并移除。`retention=session` 的上传则不同，其记录归属于会话：[`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 会将记录与文件一并移除。
 </Note>
 
 有时限的上传也会在[留存](/zh/api-reference/overview#数据留存)到期时自动移除，过期文件立即从所有 `GET /v1/files*` 读取中消失，随后被永久删除。如需一次性擦除某个 Subject 的一切，请使用 `DELETE /v1/subjects/{user}`，参见[合规](/zh/api-reference/compliance)。

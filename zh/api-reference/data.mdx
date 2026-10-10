@@ -9,7 +9,7 @@ import RegionShell from '/snippets/zh/region-shell.mdx';
 
 <RegionShell />
 
-把结构化记录直接写进 Subject 的存储，并读回。**结构化记录最主要的形式就是设备与可穿戴数据**（见[下文](/zh/api-reference/data#设备与可穿戴数据)）。每次写入都会经过平台的[标准化管线](/zh/api-reference/standardization)：解析值与单位，为识别出的指标补上 LOINC 编码和规范名称，每条记录都镜像到 FHIR。未解析出编码的行仍可正常读取。agent 通过内置工具读取同一份数据。
+把结构化记录直接写进 Subject 的存储，并读回。**结构化记录最主要的形式就是设备与可穿戴数据**（见[下文](/zh/api-reference/data#设备与可穿戴数据)）。每次写入都会经过平台的[标准化管线](/zh/api-reference/standardization)：解析值与单位，并为识别出的指标补上 LOINC 编码和规范名称。未解析出编码的行仍可正常读取。agent 通过内置工具读取同一份数据。
 
 <IngestMentalModel />
 
@@ -25,7 +25,7 @@ Content-Type:  application/json
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记一段 episode（睡眠、运动）的结束，起点是 `time`。`measured_at` / `start_time` 是 `time` 的别名，POST /v1/standardize 返回的行（字段名为 `measured_at`）可原样转发。 |
+| `records` | array | 每条记录 `{indicator, value, unit?, time?, end_time?, source?, reference_range?, status?}`。**每次请求最多 500 条。** `end_time`（可选，ISO 时间）标记一段 episode（睡眠、运动）的结束，起点是 `time`。`measured_at` / `start_time` 是 `time` 的别名，POST /v1/standardize 返回的行（字段名为 `measured_at`）可原样转发。`reference_range` 与 `status` 见[下文](#参考范围与异常标记)。 |
 | `user` | string | 记录所属的 Subject（租户隔离键）。 |
 | `retention` | string | **必填：没有默认值。** 取值为 `permanent` / `1h` / `2h` / `6h` / `1d` / `session` 之一（`persistent` 作为 `permanent` 的别名也接受）。有时限的档位到期即自动删除，`1d` 是最长的一档。省略它（或传枚举之外的任何值）返回 `400`（`code: invalid_retention`）。 |
 | `session_id` | string | **`retention=session` 时必填**（否则 `400`，`code: invalid_session`）。应使用全局唯一、不含业务语义的 id（如 UUID），且不能跨 Subject 复用。它为记录添加标签，使 [`DELETE /v1/sessions/{id}`](/zh/api-reference/lifecycle#会话) 能清除它们。 |
@@ -77,6 +77,22 @@ curl "$MIROBODY_API_BASE/data" \
       }'
 ```
 
+### 参考范围与异常标记
+
+记录还可以携带来源（如化验单）标注的参考范围与异常标记：
+
+```json
+{"indicator": "fasting_glucose", "value": 118, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z",
+ "reference_range": "70-110", "status": "H"}
+```
+
+| 字段 | 接受的取值 | 读取时对应 |
+| --- | --- | --- |
+| `reference_range` | 字符串：双侧 `"70-110"`（分隔符也可以是 `~`、`–` 或 `—`），或单侧 `"<5"`、`">40"`、`"≤5"`、`"≥40"`。 | `reference_text` 保留原字符串；`reference_low` / `reference_high` 为解析出的上下界。定性描述（`"Negative"`）或带有其他文字的范围（`"AHI < 5"`）不解析上下界，两者均为 `null`。 |
+| `status` | `normal`、`high`、`low`、`borderline`、`abnormal`、`mild`、`moderate`、`severe`，或简写 `H` / `L` / `↑` / `↓`；不区分大小写。 | `abnormal`，统一为小写；`H` 与 `↑` 记为 `high`，`L` 与 `↓` 记为 `low`。 |
+
+未传入可识别的 `status` 时，`abnormal` 由数值与解析出的上下界推导，取 `high`、`low` 或 `normal`；数值不是数字或范围没有上下界时为 `null`。`abnormal` 是字符串而不是布尔值：除 `normal` 与 `null` 之外的任何取值都应视为已标记异常。
+
 ## 读取记录
 
 ```http
@@ -87,7 +103,7 @@ Authorization: Bearer mb_live_*
 | Query | 说明 |
 | --- | --- |
 | `user` | 读取哪个 Subject。 |
-| `indicator` | 可选，按指标名过滤（子串匹配）。 |
+| `indicator` | 可选，按指标名过滤（不区分大小写的子串匹配）。 |
 | `limit` | `1`–`1000`（默认 `100`）。 |
 | `offset` | 跳过 N 条用于翻页（排序稳定：最新在前）。`has_more: true` 时用 `offset += limit` 取下一页。 |
 
@@ -124,7 +140,8 @@ Authorization: Bearer mb_live_*
 | `parsed_value` / `parsed_unit` | 标准化管线产出的数值 + **UCUM** 单位（无法解析时为 `null`）。 |
 | `loinc_code` / `canonical_name` | 确定性 LOINC 解析结果及其展示名（名称未解析时为 `null`）。 |
 | `end_time` | Episode 型记录（睡眠、运动）时段的结束时间；时间点读数为 `null`。 |
-| `reference_low` / `reference_high` / `reference_text` / `abnormal` | 参考范围与异常标记，来源（如化验单）携带时返回；否则为 `null`。 |
+| `reference_low` / `reference_high` / `reference_text` / `abnormal` | 参考范围与异常标记，来源（化验单，或记录自带的 `reference_range` / `status`）携带时返回；否则为 `null`。见[参考范围与异常标记](#参考范围与异常标记)。 |
+| `page` | 读数抽取自多页文档时所在的页码，从 `1` 开始；其他记录为 `null`。 |
 | `source` / `comment` | 记录的来源方式：`api`（经 `POST /v1/data` 写入）、`extract`（来自 `POST /v1/standardize`）、`upload`（从 `/v1/files` 上传中读出）或 `consolidation`（从已存储的对话中得来）。你在记录自己的 `source` 字段里传入的来源标签，会在 `comment` 中返回。 |
 | `has_more` | 本页取满 `limit` 时为 `true`，用 `offset += limit` 取下一页。 |
 | `subject` | 记录所属的 Subject（由 `user` 解析）。 |
@@ -141,7 +158,7 @@ Authorization: Bearer mb_live_*
 | Query | 范围 |
 | --- | --- |
 | `id` | 恰好**一行**，即 `GET /v1/data` 返回的整数 id。优先于 `indicator`。 |
-| `indicator` | 单个指标（子串匹配，与 GET 过滤一致）。 |
+| `indicator` | 名称包含该值的全部指标，不区分大小写，与 GET 过滤一致：`glucose` 也会擦除 `fasting_glucose`。擦除单行请用 `id`。 |
 | *（都不传）* | 该 Subject 的**全部**记录。 |
 
 ```http

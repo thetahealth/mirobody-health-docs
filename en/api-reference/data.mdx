@@ -9,7 +9,7 @@ import RegionShell from '/snippets/region-shell.mdx';
 
 <RegionShell />
 
-Write structured records straight into a Subject's store, and read them back. **Device and wearable data is the main form these records take** ([below](/en/api-reference/data#device-and-wearable-data)). Every write runs through the platform's [standardization pipeline](/en/api-reference/standardization): values and units are parsed, recognized indicators get a LOINC code and a canonical name, and each record is mirrored into FHIR. Rows that don't resolve to a code stay readable. The agent reads the same data with its built-in tools.
+Write structured records straight into a Subject's store, and read them back. **Device and wearable data is the main form these records take** ([below](/en/api-reference/data#device-and-wearable-data)). Every write runs through the platform's [standardization pipeline](/en/api-reference/standardization): values and units are parsed, and recognized indicators get a LOINC code and a canonical name. Rows that don't resolve to a code stay readable. The agent reads the same data with its built-in tools.
 
 <IngestMentalModel />
 
@@ -25,7 +25,7 @@ Content-Type:  application/json
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `records` | array | Each record `{indicator, value, unit?, time?, end_time?, source?}`. **Max 500 records per request.** `end_time` (optional, ISO time) closes an episode — sleep, a workout — that starts at `time`. `measured_at` / `start_time` are accepted as aliases for `time` — rows from POST /v1/standardize (which returns `measured_at`) can be forwarded as-is. |
+| `records` | array | Each record `{indicator, value, unit?, time?, end_time?, source?, reference_range?, status?}`. **Max 500 records per request.** `end_time` (optional, ISO time) closes an episode — sleep, a workout — that starts at `time`. `measured_at` / `start_time` are accepted as aliases for `time` — rows from POST /v1/standardize (which returns `measured_at`) can be forwarded as-is. `reference_range` and `status` are described [below](#reference-ranges-and-flags). |
 | `user` | string | Subject the records belong to (tenant-isolation key). |
 | `retention` | string | **Required — there is no default.** One of `permanent` / `1h` / `2h` / `6h` / `1d` / `session` (`persistent` is accepted as an alias of `permanent`). Timed tiers auto-delete when their window is up — `1d` is the longest. Omitting it — or sending any value outside the enum — returns `400` (`code: invalid_retention`). |
 | `session_id` | string | **Required when `retention=session`** (`400`, `code: invalid_session`, otherwise). Use a globally unique, opaque id (for example a UUID; never reuse it across Subjects). Tags the records so [`DELETE /v1/sessions/{id}`](/en/api-reference/lifecycle#sessions) can purge them. |
@@ -77,6 +77,22 @@ curl "$MIROBODY_API_BASE/data" \
       }'
 ```
 
+### Reference ranges and flags
+
+A record can also carry the reference range and abnormal flag its source printed, as on a lab report:
+
+```json
+{"indicator": "fasting_glucose", "value": 118, "unit": "mg/dL", "time": "2026-06-16T07:30:00Z",
+ "reference_range": "70-110", "status": "H"}
+```
+
+| Field | Accepted values | Returned on read as |
+| --- | --- | --- |
+| `reference_range` | A string: two-sided `"70-110"` (the separator may also be `~`, `–` or `—`), or one-sided `"<5"`, `">40"`, `"≤5"`, `"≥40"`. | `reference_text` keeps the string; `reference_low` / `reference_high` hold its bounds. A qualitative range (`"Negative"`) or one with other text around it (`"AHI < 5"`) leaves both bounds `null`. |
+| `status` | `normal`, `high`, `low`, `borderline`, `abnormal`, `mild`, `moderate`, `severe`, or the shorthand `H` / `L` / `↑` / `↓`; case-insensitive. | `abnormal`, in lowercase; `H` and `↑` become `high`, `L` and `↓` become `low`. |
+
+Without a recognized `status`, `abnormal` is derived from the value and the parsed bounds: `high`, `low` or `normal`, or `null` when the value isn't numeric or the range has no bounds. `abnormal` is a string, not a boolean: treat any value other than `normal` and `null` as flagged.
+
 ## Read records
 
 ```http
@@ -87,7 +103,7 @@ Authorization: Bearer mb_live_*
 | Query | Description |
 | --- | --- |
 | `user` | Subject to read from. |
-| `indicator` | Optional filter by indicator name (substring match). |
+| `indicator` | Optional filter by indicator name (case-insensitive substring match). |
 | `limit` | `1`–`1000` (default `100`). |
 | `offset` | Skip N records for paging (ordering is stable: newest first). `has_more: true` → request the next page with `offset += limit`. |
 
@@ -124,7 +140,8 @@ The response is an OpenAI-style list, newest first. `value` is the value exactly
 | `parsed_value` / `parsed_unit` | Numeric value + **UCUM** unit from the standardization pipeline (`null` when unparseable). |
 | `loinc_code` / `canonical_name` | Deterministic LOINC resolution + its display name (`null` when the name didn't resolve). |
 | `end_time` | End of the period for episode records (sleep, workouts); `null` for point-in-time readings. |
-| `reference_low` / `reference_high` / `reference_text` / `abnormal` | Reference range and abnormality flag, when the source (e.g. a lab report) carried them; `null` otherwise. |
+| `reference_low` / `reference_high` / `reference_text` / `abnormal` | Reference range and abnormal flag, when the source (a lab report, or a record's `reference_range` / `status`) carried them; `null` otherwise. See [Reference ranges and flags](#reference-ranges-and-flags). |
+| `page` | Page of a multi-page document the reading was extracted from, counting from `1`; `null` for every other record. |
 | `source` / `comment` | How the record was created: `api` (written via `POST /v1/data`), `extract` (from `POST /v1/standardize`), `upload` (read from a `/v1/files` upload), or `consolidation` (drawn from a stored conversation). Any origin tag you sent in a record's own `source` field comes back in `comment`. |
 | `has_more` | `true` when this page hit `limit` — fetch the next page with `offset += limit`. |
 | `subject` | The Subject the records belong to (resolved from `user`). |
@@ -141,7 +158,7 @@ Authorization: Bearer mb_live_*
 | Query | Scope |
 | --- | --- |
 | `id` | Exactly **one row** — the integer ids `GET /v1/data` returns. Takes precedence over `indicator`. |
-| `indicator` | One indicator (substring match, mirroring the GET filter). |
+| `indicator` | Every indicator whose name contains the value, case-insensitively, as in the GET filter: `glucose` also erases `fasting_glucose`. Use `id` to erase a single row. |
 | *(neither)* | **All** of the Subject's records. |
 
 ```http
