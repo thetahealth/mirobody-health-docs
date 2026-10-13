@@ -14,7 +14,7 @@ The record in a self-hosted deployment is yours to take out, in formats another 
 | Data | Route | Format | Notes |
 | --- | --- | --- | --- |
 | Readings, with their standardized value and unit | `GET /api/v1/health-indicators/export` | CSV (a download), or JSON with `format=json` | The same filters as the records table (`kind`, `modality`, `start_time`, `end_time`, `created_since`, `keywords`). Up to 100,000 rows; a larger record gets the first 100,000 and the response header `X-Export-Truncated: true`. |
-| The visible record, as one stream | `GET /api/user/data-export` | A JSON page, or NDJSON with `Accept: application/x-ndjson` | The path and shape are the same on Mirobody Cloud, so one client can take a person's data out of either deployment. The stream ends with a footer whose `complete` field is the only proof it finished. |
+| The visible record, as one stream | `GET /api/user/data-export` | A JSON page, or NDJSON with `Accept: application/x-ndjson` | The stream ends with a footer whose `complete` field is the only proof it finished. |
 | Genotypes, from the active upload | `GET /api/v1/genomics/export.vcf?build=GRCh38` and `GET /api/v1/genomics/export.fhir.json?rsids=…` | VCF 4.2; FHIR | `build` is `GRCh37` or `GRCh38`; the FHIR export takes one to fifty rsIDs. |
 | Everything: readings, files, medications, the care circle and the accounts | `shell/backup.sh` in the checkout | A `pg_dump` archive and a tar of the uploaded files | The one complete copy. [Verify and Restore a Backup](/en/deployment/restore) rehearses the restore. |
 

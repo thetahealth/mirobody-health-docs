@@ -20,10 +20,9 @@
     "check:freshness": "node scripts/check-freshness.mjs",
     "check:links": "node scripts/check-links.mjs",
     "check:readme-links": "node scripts/check-readme-links.mjs",
-    "check:cloud-regions": "node scripts/check-cloud-regions.mjs",
     "check:public": "node scripts/check-public.mjs",
     "check:mint": "mint broken-links --check-anchors --check-redirects && mint validate",
-    "verify": "npm run oss:fetch && npm run check:sync && npm run check:parity && npm run check:headings && npm run check:internals && npm run check:facts && npm run check:freshness && npm run check:links && npm run check:readme-links && npm run check:cloud-regions && npm run check:public"
+    "verify": "npm run oss:fetch && npm run check:sync && npm run check:parity && npm run check:headings && npm run check:internals && npm run check:facts && npm run check:freshness && npm run check:links && npm run check:readme-links && npm run check:public"
   },
   "devDependencies": {
     "@mdx-js/mdx": "^3.1.0",

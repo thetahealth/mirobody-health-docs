@@ -22,357 +22,180 @@
     "dark": "/images/dark.svg",
     "href": "/"
   },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/thetahealth/mirobody"
+    }
+  },
   "navigation": {
     "languages": [
       {
         "language": "en",
         "default": true,
-        "navbar": {
-          "links": [
-            {
-              "label": "Console (China)",
-              "href": "https://platform.mirobody.cn/"
-            }
-          ],
-          "primary": {
-            "type": "button",
-            "label": "Console",
-            "href": "https://platform.mirobody.ai/"
-          }
-        },
-        "tabs": [
+        "groups": [
           {
-            "tab": "Getting Started",
-            "groups": [
-              {
-                "group": "Start here",
-                "icon": "compass",
-                "pages": [
-                  "en/index"
-                ]
-              }
-            ],
-            "icon": "rocket"
+            "group": "Get started",
+            "icon": "rocket",
+            "pages": [
+              "en/index",
+              "en/self-host",
+              "en/walkthrough",
+              "en/quickstart",
+              "en/configuration",
+              "en/troubleshooting"
+            ]
           },
           {
-            "tab": "Cloud",
-            "groups": [
-              {
-                "group": "Start with Cloud API",
-                "pages": [
-                  "en/api-reference/quickstart",
-                  "en/api-reference/sdk-examples",
-                  "en/api-reference/choose-your-api",
-                  "en/api-reference/overview",
-                  "en/api-reference/models"
-                ],
-                "icon": "rocket",
-                "root": "en/api-reference/index"
-              },
-              {
-                "group": "Data inputs",
-                "pages": [
-                  "en/api-reference/files",
-                  "en/api-reference/extract",
-                  "en/api-reference/standardization",
-                  "en/api-reference/lifecycle"
-                ],
-                "icon": "database",
-                "root": "en/api-reference/data"
-              },
-              {
-                "group": "Agent API",
-                "pages": [
-                  "en/api-reference/backbone-mode",
-                  "en/api-reference/function-calling",
-                  "en/api-reference/structured-output",
-                  "en/api-reference/mcp-servers",
-                  "en/api-reference/streaming",
-                  "en/api-reference/state-and-memory"
-                ],
-                "icon": "robot",
-                "root": "en/api-reference/responses"
-              },
-              {
-                "group": "Answers API",
-                "pages": [
-                  "en/api-reference/use-as-a-tool"
-                ],
-                "icon": "comment-dots",
-                "root": "en/api-reference/chat"
-              },
-              {
-                "group": "Regions & Operations",
-                "pages": [
-                  "en/api-reference/regions/china",
-                  "en/api-reference/regions/global",
-                  "en/api-reference/rate-limits",
-                  "en/api-reference/compliance"
-                ],
-                "icon": "globe",
-                "root": "en/api-reference/regions/overview"
-              }
-            ],
-            "icon": "cloud"
+            "group": "Models",
+            "icon": "microchip",
+            "pages": [
+              "en/model-choice",
+              "en/local-models",
+              "en/local-models-roadmap"
+            ]
           },
           {
-            "tab": "Open Source",
-            "groups": [
-              {
-                "group": "Start with Self-Host",
-                "pages": [
-                  "en/walkthrough",
-                  "en/quickstart",
-                  "en/configuration",
-                  "en/troubleshooting"
-                ],
-                "icon": "rocket",
-                "root": "en/self-host"
-              },
-              {
-                "group": "Models",
-                "pages": [
-                  "en/local-models",
-                  "en/local-models-roadmap"
-                ],
-                "icon": "microchip",
-                "root": "en/model-choice"
-              },
-              {
-                "group": "Architecture",
-                "pages": [
-                  "en/concepts/repository-layout"
-                ],
-                "icon": "diagram-project",
-                "root": "en/concepts/architecture"
-              },
-              {
-                "group": "① Collect",
-                "pages": [
-                  "en/providers/apple-health",
-                  "en/concepts/file-processing"
-                ],
-                "icon": "download",
-                "root": "en/providers/using-providers"
-              },
-              {
-                "group": "② Translate",
-                "pages": [
-                  "en/concepts/device-crosswalk",
-                  "en/concepts/genetics"
-                ],
-                "icon": "wand-magic-sparkles",
-                "root": "en/concepts/indicators"
-              },
-              {
-                "group": "③ Agent",
-                "pages": [
-                  "en/tools/overview",
-                  "en/tools/medications",
-                  "en/tools/mcp-integration",
-                  "en/tools/skills"
-                ],
-                "icon": "robot",
-                "root": "en/tools/agents"
-              },
-              {
-                "group": "Extend",
-                "pages": [
-                  "en/http-api",
-                  "en/development/provider-integration",
-                  "en/concepts/synthetic-data"
-                ],
-                "icon": "puzzle-piece",
-                "root": "en/tools/adding-tools"
-              },
-              {
-                "group": "Deploy",
-                "pages": [
-                  "en/deployment/upgrade",
-                  "en/deployment/backup",
-                  "en/deployment/restore",
-                  "en/deployment/export"
-                ],
-                "icon": "server",
-                "root": "en/deployment/production"
-              }
-            ],
-            "icon": "github"
+            "group": "Architecture",
+            "icon": "diagram-project",
+            "pages": [
+              "en/concepts/architecture",
+              "en/concepts/repository-layout"
+            ]
+          },
+          {
+            "group": "① Collect",
+            "icon": "download",
+            "pages": [
+              "en/providers/using-providers",
+              "en/providers/apple-health",
+              "en/concepts/file-processing"
+            ]
+          },
+          {
+            "group": "② Translate",
+            "icon": "wand-magic-sparkles",
+            "pages": [
+              "en/concepts/indicators",
+              "en/concepts/device-crosswalk",
+              "en/concepts/genetics"
+            ]
+          },
+          {
+            "group": "③ Agent",
+            "icon": "robot",
+            "pages": [
+              "en/tools/agents",
+              "en/tools/overview",
+              "en/tools/medications",
+              "en/tools/mcp-integration",
+              "en/tools/skills"
+            ]
+          },
+          {
+            "group": "Extend",
+            "icon": "puzzle-piece",
+            "pages": [
+              "en/tools/adding-tools",
+              "en/http-api",
+              "en/development/provider-integration",
+              "en/concepts/synthetic-data"
+            ]
+          },
+          {
+            "group": "Deploy",
+            "icon": "server",
+            "pages": [
+              "en/deployment/production",
+              "en/deployment/upgrade",
+              "en/deployment/backup",
+              "en/deployment/restore",
+              "en/deployment/export"
+            ]
           }
         ]
       },
       {
         "language": "zh",
-        "navbar": {
-          "links": [
-            {
-              "label": "全球站控制台",
-              "href": "https://platform.mirobody.ai/"
-            }
-          ],
-          "primary": {
-            "type": "button",
-            "label": "控制台",
-            "href": "https://platform.mirobody.cn/"
-          }
-        },
-        "tabs": [
+        "groups": [
           {
-            "tab": "开始使用",
-            "groups": [
-              {
-                "group": "从这里开始",
-                "icon": "compass",
-                "pages": [
-                  "zh/index"
-                ]
-              }
-            ],
-            "icon": "rocket"
+            "group": "开始使用",
+            "icon": "rocket",
+            "pages": [
+              "zh/index",
+              "zh/self-host",
+              "zh/walkthrough",
+              "zh/quickstart",
+              "zh/configuration",
+              "zh/troubleshooting"
+            ]
           },
           {
-            "tab": "云端",
-            "groups": [
-              {
-                "group": "从这里开始",
-                "pages": [
-                  "zh/api-reference/quickstart",
-                  "zh/api-reference/sdk-examples",
-                  "zh/api-reference/choose-your-api",
-                  "zh/api-reference/overview",
-                  "zh/api-reference/models"
-                ],
-                "icon": "rocket",
-                "root": "zh/api-reference/index"
-              },
-              {
-                "group": "数据入口",
-                "pages": [
-                  "zh/api-reference/files",
-                  "zh/api-reference/extract",
-                  "zh/api-reference/standardization",
-                  "zh/api-reference/lifecycle"
-                ],
-                "icon": "database",
-                "root": "zh/api-reference/data"
-              },
-              {
-                "group": "Agent API",
-                "pages": [
-                  "zh/api-reference/backbone-mode",
-                  "zh/api-reference/function-calling",
-                  "zh/api-reference/structured-output",
-                  "zh/api-reference/mcp-servers",
-                  "zh/api-reference/streaming",
-                  "zh/api-reference/state-and-memory"
-                ],
-                "icon": "robot",
-                "root": "zh/api-reference/responses"
-              },
-              {
-                "group": "Answers API",
-                "pages": [
-                  "zh/api-reference/use-as-a-tool"
-                ],
-                "root": "zh/api-reference/chat"
-              },
-              {
-                "group": "区域与运维",
-                "pages": [
-                  "zh/api-reference/regions/china",
-                  "zh/api-reference/regions/global",
-                  "zh/api-reference/rate-limits",
-                  "zh/api-reference/compliance"
-                ],
-                "icon": "globe",
-                "root": "zh/api-reference/regions/overview"
-              }
-            ],
-            "icon": "cloud"
+            "group": "模型",
+            "icon": "microchip",
+            "pages": [
+              "zh/model-choice",
+              "zh/local-models",
+              "zh/local-models-roadmap"
+            ]
           },
           {
-            "tab": "开源部署",
-            "groups": [
-              {
-                "group": "从自部署开始",
-                "pages": [
-                  "zh/walkthrough",
-                  "zh/quickstart",
-                  "zh/configuration",
-                  "zh/troubleshooting"
-                ],
-                "icon": "rocket",
-                "root": "zh/self-host"
-              },
-              {
-                "group": "模型",
-                "pages": [
-                  "zh/local-models",
-                  "zh/local-models-roadmap"
-                ],
-                "icon": "microchip",
-                "root": "zh/model-choice"
-              },
-              {
-                "group": "架构",
-                "pages": [
-                  "zh/concepts/repository-layout"
-                ],
-                "icon": "diagram-project",
-                "root": "zh/concepts/architecture"
-              },
-              {
-                "group": "① 收集",
-                "pages": [
-                  "zh/providers/apple-health",
-                  "zh/concepts/file-processing"
-                ],
-                "icon": "download",
-                "root": "zh/providers/using-providers"
-              },
-              {
-                "group": "② 转译",
-                "pages": [
-                  "zh/concepts/device-crosswalk",
-                  "zh/concepts/genetics"
-                ],
-                "icon": "wand-magic-sparkles",
-                "root": "zh/concepts/indicators"
-              },
-              {
-                "group": "③ 智能体",
-                "pages": [
-                  "zh/tools/overview",
-                  "zh/tools/medications",
-                  "zh/tools/mcp-integration",
-                  "zh/tools/skills"
-                ],
-                "icon": "robot",
-                "root": "zh/tools/agents"
-              },
-              {
-                "group": "扩展",
-                "pages": [
-                  "zh/http-api",
-                  "zh/development/provider-integration",
-                  "zh/concepts/synthetic-data"
-                ],
-                "icon": "puzzle-piece",
-                "root": "zh/tools/adding-tools"
-              },
-              {
-                "group": "部署",
-                "pages": [
-                  "zh/deployment/upgrade",
-                  "zh/deployment/backup",
-                  "zh/deployment/restore",
-                  "zh/deployment/export"
-                ],
-                "icon": "server",
-                "root": "zh/deployment/production"
-              }
-            ],
-            "icon": "github"
+            "group": "架构",
+            "icon": "diagram-project",
+            "pages": [
+              "zh/concepts/architecture",
+              "zh/concepts/repository-layout"
+            ]
+          },
+          {
+            "group": "① 收集",
+            "icon": "download",
+            "pages": [
+              "zh/providers/using-providers",
+              "zh/providers/apple-health",
+              "zh/concepts/file-processing"
+            ]
+          },
+          {
+            "group": "② 转译",
+            "icon": "wand-magic-sparkles",
+            "pages": [
+              "zh/concepts/indicators",
+              "zh/concepts/device-crosswalk",
+              "zh/concepts/genetics"
+            ]
+          },
+          {
+            "group": "③ 智能体",
+            "icon": "robot",
+            "pages": [
+              "zh/tools/agents",
+              "zh/tools/overview",
+              "zh/tools/medications",
+              "zh/tools/mcp-integration",
+              "zh/tools/skills"
+            ]
+          },
+          {
+            "group": "扩展",
+            "icon": "puzzle-piece",
+            "pages": [
+              "zh/tools/adding-tools",
+              "zh/http-api",
+              "zh/development/provider-integration",
+              "zh/concepts/synthetic-data"
+            ]
+          },
+          {
+            "group": "部署",
+            "icon": "server",
+            "pages": [
+              "zh/deployment/production",
+              "zh/deployment/upgrade",
+              "zh/deployment/backup",
+              "zh/deployment/restore",
+              "zh/deployment/export"
+            ]
           }
         ]
       }
@@ -544,12 +367,20 @@
       "destination": "/zh/self-host"
     },
     {
-      "source": "/en/api-reference/device-data",
-      "destination": "/en/api-reference/data#device-and-wearable-data"
+      "source": "/en/api-reference",
+      "destination": "/en"
     },
     {
-      "source": "/zh/api-reference/device-data",
-      "destination": "/zh/api-reference/data#设备与可穿戴数据"
+      "source": "/en/api-reference/:slug*",
+      "destination": "/en"
+    },
+    {
+      "source": "/zh/api-reference",
+      "destination": "/zh"
+    },
+    {
+      "source": "/zh/api-reference/:slug*",
+      "destination": "/zh"
     }
   ],
   "styling": {

@@ -1,10 +1,9 @@
 ---
 title: "Self-Hosted HTTP API"
 description: "Get a local deployment token, write a reading through /api/data, and read it back."
-icon: "code"
 ---
 
-The self-hosted engine exposes `/api/*` on your deployment. It uses that deployment's account tokens, rather than Cloud `mb_live_*` keys. The example below uses the **local Docker demo** and its published demo sign-in code. For the complete route and request schema, open `http://localhost:18060/docs` while the server is running.
+The self-hosted engine exposes `/api/*` on your deployment. It authenticates with that deployment's account tokens. The example below uses the **local Docker demo** and its published demo sign-in code. For the complete route and request schema, open `http://localhost:18060/docs` while the server is running.
 
 ## First local API request
 
@@ -48,8 +47,8 @@ Start the [Docker demo](/en/self-host#first-local-result), then use a second ter
   </Step>
 </Steps>
 
-## Cloud and local requests
+## Accounts and demo codes
 
-The local `POST /api/data` accepts a `records` array and returns coding information, but it authenticates with a deployment account token. Cloud uses `/v1/data`, an `mb_live_*` key, a `user` Subject key, and a `retention` setting. On a self-hosted deployment, records belong to the signed-in account; `user` and `retention` do not control tenancy or expiry. See the [Cloud quickstart](/en/api-reference/quickstart) for that contract.
+`POST /api/data` writes to the account that the token represents.
 
 The demo code is for a local example. Before accepting real records, follow [Deploy on a Server](/en/deployment/production) to remove demo accounts and codes.

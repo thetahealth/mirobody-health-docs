@@ -11,8 +11,7 @@
  * the mirobody repository's own documentation verbatim, and to the code itself.
  * Behaviour is still documented, in terms the reader observes.
  *
- * Scope: hand-written pages of the Open Source tab and the overview. The Cloud
- * tab documents a wire contract, where every identifier is caller-typed.
+ * Scope: every hand-written page in the navigation.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

@@ -1,12 +1,9 @@
 ---
 title: "Mirobody"
 sidebarTitle: "Overview"
-icon: "compass"
-description: "Turn scattered health data into answers you can trace. Lab reports, wearables and genetic files in one record, self-hosted with one model key or local models, or through the Mirobody Cloud API."
-keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.cpp", "Mirobody Cloud"]
+description: "Turn scattered health data into answers you can trace. Lab reports, wearables and genetic files in one record, self-hosted with one model key or local models."
+keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.cpp", "open source"]
 ---
-
-import RunModes from '/snippets/run-modes.mdx';
 
 <div className="mb-hero not-prose mt-2 mb-10">
   <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">Open source · Self-hosted · Apache 2.0</p>
@@ -15,7 +12,6 @@ import RunModes from '/snippets/run-modes.mdx';
   <div className="mt-6 flex flex-wrap gap-3">
     <a className="mb-button mb-button-primary" href="/en/self-host">Start with Docker →</a>
     <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
-    <a className="mb-button mb-button-secondary" href="https://chat.mirobody.ai/demo">Live demo</a>
   </div>
 </div>
 
@@ -25,20 +21,22 @@ import RunModes from '/snippets/run-modes.mdx';
 
 ## What is Mirobody?
 
-**Mirobody turns scattered health data into answers you can trace.** It reads lab reports, wearable data, photos and genetic files, gives each value one standard code and unit, and lets an agent answer questions over the record while naming the file behind every number. The engine is [open source](https://github.com/thetahealth/mirobody) under Apache 2.0, built by Theta Health, and runs under its Theta Wellness app. **Mirobody Cloud** offers the same standardization and agent as a hosted API.
+**Mirobody turns scattered health data into answers you can trace.** It reads lab reports, wearable data, photos and genetic files, gives each value one standard code and unit, and lets an agent answer questions over the record while naming the file behind every number. The engine is [open source](https://github.com/thetahealth/mirobody) under Apache 2.0, built by Theta Health, and runs under its Theta Wellness app.
 
-<Frame caption="Collect, translate, and ask: the same three stages in Cloud and in the open-source engine.">
+<Frame caption="Collect, translate, and ask: the three stages from a source file to a traceable answer.">
   <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
   <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
 </Frame>
 
-## Two ways to run it
-
-<RunModes />
-
 ## Start from what you need
 
 <CardGroup cols={2}>
+  <Card title="Run it with Docker" icon="docker" href="/en/self-host">
+    The complete web app with a demo record: `./deploy.sh`, then one model key or local models. Records stay in a Postgres you run.
+  </Card>
+  <Card title="See it in five scenes" icon="play" href="/en/walkthrough">
+    Upload, standardize, ask across reports, share with family, write a journal entry.
+  </Card>
   <Card title="Keep every model on your machine" icon="microchip" href="/en/local-models">
     No model key: llama.cpp serves the models beside the stack. What each size needs, per platform.
   </Card>
@@ -48,8 +46,8 @@ import RunModes from '/snippets/run-modes.mdx';
   <Card title="Resolve names in Python" icon="code" href="/en/quickstart#a--the-library">
     `pip install mirobody`: names to LOINC and units to UCUM, offline, with no key.
   </Card>
-  <Card title="See it in five scenes" icon="play" href="/en/walkthrough">
-    Upload, standardize, ask across reports, share with family, write a journal entry.
+  <Card title="Deploy on a server" icon="server" href="/en/deployment/production">
+    Production settings, secrets, HTTPS, upgrades and backups.
   </Card>
 </CardGroup>
 

@@ -15,7 +15,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { VENDOR, assertVendor, vendorTree } from "./lib/oss.mjs";
-import { siteUrls } from "./site-urls.mjs";
+import { siteAnswers, siteUrls } from "./site-urls.mjs";
 
 const lock = assertVendor();
 const urls = siteUrls();
@@ -30,7 +30,7 @@ for (const file of sources) {
   for (const [, rawPath = "/"] of text.matchAll(DOCS_LINK)) {
     links += 1;
     const path = rawPath.split("#")[0].replace(/\/+$/, "") || "/";
-    if (!urls.has(path)) problems.push(`${file}: https://docs.mirobody.ai${rawPath} — no page or redirect at ${path}`);
+    if (!siteAnswers(path, urls)) problems.push(`${file}: https://docs.mirobody.ai${rawPath} — no page or redirect at ${path}`);
   }
 }
 

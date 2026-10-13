@@ -13,7 +13,7 @@
   border-radius: 0.75rem;
 }
 
-/* Tables: a quiet header row, rounded outline, tighter cells. */
+/* Tables: a quiet header row and tighter cells. */
 .mdx-content table {
   font-size: 0.9rem;
   border-collapse: separate;
@@ -32,20 +32,54 @@
   vertical-align: top;
 }
 
-/* Cards lift slightly and take the brand colour on hover. */
+/* Tables: a hairline between rows, so long rows stay easy to follow. */
+.mdx-content table tbody tr + tr > * {
+  border-top: 1px solid rgb(15 23 42 / 0.06);
+}
+.dark .mdx-content table tbody tr + tr > * {
+  border-top-color: rgb(255 255 255 / 0.06);
+}
+
+/* Linked cards (a div with role="link", or an anchor) lift slightly on hover;
+   the border already takes the brand colour. */
 .card {
-  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition: transform 150ms ease, box-shadow 150ms ease;
 }
-a.card:hover,
-a:hover > .card {
+.card[role="link"]:hover,
+a.card:hover {
   transform: translateY(-2px);
-  border-color: rgb(35 92 171 / 0.45);
-  box-shadow: 0 8px 24px -12px rgb(14 56 128 / 0.35);
+  box-shadow: 0 1px 2px rgb(14 56 128 / 0.06), 0 12px 24px -12px rgb(14 56 128 / 0.3);
 }
-.dark a.card:hover,
-.dark a:hover > .card {
-  border-color: rgb(122 167 240 / 0.5);
+.dark .card[role="link"]:hover,
+.dark a.card:hover {
   box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .card[role="link"]:hover,
+  a.card:hover {
+    transform: none;
+  }
+}
+
+/* A card's icon sits in a soft brand-tinted square, like the stage diagram's. */
+.card [data-component-part="card-icon"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+  background: rgb(35 92 171 / 0.08);
+}
+.card [data-component-part="card-icon"] > svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.dark .card [data-component-part="card-icon"] {
+  background: rgb(122 167 240 / 0.12);
 }
 
 /* Home page hero. */
