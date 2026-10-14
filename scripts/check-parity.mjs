@@ -13,11 +13,13 @@
  *      Generated pages are exempt: their Chinese edition is the repository's own,
  *      or the English text under a notice.
  *   C. frontmatter has a title and a description in both languages
- *   D. no two pages in one tab share a sidebar label (sidebarTitle, else title)
+ *   D. no two pages in one sidebar (a tab's, or the language's when it has no
+ *      tabs) share a sidebar label (sidebarTitle, else title)
  *   E. each page has one place in its language's navigation. A page listed in two
  *      tabs opens under the first, so the second tab's own links (its tab link
- *      included) send the reader to the other tab; a group root that is also in
- *      the group's pages is highlighted twice and its Next link points at itself.
+ *      included) send the reader to the other tab; a page listed twice in one
+ *      sidebar is highlighted twice; a group root that is also in the group's
+ *      pages has a Next link that points at itself.
  *   F. no listed page is the source of a redirect: the redirect hides the page
  */
 import { DOCS_JSON, frontmatter, generatedPages, navEntries, pagesOnDisk, read } from "./lib/pages.mjs";
@@ -76,14 +78,14 @@ for (const e of en) {
   }
 }
 
-// D. sidebar labels unique per tab
+// D. sidebar labels unique per sidebar
 const labels = new Map();
 for (const e of entries) {
   const text = read(e.page);
   if (!text) continue;
   const fm = frontmatter(text);
   const label = fm.sidebarTitle || fm.title;
-  const key = `${e.locale} · ${e.tab} · ${label}`;
+  const key = [e.locale, e.tab, label].filter(Boolean).join(" · ");
   labels.set(key, [...new Set([...(labels.get(key) ?? []), e.page])]);
 }
 for (const [key, pages] of labels) {
@@ -93,7 +95,7 @@ for (const [key, pages] of labels) {
 // E. one place per page
 const places = new Map();
 for (const e of entries) {
-  places.set(e.page, [...(places.get(e.page) ?? []), `${e.tab} › ${e.group}${e.root ? " (root)" : ""}`]);
+  places.set(e.page, [...(places.get(e.page) ?? []), `${[e.tab, e.group].filter(Boolean).join(" › ")}${e.root ? " (root)" : ""}`]);
 }
 for (const [page, where] of places) {
   if (where.length > 1) problems.push(`${page} is listed ${where.length} times: ${where.join(" · ")}`);

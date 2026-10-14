@@ -1,12 +1,9 @@
 ---
 title: "Mirobody"
 sidebarTitle: "概览"
-icon: "compass"
-description: "把分散的健康数据，变成有据可查的答案。化验单、穿戴设备和基因文件汇成一份记录，可以用一个模型 Key 或本地模型自部署，也可以使用 Mirobody Cloud API。"
-keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.cpp", "云端"]
+description: "把分散的健康数据，变成有据可查的答案。化验单、穿戴设备和基因文件汇成一份记录，可以用一个模型 Key 或本地模型自部署。"
+keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.cpp", "开源"]
 ---
-
-import RunModes from '/snippets/zh/run-modes.mdx';
 
 <div className="mb-hero not-prose mt-2 mb-10">
   <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">开源 · 自部署 · Apache 2.0</p>
@@ -15,7 +12,6 @@ import RunModes from '/snippets/zh/run-modes.mdx';
   <div className="mt-6 flex flex-wrap gap-3">
     <a className="mb-button mb-button-primary" href="/zh/self-host">Docker 启动 →</a>
     <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
-    <a className="mb-button mb-button-secondary" href="https://chat.mirobody.ai/demo">在线体验</a>
   </div>
 </div>
 
@@ -25,20 +21,22 @@ import RunModes from '/snippets/zh/run-modes.mdx';
 
 ## 什么是 Mirobody？
 
-**Mirobody 把分散的健康数据，变成有据可查的答案。** 它读入化验单、穿戴设备数据、照片和基因文件，为每个值确定一个规范编码和单位，并让 agent 基于这份记录回答问题，标出每个数字来自哪份文件。引擎以 Apache 2.0 许可[开源](https://github.com/thetahealth/mirobody)，由 Theta Health 开发，也是其 Theta Wellness 应用所用的引擎。**Mirobody Cloud** 以托管 API 的形式提供同样的标准化与 agent 能力。
+**Mirobody 把分散的健康数据，变成有据可查的答案。** 它读入化验单、穿戴设备数据、照片和基因文件，为每个值确定一个规范编码和单位，并让 agent 基于这份记录回答问题，标出每个数字来自哪份文件。引擎以 Apache 2.0 许可[开源](https://github.com/thetahealth/mirobody)，由 Theta Health 开发，也是其 Theta Wellness 应用所用的引擎。
 
-<Frame caption="收集、转译、提问：Cloud 与开源引擎采用同样的三个阶段。">
+<Frame caption="收集、转译、提问：从源文件到可追溯回答的三个阶段。">
   <img alt="收集报告、设备数据和基因数据；统一名称与单位，让不同来源可比较；在整份记录上提问，每个回答都能追溯来源" src="/images/oss/docs/images/collect-translate-agent.zh-CN.svg" className="block dark:hidden" />
   <img alt="收集报告、设备数据和基因数据；统一名称与单位，让不同来源可比较；在整份记录上提问，每个回答都能追溯来源" src="/images/oss/docs/images/collect-translate-agent-dark.zh-CN.svg" className="hidden dark:block" />
 </Frame>
 
-## 两种运行方式
-
-<RunModes />
-
 ## 按需求开始
 
 <CardGroup cols={2}>
+  <Card title="用 Docker 运行" icon="docker" href="/zh/self-host">
+    完整的 Web 应用和示例记录：运行 `./deploy.sh`，再配置一个模型 Key 或使用本地模型。记录保存在你自己运行的 Postgres 中。
+  </Card>
+  <Card title="五个场景看完整流程" icon="play" href="/zh/walkthrough">
+    上传、标准化、跨报告提问、与家人共享、记健康日记。
+  </Card>
   <Card title="让所有模型留在本机" icon="microchip" href="/zh/local-models">
     无需模型 Key：由 llama.cpp 在服务旁运行模型。各平台、各规模的需求。
   </Card>
@@ -48,8 +46,8 @@ import RunModes from '/snippets/zh/run-modes.mdx';
   <Card title="在 Python 中解析名称" icon="code" href="/zh/quickstart#a--the-library">
     `pip install mirobody`：名称到 LOINC、单位到 UCUM，离线，无需 Key。
   </Card>
-  <Card title="五个场景看完整流程" icon="play" href="/zh/walkthrough">
-    上传、标准化、跨报告提问、与家人共享、记健康日记。
+  <Card title="在服务器上部署" icon="server" href="/zh/deployment/production">
+    生产设置、密钥、HTTPS、升级与备份。
   </Card>
 </CardGroup>
 

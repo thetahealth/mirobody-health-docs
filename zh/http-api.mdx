@@ -1,10 +1,9 @@
 ---
 title: "自部署 HTTP API"
 description: "获取本地部署的令牌，通过 /api/data 写入一条读数，再读取确认。"
-icon: "code"
 ---
 
-自部署引擎在你的部署上提供 `/api/*`，使用该部署的账户令牌，而不是 Cloud 的 `mb_live_*` 密钥。以下示例使用**本地 Docker 演示环境**和公开的演示验证码。服务运行时，可以在 `http://localhost:18060/docs` 查看完整路由与请求结构。
+自部署引擎在你的部署上提供 `/api/*`，使用该部署的账户令牌认证。以下示例使用**本地 Docker 演示环境**和公开的演示验证码。服务运行时，可以在 `http://localhost:18060/docs` 查看完整路由与请求结构。
 
 ## 第一次本地 API 调用
 
@@ -48,8 +47,8 @@ icon: "code"
   </Step>
 </Steps>
 
-## 云端与本地请求
+## 账户与演示验证码
 
-本地 `POST /api/data` 接收 `records` 数组并返回编码信息，但认证方式是部署账户令牌。Cloud 使用 `/v1/data`、`mb_live_*` 密钥、`user` Subject 标识和 `retention` 留存设置。自部署记录属于登录账户；`user` 与 `retention` 不控制租户隔离或过期时间。云端协议见 [Cloud 快速开始](/zh/api-reference/quickstart)。
+`POST /api/data` 写入令牌所代表的账户。
 
 演示验证码仅用于本地示例。保存真实记录前，请按[在服务器上部署](/zh/deployment/production)移除演示账户和验证码。

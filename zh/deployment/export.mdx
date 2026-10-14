@@ -14,7 +14,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | 数据 | 接口 | 格式 | 说明 |
 | --- | --- | --- | --- |
 | 读数，连同标准化后的值与单位 | `GET /api/v1/health-indicators/export` | CSV（直接下载），或加 `format=json` 得到 JSON | 筛选条件与记录表相同（`kind`、`modality`、`start_time`、`end_time`、`created_since`、`keywords`）。最多 100,000 行；更大的记录只返回前 100,000 行，并带响应头 `X-Export-Truncated: true`。 |
-| 可见记录，整体一条流 | `GET /api/user/data-export` | 一页 JSON，或带 `Accept: application/x-ndjson` 时为 NDJSON | 路径与结构和 Mirobody Cloud 一致，一个客户端就能从任一种部署里取出一个人的数据。流的末尾是一条 footer，其中的 `complete` 字段是它完整结束的唯一证明。 |
+| 可见记录，整体一条流 | `GET /api/user/data-export` | 一页 JSON，或带 `Accept: application/x-ndjson` 时为 NDJSON | 流的末尾是一条 footer，其中的 `complete` 字段是它完整结束的唯一证明。 |
 | 基因型，来自当前生效的上传 | `GET /api/v1/genomics/export.vcf?build=GRCh38` 与 `GET /api/v1/genomics/export.fhir.json?rsids=…` | VCF 4.2；FHIR | `build` 取 `GRCh37` 或 `GRCh38`；FHIR 导出接受 1 到 50 个 rsID。 |
 | 全部：读数、文件、用药、关爱圈与账号 | 检出目录中的 `shell/backup.sh` | 一份 `pg_dump` 归档和一份上传文件的 tar 包 | 唯一的完整副本。[核验与恢复备份](/zh/deployment/restore)演练恢复过程。 |
 

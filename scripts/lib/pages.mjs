@@ -1,5 +1,5 @@
 /**
- * Which pages exist, which tab they are in, and which of them are generated.
+ * Which pages exist, where they sit in the navigation, and which of them are generated.
  *
  * docs.json is the navigation source; oss-map.json says which Open Source pages
  * are rendered from the mirobody repository by scripts/sync-oss.mjs. A generated
@@ -14,24 +14,26 @@ import { ROOT, readMap } from "./oss.mjs";
 export const DOCS_JSON = JSON.parse(readFileSync(join(ROOT, "docs.json"), "utf8"));
 
 /**
- * [{ locale, tab, tabIndex, group, page, root }] for every page in the navigation,
- * in sidebar order: a group's root page (its title) first, then its pages.
+ * [{ locale, tab, group, page, root }] for every page in the navigation, in
+ * sidebar order: a group's root page (its title) first, then its pages. A
+ * language without tabs has one sidebar; its entries carry `tab: null`.
  */
 export function navEntries() {
   const out = [];
   for (const language of DOCS_JSON.navigation.languages) {
-    language.tabs.forEach((tab, tabIndex) => {
+    const tabs = language.tabs ?? [{ tab: null, groups: language.groups }];
+    for (const tab of tabs) {
       for (const group of tab.groups) {
-        const base = { locale: language.language, tab: tab.tab, tabIndex, group: group.group };
+        const base = { locale: language.language, tab: tab.tab, group: group.group };
         if (group.root) out.push({ ...base, page: group.root, root: true });
         for (const page of group.pages) out.push({ ...base, page, root: false });
       }
-    });
+    }
   }
   return out;
 }
 
-/** `en/api-reference/index` → the file on disk, or null. */
+/** `en/tools/agents` → the file on disk, or null. */
 export function pageFile(page) {
   const file = join(ROOT, `${page}.mdx`);
   return existsSync(file) ? file : null;
@@ -80,11 +82,10 @@ export function pagesOnDisk() {
   return out;
 }
 
-/** Hand-written pages in the Open Source tab and the overview: what the OSS editorial gates scan. */
+/** Hand-written pages in the navigation: what the editorial gates scan. */
 export function selfWrittenOssPages() {
   const generated = generatedPages();
   return navEntries()
-    .filter((e) => e.tabIndex !== 1) // tab 1 is Cloud: a wire contract, checked against the backend instead
     .map((e) => e.page)
     .filter((page) => !generated.has(page));
 }

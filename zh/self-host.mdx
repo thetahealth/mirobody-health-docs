@@ -2,7 +2,6 @@
 title: "使用 Docker 自部署"
 sidebarTitle: "自部署 Mirobody"
 description: "在你自己的机器上运行完整的开源产品：两条命令，一个模型 Key 或本地模型，在示例记录上得到第一个回答。"
-icon: "server"
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
@@ -106,7 +105,7 @@ COMPOSE_PROFILES=local ./deploy.sh         # NVIDIA 显卡
   </Card>
 </CardGroup>
 
-不运行整套服务、只在自己的代码里解析名称和单位，见[作为库使用](/zh/quickstart#a--the-library)。自部署的引擎在 `/` 提供 Web 客户端，在 `/api/*` 提供自己的 [HTTP API](/zh/http-api)，在 `/mcp` 提供 MCP；它不提供 Cloud 的 `/v1` API。
+不运行整套服务、只在自己的代码里解析名称和单位，见[作为库使用](/zh/quickstart#a--the-library)。自部署的引擎在 `/` 提供 Web 客户端，在 `/api/*` 提供自己的 [HTTP API](/zh/http-api)，在 `/mcp` 提供 MCP。
 
 ## 参与贡献 {#contributing}
 

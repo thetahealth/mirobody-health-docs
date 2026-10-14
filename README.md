@@ -1,17 +1,15 @@
 # Mirobody documentation
 
-Source of [docs.mirobody.ai](https://docs.mirobody.ai): the documentation for
-Mirobody Cloud and for the open-source engine,
-[thetahealth/mirobody](https://github.com/thetahealth/mirobody). The site is built
+Source of [docs.mirobody.ai](https://docs.mirobody.ai): the documentation for the
+open-source engine, [thetahealth/mirobody](https://github.com/thetahealth/mirobody). The site is built
 with [Mintlify](https://mintlify.com) and published from `main`.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `docs.json` | Site configuration and navigation: three tabs (Home, Cloud, Open Source) in English and Chinese |
+| `docs.json` | Site configuration and navigation: one sidebar per language, English and Chinese |
 | `en/`, `zh/` | The pages. The two trees mirror each other page for page. |
-| `en/api-reference/`, `zh/api-reference/` | Mirobody Cloud: the hosted `/v1` API |
 | `snippets/` | Shared page fragments, and `oss-facts.jsx` (generated) |
 | `images/` | Images; `images/oss/` is copied from the engine repository (generated) |
 | `oss.lock` | The mirobody release the Open Source pages describe: version and commit |
@@ -67,7 +65,7 @@ npm run dev         # mint dev, http://localhost:3000
 ## Checks
 
 ```bash
-npm run verify      # sync, parity, headings, internals, facts, freshness, repository links, README links, Cloud regions, public content
+npm run verify      # sync, parity, headings, internals, facts, freshness, repository links, README links, public content
 npm run check:mint  # mint broken-links (including anchors and redirects), then mint validate
 ```
 
