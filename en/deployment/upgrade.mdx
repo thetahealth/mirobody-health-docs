@@ -7,7 +7,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-This procedure is for the Docker deployment described in [Deploy on a Server](/en/deployment/production). `deploy.sh` recreates any changed service in place (`docker compose up -d --remove-orphans`), which briefly interrupts the running stack, so reserve a maintenance window. Database schema changes are additive on startup; there is no automatic down migration. A code checkout alone is not a rollback. Upgrading from 1.5.2 removes Redis from the stack; see [Backup & Restore, "Upgrading from 1.5.2"](/en/deployment/backup#upgrading-from-152) for the extra steps that release needs. Upgrading to 1.5.4 drops the reading tables that 1.5.0 replaced; the one that held every reading before 1.5.0 goes only once `mirobody migrate-observations` has proven every row moved, and the release's notes in <OssLink path="CHANGELOG.md" /> say when to run it and with which flag.
+Schedule a brief maintenance window: `deploy.sh` recreates changed services. Back up data and keys before switching versions; schema changes have no automatic rollback. Review version-specific steps in the [backup reference](/en/deployment/backup) and <OssLink path="CHANGELOG.md" />.
 
 ## Before changing code
 

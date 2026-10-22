@@ -1,13 +1,13 @@
 ---
-title: "排错"
-description: "如何阅读 doctor 报告、自部署无法正常启动的常见原因，以及本地模型出问题时该检查什么。"
+title: "故障排查"
+description: "检查模型配置、服务日志和本地模型连接，处理常见的启动与运行故障。"
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-先看 doctor 报告和容器日志。大多数故障会在这两处之一直接给出修复方法。
+先检查模型诊断结果和最近的容器日志：
 
 ```bash
 docker compose exec mirobody mirobody doctor   # 每个用途选中了哪个模型
@@ -26,7 +26,7 @@ docker compose logs --tail 80 mirobody         # 服务端自身的日志
 | `retired keys` | 早期版本的配置键，已不再读取。请把这项设置移到 `config.llm.yaml` 的 `MODELS` 条目或 `UTILS_*` 路由中。 |
 | `unread fields` | `MODELS` 条目里没有任何代码读取的字段，通常是拼写错误。 |
 
-`mirobody doctor --probe` 更进一步，向每个用途发送一次真实请求；选中了模型却没通过探测的用途，问题在服务或模型本身胜任不了，而不是缺少密钥。
+加上 `--probe` 可以发送真实请求，检查模型是否可用。如果已有模型配置但测试失败，请检查接口地址、网络连接和模型能力。
 
 ## 启动失败
 
@@ -37,7 +37,6 @@ docker compose logs --tail 80 mirobody         # 服务端自身的日志
 | 拉取镜像失败，或构建时无法访问 Docker Hub | Docker Hub 无响应时，`deploy.sh` 会改用 `docker.1ms.run` 镜像源；只有在完全拉取不到镜像时才会在本地构建。通过代理上网时，需要为 Docker 守护进程本身配置代理，只配置 shell 不够。 |
 | 首次启动耗时很长 | 镜像没能拉取到，`deploy.sh` 于是从本地检出构建。请在运行 `./deploy.sh` 的 shell 里设置 `PIP_INDEX_URL`（它作为构建参数传入，不从 `.env` 读取），改用更近的包索引。 |
 | 设置 `PRODUCTION: true` 后服务端拒绝启动 | 仍有预置登录码或 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值，日志会写明是哪些，见[在服务器上部署](/zh/deployment/production#production-posture)。 |
-| `mirobody serve` 找不到配置 | `config.yaml` 不在 PyPI 包中。请在源码检出中运行，或使用不需要配置文件的 `mirobody dev`。 |
 | `mirobody dev` 退出并要求提供 Postgres | 传入 `--pg-url`，或设置 `PG_URL` 或 `DATABASE_URL`。数据库需要 pgvector 扩展。 |
 
 ## 运行中的问题
@@ -49,7 +48,7 @@ docker compose logs --tail 80 mirobody         # 服务端自身的日志
 | 通过代理上网时模型调用报 `Cannot connect to host` | 容器不会继承 shell 的代理设置。在 `.env` 中设置 `HTTP_PROXY` 与 `HTTPS_PROXY`，`compose.yaml` 会把它们传给服务端，并让本机的模型服务不走代理。 |
 | 上传的文件已保存，但没有出现读数 | 没有选中视觉、OCR 或文本模型（见 doctor 报告），或者 `ENABLE_INDICATOR_EXTRACTION` 为 `0`。 |
 | 演示账号无法登录 | 首次启动时 `SEED_DEMO_DATA` 为 `false`，或覆盖文件替换了 `EMAIL_PREDEFINE_CODES`（覆盖文件中的字典是替换，不是合并）。 |
-| 某个设备 provider 没有出现 | 它的凭据缺失，启动时自行跳过了，启动日志会写明是哪一个。见[设备 Provider](/zh/providers/using-providers#排查)。 |
+| 某个设备 provider 没有出现 | 它的凭据缺失，启动时自行跳过了，启动日志会写明是哪一个。见[设备 Provider](/zh/providers/using-providers#troubleshooting)。 |
 
 ## 本地模型
 

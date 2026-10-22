@@ -55,10 +55,12 @@ docker compose cp backups/mirobody-db-YYYYMMDD-HHMMSS.dump pg:/tmp/restore.dump
 docker compose exec -T pg createdb -U holistic_user holistic_db_restored
 docker compose exec -T pg pg_restore -U holistic_user -d holistic_db_restored --no-owner /tmp/restore.dump
 docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
+  'TRUNCATE theta_ai.th_ephemeral'
+docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
   "select count(*) from information_schema.tables where table_schema='theta_ai'"
 ```
 
-新数据库不会覆盖旧数据库；如果 `holistic_db_restored` 已存在，请另选数据库名。把当前 `config.prod.yaml`（或 `ENV` 选择的覆盖文件）中的 `PG_DBNAME` 设为 `holistic_db_restored`。启动应用前，恢复**与备份匹配的加密密钥和配置**；用新生成的密钥无法读取原先的加密记录。
+新数据库不会覆盖旧数据库；如果 `holistic_db_restored` 已存在，请另选数据库名。在 `.env` 中设置 `PG_DBNAME=holistic_db_restored`，让 Compose 与应用都使用恢复后的数据库。启动应用前，恢复**与备份匹配的加密密钥和配置**；用新生成的密钥无法读取原先的加密记录。
 
 如果文件存放在本地，先用 `docker volume ls` 查实际上传卷名称。仓库目录名为 `mirobody` 时，通常是 `mirobody_mirobody_upload`。恢复前确认数据卷已经存在；否则 `docker run -v` 会悄悄创建空卷。把同一批次的文件归档恢复进该卷：
 

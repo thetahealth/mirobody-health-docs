@@ -8,7 +8,7 @@ keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.c
 <div className="mb-hero not-prose mt-2 mb-10">
   <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">Open source · Self-hosted · Apache 2.0</p>
   <p className="mb-headline mt-3 text-gray-900 dark:text-white">Turn scattered health data into answers you can trace.</p>
-  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Lab reports, wearables and genetic files in one standardized record. Start with Docker and one model key, or keep every model on your own machine.</p>
+  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Bring lab reports, wearable data and genetic files into one standardized record. Run Mirobody with Docker, using a cloud model or models on your own machine.</p>
   <div className="mt-6 flex flex-wrap gap-3">
     <a className="mb-button mb-button-primary" href="/en/self-host">Start with Docker →</a>
     <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
@@ -21,27 +21,27 @@ keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.c
 
 ## What is Mirobody?
 
-**Mirobody turns scattered health data into answers you can trace.** It reads lab reports, wearable data, photos and genetic files, gives each value one standard code and unit, and lets an agent answer questions over the record while naming the file behind every number. The engine is [open source](https://github.com/thetahealth/mirobody) under Apache 2.0, built by Theta Health, and runs under its Theta Wellness app.
+Mirobody is an open-source health-data engine. It brings reports, device data, photos and genetic files into a shared record, standardizes recognized names and units, and lets you ask questions with references to the original sources. Built by Theta Health, it powers the Theta Wellness app and is available under the [Apache 2.0 license](https://github.com/thetahealth/mirobody).
 
 <Frame caption="Collect, translate, and ask: the three stages from a source file to a traceable answer.">
   <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
   <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent-dark.svg" className="hidden dark:block" />
 </Frame>
 
-## Start from what you need
+## Getting started
 
 <CardGroup cols={2}>
   <Card title="Run it with Docker" icon="docker" href="/en/self-host">
-    The complete web app with a demo record: `./deploy.sh`, then one model key or local models. Records stay in a Postgres you run.
+    Start the web app and demo records with `./deploy.sh`, then choose a cloud or local model. Your records stay in your own Postgres database.
   </Card>
-  <Card title="See it in five scenes" icon="play" href="/en/walkthrough">
+  <Card title="Try the walkthrough" icon="play" href="/en/walkthrough">
     Upload, standardize, ask across reports, share with family, write a journal entry.
   </Card>
   <Card title="Keep every model on your machine" icon="microchip" href="/en/local-models">
-    No model key: llama.cpp serves the models beside the stack. What each size needs, per platform.
+    Run models locally with llama.cpp. Check hardware requirements and setup instructions for your platform.
   </Card>
   <Card title="Connect your own agent" icon="plug" href="/en/tools/mcp-integration">
-    Your record in Claude Code, Codex, Cursor or Gemini CLI over MCP.
+    Query your records from Claude Code, Codex, Cursor or Gemini CLI through MCP.
   </Card>
   <Card title="Resolve names in Python" icon="code" href="/en/quickstart#a--the-library">
     `pip install mirobody`: names to LOINC and units to UCUM, offline, with no key.
@@ -53,6 +53,6 @@ keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.c
 
 ## Use it without running anything
 
-[Theta](https://dr.thetahealth.ai/en/login?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home), built on Mirobody, keeps your own records on the web and in its mobile app. To look first, the [live demo](https://chat.mirobody.ai/demo?ref=mirobody-docs&lang=en) answers over synthetic records, with nothing to sign up for.
+Use [Theta](https://dr.thetahealth.ai/en/login?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home) on the web or in its mobile app to manage your own records without deploying Mirobody. You can also try the [live demo](https://chat.mirobody.ai/demo?ref=mirobody-docs&lang=en) with synthetic records; no account is required.
 
-The source, issues and releases are on [GitHub](https://github.com/thetahealth/mirobody). If Mirobody is useful to you, a star there helps others find it.
+Find source code, releases and support on [GitHub](https://github.com/thetahealth/mirobody).

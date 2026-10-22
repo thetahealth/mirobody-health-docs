@@ -7,11 +7,11 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-仓库中的默认值面向本地、单人的试用：演示账号的登录码是公开的，密钥是占位值，数据库端口发布在宿主机上。本页说明如何从这里走到一套可供他人访问的部署。所依据的安全清单是 <OssLink path="SECURITY.md" />。
+保存真实记录或开放多人访问前，请先配置生产登录、独立密钥和 HTTPS。本地演示的默认配置不适合直接对外使用。完整安全说明见 <OssLink path="SECURITY.md" />。
 
 ## 主机要求
 
-一台装有 Docker Engine 与 **2.24.4 或更新版本的 Compose 插件**、Git 的 Linux 主机，并且能访问你的模型密钥所属的服务商，**或者**让本地模型跟整套服务一起运行：NVIDIA 显卡上用 `local` Compose profile（需安装 NVIDIA Container Toolkit），只有 CPU 时用 `local-cpu`，这是最慢的方式。不用本地模型时不需要 GPU。整套服务运行三个容器：带 pgvector 的 Postgres、服务端与 worker，外加一个每次启动都会运行一次、用于修正上传卷属主的一次性容器；用 profile 运行模型时还有 `llama` 服务。主机容量取决于并发用户数和文件处理量；此版本尚未公布经过测量的最低配置，每种本地规模需要的内存见[本地运行](/zh/local-models)。
+准备一台 Linux 主机，安装 Docker Engine、**2.24.4 或更新版本的 Compose 插件**和 Git。使用云端模型时，主机需要能访问相应服务；使用本地模型时，NVIDIA 显卡配合 NVIDIA Container Toolkit 和 `local` profile，无显卡则使用 `local-cpu`。主机容量应按并发用户数和文件处理量规划，模型的内存要求见[本地运行](/zh/local-models)。
 
 ## 首次启动
 
@@ -90,7 +90,7 @@ Postgres 只在创建空数据卷时应用 `POSTGRES_PASSWORD`。要把 `PG_PASS
 
 ## 公网地址与 HTTPS {#public-url-and-https}
 
-在服务端前面用反向代理终止 TLS，服务端监听端口 <Fact k="port" />。以下示例在同一台主机上运行 Caddy。先把域名解析到该主机，并开放 80 和 443 端口供证书签发与 HTTPS 使用。在 `compose.override.yaml` 中，把下方服务配置合并到「密钥」一节的覆盖文件：这样应用只接受来自宿主机的连接，并信任 Compose 网络预设网关上的代理。`!override` 不能省略；否则 Compose 会在新增回环绑定的同时保留原来的公网绑定，参见 [Compose 合并规则](https://docs.docker.com/reference/compose-file/merge/)。
+在服务端前面用反向代理终止 TLS，服务端监听端口 <Fact k="port" />。以下示例在同一台主机上运行 Caddy。先把域名解析到该主机，并开放 80 和 443 端口供证书签发与 HTTPS 使用。在 `compose.override.yaml` 中，把下方服务配置合并到「密钥」一节的覆盖文件：这样应用只接受来自宿主机的连接，并信任 Compose 网络预设网关上的代理。`!override` 会替换原有端口列表，避免保留其他绑定，参见 [Compose 合并规则](https://docs.docker.com/reference/compose-file/merge/)。
 
 ```yaml compose.override.yaml
 services:
@@ -119,7 +119,7 @@ MCP_PUBLIC_URL: https://health.example.com
 个人 MCP URL 以请求到达时的源开头。如果代理地址不在信任名单中，服务端会忽略它发送的 `X-Forwarded-Proto`，生成的 URL 可能以 `http://` 开头。分享之前，请从公网 HTTPS 站点核对该 URL。
 </Warning>
 
-不要把 Postgres 暴露到公网。`compose.yaml` 已经只在回环地址上发布它（<Fact k="pgPort" />），便于本机查看，这一项不需要改动。基础 Compose 文件把应用端口公开发布，因此请保留上面的回环地址覆盖配置。运行 `docker compose config`，确认最终的 `mirobody.ports` **只有**回环绑定。
+不要把 Postgres 暴露到公网。`compose.yaml` 已经只在回环地址上发布它（<Fact k="pgPort" />），便于本机查看，这一项不需要改动。应用默认也只绑定回环地址；修改 `MIROBODY_BIND` 或添加覆盖配置时，请保留这一限制。运行 `docker compose config`，确认最终的 `mirobody.ports` **只有**回环绑定。
 
 ## 验证部署
 

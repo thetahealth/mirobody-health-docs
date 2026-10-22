@@ -1,16 +1,16 @@
 ---
 title: "使用 Docker 自部署"
 sidebarTitle: "自部署 Mirobody"
-description: "在你自己的机器上运行完整的开源产品：两条命令，一个模型 Key 或本地模型，在示例记录上得到第一个回答。"
+description: "通过 Docker 启动 Mirobody，选择模型，并用演示记录完成第一次提问。"
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-Docker 栈就是完整的产品：Web 应用、保存你记录的 Postgres、后台 worker，以及一份可以直接试用的合成示例记录。它需要带 Compose 的 Docker；在 Windows 上，请在 WSL 2 终端中执行命令。不需要 Python、Node.js 或显卡。引擎以 Apache 2.0 许可开源，仓库是 [thetahealth/mirobody](https://github.com/thetahealth/mirobody)。
+Docker 会启动 Web 应用、Postgres 数据库、后台 worker 和演示数据。准备好 Docker 与 Compose 即可，无需另装 Python、Node.js 或显卡；Windows 用户请在 WSL 2 终端操作。项目采用 Apache 2.0 许可，源码见 [GitHub](https://github.com/thetahealth/mirobody)。
 
-## 三步得到第一个回答 {#first-local-result}
+## 启动与试用 {#first-local-result}
 
 <Steps>
   <Step title="启动服务">
@@ -19,10 +19,10 @@ Docker 栈就是完整的产品：Web 应用、保存你记录的 Postgres、后
     ./deploy.sh
     ```
 
-    脚本把各项密钥写入 `.env`（生成密钥需要 OpenSSL），拉取应用镜像，创建演示账号和示例读数，并打印设置页的链接。
+    脚本会调用 OpenSSL 生成密钥并写入 `.env`，下载应用镜像，启动演示环境，最后输出设置页链接。
   </Step>
   <Step title="选择模型">
-    打开打印出的链接，填写一个模型 Key：OpenRouter、OpenAI、Gemini、Anthropic、DeepSeek、DashScope，或任何 OpenAI 兼容网关。Key 经一次真实请求验证通过后才会保存，并加密存储；之后可在**设置 › 模型**中修改，无需重启。若要让所有模型都在本机运行，见[模型的运行位置](#models)。
+    打开终端中显示的链接，填写模型 API 密钥：OpenRouter、OpenAI、Gemini、Anthropic、DeepSeek、DashScope，或任何 OpenAI 兼容网关。密钥通过实际请求验证后才会加密保存；之后可在**设置 › 模型**中修改，无需重启。若要让所有模型都在本机运行，见[模型的运行位置](#models)。
   </Step>
   <Step title="登录并提问">
     打开 <Fact k="url" code />，在「邮箱验证码」标签用 `you@mirobody.ai` 和验证码 `111111` 登录。问「我的胆固醇有什么变化？」：回答会画出趋势，并标出每个数字来自哪份文件。然后在**数据**页上传 `demo/upload/` 中的一份文件，或切换到 `mom@mirobody.ai` 共享给你的档案。
@@ -44,7 +44,7 @@ Docker 栈就是完整的产品：Web 应用、保存你记录的 Postgres、后
     `mirobody` 服务应为 `healthy`，健康检查返回 `version` 和 `agent`。`mirobody doctor` 列出每个模型用途选中的条目；加上 `--probe` 会向每个用途发送一次真实请求。之后才在 `.env` 中添加 Key 时，请运行 `docker compose up -d`；`docker compose restart` 不会重新读取 `.env`。常见故障见[故障排查](/zh/troubleshooting)。
   </Accordion>
   <Accordion title="这台机器没有 Git">
-    源码压缩包就是同一份检出：
+    也可以直接下载并解压源码：
 
     ```bash
     curl -L https://github.com/thetahealth/mirobody/archive/refs/heads/main.tar.gz | tar xz && cd mirobody-main
@@ -58,7 +58,7 @@ Docker 栈就是完整的产品：Web 应用、保存你记录的 Postgres、后
 | --- | --- | --- |
 | 由谁运行模型 | 你填写 Key 的那家服务商 | [llama.cpp](/zh/local-models) 的 `llama-server`，与服务一起运行或运行在宿主机上 |
 | 你需要 | Docker 和一个 Key | Docker；默认规模需要 16 GB 内存，其中至少 8 GB 分配给 Docker |
-| 速度 | 取决于服务商和所选模型 | 16 GB Apple 芯片笔记本的 GPU 上约 30 秒；只用 CPU 时需要几分钟 |
+| 速度 | 取决于所选模型和服务 | 建议使用 GPU；只用 CPU 时，一次回答可能需要几分钟 |
 
 若要让模型在 Docker 中随服务一起运行，用 Compose profile 启动，代替单独的 `./deploy.sh`：
 
@@ -67,11 +67,11 @@ COMPOSE_PROFILES=local-cpu ./deploy.sh     # 任何电脑，不需要显卡
 COMPOSE_PROFILES=local ./deploy.sh         # NVIDIA 显卡
 ```
 
-脚本会把 Mirobody 指向模型服务，设置页无需再做选择；第一个问题要等待一次性下载约 3 GB 的模型。没有显卡时，第一个回答在 Apple 芯片笔记本的 CPU 上约需 2–3 分钟，在 4 vCPU 的 x86 服务器上最长约 15 分钟。在 Mac 上，`llama-server` 直接在宿主机上使用 GPU 运行，设置页会自动找到它。各平台的做法、两档规模及其需求见[本地运行](/zh/local-models)；[选择模型](/zh/model-choice)把它们与五个云端模型放在一起比较。`.env` 中的厂商 Key 优先于本地模型，[配置](/zh/configuration#local-models)列出了反转这一顺序的三个变量。
+这两种启动方式会自动配置模型连接，首次提问前需要等待模型下载。在 Mac 上，请在宿主机运行 `llama-server`，以便使用 GPU。各平台的安装步骤见[本地运行](/zh/local-models)，不同方案的适用场景见[选择模型](/zh/model-choice)。`.env` 中的云端 API 密钥优先；如需明确使用本地模型，请按[配置说明](/zh/configuration#local-models)设置。
 
 ## 离开这台机器的数据 {#what-leaves-the-machine}
 
-你的记录保存在你自己的 Postgres 中，这里不会向任何地方上报使用情况。什么会离开，取决于由谁来读：
+健康记录保存在你自己的 Postgres 数据库中，Mirobody 不上报使用统计。是否向外部服务发送数据，取决于你启用的功能：
 
 | | 使用模型 Key | 100% 在本机运行 |
 | --- | --- | --- |
@@ -105,7 +105,7 @@ COMPOSE_PROFILES=local ./deploy.sh         # NVIDIA 显卡
   </Card>
 </CardGroup>
 
-不运行整套服务、只在自己的代码里解析名称和单位，见[作为库使用](/zh/quickstart#a--the-library)。自部署的引擎在 `/` 提供 Web 客户端，在 `/api/*` 提供自己的 [HTTP API](/zh/http-api)，在 `/mcp` 提供 MCP。
+如果只需在代码中解析名称和单位，无需启动完整应用，见[作为库使用](/zh/quickstart#a--the-library)。自部署的引擎在 `/` 提供 Web 客户端，在 `/api/*` 提供自己的 [HTTP API](/zh/http-api)，在 `/mcp` 提供 MCP。
 
 ## 参与贡献 {#contributing}
 

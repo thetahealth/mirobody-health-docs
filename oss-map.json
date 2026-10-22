@@ -13,10 +13,13 @@
       "slug": "quickstart",
       "source": "docs/quickstart.md",
       "zhSource": "docs/quickstart.zh-CN.md",
-      "label": { "en": "Quickstart", "zh": "快速开始" },
+      "label": {
+        "en": "Quickstart",
+        "zh": "快速开始"
+      },
       "description": {
-        "en": "Start with Docker for the whole product, or use one part of it: the library, the stack, or a source checkout, and what each needs.",
-        "zh": "用 Docker 体验完整产品，或只使用其中一部分：作为库、Docker 栈、源码检出，以及各自需要什么。"
+        "en": "Install the Python library or start the application, then try your first query.",
+        "zh": "安装 Python 库或启动应用，完成第一次查询。"
       }
     },
     {
@@ -24,21 +27,13 @@
       "source": "docs/local-models.md",
       "zhSource": "docs/local-models.zh-CN.md",
       "title": "Run Every Model Locally",
-      "label": { "en": "Run Locally", "zh": "本地运行" },
+      "label": {
+        "en": "Run Locally",
+        "zh": "本地运行"
+      },
       "description": {
-        "en": "Run every model on your own machine with llama.cpp: the two models, the sizes offered, the start command per platform, and what each can read in a photo.",
-        "zh": "用 llama.cpp 让所有模型都在你自己的机器上运行：两个模型、可选的规模、各平台的启动命令，以及每个模型能从照片里读出什么。"
-      }
-    },
-    {
-      "slug": "local-models-roadmap",
-      "source": "docs/local-models-roadmap.md",
-      "zhSource": "docs/local-models-roadmap.zh-CN.md",
-      "title": "Local Models Measured",
-      "label": { "en": "Local Models Measured", "zh": "本地模型实测" },
-      "description": {
-        "en": "The local models measured side by side, what GLM-OCR can and cannot read in a photo, and the plan for a small post-trained pair.",
-        "zh": "逐一实测的本地模型、GLM-OCR 能从照片里读出与读不出的内容，以及小型后训练模型组合的计划。"
+        "en": "Hardware requirements, platform setup and connection checks for local models.",
+        "zh": "准备硬件，按平台启动本地模型，并检查连接。"
       }
     },
     {
@@ -46,10 +41,13 @@
       "source": "docs/model-choice.md",
       "zhSource": "docs/model-choice.zh-CN.md",
       "title": "Choosing a Model",
-      "label": { "en": "Choosing a Model", "zh": "选择模型" },
+      "label": {
+        "en": "Choosing a Model",
+        "zh": "选择模型"
+      },
       "description": {
-        "en": "Which model to run, by who may read your health data and how good the answers must be: the two local sizes, five cloud models measured on one evaluation, and the Mirobody model coming in 1.6.0.",
-        "zh": "按谁能读到你的健康数据、回答需要多好来选择模型：两档本地规模、在同一评测上实测的五个云端模型，以及 1.6.0 将推出的 Mirobody 模型。"
+        "en": "Choose local, cloud or hybrid processing by hardware and data privacy.",
+        "zh": "根据硬件和数据隐私要求选择本地、云端或混合方案。"
       }
     },
     {
@@ -57,171 +55,208 @@
       "source": "docs/walkthrough.md",
       "zhSource": "docs/walkthrough.zh-CN.md",
       "title": "Walkthrough",
-      "label": { "en": "Walkthrough", "zh": "完整演示" },
+      "label": {
+        "en": "Walkthrough",
+        "zh": "完整演示"
+      },
       "description": {
-        "en": "The running stack in five scenes: sign in, upload a report, read its codes, ask across reports and a shared record, and write a journal entry.",
-        "zh": "用五个场景走完运行中的整套系统：登录、上传报告、查看编码、跨报告和共享记录提问，以及写一句健康日记。"
+        "en": "Upload a report, inspect results, ask questions and record a journal entry.",
+        "zh": "上传报告、核对结果、提问并记录健康日记。"
       }
     },
     {
       "slug": "concepts/architecture",
-      "source": "docs/pipeline.md",
-      "zhIntro": "从文件进入系统到智能体引用读数，本页逐段解释处理管线。想先看到实际效果，可从[完整演示](/zh/walkthrough)进入；查每个阶段的约束与未处理情况时，再读下方英文原文。",
-      "title": "The Pipeline",
-      "label": { "en": "The Pipeline", "zh": "数据管线" },
+      "source": "docs/site/pipeline.md",
+      "title": "Data Pipeline",
+      "label": {
+        "en": "Data Pipeline",
+        "zh": "数据流程"
+      },
       "description": {
-        "en": "The eleven stages a reading passes through, the invariant each one holds, and what is deliberately not done.",
-        "zh": "一条读数经过的十一个阶段、每个阶段守住的约束，以及有意不做的事。"
-      }
-    },
-    {
-      "slug": "concepts/repository-layout",
-      "source": "docs/repository-layout.md",
-      "zhSource": "docs/repository-layout.zh-CN.md",
-      "title": "Repository Layout",
-      "label": { "en": "Repository Layout", "zh": "仓库结构" },
-      "description": {
-        "en": "Where each of the three stages lives in the repository, and the two forms the code ships in: library and application.",
-        "zh": "三个阶段分别位于仓库的哪个目录，以及代码发布的两种形态：库与应用。"
-      }
+        "en": "How source data becomes standardized records and cited answers.",
+        "zh": "原始资料如何整理成标准化记录，并用于有来源的回答。"
+      },
+      "zhSource": "docs/site/pipeline.zh-CN.md"
     },
     {
       "slug": "providers/using-providers",
-      "source": "docs/provider-setup.md",
-      "zhSource": "docs/provider-setup.zh-CN.md",
+      "source": "docs/site/provider-setup.md",
+      "zhSource": "docs/site/provider-setup.zh-CN.md",
       "title": "Connect a Device Provider",
-      "label": { "en": "Device Providers", "zh": "设备 Provider" },
+      "label": {
+        "en": "Device Providers",
+        "zh": "设备 Provider"
+      },
       "description": {
-        "en": "Turn on Garmin, Oura and Whoop: vendor credentials, callback URLs, and how to confirm a provider is running.",
-        "zh": "启用 Garmin、Oura 与 Whoop：厂商凭据、回调地址，以及如何确认 provider 已在运行。"
+        "en": "Configure credentials and callbacks for Garmin, Oura and WHOOP.",
+        "zh": "配置 Garmin、Oura、WHOOP 的凭据与回调，检查同步状态。"
       }
     },
     {
       "slug": "concepts/file-processing",
-      "source": "docs/file-processing.md",
-      "zhIntro": "本页说明 PDF、图片、Office 和文本文件的上传、提取与错误处理流程。先用[快速开始](/zh/quickstart)运行服务，再按下方英文原文查接口和返回结构。",
+      "source": "docs/site/file-processing.md",
       "title": "File Processing",
-      "label": { "en": "File Processing", "zh": "文件处理" },
+      "label": {
+        "en": "File Processing",
+        "zh": "文件处理"
+      },
       "description": {
-        "en": "How an uploaded file becomes text by kind — PDF text layer, OCR for scanned pages, Office, plain text — and then readings.",
-        "zh": "上传的文件如何按类型变成文本（PDF 文字层、扫描页 OCR、Office、纯文本），再变成读数。"
-      }
+        "en": "Supported documents, upload status, extracted readings and API entry points.",
+        "zh": "支持的文档格式、上传状态、读数核对与 API 接入。"
+      },
+      "zhSource": "docs/site/file-processing.zh-CN.md"
     },
     {
       "slug": "providers/apple-health",
-      "source": "docs/apple-health.md",
-      "zhIntro": "本页介绍 Apple Health 导出包、CDA 文档和手机客户端推送数据的入口。准备接入前，先确认要处理的是离线导出文件，还是持续推送的 HealthKit 数据。",
+      "source": "docs/site/apple-health.md",
       "title": "Apple Health Import",
-      "label": { "en": "Apple Health", "zh": "Apple Health" },
+      "label": {
+        "en": "Apple Health",
+        "zh": "Apple Health"
+      },
       "description": {
-        "en": "Importing an Apple Health export and CDA documents, and the endpoint a phone client pushes HealthKit data to.",
-        "zh": "导入 Apple Health 导出包与 CDA 文档，以及手机客户端推送 HealthKit 数据的接口。"
-      }
+        "en": "Import a Health export or receive records from an authorized client.",
+        "zh": "导入健康 App 导出包，或接收已授权客户端推送的数据。"
+      },
+      "zhSource": "docs/site/apple-health.zh-CN.md"
     },
     {
       "slug": "concepts/indicators",
-      "source": "docs/standardization.md",
-      "zhSource": "docs/standardization.zh-CN.md",
+      "source": "docs/site/standardization.md",
+      "zhSource": "docs/site/standardization.zh-CN.md",
       "title": "Standardization",
-      "label": { "en": "Standardization", "zh": "标准化" },
+      "label": {
+        "en": "Standardization",
+        "zh": "标准化"
+      },
       "description": {
-        "en": "② Translate in depth: the alias tiers, which LOINC release ships, and what the bundled cut does and does not cover.",
-        "zh": "② 转译详解：别名的分层、随包发布的 LOINC 版本，以及这份词表覆盖与不覆盖的范围。"
+        "en": "Resolve names and compatible units offline, with explicit unknown results.",
+        "zh": "离线解析指标名称和兼容单位，保留无法确定的结果。"
       }
     },
     {
       "slug": "concepts/device-crosswalk",
-      "source": "docs/device-crosswalk.md",
-      "zhIntro": "本页逐项列出设备厂商字段与标准编码的对应关系，并注明来源和置信度。先读[标准化](/zh/concepts/indicators)了解编码规则；需要核对某个字段时，再检索下方英文表格。",
+      "source": "docs/site/device-crosswalk.md",
       "title": "Device Crosswalk",
-      "label": { "en": "Device Crosswalk", "zh": "设备字段对照" },
+      "label": {
+        "en": "Device Crosswalk",
+        "zh": "设备字段对照"
+      },
       "description": {
-        "en": "Thirteen wearable vendors' fields mapped to LOINC, with a confidence and a source per row.",
-        "zh": "十三家可穿戴设备厂商的字段到 LOINC 的对照，每一行都标明置信度与出处。"
-      }
+        "en": "Look up device fields and understand verified, unverified and unmapped results.",
+        "zh": "查询设备字段，区分已确认、待确认与无标准映射的结果。"
+      },
+      "zhSource": "docs/site/device-crosswalk.zh-CN.md"
     },
     {
       "slug": "concepts/genetics",
-      "source": "docs/genetics.md",
-      "zhSource": "docs/genetics.zh-CN.md",
+      "source": "docs/site/genetics.md",
+      "zhSource": "docs/site/genetics.zh-CN.md",
       "title": "Genetics",
-      "label": { "en": "Genetics", "zh": "基因数据" },
+      "label": {
+        "en": "Genetics",
+        "zh": "基因数据"
+      },
       "description": {
-        "en": "How a raw genotype upload becomes site calls and CPIC drug-gene coverage, and the boundaries the two tools keep on purpose.",
-        "zh": "原始基因型上传如何变成位点检出结果和 CPIC 药物-基因覆盖情况，以及这两个工具有意保留的边界。"
+        "en": "Import genotype files, query recorded calls and understand coverage limits.",
+        "zh": "导入基因型文件、查询检出结果，并了解覆盖范围。"
       }
     },
     {
       "slug": "tools/overview",
-      "source": "docs/answers.md",
-      "zhIntro": "本页是健康数据工具的参数、返回格式和调用约束参考。若目标是连接现成的 MCP 客户端，先看中文的[MCP 接入](/zh/tools/mcp-integration)；需要实现工具调用时，再查下方英文定义。",
+      "source": "docs/site/health-data-tools.md",
       "title": "Health-Data Tools",
-      "label": { "en": "Health-Data Tools", "zh": "健康数据工具" },
+      "label": {
+        "en": "Health-Data Tools",
+        "zh": "健康数据工具"
+      },
       "description": {
-        "en": "The tools the agent and MCP clients read health data through: their schemas, the response envelope, and what stops a loop.",
-        "zh": "agent 与 MCP 客户端读取健康数据所用的工具：参数结构、返回信封，以及防止循环调用的机制。"
+        "en": "Choose a record tool, select a query view and interpret partial results.",
+        "zh": "选择数据工具与查询视图，理解来源及不完整结果。"
+      },
+      "zhSource": "docs/site/health-data-tools.zh-CN.md"
+    },
+    {
+      "slug": "tools/python-analysis",
+      "source": "docs/python-analysis.md",
+      "zhSource": "docs/python-analysis.zh-CN.md",
+      "label": {
+        "en": "Local Python Analysis",
+        "zh": "本地 Python 分析"
+      },
+      "description": {
+        "en": "Configure local Python calculation on original query results.",
+        "zh": "配置本地 Python 计算，直接使用查询返回的原始数据。"
       }
     },
     {
       "slug": "tools/medications",
-      "source": "docs/medications.md",
-      "zhIntro": "本页说明用药数据的存储结构、状态与查询工具。读者可先确认所需的是用药记录查询还是通用健康指标查询，再在下方英文原文中查相应字段。",
-      "label": { "en": "Medications", "zh": "用药" },
+      "source": "docs/site/medications.md",
+      "label": {
+        "en": "Medications",
+        "zh": "用药"
+      },
       "description": {
-        "en": "The medication model, its state tables, the instruction grammar, and the query_medications tool.",
-        "zh": "用药数据模型、状态表、用法用量的语法，以及 query_medications 工具。"
-      }
+        "en": "Record plans, review courses and query reported doses.",
+        "zh": "记录用药计划、查看疗程，并查询已记录的服药情况。"
+      },
+      "zhSource": "docs/site/medications.zh-CN.md"
     },
     {
       "slug": "tools/adding-tools",
-      "source": "mirobody/agent/tools/README.md",
-      "zhIntro": "本页解释如何把 Python 函数或 Service 类注册为引擎工具，并提供给智能体和 MCP 客户端。开始前先看[MCP 接入](/zh/tools/mcp-integration)了解工具暴露方式，再按下方英文步骤实现。",
+      "source": "docs/site/adding-tools.md",
       "title": "Adding Tools",
-      "label": { "en": "Adding Tools", "zh": "添加工具" },
+      "label": {
+        "en": "Adding Tools",
+        "zh": "添加工具"
+      },
       "description": {
-        "en": "Write a Python function or Service class and the engine serves it as an MCP tool, to the agent and to every MCP client.",
-        "zh": "写一个 Python 函数或 Service 类，引擎就把它作为 MCP 工具提供给 agent 和所有 MCP 客户端。"
-      }
+        "en": "Register a Python tool and handle authenticated record access.",
+        "zh": "注册 Python 工具，并正确处理用户身份和记录访问权限。"
+      },
+      "zhSource": "docs/site/adding-tools.zh-CN.md"
     },
     {
       "slug": "tools/skills",
-      "source": "skills/README.md",
-      "zhIntro": "本页介绍两份可安装到 Claude Code、Codex、Cursor 或 Gemini CLI 的技能：一份用库把原始健康数据变成带编码的行，一份运行整套引擎并通过 MCP 连接。需要直接接入 MCP 客户端时，先看中文的 [MCP 接入](/zh/tools/mcp-integration)，再按下方英文命令安装。",
+      "source": "docs/site/skills.md",
       "title": "Agent Skills",
-      "label": { "en": "Agent Skills", "zh": "Agent 技能" },
+      "label": {
+        "en": "Agent Skills",
+        "zh": "Agent 技能"
+      },
       "description": {
-        "en": "Two installable skills that teach a coding agent to use the library or to run the stack and connect over MCP.",
-        "zh": "两份可安装的技能，让编码 agent 学会使用库，或运行整套引擎并通过 MCP 连接。"
-      }
+        "en": "Install workflows for using the library or connecting a coding assistant.",
+        "zh": "安装库调用或应用接入技能，供编码助手使用。"
+      },
+      "zhSource": "docs/site/skills.zh-CN.md"
     },
     {
       "slug": "development/provider-integration",
-      "source": "docs/provider-guide.md",
-      "zhIntro": "本页是编写设备 Provider 的详细参考，包含字段解码、认证与拉取、样本、覆盖范围和测试。先读中文的[设备 Provider](/zh/providers/using-providers)确认现成集成是否满足需求，再按下方英文目录跳到要实现的部分。",
-      "jumpTo": [
-        { "anchor": "before-you-write-a-provider-do-you-need-one", "en": "Decide whether you need a provider", "zh": "判断是否需要新 Provider" },
-        { "anchor": "what-a-provider-is-made-of", "en": "Understand its four parts", "zh": "了解 Provider 的四个部分" },
-        { "anchor": "writing-the-io-shell", "en": "Write the IO shell", "zh": "编写 IO 外壳" },
-        { "anchor": "the-class", "en": "Look up method signatures", "zh": "查方法签名" },
-        { "anchor": "testing", "en": "Test the integration", "zh": "测试集成" }
-      ],
+      "source": "docs/site/provider-integration.md",
       "title": "Writing a Provider",
-      "label": { "en": "Writing a Provider", "zh": "编写 Provider" },
+      "label": {
+        "en": "Writing a Provider",
+        "zh": "编写 Provider"
+      },
       "description": {
-        "en": "Writing a device data provider end to end: the decode table, the IO shell, samples and coverage.",
-        "zh": "从头到尾编写一个设备数据 provider：解码表、IO 外壳、样本与覆盖范围。"
-      }
+        "en": "Implement the provider contract, register an integration and verify its data.",
+        "zh": "实现 provider 接口、注册集成，并验证数据处理。"
+      },
+      "zhSource": "docs/site/provider-integration.zh-CN.md"
     },
     {
       "slug": "deployment/backup",
-      "source": "docs/backup-restore.md",
-      "zhIntro": "本页说明数据库、上传文件和其他数据卷的备份与恢复。升级前请先备份并核验结果；密钥与配置文件要单独保存，具体顺序见中文的[升级部署](/zh/deployment/upgrade)。",
-      "title": "Backup and Restore Reference",
-      "label": { "en": "Backup Reference", "zh": "备份参考" },
+      "source": "docs/site/backup-restore.md",
+      "title": "Backups",
+      "label": {
+        "en": "Backups",
+        "zh": "备份"
+      },
       "description": {
-        "en": "What holds your data, how to copy it and get it back, and what changes when you upgrade.",
-        "zh": "数据存放在哪里、如何备份与恢复，以及升级时会发生什么变化。"
-      }
+        "en": "Back up the database and files, preserve keys and rehearse recovery.",
+        "zh": "备份数据库和文件，保管密钥，并演练恢复。"
+      },
+      "zhSource": "docs/site/backup-restore.zh-CN.md"
     }
   ]
 }

@@ -15,7 +15,7 @@
  *   accounts     a …@mirobody.ai address is a predefined account
  *   versions     a mirobody x.y.z is the pinned version
  *   CLI          `mirobody <subcommand>` names a real subcommand
- *   tools        a tool-shaped name (query_…, resolve_…) is a real MCP tool
+ *   tools        a tool-shaped name (query_…, resolve_…) is a declared tool
  *   paths        a `mirobody/…` path exists at the pinned commit
  *   config keys  an UPPER_SNAKE key the reader is told to set exists upstream
  */
@@ -65,7 +65,10 @@ if (!devPort) throw new Error("facts: could not read the `mirobody dev` port fro
 const ports = new Set([facts.port, facts.pgPort, facts.redisPort, devPort, 5432, 6379].filter(Boolean).map(String));
 const accounts = new Set(facts.accounts);
 const cli = new Set(facts.cli);
-const tools = new Set([...facts.tools.mcp, "ask_user", "eval"]);
+const pythonTool = readFileSync(join(VENDOR, "mirobody/agent/python_tool.py"), "utf8");
+const computationTools = [...pythonTool.matchAll(/^@tool[^\n]*\nasync def ([a-z][a-z0-9_]*)\(/gm)].map((match) => match[1]);
+if (!computationTools.length) throw new Error("facts: the calculation tool declaration was not found");
+const tools = new Set([...facts.tools.mcp, "ask_user", ...computationTools]);
 
 const files = [
   ...selfWrittenOssPages().map((p) => `${p}.mdx`),
@@ -91,8 +94,8 @@ for (const file of new Set(files)) {
     for (const [, sub] of line.matchAll(/(?:^\s*(?:\$\s+)?|&&\s*|;\s*|`|\buvx |-m )mirobody ([a-z][a-z-]+)\b/g)) {
       if (!cli.has(sub)) problems.push(`${at}: \`mirobody ${sub}\` is not a CLI subcommand at ${facts.version}`);
     }
-    for (const [, name] of line.matchAll(/`((?:query|resolve|convert|normalize|get|search|fetch)_[a-z_]+)`/g)) {
-      if (!tools.has(name)) problems.push(`${at}: \`${name}\` is not an MCP tool at ${facts.version}`);
+    for (const [, name] of line.matchAll(/`((?:query|resolve|convert|normalize|get|search|fetch)_[a-z_]+|eval|python_exec|ask_user)`/g)) {
+      if (!tools.has(name)) problems.push(`${at}: \`${name}\` is not a declared tool at ${facts.version}`);
     }
     for (const [, path] of line.matchAll(/(?:`|path=")(mirobody\/[\w./-]*?)\/?(?:`|")/g)) {
       if (!tree.files.has(path) && !tree.dirs.has(path)) problems.push(`${at}: ${path} does not exist at ${facts.version}`);

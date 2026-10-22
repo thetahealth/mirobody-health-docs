@@ -20,7 +20,7 @@ shell/backup.sh
 
 Keep the printed commit with this batch's database dump, upload archive and key files. The backup script does not embed a code version in the archive.
 
-The script runs `pg_dump -Fc`, checks that `pg_restore --list` can read the archive's **table of contents**, and archives the local upload volume if it exists. This detects an empty or unreadable archive at that point; it does **not** prove that every table and file can be restored. A restore rehearsal is the stronger check.
+The script checks the database archive listing and local upload archive. Rehearse a full restore to confirm the records, files and keys work together.
 
 For a database rehearsal, choose the dump to test and run these commands in the checkout. They create a new scratch database; the running application keeps using its existing database:
 
@@ -55,10 +55,12 @@ docker compose cp backups/mirobody-db-YYYYMMDD-HHMMSS.dump pg:/tmp/restore.dump
 docker compose exec -T pg createdb -U holistic_user holistic_db_restored
 docker compose exec -T pg pg_restore -U holistic_user -d holistic_db_restored --no-owner /tmp/restore.dump
 docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
+  'TRUNCATE theta_ai.th_ephemeral'
+docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
   "select count(*) from information_schema.tables where table_schema='theta_ai'"
 ```
 
-The new database leaves the old one intact; choose another name if `holistic_db_restored` already exists. Set `PG_DBNAME: holistic_db_restored` in the active `config.prod.yaml` (or the overlay selected by `ENV`). Restore the **matching encryption keys and configuration** before starting the app; encrypted records are unreadable under newly generated keys.
+The new database leaves the old one intact; choose another name if `holistic_db_restored` already exists. Set `PG_DBNAME=holistic_db_restored` in `.env` so both Compose and the application select the restored database. Restore the **matching encryption keys and configuration** before starting the app; encrypted records are unreadable under newly generated keys.
 
 If files were stored locally, find the actual upload volume name with `docker volume ls`. A checkout named `mirobody` normally has `mirobody_mirobody_upload`. Confirm the named volume already exists before restoring; otherwise `docker run -v` would silently create an empty one. Restore the matching archive into that volume:
 

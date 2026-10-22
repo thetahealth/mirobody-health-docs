@@ -7,7 +7,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-本流程适用于[在服务器上部署](/zh/deployment/production)所述的 Docker 服务。`deploy.sh` 会原地重建发生变化的服务（`docker compose up -d --remove-orphans`），运行中的服务会因此短暂中断，请安排维护时段。数据库 schema 在启动时向前变更，没有自动回退迁移；只切回旧代码不能完成回滚。从 1.5.2 升级会把 Redis 从整套服务中移除；该版本需要的额外步骤见[备份与恢复「从 1.5.2 升级」](/zh/deployment/backup#upgrading-from-152)。升级到 1.5.4 会删除 1.5.0 所取代的那几张读数表；1.5.0 之前保存全部读数的那张表，只有在 `mirobody migrate-observations` 证明每一行都已迁移之后才会删除，何时运行、带哪个参数，见 <OssLink path="CHANGELOG.md" /> 中该版本的说明。
+升级会重建有变化的服务，请安排短暂维护时段。切换版本前备份数据与密钥；数据库结构不会自动回滚。旧版本的特殊迁移步骤见[备份参考](/zh/deployment/backup)和 <OssLink path="CHANGELOG.md" />。
 
 ## 更改代码前
 
