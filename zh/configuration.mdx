@@ -1,13 +1,13 @@
 ---
 title: "配置"
-description: "模型厂商密钥或本地模型、配置从哪些文件读取，以及部署时需要修改的设置。"
+description: "配置模型、环境变量、部署参数和密钥。"
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-配置由一组 YAML 文件加上环境变量组成。随仓库提供的文件已经是可用于本地运行的默认值：部署时把各项密钥写进 `.env`，在那里或在首次设置页上选择模型，再在一个覆盖文件里修改少数需要改的设置即可。
+通常只需将密钥写入 `.env`，再在设置页中选择模型。需要调整默认行为时，在 `config.{ENV}.yaml` 中填写要覆盖的配置项。
 
 ## 配置文件
 
@@ -19,15 +19,15 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | `config.{ENV}.yaml` | `config.yaml` 的覆盖文件，可选：在 `.env` 的 `MIROBODY_CONFIG_FILE` 中指定一份；`./deploy.sh` 只会沿用旧版本已经生成的覆盖文件 | 修改 |
 | `.env` | `ENV`、自动生成的各项密钥与设置令牌、模型 API 密钥或本地模型服务的地址，以及运行模型的 Compose profile | 修改 |
 
-后加载的来源优先：环境变量，其次是覆盖文件，再次是 `config.devices.yaml` 与 `config.llm.yaml`，最后是 `config.yaml`。**字典不会跨文件合并**：覆盖文件里设置的键会替换整个值，所以在覆盖文件里设置 `EMAIL_PREDEFINE_CODES` 会替换掉演示账号，而不是在其后追加。
+配置优先级由高到低为：环境变量、覆盖文件、`config.devices.yaml` 与 `config.llm.yaml`、`config.yaml`。**字典不会跨文件合并**：覆盖文件里设置的键会替换整个值，所以在覆盖文件里设置 `EMAIL_PREDEFINE_CODES` 会替换掉演示账号，而不是在其后追加。
 
-`ENV` 只决定加载哪个覆盖文件，并标记日志行，本身不带任何行为。生产模式由下文的 `PRODUCTION` 开关声明，而不是由环境名决定。
+`ENV` 用于选择配置文件和标记日志。要启用生产模式，必须设置 `PRODUCTION`；仅将环境命名为 `prod` 不会改变运行模式。
 
 覆盖文件中，名称含有 `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK` 或 `_TOKEN` 的值，会用 `.env` 里的 `CONFIG_ENCRYPTION_KEY` 加密保存。
 
 ## 模型 {#the-model-key}
 
-每个用途都由一个模型厂商密钥**或者**本地模型驱动。首次设置页（尚未设置模型时 `./deploy.sh` 会打印它的链接；之后在**设置 › 模型**中）把两种选择之一加密保存到数据库，无需重启即可生效，并且从不覆盖 `.env` 中已设置的值。保存需要 `.env` 中的 `SETUP_TOKEN`；一旦设置过模型，还需要已登录的会话。
+聊天、文档处理等功能可以使用云端模型，也可以使用本地模型。首次设置页（尚未设置模型时 `./deploy.sh` 会打印它的链接；之后在**设置 › 模型**中）把两种选择之一加密保存到数据库，无需重启即可生效，并且从不覆盖 `.env` 中已设置的值。保存需要 `.env` 中的 `SETUP_TOKEN`；一旦设置过模型，还需要已登录的会话。
 
 ### 模型厂商密钥
 

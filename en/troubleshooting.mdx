@@ -7,7 +7,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-Start with the doctor report and the container log. Most failures name their own fix in one of the two.
+Start with the model diagnostic report and recent container logs:
 
 ```bash
 docker compose exec mirobody mirobody doctor   # which model each surface selected
@@ -26,7 +26,7 @@ docker compose logs --tail 80 mirobody         # the server's own log
 | `retired keys` | A key from an earlier release that is no longer read. Move the setting to a `MODELS` entry or a `UTILS_*` route in `config.llm.yaml`. |
 | `unread fields` | A field in a `MODELS` entry that nothing reads, usually a misspelling. |
 
-`mirobody doctor --probe` goes one step further and sends each surface a real request; a surface that selects a model but fails the probe has a server or a model that cannot do the job, not a missing key.
+Use `mirobody doctor --probe` to test real model requests. If a model is selected but its probe fails, check the endpoint, network connection and model capabilities.
 
 ## Startup failures
 
@@ -37,7 +37,6 @@ docker compose logs --tail 80 mirobody         # the server's own log
 | Image pulls fail, or the build cannot reach Docker Hub | `deploy.sh` falls back to the `docker.1ms.run` mirror when Docker Hub does not answer, and only builds locally when the image cannot be pulled at all. Behind a proxy, the Docker daemon itself needs the proxy setting, not only your shell. |
 | The first start takes many minutes | The image could not be pulled, so `deploy.sh` built it from this checkout. Set `PIP_INDEX_URL` in the shell that runs `./deploy.sh` (it is passed as a build argument, not read from `.env`) to use a closer package index. |
 | The server refuses to start with `PRODUCTION: true` | Predefined sign-in codes or a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder remain. The log names which; see [Deploy on a Server](/en/deployment/production#production-posture). |
-| `mirobody serve` finds no configuration | `config.yaml` is not part of the PyPI package. Run from a checkout, or use `mirobody dev`, which needs no configuration file. |
 | `mirobody dev` exits asking for a Postgres | Pass `--pg-url`, or set `PG_URL` or `DATABASE_URL`. The database needs the pgvector extension. |
 
 ## Runtime problems

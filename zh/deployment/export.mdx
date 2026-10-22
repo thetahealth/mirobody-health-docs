@@ -1,13 +1,13 @@
 ---
 title: "导出数据"
-description: "把记录从自部署中取出来：读数导出为 CSV 与 JSON，整份记录以 NDJSON 流式导出，基因型导出为 VCF 与 FHIR，以及作为完整副本的备份。"
+description: "导出读数与基因数据，检查结果完整性，或为整套部署创建备份。"
 ---
 
 import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="zh" />
 
-自部署中的记录是你的，可以随时取出，格式都是其他程序能读的；并且只有记录的所有者能导出：关爱圈成员可以逐页查看你的记录，但不能下载一份副本。下面的每个接口都使用这套部署自己的账号令牌，与[本地 HTTP API](/zh/http-api) 相同。
+只有记录所有者可以导出数据，关爱圈的读取权限不包含批量导出。接口使用本部署的账号令牌，获取方法见 [HTTP API 示例](/zh/http-api)。
 
 ## 可导出的内容
 
@@ -54,8 +54,8 @@ Web 客户端在你自己的记录上提供读数导出。
 
 ## 导出的范围 {#scope}
 
-NDJSON 流包含可见的观测集合，并在清单（manifest）中列出；文件、用药、关爱圈与账号暂不在其中，清单只列出实际包含的内容。目前没有任何功能把这份导出读回一套部署：把记录从一个 Mirobody 搬到另一个，走的是下文的备份与恢复。能导入的是其他来源：Apple Health 导出包（`mirobody import apple`）、CDA 文档、来自 23andMe、AncestryDNA、MyHeritage、FTDNA、WeGene 的基因型导出或 VCF，以及 Data 页能读取的 23 种文件类型。待办事项记录在 <OssLink path="docs/roadmap.md" />。
+NDJSON 只包含清单中列出的可见观测，不包含文件、用药、关爱圈设置与账号，也不能作为部署备份直接导入。迁移完整部署请使用备份与恢复。功能限制见 <OssLink path="docs/roadmap.md" />。
 
 ## 完整副本
 
-`shell/backup.sh` 转储数据库、归档上传的文件，并检查归档的目录可以读取。请把它和对应的 `.env` 放在一起保存：没有其中的密钥，加密内容无法读取。[备份与恢复](/zh/deployment/backup)说明各数据卷，[核验与恢复备份](/zh/deployment/restore)逐步演练恢复与灾备。要清除一套使用默认具名卷的部署，在其检出目录中执行 `docker compose down -v`，容器连同 Postgres、上传文件和模型三个数据卷一起删除。
+`shell/backup.sh` 转储数据库、归档上传的文件，并检查归档的目录可以读取。请把它和对应的 `.env` 放在一起保存：没有其中的密钥，加密内容无法读取。[备份与恢复](/zh/deployment/backup)说明各数据卷，[核验与恢复备份](/zh/deployment/restore)逐步演练恢复与灾备。

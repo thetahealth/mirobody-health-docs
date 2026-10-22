@@ -7,11 +7,11 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-The defaults in the repository are tuned for a local, single-user trial: demo accounts with a published code, placeholder secrets, and the database ports published on the host. This page is the path from there to a deployment reachable by others. The security checklist it follows is <OssLink path="SECURITY.md" />.
+Before using real records or opening access to other people, configure production authentication, secrets and HTTPS. The local demo defaults are unsuitable for a shared deployment. See <OssLink path="SECURITY.md" /> for the security reference.
 
 ## Host requirements
 
-A Linux host with Docker Engine and the Compose plugin **2.24.4 or newer**, Git, and either outbound access to the vendor your key belongs to **or** the local models beside the stack: the `local` Compose profile on an NVIDIA GPU (with the NVIDIA Container Toolkit installed), or `local-cpu` on the CPU alone, which is the slowest. Without the local models no GPU is needed. The stack runs three containers: Postgres with pgvector, the server and the worker, plus a one-shot container that fixes upload-volume ownership on each start, and the `llama` service when a profile runs the models. Capacity depends on concurrent users and file processing; this release does not publish a measured minimum host size, and the memory each local size needs is listed on [Run Locally](/en/local-models).
+Use a Linux host with Docker Engine, Compose **2.24.4 or newer**, and Git. Cloud models need outbound access to their service. For local models, use the `local` profile with an NVIDIA GPU and NVIDIA Container Toolkit, or `local-cpu` without a GPU. Capacity depends on user concurrency and file volume; see [Run Locally](/en/local-models) for model memory requirements.
 
 ## First start
 
@@ -90,7 +90,7 @@ Keep `.env` out of version control, and do not reuse any of these keys between e
 
 ## Public URL and HTTPS {#public-url-and-https}
 
-Terminate TLS in a reverse proxy in front of the server, which listens on port <Fact k="port" />. This example runs Caddy on the same host. Point the DNS name at that host and allow inbound ports 80 and 443 for certificate issuance and HTTPS. In `compose.override.yaml`, merge this service into the override from the Secrets section so the app is reachable only from the host and trusts the host-side proxy at the Compose network's configured gateway. The `!override` tag is essential: without it, Compose retains the base file's public port alongside the loopback port ([merge rules](https://docs.docker.com/reference/compose-file/merge/)).
+Terminate TLS in a reverse proxy in front of the server, which listens on port <Fact k="port" />. This example runs Caddy on the same host. Point the DNS name at that host and allow inbound ports 80 and 443 for certificate issuance and HTTPS. In `compose.override.yaml`, merge this service into the override from the Secrets section so the app is reachable only from the host and trusts the host-side proxy at the Compose network's configured gateway. The `!override` tag replaces the existing port list, preventing additional bindings ([merge rules](https://docs.docker.com/reference/compose-file/merge/)).
 
 ```yaml compose.override.yaml
 services:
@@ -119,7 +119,7 @@ MCP_PUBLIC_URL: https://health.example.com
 The personal MCP URL starts with the origin of the incoming request. If a proxy is outside the trusted address list, the server ignores its `X-Forwarded-Proto` and may issue an `http://` URL. Verify the URL from the public HTTPS site before sharing it.
 </Warning>
 
-Do not expose Postgres. `compose.yaml` already publishes it on the loopback interface only (<Fact k="pgPort" />), for local inspection, so nothing to change there. The application port is public in the base Compose file, so retain the loopback override above. Run `docker compose config` and confirm the effective `mirobody.ports` contains **only** the loopback binding.
+Do not expose Postgres. `compose.yaml` already publishes it on the loopback interface only (<Fact k="pgPort" />), for local inspection, so nothing to change there. The application also defaults to loopback. Keep that restriction when changing `MIROBODY_BIND` or adding overrides. Run `docker compose config` and confirm the effective `mirobody.ports` contains **only** the loopback binding.
 
 ## Verify the deployment
 

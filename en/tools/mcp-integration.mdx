@@ -1,13 +1,15 @@
 ---
 title: "MCP Integration"
-description: "Connect Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop or your own agent to a self-hosted engine: the /mcp endpoint, personal URLs, and the tools each account sees."
+description: "Connect an MCP client to your health records with a personal URL, or use the local terminology server."
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-The health-data tools used by the bundled agent are also served at **`/mcp`**, over the Model Context Protocol. An MCP client such as Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop or an agent loop of your own calls those tools over the same personal record. A separate stdio server provides terminology tools without a personal record. The tools read the record and call no model, so what an MCP client does with your readings is up to that client: they go wherever it sends its prompts. A cloud-hosted assistant receives them even when the stack runs the [local models](/en/local-models); a client on the same machine with a local model of its own keeps the loop on that machine.
+Connect Claude Code, Codex, Cursor or another MCP client to your records through **`/mcp`**. For offline terminology lookups without personal records, use the stdio server described below.
+
+The client controls where retrieved data is sent. A cloud assistant receives the readings it requests even if Mirobody uses [local models](/en/local-models). To keep the whole interaction local, the client must also use a local model.
 
 ## Endpoints
 
@@ -39,16 +41,12 @@ curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $T
 { "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
 ```
 
-Minting again **replaces** the URL: it revokes any live link for the same caller and subject and issues a new secret, valid for `MCP_URL_TTL_DAYS` days from that moment (<Fact k="mcpUrlTtlDays" /> by default), never extended by use. `GET /personal/mcp` lists every live link the caller can see: the ones they made (for themselves or, with a care-circle read grant, for someone else) and the ones a family member made that read the caller's own record. `DELETE /personal/mcp/<id>` revokes one link by its `id`, whether the caller made it or it reads the caller's record; a link nobody may act on answers 404, the same as one that does not exist.
+Generating a new URL revokes the previous link for the same creator and record. Links expire after `MCP_URL_TTL_DAYS` days (<Fact k="mcpUrlTtlDays" /> by default); using a link does not extend it. Use Settings or the endpoints above to view and revoke links.
 
-Sharing stopping, a circle membership ending, or the creator's account being taken back over all end the link the next time it is used, and unsharing or removal also revoke it outright so sharing again later does not silently restore it.
-
-<Warning>
-Every personal MCP link made before 1.5.3 stopped working: the old store kept a link by subject alone, with no creator to check, so nobody's old link can be told apart from anyone else's. Make a new one in Settings.
-</Warning>
+A link stops working when its sharing permissions or creator authorization end. Sharing the record again does not reactivate a revoked link.
 
 <Warning>
-The secret is the whole credential: anyone holding the URL can read that person's health record. It ends up in client configuration files and screenshots, so treat it like a password, revoke it when a device is lost, and serve it only over HTTPS once the deployment is reachable from a network.
+Treat a personal URL like a password: anyone who has it can read the linked record. Keep it out of screenshots and public configuration, revoke it if a device is lost, and use HTTPS for network access.
 </Warning>
 
 The URL starts with the origin the request arrived on. Behind a reverse proxy, that origin is only correct when the server trusts the proxy's forwarded headers; see [Deploy on a Server](/en/deployment/production#public-url-and-https).

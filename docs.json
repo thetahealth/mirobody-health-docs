@@ -51,16 +51,14 @@
             "icon": "microchip",
             "pages": [
               "en/model-choice",
-              "en/local-models",
-              "en/local-models-roadmap"
+              "en/local-models"
             ]
           },
           {
             "group": "Architecture",
             "icon": "diagram-project",
             "pages": [
-              "en/concepts/architecture",
-              "en/concepts/repository-layout"
+              "en/concepts/architecture"
             ]
           },
           {
@@ -136,16 +134,14 @@
             "icon": "microchip",
             "pages": [
               "zh/model-choice",
-              "zh/local-models",
-              "zh/local-models-roadmap"
+              "zh/local-models"
             ]
           },
           {
             "group": "架构",
             "icon": "diagram-project",
             "pages": [
-              "zh/concepts/architecture",
-              "zh/concepts/repository-layout"
+              "zh/concepts/architecture"
             ]
           },
           {
@@ -383,6 +379,22 @@
     {
       "source": "/zh/api-reference/:slug*",
       "destination": "/zh"
+    },
+    {
+      "source": "/en/local-models-roadmap",
+      "destination": "/en/model-choice"
+    },
+    {
+      "source": "/zh/local-models-roadmap",
+      "destination": "/zh/model-choice"
+    },
+    {
+      "source": "/en/concepts/repository-layout",
+      "destination": "/en/concepts/architecture"
+    },
+    {
+      "source": "/zh/concepts/repository-layout",
+      "destination": "/zh/concepts/architecture"
     }
   ],
   "styling": {

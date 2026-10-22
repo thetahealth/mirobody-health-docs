@@ -1,13 +1,13 @@
 ---
 title: "Export Your Data"
-description: "Take the record out of a self-hosted deployment: CSV and JSON for readings, an NDJSON stream of the record, VCF and FHIR for genotypes, and the backup that is the complete copy."
+description: "Export readings and genetic data, check completeness, or create a full deployment backup."
 ---
 
 import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-The record in a self-hosted deployment is yours to take out, in formats another program can read, and only the owner can: a care-circle member who may read your record page by page cannot download a copy of it. Every route below takes the deployment's own account token, as the [local HTTP API](/en/http-api) does.
+Only the record owner can export data; care-circle read access does not include bulk export. Authenticate with your deployment's account token, as in the [HTTP API example](/en/http-api).
 
 ## What you can export
 
@@ -54,8 +54,8 @@ The example uses the local Docker demo and its demo account; a real deployment s
 
 ## Scope of the export {#scope}
 
-The NDJSON stream holds the visible observation set and names it in its manifest; files, medications, the care circle and the accounts are not in it yet, and the manifest says so by listing only what is. Nothing reads this export back into a deployment: moving a record from one Mirobody to another is the backup and restore below. What does import is other sources: an Apple Health export (`mirobody import apple`), CDA documents, genotype exports from 23andMe, AncestryDNA, MyHeritage, FTDNA and WeGene or a VCF, and the 23 file types the Data page reads. Open items are tracked in <OssLink path="docs/roadmap.md" />.
+NDJSON exports the visible observations listed in its manifest. It does not include files, medications, care-circle settings or accounts, and cannot be imported as a deployment backup. Use backup and restore to move a complete deployment. Feature limits are tracked in <OssLink path="docs/roadmap.md" />.
 
 ## The complete copy
 
-`shell/backup.sh` dumps the database and archives the uploaded files, and checks that the archive's table of contents can be read. Keep it with the matching `.env`: encrypted content is unreadable without the keys in it. [Backup & Restore](/en/deployment/backup) explains the volumes, and [Verify and Restore a Backup](/en/deployment/restore) walks through a rehearsal and a recovery. To erase a stack that uses the default named volumes, `docker compose down -v` in its checkout removes the containers and the Postgres, upload and model volumes together.
+`shell/backup.sh` dumps the database and archives the uploaded files, and checks that the archive's table of contents can be read. Keep it with the matching `.env`: encrypted content is unreadable without the keys in it. [Backup & Restore](/en/deployment/backup) explains the volumes, and [Verify and Restore a Backup](/en/deployment/restore) walks through a rehearsal and a recovery.

@@ -1,13 +1,13 @@
 ---
 title: "Configuration"
-description: "A vendor key or the local models, the files configuration is read from, and the settings a deployment changes."
+description: "Configure models, environment variables, deployment settings and secrets."
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-Configuration is a set of YAML files plus environment variables. The shipped files hold working defaults for a local stack: a deployment puts its secrets in `.env`, chooses its models there or on the first-run page, and changes the few settings it needs in one overlay file.
+For most deployments, add secrets to `.env` and choose a model in the setup page. Use `config.{ENV}.yaml` for settings that differ from the shipped defaults.
 
 ## Configuration files
 
@@ -19,9 +19,9 @@ Configuration is a set of YAML files plus environment variables. The shipped fil
 | `config.{ENV}.yaml` | Your overlay for `config.yaml`. Optional: point `.env`'s `MIROBODY_CONFIG_FILE` at one; `./deploy.sh` only reuses an overlay already present from an earlier release | Yes |
 | `.env` | `ENV`, the generated secrets and the setup token, a model API key or a local server's address, and the Compose profile that runs the models | Yes |
 
-Later sources win: environment variables, then the overlay, then `config.devices.yaml` and `config.llm.yaml`, then `config.yaml`. **A dictionary does not merge across files**: a key set in the overlay replaces the whole value, so an overlay that sets `EMAIL_PREDEFINE_CODES` replaces the demo accounts rather than adding to them.
+Configuration precedence, from highest to lowest: environment variables, the overlay, `config.devices.yaml` and `config.llm.yaml`, then `config.yaml`. **A dictionary does not merge across files**: a key set in the overlay replaces the whole value, so an overlay that sets `EMAIL_PREDEFINE_CODES` replaces the demo accounts rather than adding to them.
 
-`ENV` only selects which overlay loads and tags log lines; it carries no behaviour of its own. Production posture is the `PRODUCTION` switch below, not an environment name.
+`ENV` selects the overlay file and labels logs. Enable production mode with `PRODUCTION`; naming an environment `prod` does not enable it.
 
 In the overlay, a value whose name contains `_KEY`, `_PASSWORD`, `_PASS`, `_PWD`, `_SECRET`, `_SK` or `_TOKEN` is encrypted with `CONFIG_ENCRYPTION_KEY` from `.env`.
 

@@ -1,14 +1,14 @@
 ---
 title: "Self-Host with Docker"
 sidebarTitle: "Self-Host Mirobody"
-description: "Run the whole open-source product on your own machine: two commands, one model key or local models, and a first answer over the demo record."
+description: "Start Mirobody with Docker, choose a model, and ask your first question using the demo records."
 ---
 
 import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 <OssVersion lang="en" />
 
-The Docker stack is the complete product: the web app, a Postgres with your record, a background worker, and a synthetic demo record to try it on. It needs Docker with Compose; on Windows, run the commands in a WSL 2 terminal. No Python, Node.js or GPU is required. The engine is open source under Apache 2.0 at [thetahealth/mirobody](https://github.com/thetahealth/mirobody).
+Docker runs the web app, Postgres, a background worker and synthetic demo records. Install Docker with Compose; on Windows, use a WSL 2 terminal. You do not need to install Python or Node.js, and a GPU is optional. Mirobody is available under Apache 2.0 on [GitHub](https://github.com/thetahealth/mirobody).
 
 ## First answer in three steps {#first-local-result}
 
@@ -19,7 +19,7 @@ The Docker stack is the complete product: the web app, a Postgres with your reco
     ./deploy.sh
     ```
 
-    The script writes the secrets into `.env` (it needs OpenSSL for that), pulls the application image, creates the demo accounts and readings, and prints a link to the setup page.
+    The script uses OpenSSL to generate secrets in `.env`, downloads the application image, starts the demo environment and prints a setup link.
   </Step>
   <Step title="Choose a model">
     Open the printed link and paste one model key: OpenRouter, OpenAI, Gemini, Anthropic, DeepSeek, DashScope, or any OpenAI-compatible gateway. The key is kept only after one real request through it works, and is stored encrypted; **Settings › Model** changes it later, without a restart. To keep every model on this machine instead, see [Where the models run](#models).
@@ -44,7 +44,7 @@ The [walkthrough](/en/walkthrough) follows the same record through five scenes. 
     The `mirobody` service should be `healthy`, and the health response includes `version` and `agent`. `mirobody doctor` names the entry each model surface selected; `--probe` sends each a real request. A key added to `.env` later takes `docker compose up -d`; `docker compose restart` does not re-read `.env`. [Troubleshooting](/en/troubleshooting) lists the common failures.
   </Accordion>
   <Accordion title="No Git on this machine">
-    The source tarball is the same checkout:
+    Download and extract the source archive instead:
 
     ```bash
     curl -L https://github.com/thetahealth/mirobody/archive/refs/heads/main.tar.gz | tar xz && cd mirobody-main
@@ -58,7 +58,7 @@ The [walkthrough](/en/walkthrough) follows the same record through five scenes. 
 | --- | --- | --- |
 | Who runs the models | The vendor whose key you paste | [llama.cpp](/en/local-models)'s `llama-server`, beside the stack or on the host |
 | You need | Docker and one key | Docker and 16 GB of memory for the default size, at least 8 GB of it for Docker |
-| Speed | Set by the vendor and the model you choose | About 30 s on a 16 GB Apple-silicon laptop's GPU; minutes on a CPU alone |
+| Speed | Depends on the model and service | GPU recommended; CPU answers can take several minutes |
 
 To run the models in Docker beside the stack, start it with a Compose profile instead of the plain `./deploy.sh`:
 
@@ -67,11 +67,11 @@ COMPOSE_PROFILES=local-cpu ./deploy.sh     # any computer, no GPU
 COMPOSE_PROFILES=local ./deploy.sh         # an NVIDIA GPU
 ```
 
-The script points Mirobody at the model service, so the setup page has nothing to ask; the first question waits for a one-time download of about 3 GB. Without a GPU a first answer takes 2–3 minutes on an Apple-silicon laptop's cores and up to about 15 on a 4-vCPU x86 server. On a Mac, `llama-server` runs natively on the GPU and the setup page finds it. [Run Locally](/en/local-models) has every platform, the two sizes and what each needs; [Choosing a Model](/en/model-choice) compares them with five cloud models. A vendor key in `.env` outranks the local models; [Configuration](/en/configuration#local-models) has the three variables that reverse that.
+These profiles configure the connection automatically. The first request waits for the model download. On a Mac, run `llama-server` on the host to use the GPU. See [Run Locally](/en/local-models) for platform setup and [Choosing a Model](/en/model-choice) for the available options. A cloud API key in `.env` takes priority; use the overrides in [Configuration](/en/configuration#local-models) to select local models explicitly.
 
 ## What leaves the machine {#what-leaves-the-machine}
 
-Your record lives in your own Postgres, and nothing here reports usage anywhere. What leaves depends on who reads it:
+Records stay in your Postgres database. Mirobody does not send usage telemetry. External data transfers depend on the services you enable:
 
 | | With a model key | 100% on this machine |
 | --- | --- | --- |

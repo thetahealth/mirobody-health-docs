@@ -1,75 +1,24 @@
 ---
-title: "用于测试的合成数据：mirobody-gen"
+title: "合成测试数据"
 sidebarTitle: "合成数据"
-description: "可重放的合成虚拟人——其文档、可穿戴推送、健康库批次与基因导出全部带逐行真值，是 Mirobody 每一条摄入路径的测试语料。"
+description: "使用带有预期结果的生成记录，验证导入、标准化与查询流程。"
 ---
 
-用真实病历测试一条摄入管线，在问到关键问题之前一直是好用的：*那一格读对了吗？是哪种版式
-现象让这份文件变难？同一个人的 Garmin 流和化验单有没有合并成一份档案？* 真实文件无法在规模上
-回答这些问题——没有真值，没有具名的难度，也没有合法的分享方式。
+[mirobody-gen](https://github.com/thetahealth/mirobody-gen) 为开发和评测生成合成健康记录，无需使用真实用户的文件。
 
-[mirobody-gen](https://github.com/thetahealth/mirobody-gen) 就是为回答这些问题而建的。它是一个
-独立的生成器项目，职责是产出**广泛、拟真、完全可溯源的个人健康数据**：60 个虚拟人、8 种原型、
-跨多年的事件时间线，纵向一致地出现在**四条交付通道**上——而这四条通道正好就是 Mirobody 的四条
-摄入路径。一个合成人因此可以端到端地跑完整个引擎。
+## 可用数据
 
-| 通道 | 一个人交上来的材料 | Mirobody 入口 |
-| --- | --- | --- |
-| 文档 | 化验单、体检报告书、门诊病历、心电/超声/影像报告、家庭记录、App 导出——以文本层 PDF、XLSX、CSV 与 24 种扫描/拍照/复印/截屏场景 | [文件上传管线](/zh/concepts/file-processing) |
-| 手机健康库 | 每批 ≤500 条，字段名照抄 Apple/华为/小米/Health Connect 的 crosswalk 表，可直接 POST | [设备 crosswalk](/zh/concepts/device-crosswalk) |
-| 厂商云 | 字节级对标的 HealthKit JSON、Garmin Health API、Oura v2、WHOOP v2 推送，形状以 `kernel/decoders/samples/` 的验收记录为锚 | [provider 解码器](/zh/providers/using-providers) |
-| 基因 | WeGene、23andMe、AncestryDNA、MyHeritage 与 VCF 导出，41 个 PGx 位点按祖源频率抽取 | [遗传学处理器](/zh/concepts/genetics) |
+| 输入 | 对应流程 |
+| --- | --- |
+| 报告、表格和文档图片 | [文件上传](/zh/concepts/file-processing) |
+| 手机健康库数据批次 | [设备字段对照](/zh/concepts/device-crosswalk) |
+| 厂商格式的推送数据 | [设备集成](/zh/providers/using-providers) |
+| 消费级基因型导出和 VCF | [基因数据](/zh/concepts/genetics) |
 
-## 两层真值 {#two-layers-of-truth}
+生成文件包含原始印刷值与标准化概念的预期结果，可以分别检查文字提取和编码是否正确。比较不同修改时，请固定生成器版本和随机种子。
 
-一次构建中的每份文件都带两层独立的真值：
+## 开发中的用法
 
-- **印刷层**——纸上写了什么（项目名称、值、单位、参考范围、标记；即
-  [MedRepBench](https://arxiv.org/abs/2508.16674) 五字段）；
-- **语义层**——它意味着什么（指标键、LOINC 编码、UCUM 单位、观测日期）。
+按生成器的[安装与构建说明](https://github.com/thetahealth/mirobody-gen)准备数据，再导入隔离的 Mirobody 环境，执行要验证的流程，并与预期结果对照。
 
-提取可以对着第一层评分，标准化对着第二层，而两层之间的差异本身就是一个可量化的失败。
-这是只有转写真值的语料给不了的性质：在 `unit.missing` 这类陷阱下，一次忠实的转写**合法地**
-让印刷单位为空，而语义真值仍然说这一行是 mmol/L 的血糖——于是不变性检查必须放在语义层。
-
-## 具名的难度与最小对照对 {#named-difficulty}
-
-每份文件声明它携带的陷阱类。分类学从对 627 份真实文档的研究中蒸馏出 62 类
-（`unit.glued_to_value` 出现在 22% 的真实文档上，`unit.in_header_or_reference_only` 在 9%）。
-对每一类可造的陷阱，生成器把同一个人同一次就诊渲染两遍——干净版与带陷阱版——于是"这种现象
-代价多大"成为一个配对的因果估计，而不是观察性相关。
-
-## 服从生理学的数值 {#values-that-obey-physiology}
-
-没有任何值是在拟合了患者数据的分布上采样出来的。参考区间注明 WS/T 404（生化）与
-WS/T 405（血细胞分析）系列出处；个体内/个体间变异按公开的 EFLM/Westgard 表；派生量
-（BMI、LDL、MCH/MCHC、eGFR）按定义恒等式计算。项目在自己的体检单上做的一次跨生成器审计很说明
-问题：Synthea 与 PySynthea 的完整血常规多数违反红细胞恒等式 MCH = MCHC × MCV，且不带参考区间。
-ESL-Doc 两者都有，这是构造出来的，不是碰巧。
-
-## 构造层面的隐私 {#privacy-by-construction}
-
-一次构建中没有任何内容来自真实的人。文档*形态*统计以格式记号与聚合计数的形式来自一份私有脱敏
-参考集，每条带来源标签，由 allow-list `.gitignore`、pre-commit 隐私钩子和 n-gram 回放门
-把守。威胁模型写在仓库的 `docs/PRIVACY.md` 里，包括"如果你认为某个文件不是合成的该怎么办"。
-
-## 用法 {#using-it}
-
-```bash
-pip install -e ".[render]"
-mirobody-gen build --seed 7 --out out/p3 --render --pairs 12
-mirobody-gen audit-clinical    out/p3/manifest.jsonl
-mirobody-gen audit-readability out/p3/files.jsonl out/p3/pairs.jsonl
-mirobody-gen audit-privacy     --targets mirobody_gen/resources out/p3
-mirobody-gen score             out/p3/files.jsonl out/p3/pred.jsonl
-```
-
-同种子（以及同 `--lang-mix`、同 `--paraphrase`）的两次构建字节一致，`out/` 可丢弃，
-生成器加种子**就是**交付物。
-
-**现状。** 从引擎 1.5.4 版起，Mirobody 的模型评测建立在它之上：`benchmarks/local_models/`
-把种子 7 的构建变成 24 个带预期事实的问题、12 份文档和 15 句日记，通过产品自己的 API 把这些人
-载入账户，并给每个回答打分；`benchmarks/local_ocr/` 用印刷页与手写页的行级真值给三个文档 OCR
-模型打分。[选择模型](/zh/model-choice)报告了两者的结果和复现方法。引擎本身在运行时不读取任何构建。
-将这份语料与 [ESL-Bench](https://arxiv.org/abs/2604.02834) 组合的配套论文（基准暂定名
-**ESL-Doc**）正在撰写中。
+Mirobody 的[模型评测资料](/zh/model-choice#评测资料)提供测试任务与结果入口。数据集定义、验证命令和隐私说明保留在生成器仓库中；Mirobody 正常运行时不会加载这些测试数据。
