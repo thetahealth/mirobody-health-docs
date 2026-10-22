@@ -87,6 +87,7 @@
             "pages": [
               "en/tools/agents",
               "en/tools/overview",
+              "en/tools/python-analysis",
               "en/tools/medications",
               "en/tools/mcp-integration",
               "en/tools/skills"
@@ -171,6 +172,7 @@
             "pages": [
               "zh/tools/agents",
               "zh/tools/overview",
+              "zh/tools/python-analysis",
               "zh/tools/medications",
               "zh/tools/mcp-integration",
               "zh/tools/skills"

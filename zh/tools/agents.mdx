@@ -17,13 +17,16 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | --- | --- |
 | 健康数据工具 | <Fact k="tools.mcp" code sep="、" />：与任何 MCP 客户端通过 `/mcp` 看到的是同一组工具，见[健康数据工具](/zh/tools/overview) |
 | 虚拟文件系统 | `/uploads`、`/library` 与 `/memories`：此人文件与档案的只读视图，配有列出、读取与搜索文件的工具 |
-| 代码执行 | `eval` 工具，在沙箱中运行 JavaScript，沙箱内也能调用数据工具 |
+| 代码执行 | `python_exec` 在本地容器内对记录工具返回的原始结果执行 Python；容器不挂载应用目录，不接收凭据，也不能访问网络。配置见[本地 Python 分析](/zh/tools/python-analysis) |
 | 向用户提问 | `ask_user`：暂停本轮并向用户提一个问题，用户的下一条消息就是回答。它不会通过 MCP 暴露。 |
-| 医学知识 | `search_medical_knowledge` 与 `read_medical_source`：本地索引里的 MedlinePlus 健康主题、化验项目页和 FDA 药品说明书；打开联网检索后还包括 PubMed 和 ClinicalTrials.gov。它们从不读取记录；通过 MCP 时只回答已登录的调用方，并且只在部署具备其中一档时才列出。 |
+| 医学知识 | `search_medical_knowledge` 与 `read_medical_source`：本地索引里的 MedlinePlus 健康主题、化验项目页和 FDA 药品说明书；打开联网检索后还包括 PubMed 和 ClinicalTrials.gov。它们不读取个人记录；本地或在线知识来源可用时，内置 agent 和已登录的 MCP 客户端均可使用。 |
 | 记忆 | 按会话保存的对话状态，存放在 Postgres 中 |
 
-每个回答都以带类型的块流式返回（文本、推理、工具调用及其结果、用量），客户端因此可以展示回答背后的工具调用过程。
-Web 客户端会实时展示：推理流进一个面板，每次工具调用按读者的语言显示成一步，答案开始后收成一行（「已思考 12 秒 · 4 步」）。
+每个回答都以带类型的块流式返回。可见的思考内容立即进入执行面板，与工具执行和上下文整理状态一起展示。工具调用的过程叙述保留在该面板中；最终答案在回答步骤结束后展示。复制功能只包含最终答案。
+
+面板区分运行中、失败、部分结果和未完成的工具，并保留用户选择的展开状态和滚动位置。对话接近配置的上下文上限时，agent 会自动整理较早的消息；面板显示实际摘要进度，不展示摘要正文。
+
+停止操作结束浏览器对本轮回答的接收。客户端断线后，服务端仍会继续生成并保存答案，因此刷新历史时可能出现后台完成的回答。
 
 回答里的每个数字都标注它依据的来源：对话中某个工具展示过的一行（`r3`）、一段参考资料（`ref:medlineplus_test:alt-blood-test`），或文档中的几行（`/library/report.pdf#L12-L14`）。
 Web 客户端把每个引用画成带编号的小标；`GET /api/citations` 把它解析成这条读数的当前值、它的文件，或参考资料的页面。
@@ -36,15 +39,17 @@ agent 的配置键不带 agent 名后缀。随仓库提供的值在 `config.llm.
 | --- | --- |
 | `MODELS` | 模型选择器：每个对话模型一条。`/api/models` 列出有密钥或有服务的条目，对话请求按名称选择其中之一。设置了 `LOCAL_BASE_URL` 后，`local` 条目会出现，并以它运行的模型命名。 |
 | `DEFAULT_MODEL` | 选择器的默认模型；不设置时取第一个有密钥的条目 |
-| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 工具白名单或黑名单，白名单优先。把 `eval` 写进 `DISALLOWED_TOOLS` 即关闭代码执行。 |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 工具白名单或黑名单，白名单优先。将 `python_exec` 写入 `DISALLOWED_TOOLS` 即关闭代码执行。 |
 | `PROMPTS` | 系统提示词模板，写法为路径或 `path@name`；第一个是默认值 |
 | `AGENT_NAME` | 提示词中使用的角色名 |
 | `AGENT_CHECKPOINTER` | `true` 按会话保留对话状态；`false` 让每一轮都从头开始 |
-| `AGENT_THINKING` | 所有对话模型在工具调用之间推理的程度：`off`、`low`、`medium`（默认）或 `high`。`MODELS` 条目的 `thinking_level` 会覆盖它。 |
-| `KNOWLEDGE_INDEX` | `mirobody fetch knowledge` 构建的本地医学知识索引；不设置时为 `~/.mirobody/knowledge/medref.sqlite3`。Docker 镜像自带一份。没有这个文件，本地这一档就不开启。 |
+| `AGENT_THINKING` | 聊天模型请求的推理程度：`low`、`medium`（默认）或 `high`。设置为 `off` 或不设置时使用 `medium`；`MODELS` 条目中启用的 `thinking_level` 优先。OCR 与信息提取模型保持独立设置。 |
+| `KNOWLEDGE_INDEX` | `mirobody fetch knowledge` 构建的本地医学知识索引；不设置时为 `~/.mirobody/knowledge/medref.sqlite3`。Docker 构建时会尝试准备索引；没有索引文件时，本地知识检索不可用。 |
 | `KNOWLEDGE_ONLINE` | `true` 在知识检索里加入 PubMed（经 Europe PMC）和 ClinicalTrials.gov。每次检索只把检索词发给这两个站点，从不发送记录数据。 |
 
-`MODELS` 条目还可以设置 `eval_fetch: false`，让 `eval` 只对工具调用先返回的数字做计算（随仓库的 `local` 条目就是这样）；`profile: max_input_tokens` 决定 agent 何时压缩一段长对话。
+模型条目的 `profile.max_input_tokens` 控制上下文预算和自动摘要阈值，应设置为模型接口实际能够接受的窗口。选定的摘要输入会进行预算检查；输入超限或摘要为空、被截断时会明确失败。
+
+应用会通过支持的模型接口请求 thinking。`mirobody doctor --probe` 检查一次工具往返和推理内容是否实际可见；不返回推理内容的接口无法提供 thinking 流。原有按模型设置的 `eval_fetch`、`code_tool` 已不再使用。启用本地计算请参阅[本地 Python 分析](/zh/tools/python-analysis)。
 
 模型的选择与密钥见[配置](/zh/configuration#the-model-key)。
 

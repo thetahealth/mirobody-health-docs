@@ -163,6 +163,16 @@
       }
     },
     {
+      "slug": "tools/python-analysis",
+      "source": "docs/python-analysis.md",
+      "zhSource": "docs/python-analysis.zh-CN.md",
+      "label": { "en": "Local Python Analysis", "zh": "本地 Python 分析" },
+      "description": {
+        "en": "Compute on original query results in a local Python container: inputs, setup, isolation and output limits.",
+        "zh": "在本地 Python 容器中计算原始查询结果：输入、配置、隔离和输出限制。"
+      }
+    },
+    {
       "slug": "tools/medications",
       "source": "docs/medications.md",
       "zhIntro": "本页说明用药数据的存储结构、状态与查询工具。读者可先确认所需的是用药记录查询还是通用健康指标查询，再在下方英文原文中查相应字段。",
