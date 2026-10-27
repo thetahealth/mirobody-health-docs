@@ -20,7 +20,7 @@ docker compose logs --tail 80 mirobody         # 服务端自身的日志
 
 | 输出 | 含义 |
 | --- | --- |
-| `keys present : none` | 没有模型厂商密钥，也没有本地模型服务。① 收集与 ② 转译照常工作，文件抽取和 agent 不可用。打开 `./deploy.sh` 打印的首次设置页链接，或在 `.env` 中写入一个密钥或 `LOCAL_BASE_URL`，然后执行 `docker compose up -d`。 |
+| `keys present : none` | 没有模型厂商密钥，也没有本地模型服务。① 收集与 ② 标准化照常工作，文件抽取和 agent 不可用。打开 `./deploy.sh` 打印的首次设置页链接，或在 `.env` 中写入一个密钥或 `LOCAL_BASE_URL`，然后执行 `docker compose up -d`。 |
 | 标记为 `OK` 的用途 | 该用途选中的条目与模型。 |
 | 标记为 `--` 的用途 | 该用途没有可用模型，下一行写明缺少的密钥、服务或条目。 |
 | `retired keys` | 早期版本的配置键，已不再读取。请把这项设置移到 `config.llm.yaml` 的 `MODELS` 条目或 `UTILS_*` 路由中。 |
