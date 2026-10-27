@@ -20,7 +20,7 @@ docker compose logs --tail 80 mirobody         # the server's own log
 
 | Line | Meaning |
 | --- | --- |
-| `keys present : none` | No vendor key and no local model server. ① Collect and ② Translate still work; file extraction and the agent do not. Open the first-run page link `./deploy.sh` printed, or put one key, or `LOCAL_BASE_URL`, in `.env` and run `docker compose up -d`. |
+| `keys present : none` | No vendor key and no local model server. ① Collect and ② Standardize still work; file extraction and the agent do not. Open the first-run page link `./deploy.sh` printed, or put one key, or `LOCAL_BASE_URL`, in `.env` and run `docker compose up -d`. |
 | A surface marked `OK` | The entry and model that surface selected. |
 | A surface marked `--` | Nothing is available for that surface; the next line names the missing key, server or entry. |
 | `retired keys` | A key from an earlier release that is no longer read. Move the setting to a `MODELS` entry or a `UTILS_*` route in `config.llm.yaml`. |

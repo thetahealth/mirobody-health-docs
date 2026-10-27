@@ -71,7 +71,7 @@
             ]
           },
           {
-            "group": "② Translate",
+            "group": "② Standardize",
             "icon": "wand-magic-sparkles",
             "pages": [
               "en/concepts/indicators",
@@ -154,7 +154,7 @@
             ]
           },
           {
-            "group": "② 转译",
+            "group": "② 标准化",
             "icon": "wand-magic-sparkles",
             "pages": [
               "zh/concepts/indicators",
