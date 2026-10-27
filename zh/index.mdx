@@ -1,14 +1,16 @@
 ---
 title: "Mirobody"
 sidebarTitle: "概览"
-description: "把分散的健康数据，变成有据可查的答案。化验单、穿戴设备和基因文件汇成一份记录，可以用一个模型 Key 或本地模型自部署。"
+description: "你的健康数字分身。同一套标准，汇聚每一个来源，映出完整的你：化验单、穿戴设备和基因文件汇成一份记录，可以用一个模型 Key 或本地模型自部署。"
 keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.cpp", "开源"]
 ---
 
+import NameOrigin from "/snippets/zh/name-origin.mdx";
+
 <div className="mb-hero not-prose mt-2 mb-10">
   <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">开源 · 自部署 · Apache 2.0</p>
-  <p className="mb-headline mt-3 text-gray-900 dark:text-white">把分散的健康数据，变成有据可查的答案。</p>
-  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">汇总化验单、穿戴设备和基因数据，统一名称与单位，让每个答案都有来源可查。通过 Docker 部署后，可选择云端模型，也可完全在本机运行。</p>
+  <p className="mb-headline mt-3 text-gray-900 dark:text-white">你的健康数字分身。</p>
+  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">同一套标准，汇聚每一个来源，映出完整的你——让长期记录成为理解健康走向的依据。开源版通过 Docker 部署，可选择云端模型，也可完全在本机运行。</p>
   <div className="mt-6 flex flex-wrap gap-3">
     <a className="mb-button mb-button-primary" href="/zh/self-host">Docker 启动 →</a>
     <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
@@ -21,7 +23,9 @@ keywords: ["健康数据", "LOINC", "UCUM", "自部署", "本地模型", "llama.
 
 ## 什么是 Mirobody？
 
-Mirobody 是一个开源健康数据引擎。它将报告、设备数据、照片和基因文件整理为一份记录，对能够识别的项目统一名称与单位，再由 agent 根据记录回答问题，并提供原始来源。项目由 Theta Health 开发，采用 [Apache 2.0 许可](https://github.com/thetahealth/mirobody)，也是 Theta Wellness 应用的基础引擎。
+Mirobody 将报告、设备数据、照片和基因文件汇成一份记录，统一能够识别的名称与单位，让记录可以跨时间比较，再由 agent 根据记录回答问题，并提供原始来源。把足够多的数据标准化足够久，就得到一份关于同一个人体的、完整而连续的记述：你的 Mirobody。开源版在你自己的环境中完成这一切，采用 [Apache 2.0 许可](https://github.com/thetahealth/mirobody)。项目由 Theta Health 开发，也是 Theta 背后的健康数据引擎。
+
+<NameOrigin />
 
 <Frame caption="收集、转译、提问：从源文件到可追溯回答的三个阶段。">
   <img alt="收集报告、设备数据和基因数据；统一名称与单位，让不同来源可比较；在整份记录上提问，每个回答都能追溯来源" src="/images/oss/docs/images/collect-translate-agent.zh-CN.svg" className="block dark:hidden" />
@@ -53,6 +57,6 @@ Mirobody 是一个开源健康数据引擎。它将报告、设备数据、照�
 
 ## 不部署，直接使用
 
-中国大陆可以直接用 [chat.mirobody.cn](https://chat.mirobody.cn/)，或者打开微信、在小程序中搜索「Mirobody」；其他地区可以用基于 Mirobody 的 [Theta](https://dr.thetahealth.ai/zh/login?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home)，有网页版和移动 App。想先看看效果，[在线演示](https://chat.mirobody.cn/demo?ref=mirobody-docs&lang=zh-cn)用合成记录回答问题，不需要注册。
+中国大陆：打开微信，在小程序中搜索「Mirobody」。其他地区：在 [Theta Web](https://dr.thetahealth.ai/?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home&lang=zh-cn) 体验 Mirobody，也可以用 Theta 移动 App。想先看看效果，[在线演示](https://chat.mirobody.cn/demo?ref=mirobody-docs&lang=zh-cn)用合成记录回答问题，不需要注册。
 
 源码、版本发布和问题反馈见 [GitHub](https://github.com/thetahealth/mirobody)。

@@ -1,14 +1,16 @@
 ---
 title: "Mirobody"
 sidebarTitle: "Overview"
-description: "Turn scattered health data into answers you can trace. Lab reports, wearables and genetic files in one record, self-hosted with one model key or local models."
+description: "Mirror your body in data. One standard, every source, one complete picture of you: lab reports, wearables and genetic files in one record, self-hosted with one model key or local models."
 keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.cpp", "open source"]
 ---
 
+import NameOrigin from "/snippets/name-origin.mdx";
+
 <div className="mb-hero not-prose mt-2 mb-10">
   <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">Open source · Self-hosted · Apache 2.0</p>
-  <p className="mb-headline mt-3 text-gray-900 dark:text-white">Turn scattered health data into answers you can trace.</p>
-  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Bring lab reports, wearable data and genetic files into one standardized record. Run Mirobody with Docker, using a cloud model or models on your own machine.</p>
+  <p className="mb-headline mt-3 text-gray-900 dark:text-white">Mirror your body in data.</p>
+  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">One standard, every source, one complete picture of you — building a lasting record to understand where your health is going. Run the open-source edition with Docker, using a cloud model or models on your own machine.</p>
   <div className="mt-6 flex flex-wrap gap-3">
     <a className="mb-button mb-button-primary" href="/en/self-host">Start with Docker →</a>
     <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
@@ -21,7 +23,9 @@ keywords: ["health data", "LOINC", "UCUM", "self-host", "local models", "llama.c
 
 ## What is Mirobody?
 
-Mirobody is an open-source health-data engine. It brings reports, device data, photos and genetic files into a shared record, standardizes recognized names and units, and lets you ask questions with references to the original sources. Built by Theta Health, it powers the Theta Wellness app and is available under the [Apache 2.0 license](https://github.com/thetahealth/mirobody).
+Mirobody brings reports, device data, photos and genetic files into one record, puts recognized names and units into a shared language so the record can be compared over time, and lets you ask questions with references to the original sources. Standardize enough of your data, for long enough, and you have a complete, continuous account of one body: your Mirobody. This open-source edition does it on your own infrastructure under the [Apache 2.0 license](https://github.com/thetahealth/mirobody). Built by Theta Health, it is the health data engine behind Theta.
+
+<NameOrigin />
 
 <Frame caption="Collect, translate, and ask: the three stages from a source file to a traceable answer.">
   <img alt="Collect reports, device data and genetics; translate names and units so sources compare; ask across your history and trace each answer to its source" src="/images/oss/docs/images/collect-translate-agent.svg" className="block dark:hidden" />
@@ -53,6 +57,6 @@ Mirobody is an open-source health-data engine. It brings reports, device data, p
 
 ## Use it without running anything
 
-Use [Theta](https://dr.thetahealth.ai/en/login?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home) on the web or in its mobile app to manage your own records without deploying Mirobody. You can also try the [live demo](https://chat.mirobody.ai/demo?ref=mirobody-docs&lang=en) with synthetic records; no account is required.
+Try Mirobody in [Theta Web](https://dr.thetahealth.ai/?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home), or in the Theta mobile app, to keep your own records without deploying anything. You can also try the [live demo](https://chat.mirobody.ai/demo?ref=mirobody-docs&lang=en) with synthetic records; no account is required.
 
 Find source code, releases and support on [GitHub](https://github.com/thetahealth/mirobody).
