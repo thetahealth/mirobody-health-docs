@@ -15,7 +15,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | --- | --- |
 | 比较健康数据 | 查询指标、用药和基因数据，详见[健康数据工具](/zh/tools/overview)。 |
 | 查阅原始资料 | 搜索和阅读该用户上传的文件及文档库。 |
-| 计算与分析 | 通过 `python_exec` 在本地容器中计算查询返回的原始数据，配置方法见[本地 Python 分析](/zh/tools/python-analysis)。 |
+| 计算与分析 | 由计算工具直接计算查询返回的原始数据。代码在哪里运行、需要什么条件，见[本地 Python 分析](/zh/tools/python-analysis)。 |
 | 查找医学资料 | 检索本地医学资料库；启用联网检索后，还可查询 PubMed 和 ClinicalTrials.gov。这类检索不读取个人健康记录。 |
 | 补充提问信息 | 问题中的信息不足时，先向用户确认，再继续处理。 |
 
@@ -32,12 +32,12 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | 配置项 | 用途 |
 | --- | --- |
 | `DEFAULT_MODEL` | 指定 `MODELS` 中默认使用的模型。 |
-| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 限制可用工具，白名单优先。将 `python_exec` 加入黑名单即可关闭计算功能。 |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 按名称限制可用工具，白名单优先。将计算工具加入黑名单即可关闭计算功能。 |
 | `AGENT_THINKING` | 设置请求的推理程度：`low`、`medium` 或 `high`，默认 `medium`；设为 `off` 时仍使用 `medium`。模型条目中启用的 `thinking_level` 优先。OCR 与信息提取单独配置。 |
 | `KNOWLEDGE_INDEX` | 本地医学资料索引的路径，索引由 `mirobody fetch knowledge` 构建。 |
 | `KNOWLEDGE_ONLINE` | 启用 PubMed 和 ClinicalTrials.gov 联网检索，检索词会发送到相应服务。 |
 
-有可用的本地或在线资料来源时，才会提供医学知识工具。计算功能需要按上文说明连接本地 Docker。可运行 `mirobody doctor --probe` 检查模型能力，包括接口是否返回可见的思考内容。
+有可用的本地或在线资料来源时，才会提供医学知识工具。计算功能有单独的运行条件，见[本地 Python 分析](/zh/tools/python-analysis)。可运行 `mirobody doctor --probe` 检查模型能力，包括接口是否返回可见的思考内容。
 
 ## 接入自定义 agent {#replacing-the-agent}
 

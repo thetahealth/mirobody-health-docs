@@ -15,7 +15,7 @@ The built-in agent answers questions about the selected person's health record. 
 | --- | --- |
 | Compare health records | Query measurements, medications and genetic data; see [Health-Data Tools](/en/tools/overview). |
 | Read source documents | Search and read the person's uploaded files and document library. |
-| Calculate from records | Use `python_exec` to calculate from the original query results in a local container. See [Local Python Analysis](/en/tools/python-analysis) for setup. |
+| Calculate from records | Calculate from the original query results with the calculation tool. [Local Python Analysis](/en/tools/python-analysis) says where the code runs and what it needs. |
 | Look up medical references | Search a local medical-reference index or, when enabled, PubMed and ClinicalTrials.gov. These tools do not query the person's record. |
 | Clarify a question | Ask the user for missing information before continuing. |
 
@@ -32,12 +32,12 @@ Choose a model in **Settings › Model** or follow [Configuration](/en/configura
 | Setting | Purpose |
 | --- | --- |
 | `DEFAULT_MODEL` | The default entry from `MODELS`. |
-| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | Limit available tools. The allowlist takes precedence; adding `python_exec` to the denylist disables calculation. |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | Limit available tools by name. The allowlist takes precedence; denying the calculation tool disables calculation. |
 | `AGENT_THINKING` | Requested reasoning effort: `low`, `medium` or `high`. The default is `medium`; `off` also falls back to `medium`. An enabled model-entry `thinking_level` takes precedence. OCR and extraction have separate settings. |
 | `KNOWLEDGE_INDEX` | Path to a local medical-reference index built with `mirobody fetch knowledge`. |
 | `KNOWLEDGE_ONLINE` | Enable PubMed and ClinicalTrials.gov searches. Search terms are sent to those services. |
 
-Knowledge tools appear only when a local or online source is available. Calculation needs the local Docker setup described above. `mirobody doctor --probe` checks model capabilities, including whether the endpoint returns visible reasoning.
+Knowledge tools appear only when a local or online source is available. Calculation has its own requirements, listed in [Local Python Analysis](/en/tools/python-analysis). `mirobody doctor --probe` checks model capabilities, including whether the endpoint returns visible reasoning.
 
 ## Custom agents {#replacing-the-agent}
 

@@ -65,8 +65,20 @@ if (!devPort) throw new Error("facts: could not read the `mirobody dev` port fro
 const ports = new Set([facts.port, facts.pgPort, facts.redisPort, devPort, 5432, 6379].filter(Boolean).map(String));
 const accounts = new Set(facts.accounts);
 const cli = new Set(facts.cli);
-const pythonTool = readFileSync(join(VENDOR, "mirobody/agent/python_tool.py"), "utf8");
-const computationTools = [...pythonTool.matchAll(/^@tool[^\n]*\nasync def ([a-z][a-z0-9_]*)\(/gm)].map((match) => match[1]);
+// The calculation tool: up to 1.5.9 `python_exec`, named by its function in
+// agent/python_tool.py; from 1.5.10 `code_exec`, named by TOOL_NAME in
+// agent/code_tool.py, and python_tool.py is gone.
+function readComputationTools() {
+  for (const file of ["mirobody/agent/code_tool.py", "mirobody/agent/python_tool.py"]) {
+    if (!tree.files.has(file)) continue;
+    const text = readFileSync(join(VENDOR, file), "utf8");
+    const named = /^TOOL_NAME = "([a-z][a-z0-9_]*)"$/m.exec(text)?.[1];
+    if (named) return [named];
+    return [...text.matchAll(/^@tool[^\n]*\nasync def ([a-z][a-z0-9_]*)\(/gm)].map((match) => match[1]);
+  }
+  return [];
+}
+const computationTools = readComputationTools();
 if (!computationTools.length) throw new Error("facts: the calculation tool declaration was not found");
 const tools = new Set([...facts.tools.mcp, "ask_user", ...computationTools]);
 
@@ -94,7 +106,7 @@ for (const file of new Set(files)) {
     for (const [, sub] of line.matchAll(/(?:^\s*(?:\$\s+)?|&&\s*|;\s*|`|\buvx |-m )mirobody ([a-z][a-z-]+)\b/g)) {
       if (!cli.has(sub)) problems.push(`${at}: \`mirobody ${sub}\` is not a CLI subcommand at ${facts.version}`);
     }
-    for (const [, name] of line.matchAll(/`((?:query|resolve|convert|normalize|get|search|fetch)_[a-z_]+|eval|python_exec|ask_user)`/g)) {
+    for (const [, name] of line.matchAll(/`((?:query|resolve|convert|normalize|get|search|fetch)_[a-z_]+|eval|python_exec|code_exec|ask_user)`/g)) {
       if (!tools.has(name)) problems.push(`${at}: \`${name}\` is not a declared tool at ${facts.version}`);
     }
     for (const [, path] of line.matchAll(/(?:`|path=")(mirobody\/[\w./-]*?)\/?(?:`|")/g)) {
