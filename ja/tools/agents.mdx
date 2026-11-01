@@ -15,7 +15,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | --- | --- |
 | 健康記録を比較する | 測定値・服薬・遺伝子データを検索します。詳細は[健康データツール](/ja/tools/overview)を参照。 |
 | 元の文書を読む | 本人がアップロードしたファイルと文書ライブラリを検索・読み取りします。 |
-| 記録から計算する | 計算ツールで、元のクエリ結果から直接計算します。コードがどこで動き、何が必要かは[チャットでの計算](/ja/tools/python-analysis)を参照。 |
+| 記録から計算する | `code_exec` が元のクエリ結果から計算します。クラウドのモデルではアプリ内の JavaScript、ローカルモデルではローカルのコンテナ内の Python を使います。[計算](/ja/tools/python-analysis)を参照。 |
 | 医学資料を調べる | ローカルの医学資料インデックス、または有効化時は PubMed と ClinicalTrials.gov を検索します。これらのツールは本人の記録を検索しません。 |
 | 質問を明確にする | 続ける前に、不足している情報を本人に尋ねます。 |
 
@@ -32,12 +32,12 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | 設定項目 | 用途 |
 | --- | --- |
 | `DEFAULT_MODEL` | `MODELS` の中で既定にするエントリ。 |
-| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 名前で利用できるツールを制限します。許可リストが優先され、計算ツールを拒否リストに入れると計算機能が無効になります。 |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | 利用できるツールを制限します。許可リストが優先され、`code_exec` を拒否リストに入れると計算機能が無効になります。 |
 | `AGENT_THINKING` | 要求する推論の強さ：`low`、`medium`、`high` のいずれか。既定は `medium` で、`off` も `medium` にフォールバックします。モデルエントリの `thinking_level` を有効にするとそちらが優先されます。OCR と抽出は別設定です。 |
 | `KNOWLEDGE_INDEX` | `mirobody fetch knowledge` で作成したローカル医学資料インデックスのパス。 |
 | `KNOWLEDGE_ONLINE` | PubMed と ClinicalTrials.gov の検索を有効にします。検索語はこれらのサービスに送信されます。 |
 
-医学資料ツールは、ローカルまたはオンラインの情報源が使える場合にのみ表示されます。計算機能には独自の条件があり、[チャットでの計算](/ja/tools/python-analysis)に記載しています。`mirobody doctor --probe` はモデルの能力を確認し、エンドポイントが思考過程を可視で返すかどうかも調べます。
+医学資料ツールは、ローカルまたはオンラインの情報源が使える場合にのみ表示されます。クラウドのモデルでは、計算に設定は要りません。ローカルモデルは、アプリが Docker デーモンに接続できれば Python、できなければ JavaScript で計算します。`mirobody doctor --probe` はモデルの能力を確認し、エンドポイントが思考を表示したかどうかを報告します。必要なときだけ思考するモデルはプローブの短い質問では思考しないことがあり、これは注意であって失敗ではありません。
 
 ## カスタムエージェント {#replacing-the-agent}
 

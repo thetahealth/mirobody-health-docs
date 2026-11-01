@@ -218,14 +218,14 @@
       "zhSource": "docs/python-analysis.zh-CN.md",
       "jaSource": "docs/python-analysis.ja.md",
       "label": {
-        "en": "Calculation in Chat",
-        "zh": "聊天中的计算",
-        "ja": "チャットでの計算"
+        "en": "Calculation",
+        "zh": "计算",
+        "ja": "計算"
       },
       "description": {
-        "en": "How a chat calculation runs on the original query results, and what it needs.",
-        "zh": "聊天中的计算如何直接使用查询返回的原始数据，以及需要哪些条件。",
-        "ja": "チャットでの計算が、クエリ結果の元データでどう動き、何を必要とするか。"
+        "en": "How chat models calculate over original query results: JavaScript for a cloud model, Python in a local container for a local one.",
+        "zh": "聊天模型直接用查询返回的原始数据计算：云端模型用 JavaScript，本地模型在本地容器中用 Python。",
+        "ja": "チャットのモデルがクエリ結果の元データで計算する仕組み。クラウドのモデルは JavaScript、ローカルモデルはローカルのコンテナ内の Python を使います。"
       }
     },
     {

@@ -65,20 +65,10 @@ if (!devPort) throw new Error("facts: could not read the `mirobody dev` port fro
 const ports = new Set([facts.port, facts.pgPort, facts.redisPort, devPort, 5432, 6379].filter(Boolean).map(String));
 const accounts = new Set(facts.accounts);
 const cli = new Set(facts.cli);
-// The calculation tool: up to 1.5.9 `python_exec`, named by its function in
-// agent/python_tool.py; from 1.5.10 `code_exec`, named by TOOL_NAME in
-// agent/code_tool.py, and python_tool.py is gone.
-function readComputationTools() {
-  for (const file of ["mirobody/agent/code_tool.py", "mirobody/agent/python_tool.py"]) {
-    if (!tree.files.has(file)) continue;
-    const text = readFileSync(join(VENDOR, file), "utf8");
-    const named = /^TOOL_NAME = "([a-z][a-z0-9_]*)"$/m.exec(text)?.[1];
-    if (named) return [named];
-    return [...text.matchAll(/^@tool[^\n]*\nasync def ([a-z][a-z0-9_]*)\(/gm)].map((match) => match[1]);
-  }
-  return [];
-}
-const computationTools = readComputationTools();
+// From 1.5.10 the calculator is one tool with two engines, and both of its
+// `@tool(TOOL_NAME, ...)` declarations take the name from this constant.
+const codeTool = readFileSync(join(VENDOR, "mirobody/agent/code_tool.py"), "utf8");
+const computationTools = [...codeTool.matchAll(/^TOOL_NAME = "([a-z][a-z0-9_]*)"$/gm)].map((match) => match[1]);
 if (!computationTools.length) throw new Error("facts: the calculation tool declaration was not found");
 const tools = new Set([...facts.tools.mcp, "ask_user", ...computationTools]);
 
