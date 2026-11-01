@@ -181,12 +181,12 @@
       "source": "docs/python-analysis.md",
       "zhSource": "docs/python-analysis.zh-CN.md",
       "label": {
-        "en": "Local Python Analysis",
-        "zh": "本地 Python 分析"
+        "en": "Calculation",
+        "zh": "计算"
       },
       "description": {
-        "en": "Configure local Python calculation on original query results.",
-        "zh": "配置本地 Python 计算，直接使用查询返回的原始数据。"
+        "en": "How chat models calculate over original query results: JavaScript for a cloud model, Python in a local container for a local one.",
+        "zh": "聊天模型直接用查询返回的原始数据计算：云端模型用 JavaScript，本地模型在本地容器中用 Python。"
       }
     },
     {

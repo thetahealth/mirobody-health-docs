@@ -65,8 +65,10 @@ if (!devPort) throw new Error("facts: could not read the `mirobody dev` port fro
 const ports = new Set([facts.port, facts.pgPort, facts.redisPort, devPort, 5432, 6379].filter(Boolean).map(String));
 const accounts = new Set(facts.accounts);
 const cli = new Set(facts.cli);
-const pythonTool = readFileSync(join(VENDOR, "mirobody/agent/python_tool.py"), "utf8");
-const computationTools = [...pythonTool.matchAll(/^@tool[^\n]*\nasync def ([a-z][a-z0-9_]*)\(/gm)].map((match) => match[1]);
+// From 1.5.10 the calculator is one tool with two engines, and both of its
+// `@tool(TOOL_NAME, ...)` declarations take the name from this constant.
+const codeTool = readFileSync(join(VENDOR, "mirobody/agent/code_tool.py"), "utf8");
+const computationTools = [...codeTool.matchAll(/^TOOL_NAME = "([a-z][a-z0-9_]*)"$/gm)].map((match) => match[1]);
 if (!computationTools.length) throw new Error("facts: the calculation tool declaration was not found");
 const tools = new Set([...facts.tools.mcp, "ask_user", ...computationTools]);
 
