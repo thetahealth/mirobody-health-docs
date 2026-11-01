@@ -1,0 +1,61 @@
+---
+title: "データのエクスポート"
+description: "測定値と遺伝子データをエクスポートし、完全性を確認するか、デプロイ全体のバックアップを作成します。"
+---
+
+import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+データをエクスポートできるのは記録の所有者だけです。ケアサークルの閲覧権限には、一括エクスポートは含まれません。[HTTP API の例](/ja/http-api)のように、デプロイのアカウントトークンで認証してください。
+
+## エクスポートできるもの
+
+| データ | ルート | 形式 | 備考 |
+| --- | --- | --- | --- |
+| 測定値（標準化された値と単位を含む） | `GET /api/v1/health-indicators/export` | CSV（ダウンロード）、または `format=json` で JSON | 記録一覧と同じフィルタ（`kind`、`modality`、`start_time`、`end_time`、`created_since`、`keywords`）。最大 100,000 行。これを超える記録は先頭の 100,000 行とレスポンスヘッダー `X-Export-Truncated: true` になります。 |
+| 表示可能な記録全体を1本のストリームで | `GET /api/user/data-export` | 1ページの JSON、または `Accept: application/x-ndjson` で NDJSON | ストリームは footer で終わり、その `complete` フィールドだけが完了の証明です。 |
+| 現在有効なアップロードからの遺伝子型 | `GET /api/v1/genomics/export.vcf?build=GRCh38` と `GET /api/v1/genomics/export.fhir.json?rsids=…` | VCF 4.2、FHIR | `build` は `GRCh37` または `GRCh38`。FHIR エクスポートは1〜50個の rsID を受け付けます。 |
+| 測定値・ファイル・服薬・ケアサークル・アカウントのすべて | チェックアウト内の `shell/backup.sh` | `pg_dump` アーカイブとアップロードファイルの tar | 唯一の完全な複製です。[バックアップの確認と復元](/ja/deployment/restore)が復元を演習します。 |
+
+Web クライアントでは、自分の記録について測定値のエクスポートを提供しています。
+
+## curl でエクスポートする
+
+この例ではローカルの Docker デモとそのデモアカウントを使います。実際のデプロイでは、そのユーザーの方法でログインしてください。
+
+<Steps>
+  <Step title="トークンを取得する">
+    ```bash
+    TOKEN=$(curl -s -X POST http://localhost:18060/email/verify \
+      -H 'Content-Type: application/json' \
+      -d '{"email": "you@mirobody.ai", "code": "111111"}' | jq -r .data.access_token)
+    ```
+  </Step>
+  <Step title="測定値を CSV としてダウンロードする">
+    ```bash
+    curl -sS -H "Authorization: Bearer $TOKEN" \
+      'http://localhost:18060/api/v1/health-indicators/export?format=csv' -o mirobody-indicators.csv
+    head -3 mirobody-indicators.csv
+    ```
+
+    1行目が列名で、標準化された値と単位もそこに含まれます。
+  </Step>
+  <Step title="記録を NDJSON でストリームする">
+    ```bash
+    curl -sS -H "Authorization: Bearer $TOKEN" -H 'Accept: application/x-ndjson' \
+      http://localhost:18060/api/user/data-export -o mirobody-export.ndjson
+    tail -n 1 mirobody-export.ndjson
+    ```
+
+    最終行が footer です。`"complete": true` とデータセットごとの行数が入ります。最終行が footer でないファイルは途中で切れたものです。`"complete": false` の footer は、ストリーム中に変化したデータセットを示します。もう一度実行してください。
+  </Step>
+</Steps>
+
+## エクスポートの範囲 {#scope}
+
+NDJSON は、マニフェストに列挙された表示可能な観測値をエクスポートします。ファイル・服薬・ケアサークルの設定・アカウントは含まれず、デプロイのバックアップとしてインポートすることもできません。デプロイ全体を移すにはバックアップと復元を使ってください。機能の制限は <OssLink path="docs/roadmap.md" /> に記録されています。
+
+## 完全な複製
+
+`shell/backup.sh` はデータベースをダンプしてアップロードファイルをアーカイブし、アーカイブの目次が読めることを確認します。対応する `.env` と一緒に保管してください。中のキーがないと、暗号化された内容は読めません。[バックアップと復元](/ja/deployment/backup)がボリュームを説明し、[バックアップの確認と復元](/ja/deployment/restore)が演習と復旧の手順を示します。

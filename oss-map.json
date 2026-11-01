@@ -2,10 +2,10 @@
   "$comment": [
     "Which files of the mirobody repository become pages of the Open Source tab.",
     "scripts/sync-oss.mjs renders each `source` (at the commit oss.lock pins) into en/<slug>.mdx.",
-    "zh/<slug>.mdx comes from `zhSource` when the repository has a Chinese edition; with",
-    "\"zh\": \"translation\" it is a hand-written translation kept in this repository (its",
-    "frontmatter `source:` records the commit it was translated from, see check:freshness);",
-    "otherwise the zh page shows the English text under a notice.",
+    "zh/<slug>.mdx comes from `zhSource` and ja/<slug>.mdx from `jaSource` when the repository",
+    "has that edition at the pinned commit; with \"zh\" or \"ja\": \"translation\" it is a hand-written",
+    "translation kept in this repository (its frontmatter `source:` records the commit it was",
+    "translated from, see check:freshness); otherwise the page shows the English text under a notice.",
     "Sidebar order and grouping live in docs.json, like every other page."
   ],
   "pages": [
@@ -13,55 +13,67 @@
       "slug": "quickstart",
       "source": "docs/quickstart.md",
       "zhSource": "docs/quickstart.zh-CN.md",
+      "jaSource": "docs/quickstart.ja.md",
       "label": {
         "en": "Quickstart",
-        "zh": "快速开始"
+        "zh": "快速开始",
+        "ja": "クイックスタート"
       },
       "description": {
         "en": "Install the Python library or start the application, then try your first query.",
-        "zh": "安装 Python 库或启动应用，完成第一次查询。"
+        "zh": "安装 Python 库或启动应用，完成第一次查询。",
+        "ja": "Python ライブラリを入れるか、アプリを起動して、最初のクエリを試します。"
       }
     },
     {
       "slug": "local-models",
       "source": "docs/local-models.md",
       "zhSource": "docs/local-models.zh-CN.md",
+      "jaSource": "docs/local-models.ja.md",
       "title": "Run Every Model Locally",
       "label": {
         "en": "Run Locally",
-        "zh": "本地运行"
+        "zh": "本地运行",
+        "ja": "ローカルで動かす"
       },
       "description": {
         "en": "Hardware requirements, platform setup and connection checks for local models.",
-        "zh": "准备硬件，按平台启动本地模型，并检查连接。"
+        "zh": "准备硬件，按平台启动本地模型，并检查连接。",
+        "ja": "ローカルモデルに必要なハードウェア、プラットフォーム別の準備、接続の確認。"
       }
     },
     {
       "slug": "model-choice",
       "source": "docs/model-choice.md",
       "zhSource": "docs/model-choice.zh-CN.md",
+      "jaSource": "docs/model-choice.ja.md",
       "title": "Choosing a Model",
       "label": {
         "en": "Choosing a Model",
-        "zh": "选择模型"
+        "zh": "选择模型",
+        "ja": "モデルの選び方"
       },
       "description": {
         "en": "Choose local, cloud or hybrid processing by hardware and data privacy.",
-        "zh": "根据硬件和数据隐私要求选择本地、云端或混合方案。"
+        "zh": "根据硬件和数据隐私要求选择本地、云端或混合方案。",
+        "ja": "ハードウェアとプライバシーの要件に合わせて、ローカル、クラウド、併用から選びます。"
       }
     },
     {
       "slug": "walkthrough",
       "source": "docs/walkthrough.md",
       "zhSource": "docs/walkthrough.zh-CN.md",
+      "jaSource": "docs/walkthrough.ja.md",
       "title": "Walkthrough",
       "label": {
         "en": "Walkthrough",
-        "zh": "完整演示"
+        "zh": "完整演示",
+        "ja": "ウォークスルー"
       },
       "description": {
         "en": "Upload a report, inspect results, ask questions and record a journal entry.",
-        "zh": "上传报告、核对结果、提问并记录健康日记。"
+        "zh": "上传报告、核对结果、提问并记录健康日记。",
+        "ja": "報告をアップロードし、結果を確かめ、質問して、日記を記録します。"
       }
     },
     {
@@ -70,26 +82,32 @@
       "title": "Data Pipeline",
       "label": {
         "en": "Data Pipeline",
-        "zh": "数据流程"
+        "zh": "数据流程",
+        "ja": "データパイプライン"
       },
       "description": {
         "en": "How source data becomes standardized records and cited answers.",
-        "zh": "原始资料如何整理成标准化记录，并用于有来源的回答。"
+        "zh": "原始资料如何整理成标准化记录，并用于有来源的回答。",
+        "ja": "元のデータが、標準化された記録と出典付きの回答になるまで。"
       },
-      "zhSource": "docs/site/pipeline.zh-CN.md"
+      "zhSource": "docs/site/pipeline.zh-CN.md",
+      "jaSource": "docs/site/pipeline.ja.md"
     },
     {
       "slug": "providers/using-providers",
       "source": "docs/site/provider-setup.md",
       "zhSource": "docs/site/provider-setup.zh-CN.md",
+      "jaSource": "docs/site/provider-setup.ja.md",
       "title": "Connect a Device Provider",
       "label": {
         "en": "Device Providers",
-        "zh": "设备 Provider"
+        "zh": "设备 Provider",
+        "ja": "デバイス連携"
       },
       "description": {
         "en": "Configure credentials and callbacks for Garmin, Oura and WHOOP.",
-        "zh": "配置 Garmin、Oura、WHOOP 的凭据与回调，检查同步状态。"
+        "zh": "配置 Garmin、Oura、WHOOP 的凭据与回调，检查同步状态。",
+        "ja": "Garmin、Oura、WHOOP の認証情報とコールバックを設定します。"
       }
     },
     {
@@ -98,13 +116,16 @@
       "title": "File Processing",
       "label": {
         "en": "File Processing",
-        "zh": "文件处理"
+        "zh": "文件处理",
+        "ja": "ファイル処理"
       },
       "description": {
         "en": "Supported documents, upload status, extracted readings and API entry points.",
-        "zh": "支持的文档格式、上传状态、读数核对与 API 接入。"
+        "zh": "支持的文档格式、上传状态、读数核对与 API 接入。",
+        "ja": "対応する文書、アップロードの状態、抽出された測定値、API の入口。"
       },
-      "zhSource": "docs/site/file-processing.zh-CN.md"
+      "zhSource": "docs/site/file-processing.zh-CN.md",
+      "jaSource": "docs/site/file-processing.ja.md"
     },
     {
       "slug": "providers/apple-health",
@@ -112,26 +133,32 @@
       "title": "Apple Health Import",
       "label": {
         "en": "Apple Health",
-        "zh": "Apple Health"
+        "zh": "Apple Health",
+        "ja": "Apple Health"
       },
       "description": {
         "en": "Import a Health export or receive records from an authorized client.",
-        "zh": "导入健康 App 导出包，或接收已授权客户端推送的数据。"
+        "zh": "导入健康 App 导出包，或接收已授权客户端推送的数据。",
+        "ja": "ヘルスケアの書き出しデータを読み込むか、許可したクライアントから記録を受け取ります。"
       },
-      "zhSource": "docs/site/apple-health.zh-CN.md"
+      "zhSource": "docs/site/apple-health.zh-CN.md",
+      "jaSource": "docs/site/apple-health.ja.md"
     },
     {
       "slug": "concepts/indicators",
       "source": "docs/site/standardization.md",
       "zhSource": "docs/site/standardization.zh-CN.md",
+      "jaSource": "docs/site/standardization.ja.md",
       "title": "Standardization",
       "label": {
         "en": "Standardization",
-        "zh": "标准化"
+        "zh": "标准化",
+        "ja": "標準化"
       },
       "description": {
         "en": "How a printed reading becomes a comparable one, offline: coded, or left uncoded with its reason, never guessed.",
-        "zh": "报告上的一条读数如何变得可以比较：离线完成，能确定就编码，不能确定就留空并说明原因，不做猜测。"
+        "zh": "报告上的一条读数如何变得可以比较：离线完成，能确定就编码，不能确定就留空并说明原因，不做猜测。",
+        "ja": "印刷された測定値を、オフラインで比較できる値にする仕組み。コードを付けるか、理由を添えてコードなしで残し、推測はしません。"
       }
     },
     {
@@ -140,26 +167,32 @@
       "title": "Device Crosswalk",
       "label": {
         "en": "Device Crosswalk",
-        "zh": "设备字段对照"
+        "zh": "设备字段对照",
+        "ja": "デバイス項目の対応表"
       },
       "description": {
         "en": "Look up device fields and understand verified, unverified and unmapped results.",
-        "zh": "查询设备字段，区分已确认、待确认与无标准映射的结果。"
+        "zh": "查询设备字段，区分已确认、待确认与无标准映射的结果。",
+        "ja": "デバイスの項目を調べ、確認済み・未確認・対応なしの結果を見分けます。"
       },
-      "zhSource": "docs/site/device-crosswalk.zh-CN.md"
+      "zhSource": "docs/site/device-crosswalk.zh-CN.md",
+      "jaSource": "docs/site/device-crosswalk.ja.md"
     },
     {
       "slug": "concepts/genetics",
       "source": "docs/site/genetics.md",
       "zhSource": "docs/site/genetics.zh-CN.md",
+      "jaSource": "docs/site/genetics.ja.md",
       "title": "Genetics",
       "label": {
         "en": "Genetics",
-        "zh": "基因数据"
+        "zh": "基因数据",
+        "ja": "遺伝子データ"
       },
       "description": {
         "en": "Import genotype files, query recorded calls and understand coverage limits.",
-        "zh": "导入基因型文件、查询检出结果，并了解覆盖范围。"
+        "zh": "导入基因型文件、查询检出结果，并了解覆盖范围。",
+        "ja": "遺伝子型ファイルを読み込み、記録された判定を検索し、カバー範囲の限界を把握します。"
       }
     },
     {
@@ -168,25 +201,31 @@
       "title": "Health-Data Tools",
       "label": {
         "en": "Health-Data Tools",
-        "zh": "健康数据工具"
+        "zh": "健康数据工具",
+        "ja": "健康データツール"
       },
       "description": {
         "en": "Choose a record tool, select a query view and interpret partial results.",
-        "zh": "选择数据工具与查询视图，理解来源及不完整结果。"
+        "zh": "选择数据工具与查询视图，理解来源及不完整结果。",
+        "ja": "記録ツールとクエリビューを選び、部分的な結果を読み解きます。"
       },
-      "zhSource": "docs/site/health-data-tools.zh-CN.md"
+      "zhSource": "docs/site/health-data-tools.zh-CN.md",
+      "jaSource": "docs/site/health-data-tools.ja.md"
     },
     {
       "slug": "tools/python-analysis",
       "source": "docs/python-analysis.md",
       "zhSource": "docs/python-analysis.zh-CN.md",
+      "jaSource": "docs/python-analysis.ja.md",
       "label": {
-        "en": "Local Python Analysis",
-        "zh": "本地 Python 分析"
+        "en": "Calculation in Chat",
+        "zh": "聊天中的计算",
+        "ja": "チャットでの計算"
       },
       "description": {
-        "en": "Configure local Python calculation on original query results.",
-        "zh": "配置本地 Python 计算，直接使用查询返回的原始数据。"
+        "en": "How a chat calculation runs on the original query results, and what it needs.",
+        "zh": "聊天中的计算如何直接使用查询返回的原始数据，以及需要哪些条件。",
+        "ja": "チャットでの計算が、クエリ結果の元データでどう動き、何を必要とするか。"
       }
     },
     {
@@ -194,13 +233,16 @@
       "source": "docs/site/medications.md",
       "label": {
         "en": "Medications",
-        "zh": "用药"
+        "zh": "用药",
+        "ja": "服薬"
       },
       "description": {
         "en": "Record plans, review courses and query reported doses.",
-        "zh": "记录用药计划、查看疗程，并查询已记录的服药情况。"
+        "zh": "记录用药计划、查看疗程，并查询已记录的服药情况。",
+        "ja": "服薬プランを記録し、服用期間を確認し、記録された服用を検索します。"
       },
-      "zhSource": "docs/site/medications.zh-CN.md"
+      "zhSource": "docs/site/medications.zh-CN.md",
+      "jaSource": "docs/site/medications.ja.md"
     },
     {
       "slug": "tools/adding-tools",
@@ -208,13 +250,16 @@
       "title": "Adding Tools",
       "label": {
         "en": "Adding Tools",
-        "zh": "添加工具"
+        "zh": "添加工具",
+        "ja": "ツールの追加"
       },
       "description": {
         "en": "Register a Python tool and handle authenticated record access.",
-        "zh": "注册 Python 工具，并正确处理用户身份和记录访问权限。"
+        "zh": "注册 Python 工具，并正确处理用户身份和记录访问权限。",
+        "ja": "Python ツールを登録し、認証済みの記録アクセスを扱います。"
       },
-      "zhSource": "docs/site/adding-tools.zh-CN.md"
+      "zhSource": "docs/site/adding-tools.zh-CN.md",
+      "jaSource": "docs/site/adding-tools.ja.md"
     },
     {
       "slug": "tools/skills",
@@ -222,13 +267,16 @@
       "title": "Agent Skills",
       "label": {
         "en": "Agent Skills",
-        "zh": "Agent 技能"
+        "zh": "Agent 技能",
+        "ja": "エージェントスキル"
       },
       "description": {
         "en": "Install workflows for using the library or connecting a coding assistant.",
-        "zh": "安装库调用或应用接入技能，供编码助手使用。"
+        "zh": "安装库调用或应用接入技能，供编码助手使用。",
+        "ja": "ライブラリの利用やコーディングアシスタントの接続に使うワークフローを入れます。"
       },
-      "zhSource": "docs/site/skills.zh-CN.md"
+      "zhSource": "docs/site/skills.zh-CN.md",
+      "jaSource": "docs/site/skills.ja.md"
     },
     {
       "slug": "development/provider-integration",
@@ -236,13 +284,16 @@
       "title": "Writing a Provider",
       "label": {
         "en": "Writing a Provider",
-        "zh": "编写 Provider"
+        "zh": "编写 Provider",
+        "ja": "Provider の実装"
       },
       "description": {
         "en": "Implement the provider contract, register an integration and verify its data.",
-        "zh": "实现 provider 接口、注册集成，并验证数据处理。"
+        "zh": "实现 provider 接口、注册集成，并验证数据处理。",
+        "ja": "provider のインターフェースを実装し、連携を登録して、データを検証します。"
       },
-      "zhSource": "docs/site/provider-integration.zh-CN.md"
+      "zhSource": "docs/site/provider-integration.zh-CN.md",
+      "jaSource": "docs/site/provider-integration.ja.md"
     },
     {
       "slug": "deployment/backup",
@@ -250,13 +301,16 @@
       "title": "Backups",
       "label": {
         "en": "Backups",
-        "zh": "备份"
+        "zh": "备份",
+        "ja": "バックアップ"
       },
       "description": {
         "en": "Back up the database and files, preserve keys and rehearse recovery.",
-        "zh": "备份数据库和文件，保管密钥，并演练恢复。"
+        "zh": "备份数据库和文件，保管密钥，并演练恢复。",
+        "ja": "データベースとファイルをバックアップし、鍵を保管し、復元を予行演習します。"
       },
-      "zhSource": "docs/site/backup-restore.zh-CN.md"
+      "zhSource": "docs/site/backup-restore.zh-CN.md",
+      "jaSource": "docs/site/backup-restore.ja.md"
     }
   ]
 }

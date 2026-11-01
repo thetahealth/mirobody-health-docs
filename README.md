@@ -8,8 +8,8 @@ with [Mintlify](https://mintlify.com) and published from `main`.
 
 | Path | What it is |
 | --- | --- |
-| `docs.json` | Site configuration and navigation: one sidebar per language, English and Chinese |
-| `en/`, `zh/` | The pages. The two trees mirror each other page for page. |
+| `docs.json` | Site configuration and navigation: one sidebar per language, English, Chinese and Japanese |
+| `en/`, `zh/`, `ja/` | The pages. The three trees mirror each other page for page. |
 | `snippets/` | Shared page fragments, and `oss-facts.jsx` (generated) |
 | `images/` | Images; `images/oss/` is copied from the engine repository (generated) |
 | `oss.lock` | The mirobody release the Open Source pages describe: version and commit |
@@ -26,7 +26,7 @@ sync. A generated page says so in its first lines.
 ```bash
 npm install
 npm run oss:fetch   # check out the pinned commit into vendor/ (gitignored)
-npm run oss:sync    # render the mapped files into en/ and zh/, copy images, regenerate snippets/oss-facts.jsx
+npm run oss:sync    # render the mapped files into en/, zh/ and ja/, copy images, regenerate snippets/oss-facts.jsx
 ```
 
 The remaining Open Source pages (the landing page, configuration, troubleshooting,
@@ -36,12 +36,20 @@ facts through `<Fact k="…"/>` from `snippets/oss-facts.jsx`, and `check:facts`
 re-reads every port, account, version, command, tool name, path and config key
 they state against the pinned commit.
 
-Chinese: when the engine repository has a Chinese edition of a file, the zh page is
-rendered from it. A page marked `"zh": "translation"` in `oss-map.json` is translated
-here and records the commit it was translated from (`source:` in its frontmatter);
-`check:freshness` fails when that file changes upstream. Any other generated page
-shows the English text under a notice. Each English-only page has a short Chinese
-orientation in `oss-map.json` (`zhIntro`) and is labelled `（英文）` in the Chinese sidebar.
+Chinese and Japanese: when the engine repository has an edition of a file in that
+language at the pinned commit (`zhSource`, `jaSource` in `oss-map.json`), the page is
+rendered from it. A page marked `"zh": "translation"` or `"ja": "translation"` is
+translated here and records the commit it was translated from (`source:` in its
+frontmatter); `check:freshness` fails when that file changes upstream. Any other
+generated page shows the English text under a notice and is labelled `（英文）` or
+`（英語）` in its sidebar; a Chinese one also carries a short orientation (`zhIntro`).
+A Japanese edition can be declared before the release that ships it: until the pin
+reaches that release, the page falls back to English.
+
+The hand-written pages exist in all three languages with the same structure (`check:parity`
+counts headings, fences, links and components per page). A hand-written page may show
+an image from the engine repository by its `images/oss/` path; the sync copies it from
+the pinned commit.
 
 Write task pages as procedures with prerequisites, actions and observable results.
 Keep deep reference and code-derived facts in the engine repository. When a generated

@@ -1,0 +1,54 @@
+---
+title: "セルフホストの HTTP API"
+description: "ローカルデプロイのトークンを取得し、/api/data で読数を1件書き込み、読み出して確認します。"
+---
+
+セルフホストしたエンジンは、デプロイ上に `/api/*` を公開します。認証にはそのデプロイのアカウントトークンを使います。以下の例は**ローカルの Docker デモ**と、公開されているデモのログインコードを使います。完全なルートとリクエストのスキーマは、サーバー稼働中に `http://localhost:18060/docs` を開いて確認してください。
+
+## 最初のローカル API リクエスト
+
+[Docker デモ](/ja/self-host#first-local-result)を起動し、別のターミナルを開きます。この例は自分のマシンの `http://localhost:18060` に対して実行します。
+
+<Steps>
+  <Step title="デモアカウントのトークンを取得する">
+    デモのメールアドレスとコードをアクセストークンと交換します：
+
+    ```bash
+    curl -sS http://localhost:18060/email/verify \
+      -H "Content-Type: application/json" \
+      -d '{"email":"you@mirobody.ai","code":"111111"}'
+    ```
+
+    応答から `data.access_token` をコピーして shell に設定します：
+
+    ```bash
+    export mirobody_demo_token="<data.access_token>"
+    ```
+  </Step>
+  <Step title="読数を1件書き込む">
+    トークンが表すアカウントへ、構造化したレコードを送信します：
+
+    ```bash
+    curl -sS http://localhost:18060/api/data \
+      -H "Authorization: Bearer $mirobody_demo_token" \
+      -H "Content-Type: application/json" \
+      -d '{"records":[{"indicator":"fasting_glucose","value":97,"unit":"mg/dL","time":"2026-09-28T07:30:00Z"}]}'
+    ```
+
+    成功時の応答には `"status":"ok"` と `"ingested":1` が含まれます。`standardized` を見ると、その読数にコードが付いたかどうかがわかります。
+  </Step>
+  <Step title="アカウントの記録を読み出す">
+    ```bash
+    curl -sS "http://localhost:18060/api/data?limit=10" \
+      -H "Authorization: Bearer $mirobody_demo_token"
+    ```
+
+    応答には `"object":"list"` と `data` 配列が含まれます。指標名、値、時刻を手がかりに、新しく書き込んだ読数を探してください。デモにはあらかじめ投入された読数も含まれています。
+  </Step>
+</Steps>
+
+## アカウントとデモコード
+
+`POST /api/data` は、トークンが表すアカウントに書き込みます。
+
+デモコードはローカルの例のためのものです。実際の記録を受け付ける前に、[サーバーへのデプロイ](/ja/deployment/production)に従ってデモアカウントとコードを削除してください。

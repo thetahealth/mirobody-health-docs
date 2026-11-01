@@ -196,6 +196,89 @@
             ]
           }
         ]
+      },
+      {
+        "language": "ja",
+        "groups": [
+          {
+            "group": "はじめに",
+            "icon": "rocket",
+            "pages": [
+              "ja/index",
+              "ja/self-host",
+              "ja/walkthrough",
+              "ja/quickstart",
+              "ja/configuration",
+              "ja/troubleshooting"
+            ]
+          },
+          {
+            "group": "モデル",
+            "icon": "microchip",
+            "pages": [
+              "ja/model-choice",
+              "ja/local-models"
+            ]
+          },
+          {
+            "group": "アーキテクチャ",
+            "icon": "diagram-project",
+            "pages": [
+              "ja/concepts/architecture"
+            ]
+          },
+          {
+            "group": "① 収集",
+            "icon": "download",
+            "pages": [
+              "ja/providers/using-providers",
+              "ja/providers/apple-health",
+              "ja/concepts/file-processing"
+            ]
+          },
+          {
+            "group": "② 標準化",
+            "icon": "wand-magic-sparkles",
+            "pages": [
+              "ja/concepts/indicators",
+              "ja/concepts/device-crosswalk",
+              "ja/concepts/genetics"
+            ]
+          },
+          {
+            "group": "③ エージェント",
+            "icon": "robot",
+            "pages": [
+              "ja/tools/agents",
+              "ja/tools/overview",
+              "ja/tools/python-analysis",
+              "ja/tools/medications",
+              "ja/tools/mcp-integration",
+              "ja/tools/skills"
+            ]
+          },
+          {
+            "group": "拡張",
+            "icon": "puzzle-piece",
+            "pages": [
+              "ja/tools/adding-tools",
+              "ja/http-api",
+              "ja/development/provider-integration",
+              "ja/concepts/synthetic-data"
+            ]
+          },
+          {
+            "group": "デプロイ",
+            "icon": "server",
+            "pages": [
+              "ja/deployment/production",
+              "ja/deployment/upgrade",
+              "ja/deployment/backup",
+              "ja/deployment/restore",
+              "ja/deployment/export"
+            ]
+          }
+        ]
       }
     ]
   },

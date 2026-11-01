@@ -3,14 +3,15 @@
  *
  *   npm run check:freshness
  *
- * A hand-written translation of a generated page (oss-map.json: "zh": "translation")
+ * A hand-written translation of a generated page (oss-map.json: "zh" or "ja": "translation")
  * records the upstream file and commit it was translated from:
  *
  *   source: "docs/quickstart.md@<commit>"
  *
  * When oss.lock moves to a commit where that file differs, the translation is out
- * of date: this fails until the Chinese page is updated and its `source` moved to
+ * of date: this fails until the translated page is updated and its `source` moved to
  * the new commit. Compared by blob, so a commit that did not touch the file passes.
+ * The same holds for a Japanese translation.
  */
 import { assertVendor, ensureCommit, git, readMap } from "./lib/oss.mjs";
 import { frontmatter, read } from "./lib/pages.mjs";
@@ -19,8 +20,10 @@ const lock = assertVendor();
 const problems = [];
 let checked = 0;
 
-for (const page of readMap().pages.filter((p) => p.zh === "translation")) {
-  const file = `zh/${page.slug}`;
+const translations = readMap().pages.flatMap((page) =>
+  ["zh", "ja"].filter((locale) => page[locale] === "translation").map((locale) => ({ page, file: `${locale}/${page.slug}` })),
+);
+for (const { page, file } of translations) {
   const text = read(file);
   if (!text) {
     problems.push(`${file}.mdx: missing — oss-map.json says it is a hand-written translation`);

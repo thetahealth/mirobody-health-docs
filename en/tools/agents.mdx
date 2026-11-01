@@ -15,7 +15,7 @@ The built-in agent answers questions about the selected person's health record. 
 | --- | --- |
 | Compare health records | Query measurements, medications and genetic data; see [Health-Data Tools](/en/tools/overview). |
 | Read source documents | Search and read the person's uploaded files and document library. |
-| Calculate from records | Calculate from the original query results with the calculation tool. [Local Python Analysis](/en/tools/python-analysis) says where the code runs and what it needs. |
+| Calculate from records | Calculate from the original query results with the calculation tool. [Calculation in Chat](/en/tools/python-analysis) says where the code runs and what it needs. |
 | Look up medical references | Search a local medical-reference index or, when enabled, PubMed and ClinicalTrials.gov. These tools do not query the person's record. |
 | Clarify a question | Ask the user for missing information before continuing. |
 
@@ -23,7 +23,7 @@ Citations link an answer to a recorded reading, a document passage or a medical 
 
 Reasoning and tool activity appear in the work panel; the final answer appears separately. Long conversations are summarized automatically as they approach the context limit. The panel shows when summarization is in progress.
 
-**Stop** ends reception in the browser. Generation may continue on the server, so a completed answer can appear when you refresh the conversation.
+**Stop generating** ends reception in the browser. Generation may continue on the server, so a completed answer can appear when you refresh the conversation.
 
 ## Configuration {#configuration}
 
@@ -37,7 +37,7 @@ Choose a model in **Settings › Model** or follow [Configuration](/en/configura
 | `KNOWLEDGE_INDEX` | Path to a local medical-reference index built with `mirobody fetch knowledge`. |
 | `KNOWLEDGE_ONLINE` | Enable PubMed and ClinicalTrials.gov searches. Search terms are sent to those services. |
 
-Knowledge tools appear only when a local or online source is available. Calculation has its own requirements, listed in [Local Python Analysis](/en/tools/python-analysis). `mirobody doctor --probe` checks model capabilities, including whether the endpoint returns visible reasoning.
+Knowledge tools appear only when a local or online source is available. Calculation has its own requirements, listed in [Calculation in Chat](/en/tools/python-analysis). `mirobody doctor --probe` checks model capabilities, including whether the endpoint returns visible reasoning.
 
 ## Custom agents {#replacing-the-agent}
 

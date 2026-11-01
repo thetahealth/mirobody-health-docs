@@ -42,7 +42,7 @@ Decide the posture **before** the first start: demo data is seeded on first boot
     ```bash
     ./deploy.sh
     ```
-    `deploy.sh` generates `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY` and `JWT_KEY` into `.env` when they are missing, pulls the application image (or builds it from this checkout when it cannot), and starts Postgres, the server and the worker. Continue with the checks below before directing users to this host.
+    `deploy.sh` generates `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `JWT_KEY` and `SETUP_TOKEN` into `.env` when they are missing, pulls the application image (or builds it from this checkout when it cannot), and starts Postgres, the server and the worker. Continue with the checks below before directing users to this host.
   </Step>
 </Steps>
 
@@ -66,7 +66,7 @@ EMAIL_PREDEFINE_CODES: {}
 
 With `PRODUCTION: true` the server refuses to start while any predefined sign-in code or any `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder remains, and it never seeds demo data; the error names what is left. `EMAIL_PREDEFINE_CODES: {}` removes the two demo accounts, because an overlay replaces the whole value.
 
-People then sign in in one of three ways: by registering with a password in the web client (`POST /password/register`), with an email code once a mail server is configured (`EMAIL_FROM` and `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASS`), or with Google or Apple sign-in, configured in `config.devices.yaml`.
+People then sign in one of two ways: by registering with a password in the web client (`POST /password/register`), or with an email code once a mail server is configured (`EMAIL_FROM` and `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASS`).
 
 Set `BOOTSTRAP_SCHEMA: false` as well if you provision the database schema yourself.
 
@@ -74,7 +74,7 @@ The first-run page stays available in production, because it decides where healt
 
 ## Secrets {#secrets}
 
-`./deploy.sh` writes `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY` and `JWT_KEY` into `.env` on first run, each `openssl rand -hex 32`, and never overwrites a value already there (`.env` itself is written `chmod 600`). Compose passes `.env` to every container through `env_file`, so `PG_PASSWORD` reaches both the `pg` service (`POSTGRES_PASSWORD`) and the app; nothing else needs to carry it.
+`./deploy.sh` writes `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `JWT_KEY` and `SETUP_TOKEN` into `.env` on first run, each `openssl rand -hex 32`, and never overwrites a value already there (`.env` itself is written `chmod 600`). Compose passes `.env` to every container through `env_file`, so `PG_PASSWORD` reaches both the `pg` service (`POSTGRES_PASSWORD`) and the app; nothing else needs to carry it.
 
 `DATABASE_DECRYPTION_KEY` is the one secret `deploy.sh` does not generate: it ships in `config.devices.yaml` as a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder, and `PRODUCTION: true` refuses to start while that placeholder remains. Set it yourself, in `.env`, where it overrides the config file (environment variables take precedence over every config source):
 
@@ -136,4 +136,4 @@ The `mirobody` service should report `healthy`. The response contains `version` 
 
 The data lives in the Postgres volume and, when uploads are stored on local disk rather than in a bucket, in the upload volume. Use [Verify and Restore a Backup](/en/deployment/restore) for a restore rehearsal and recovery procedure; the engine's [Backup & Restore reference](/en/deployment/backup) explains the volumes in detail.
 
-Use [Upgrade a Deployment](/en/deployment/upgrade) for the sequence: back up data and keys, review the target release, change the checkout, restart and verify. `deploy.sh` runs `docker compose up -d --remove-orphans`, which recreates a changed service in place; plan a maintenance window for the brief restart.
+Use [Upgrade a Deployment](/en/deployment/upgrade) for the sequence: back up data and keys, review the target release, change the checkout, restart and verify. `deploy.sh` runs `docker compose up -d --wait --remove-orphans`, which recreates a changed service in place and waits for it to report healthy; plan a maintenance window for the brief restart.

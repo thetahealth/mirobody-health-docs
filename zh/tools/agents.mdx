@@ -15,7 +15,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | --- | --- |
 | 比较健康数据 | 查询指标、用药和基因数据，详见[健康数据工具](/zh/tools/overview)。 |
 | 查阅原始资料 | 搜索和阅读该用户上传的文件及文档库。 |
-| 计算与分析 | 由计算工具直接计算查询返回的原始数据。代码在哪里运行、需要什么条件，见[本地 Python 分析](/zh/tools/python-analysis)。 |
+| 计算与分析 | 由计算工具直接计算查询返回的原始数据。代码在哪里运行、需要什么条件，见[聊天中的计算](/zh/tools/python-analysis)。 |
 | 查找医学资料 | 检索本地医学资料库；启用联网检索后，还可查询 PubMed 和 ClinicalTrials.gov。这类检索不读取个人健康记录。 |
 | 补充提问信息 | 问题中的信息不足时，先向用户确认，再继续处理。 |
 
@@ -23,7 +23,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 
 思考和工具执行过程显示在执行面板中，最终答案单独展示。长对话接近上下文上限时，系统会自动整理早期消息，并在面板中显示整理进度。
 
-点击**停止**会结束浏览器对本轮回答的接收。服务端可能仍在生成；刷新对话后，可以看到已在后台完成的回答。
+点击**停止生成**会结束浏览器对本轮回答的接收。服务端可能仍在生成；刷新对话后，可以看到已在后台完成的回答。
 
 ## 配置 {#configuration}
 
@@ -37,7 +37,7 @@ import { OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | `KNOWLEDGE_INDEX` | 本地医学资料索引的路径，索引由 `mirobody fetch knowledge` 构建。 |
 | `KNOWLEDGE_ONLINE` | 启用 PubMed 和 ClinicalTrials.gov 联网检索，检索词会发送到相应服务。 |
 
-有可用的本地或在线资料来源时，才会提供医学知识工具。计算功能有单独的运行条件，见[本地 Python 分析](/zh/tools/python-analysis)。可运行 `mirobody doctor --probe` 检查模型能力，包括接口是否返回可见的思考内容。
+有可用的本地或在线资料来源时，才会提供医学知识工具。计算功能有单独的运行条件，见[聊天中的计算](/zh/tools/python-analysis)。可运行 `mirobody doctor --probe` 检查模型能力，包括接口是否返回可见的思考内容。
 
 ## 接入自定义 agent {#replacing-the-agent}
 

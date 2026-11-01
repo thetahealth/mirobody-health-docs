@@ -104,7 +104,7 @@ export function readFacts() {
     llmKeys,
     cli,
     tools,
-    readme: { en: readme("README.md"), zh: readme("README.zh-CN.md") },
+    readme: { en: readme("README.md"), zh: readme("README.zh-CN.md"), ja: readme("README.ja.md") },
     source: { cli: exported?.cli ? "docs/facts.json" : "mirobody/cli.py", tools: exported?.tools ? "docs/facts.json" : "mirobody/agent/tools" },
   };
 }

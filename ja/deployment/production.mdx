@@ -1,0 +1,139 @@
+---
+title: "サーバーへのデプロイ"
+description: "Docker スタックを HTTPS の背後に置き、本番用の認証・個別のシークレット・制限されたポート・検証手順を設定します。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+実データを使う前、または他の人にアクセスを開放する前に、本番用の認証・シークレット・HTTPS を設定してください。ローカルデモの既定値は、共有デプロイには適しません。セキュリティの参考情報は <OssLink path="SECURITY.md" /> を参照してください。
+
+## ホスト要件
+
+Docker Engine、**2.24.4 以降の** Compose、Git を備えた Linux ホストを使ってください。クラウドモデルを使うには、ホストがそのサービスへアウトバウンド通信できる必要があります。ローカルモデルを使うには、NVIDIA GPU と NVIDIA Container Toolkit を備えた `local` プロファイル、または GPU なしの `local-cpu` を使ってください。必要な容量は同時利用者数とファイル量によって決まります。モデルのメモリ要件は[ローカルで動かす](/ja/local-models)を参照してください。
+
+## 初回起動
+
+**初回起動の前に**方針を決めてください。デモデータは初回起動時に投入され、データベースのパスワードはそのボリュームの作成時に決まります。
+
+<Steps>
+  <Step title="リポジトリをクローンする">
+    ```bash
+    git clone https://github.com/thetahealth/mirobody.git && cd mirobody
+    ```
+  </Step>
+  <Step title=".env を書く">
+    ```bash .env
+    ENV=prod
+    SEED_DEMO_DATA=false
+    OPENROUTER_API_KEY=...
+    # または、キーなしでローカルモデルをスタックと一緒に動かす場合：
+    # COMPOSE_PROFILES=local
+    # LOCAL_BASE_URL=http://llama:8080/v1
+    # LOCAL_OCR_BASE_URL=http://llama:8080/v1
+    ```
+    `ENV` は上書きファイル `config.prod.yaml` の名前を指定します。対応するモデルキーのいずれか1つ、またはキーなしでローカルモデルも使えます。[設定](/ja/configuration#the-model-key)を参照してください。初回セットアップページはサーバーでも使え、モデル未設定の間は `./deploy.sh` が `SETUP_TOKEN` 付きのリンクを表示します。
+  </Step>
+  <Step title="上書きファイルを書く">
+    下記の本番用の構成で `config.prod.yaml` を作成してください。`deploy.sh` は、その名前ですでに存在する上書きファイルを組み込むだけで、作成はしません。リバースプロキシが同じホストで動く場合は、起動前に `compose.override.yaml` でアプリのポートをループバックにバインドしてください。
+  </Step>
+  <Step title="スタックを起動する">
+    ```bash
+    ./deploy.sh
+    ```
+    `deploy.sh` は `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`JWT_KEY`、`SETUP_TOKEN` が `.env` になければ生成し、アプリケーションイメージを取得し（取得できない場合はこのチェックアウトからビルドし）、Postgres・サーバー・worker を起動します。このホストに利用者を案内する前に、下記の確認を済ませてください。
+  </Step>
+</Steps>
+
+## ローカルデモの後 {#after-a-local-demo}
+
+実データには**新しいデプロイ**を使ってください。デモのチェックアウトで `PRODUCTION` を有効にしても、以後のデモデータ投入が止まるだけで、既存のデモアカウントや読数は消えません。Postgres のパスワードは元のボリューム作成時に固定されており、暗号化キーを変更すると保存済みの内容が読めなくなります。そのボリュームを使い回しても、きれいな本番環境にはなりません。
+
+1. デモ環境に残しておきたい内容があれば、そこで `shell/backup.sh` を実行し、バックアップと対応する `.env`・設定ファイルを保護された場所に保存してください。これは安全のための複製であり、本番の初期データベースには**なりません**。
+2. 新しい Linux ホストまたは VM を使うことを優先してください。そこにエンジンをクローンし、`SEED_DEMO_DATA=false`、本番用の上書きファイル、`DATABASE_DECRYPTION_KEY`、HTTPS を `./deploy.sh` 実行の**前に**揃えたうえで、[初回起動](#初回起動)を最初から行ってください。
+3. 同じホストを使い回さざるを得ない場合は、まず**デモ**のチェックアウトで `docker compose down` を実行してください。これはボリュームを削除せずにデモを停止します。本番用は**別のディレクトリ名**にクローンし、`COMPOSE_PROJECT_NAME` を未設定のままにするかデモと異なる値にして、そこで[初回起動](#初回起動)を行ってください。Compose は名前付きボリュームにプロジェクト名を前置するため、別プロジェクトにすると新しいスタックは空の Postgres とアップロードボリュームを得ます。古いデモは停止したまま別個に残ります。
+4. [デプロイの確認](#デプロイを検証する)の後、新しいアカウントを登録し、残したい実データだけを入力してください。デモアカウントやデモの読数が表示されないことを確認してください。デモのバックアップは別に保管してください。新しいスタックに復元すると、デモデータが戻ってしまいます。
+
+デモにすでに移行が必要な実データが入っている場合は、そのデータベース・アップロードファイル・**対応する暗号化キー**を保持してください。本番を利用者に開放する前に、明示的なデータ移行とアカウントの点検を計画してください。`PRODUCTION` を変更するだけでは、その移行にはなりません。
+
+## 本番の構成 {#production-posture}
+
+```yaml config.prod.yaml
+PRODUCTION: true
+EMAIL_PREDEFINE_CODES: {}
+```
+
+`PRODUCTION: true` にすると、サーバーは事前定義のログインコードや `REPLACE_THIS_VALUE_IN_PRODUCTION` のプレースホルダーが1つでも残っている間は起動を拒否し、デモデータも投入しません。エラーには残っている項目名が示されます。`EMAIL_PREDEFINE_CODES: {}` は2つのデモアカウントを取り除きます。上書きファイルは値全体を置き換えるためです。
+
+その後、利用者は次の2通りの方法でログインできます。Web クライアントでパスワード登録する方法（`POST /password/register`）、またはメールサーバーを設定したうえでメールコードを使う方法（`EMAIL_FROM` と `EMAIL_SMTP_HOST`、`EMAIL_SMTP_PORT`、`EMAIL_SMTP_USER`、`EMAIL_SMTP_PASS`）です。
+
+データベーススキーマを自分で用意する場合は、`BOOTSTRAP_SCHEMA: false` も設定してください。
+
+初回セットアップページは本番でも使えたままです。健康データの送信先を決めるページだからです。これを変更するには `.env` の `SETUP_TOKEN` が必要で、モデル設定済みの後はログイン済みのセッションも必要になるため、`.env` は他のシークレットと同じように保護してください。`.env` で設定したモデルは、このページから置き換わることはありません。
+
+## シークレット {#secrets}
+
+`./deploy.sh` は初回実行時に `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`JWT_KEY`、`SETUP_TOKEN` を `.env` に書き込みます。それぞれ `openssl rand -hex 32` で生成され、すでにある値は上書きしません（`.env` 自体は `chmod 600` で書き込まれます）。Compose は `env_file` を通じて `.env` を各コンテナに渡すため、`PG_PASSWORD` は `pg` サービス（`POSTGRES_PASSWORD`）とアプリの両方に届き、他に書く必要はありません。
+
+`DATABASE_DECRYPTION_KEY` は、`deploy.sh` が生成しない唯一のシークレットです。`config.devices.yaml` に `REPLACE_THIS_VALUE_IN_PRODUCTION` というプレースホルダーとして入っており、`PRODUCTION: true` はそのプレースホルダーが残っている間は起動を拒否します。自分で `.env` に設定してください。設定ファイルより `.env` の値が優先されます（環境変数はどの設定ソースよりも優先されます）。
+
+```bash .env
+DATABASE_DECRYPTION_KEY=<32文字の ASCII 文字列>
+```
+
+`openssl rand -hex 16` で生成してください。得られる**32文字の ASCII 文字列**は、16進数としてデコードされず、そのまま32バイトの AES キーとして使われます。
+
+Postgres は空のデータボリュームを作成するときにだけ `POSTGRES_PASSWORD` を適用します。既存のボリューム上で `PG_PASSWORD` を変更するには、先に `ALTER USER` で変更してから `.env` を合わせて更新してください。
+
+`.env` はバージョン管理に含めず、これらのキーを環境間で使い回さないでください。あるキーで暗号化したデータは、別のキーでは読めません。復元時に暗号化された記録を読めるよう、`.env` はデータベースとアップロードのバックアップと一緒に保管してください。`CONFIG_ENCRYPTION_KEY` は、`config.prod.yaml` に書くデバイス provider の認証情報のように、上書きファイル自体に追加したシークレットらしき値（`_KEY`、`_PASSWORD` など）を暗号化します。`.env` には影響しません。
+
+## 公開 URL と HTTPS {#public-url-and-https}
+
+サーバーの手前のリバースプロキシで TLS を終端してください。サーバー自体はポート <Fact k="port" /> で待ち受けます。この例では同じホストで Caddy を動かします。DNS 名をそのホストに向け、証明書発行と HTTPS のために 80 番と 443 番のインバウンドを許可してください。`compose.override.yaml` では、この設定を「シークレット」節の上書きと統合し、アプリがホストからのみ到達可能になり、Compose ネットワークの既定ゲートウェイにあるホスト側プロキシを信頼するようにします。`!override` タグは既存のポート一覧を置き換え、余分なバインドを防ぎます。[マージ規則](https://docs.docker.com/reference/compose-file/merge/)を参照してください。
+
+```yaml compose.override.yaml
+services:
+  mirobody:
+    ports: !override
+      - "127.0.0.1:18060:18060"
+    environment:
+      - FORWARDED_ALLOW_IPS=10.108.0.1
+```
+
+```caddy Caddyfile
+health.example.com {
+    reverse_proxy 127.0.0.1:18060
+}
+```
+
+`health.example.com` を自分のドメインに置き換えてください。DNS とポートの準備ができると、Caddy は HTTPS 証明書を取得し、元の `Host` とプロキシのスキームを転送します。[Caddy のリバースプロキシガイド](https://caddyserver.com/docs/quick-starts/reverse-proxy)を参照してください。別のプロキシやネットワーク構成を使う場合は、`FORWARDED_ALLOW_IPS` を、**アプリのコンテナが実際に見る**そのプロキシのアドレスに設定してください。
+
+```yaml config.prod.yaml
+MCP_PUBLIC_URL: https://health.example.com
+```
+
+`MCP_PUBLIC_URL` はこのデプロイの公開オリジンで、サーバーは表示するリンクやファイル URL にこれを使います。CORS は `HTTP_HEADERS` で、実際に提供するオリジンに制限してください。
+
+<Warning>
+個人 MCP URL は、受信したリクエストのオリジンで始まります。プロキシが信頼済みアドレス一覧の外にあると、サーバーはその `X-Forwarded-Proto` を無視し、`http://` の URL を発行することがあります。共有する前に、公開 HTTPS サイトから URL を確認してください。
+</Warning>
+
+Postgres を公開しないでください。`compose.yaml` はすでにループバックインターフェースだけで公開しており（<Fact k="pgPort" />）、ローカルでの確認用なので、ここは変更不要です。アプリも既定でループバックです。`MIROBODY_BIND` の変更や上書きの追加でも、この制限は保ってください。`docker compose config` を実行し、実効の `mirobody.ports` が**ループバックのバインドだけ**であることを確認してください。
+
+## デプロイを検証する
+
+リポジトリのディレクトリから、コンテナとローカルの health レスポンスを確認します。
+
+```bash
+docker compose ps
+curl -fsS http://127.0.0.1:18060/api/health
+```
+
+`mirobody` サービスは `healthy` と表示されるはずです。レスポンスには `version` と `agent` フィールドがあります。その後、公開 HTTPS の URL を開き、実際のアカウントで登録またはログインし、個人 MCP URL も `https://` で始まることを確認してください。本番モードは同梱のデモコードを拒否します。起動に失敗した場合は、`docker compose logs --tail 80 mirobody` と[トラブルシューティング](/ja/troubleshooting)を確認してください。
+
+## バックアップとアップグレード
+
+データは Postgres ボリュームに、アップロードファイルをバケットではなくローカルディスクに保存している場合はアップロードボリュームにも保存されます。復元演習と復旧手順は[バックアップの確認と復元](/ja/deployment/restore)を、ボリュームの詳しい説明はエンジンの[バックアップと復元リファレンス](/ja/deployment/backup)を参照してください。
+
+手順は[デプロイのアップグレード](/ja/deployment/upgrade)を参照してください。データとキーのバックアップ、対象リリースの確認、チェックアウトの切り替え、再起動と検証という順序です。`deploy.sh` は `docker compose up -d --wait --remove-orphans` を実行し、変更のあったサービスをその場で再作成して healthy になるまで待ちます。この短い再起動のためにメンテナンス時間帯を確保してください。

@@ -1,0 +1,112 @@
+---
+title: "Docker でセルフホスト"
+sidebarTitle: "Mirobody をセルフホスト"
+description: "Docker で Mirobody を起動し、モデルを選んで、デモデータで最初の質問をします。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+Docker が Web アプリ、Postgres、バックグラウンドの worker、合成デモデータを起動します。Compose 付きの Docker を用意してください。Windows では WSL 2 のターミナルを使います。Python や Node.js のインストールは不要で、GPU もなくても構いません。Mirobody は Apache 2.0 のもと [GitHub](https://github.com/thetahealth/mirobody) で公開されています。
+
+## 3ステップで最初の回答を得る {#first-local-result}
+
+<Steps>
+  <Step title="スタックを起動する">
+    ```bash
+    git clone --depth 1 https://github.com/thetahealth/mirobody.git && cd mirobody
+    ./deploy.sh
+    ```
+
+    スクリプトは OpenSSL でシークレットを生成して `.env` に書き込み、アプリケーションイメージをダウンロードし、デモ環境を起動して、セットアップページのリンクを表示します。
+  </Step>
+  <Step title="モデルを選ぶ">
+    表示されたリンクを開き、モデルキーを1つ貼り付けます：OpenRouter、OpenAI、Gemini、Anthropic、DeepSeek、DashScope、または任意の OpenAI 互換ゲートウェイです。キーは実際のリクエストが1回成功してから暗号化して保存されます。あとから変更する場合は **設定 › モデル** で、再起動なしに変更できます。すべてのモデルをこのマシンに置きたい場合は、[モデルの実行場所](#models)を参照してください。
+  </Step>
+  <Step title="ログインして質問する">
+    <Fact k="url" code /> を開き、「メールコード」タブで `you@mirobody.ai`、コード `111111` でログインします。「コレステロールはどう変化した？」と聞いてみましょう。回答は推移をグラフにし、数値ごとに元のファイルを示します。続けて **データ** ページで `demo/upload/` のファイルをアップロードするか、`mom@mirobody.ai` が共有している記録に切り替えてみてください。
+  </Step>
+</Steps>
+
+[ウォークスルー](/ja/walkthrough)では同じ記録を使って5つの場面をたどります。実データを扱う場合は、**最初の起動前に**[サーバーへのデプロイ](/ja/deployment/production)の設定を適用してください。デモ環境のあとで始める場合は、[既存デモからの移行手順](/ja/deployment/production#after-a-local-demo)に従い、データボリュームをまっさらな状態にしてください。
+
+<AccordionGroup>
+  <Accordion title="サービスを確認する">
+    エンジンのチェックアウトから実行します：
+
+    ```bash
+    docker compose ps
+    curl -fsS http://localhost:18060/api/health
+    docker compose exec mirobody mirobody doctor
+    ```
+
+    `mirobody` サービスは `healthy` になり、ヘルスチェックの応答には `version` と `agent` が含まれます。`mirobody doctor` は各モデル用途が選んだ条件を表示し、`--probe` を付けると実際にリクエストを送ります。あとから `.env` にキーを追加した場合は `docker compose up -d` を実行してください。`docker compose restart` は `.env` を読み直しません。よくある失敗は[トラブルシューティング](/ja/troubleshooting)にまとめています。
+  </Accordion>
+  <Accordion title="このマシンに Git がない場合">
+    代わりにソースアーカイブをダウンロードして展開します：
+
+    ```bash
+    curl -L https://github.com/thetahealth/mirobody/archive/refs/heads/main.tar.gz | tar xz && cd mirobody-main
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## モデルの実行場所 {#models}
+
+| | モデルキーを使う | 100% この端末で動かす |
+| --- | --- | --- |
+| モデルを動かすのは | キーを貼り付けたそのベンダー | [llama.cpp](/ja/local-models) の `llama-server`。スタックと一緒か、ホスト上で動きます |
+| 必要なもの | Docker とキー1つ | Docker、デフォルトサイズでメモリ 16 GB（うち Docker に最低 8 GB） |
+| 速度 | モデルとサービス次第 | GPU 推奨。CPU のみだと回答に数分かかることがあります |
+
+モデルをスタックと一緒に Docker で動かすには、素の `./deploy.sh` の代わりに Compose profile を付けて起動します：
+
+```bash
+COMPOSE_PROFILES=local-cpu ./deploy.sh     # GPU なし、どのパソコンでも
+COMPOSE_PROFILES=local ./deploy.sh         # NVIDIA GPU
+```
+
+これらの profile は接続を自動設定します。最初のリクエストはモデルのダウンロードを待ちます。Mac では GPU を使うためにホスト側で `llama-server` を実行してください。プラットフォームごとのセットアップは[ローカルで実行](/ja/local-models)、選べるモデルは[モデルの選び方](/ja/model-choice)を参照してください。`.env` にクラウドの API キーがあるとそちらが優先されるため、明示的にローカルモデルを選ぶには[設定](/ja/configuration#local-models)の上書き設定を使います。
+
+## この端末の外に出るデータ {#what-leaves-the-machine}
+
+記録は自分の Postgres データベースに残ります。Mirobody は利用状況のテレメトリを送信しません。外部へのデータ送信は、有効にした機能によって変わります：
+
+| | モデルキーを使う場合 | 100% この端末で動かす場合 |
+| --- | --- | --- |
+| 文書と質問 | そのベンダーに、その利用規約のもとで送信されます。見出しで読み取るだけの表組みは除きます | この端末内にとどまります |
+| 名称からコードへ、単位から UCUM へ（② 標準化） | パッケージ内の同梱データを使い、ネットワークなしでこの端末内で処理します | 同左 |
+| モデルの重み | なし | Hugging Face から一度だけダウンロードします。`.env` の `HF_ENDPOINT` でミラーを指定できます |
+| デバイスベンダー（Garmin、Oura、Whoop） | 連携したあとのみ：そのトークンと自分のデータ | 同左 |
+| コンテナイメージ | Docker Hub から、応答がないときはミラーから取得します（`.env` の `DOCKER_MIRROR=` でミラーを無効化できます） | 同左。加えて llama.cpp のイメージも |
+| ログインメール | `EMAIL_SMTP_HOST` を設定した場合のみ：メールアドレスとコードを自分のメールサーバーへ送信します | 同左 |
+
+保存データの暗号化は、チャット、アップロードしたファイル、服薬のテキスト、プロフィールを対象とし、読数と遺伝子型はまだ対象外です。アプリは `127.0.0.1` のみで待ち受けます。自分の管理が及ばないネットワークに公開する前に、サーバーが呼び出せるすべてのアドレスを一覧した <OssLink path="SECURITY.md" /> を読んでください。
+
+## エクスポートとバックアップ {#export-and-backup}
+
+読数は CSV または JSON で、閲覧できる記録全体は NDJSON でストリーム出力できます。遺伝子型は VCF または FHIR で書き出せます。`shell/backup.sh` はデータベースとアップロードしたファイルの完全なコピーを作成します。ルートとその制限は[データのエクスポート](/ja/deployment/export)にあります。
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="エージェントを接続する" icon="plug" href="/ja/tools/mcp-integration">
+    Claude Code、Codex、Cursor、Gemini CLI を MCP 経由で接続します。個人用リンクは設定から取得します。
+  </Card>
+  <Card title="自分のデータを使う" icon="file-medical" href="/ja/concepts/file-processing">
+    報告書、写真、表計算ファイルに加え、デバイスや Apple Health のエクスポートにも対応します。
+  </Card>
+  <Card title="設定" icon="sliders" href="/ja/configuration">
+    モデルキー、ローカルモデル、設定ファイル、デプロイ設定。
+  </Card>
+  <Card title="サーバーへのデプロイ" icon="server" href="/ja/deployment/production">
+    本番設定、シークレット、HTTPS、アップグレードとバックアップ。
+  </Card>
+</CardGroup>
+
+スタックを使わず自分のコードで名称と単位を解決するには、[ライブラリとして使う](/ja/quickstart#a--the-library)を参照してください。セルフホストしたエンジンは `/` で Web クライアントを、`/api/*` で独自の[HTTP API](/ja/http-api)を、`/mcp` で MCP を提供します。
+
+## 貢献する {#contributing}
+
+もっとも役立つ貢献は、リゾルバが間違える用語を見つけることです。`mirobody resolve "<用語>"` を実行し、結果が間違っているか空であれば、[issue を報告する](https://github.com/thetahealth/mirobody/issues)か、<OssLink path="mirobody/res/loinc/resolver_overrides.tsv" /> に行を追加し、<OssLink path="mirobody/tests/test_engine_coverage.py" /> にテストケースを加えてください。全体の手順は <OssLink path="CONTRIBUTING.md" /> に、セキュリティ報告は <OssLink path="SECURITY.md" /> が説明する非公開のアドバイザリ経由で行います。
