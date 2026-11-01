@@ -25,6 +25,12 @@ import NameOrigin from "/snippets/name-origin.mdx";
 
 Mirobody brings reports, device data, photos and genetic files into one record, puts recognized names and units into a shared language so the record can be compared over time, and lets you ask questions with references to the original sources. Standardize enough of your data, for long enough, and you have a complete, continuous account of one body: your Mirobody. This open-source edition does it on your own infrastructure under the [Apache 2.0 license](https://github.com/thetahealth/mirobody). Built by Theta Health, it is the health data engine behind Theta.
 
+- **Comparable.** One test printed three ways, in any language and unit, lands on one trend. A name the vocabulary cannot place stays uncoded with its reason; nothing is guessed. [How a reading is standardized](/en/concepts/indicators).
+- **Checkable.** Every number in an answer opens the reading and the file it came from.
+- **Yours.** The app, the records and the models can all run on your own machine.
+
+Mirobody organizes your records and answers from them. It does not diagnose or prescribe, and its answers are not medical advice.
+
 <NameOrigin />
 
 <Frame caption="Collect, standardize, and ask: the three stages from a source file to a traceable answer.">
@@ -47,8 +53,8 @@ Mirobody brings reports, device data, photos and genetic files into one record, 
   <Card title="Connect your own agent" icon="plug" href="/en/tools/mcp-integration">
     Query your records from Claude Code, Codex, Cursor or Gemini CLI through MCP.
   </Card>
-  <Card title="Resolve names in Python" icon="code" href="/en/quickstart#a--the-library">
-    `pip install mirobody`: names to LOINC and units to UCUM, offline, with no key.
+  <Card title="Use the engine without the app" icon="code" href="/en/tools/mcp-integration#local-terminology-over-stdio">
+    `uvx --python 3.12 mirobody mcp` gives any MCP client the offline engine; `pip install mirobody` does the same in Python. No key.
   </Card>
   <Card title="Deploy on a server" icon="server" href="/en/deployment/production">
     Production settings, secrets, HTTPS, upgrades and backups.

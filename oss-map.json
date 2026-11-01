@@ -130,8 +130,8 @@
         "zh": "标准化"
       },
       "description": {
-        "en": "Resolve names and compatible units offline, with explicit unknown results.",
-        "zh": "离线解析指标名称和兼容单位，保留无法确定的结果。"
+        "en": "How a printed reading becomes a comparable one, offline: coded, or left uncoded with its reason, never guessed.",
+        "zh": "报告上的一条读数如何变得可以比较：离线完成，能确定就编码，不能确定就留空并说明原因，不做猜测。"
       }
     },
     {
