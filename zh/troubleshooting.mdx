@@ -34,7 +34,7 @@ docker compose logs --tail 80 mirobody         # 服务端自身的日志
 | --- | --- |
 | `deploy.sh` 中止：端口被其他容器占用 | 另一个项目占用了 <Fact k="port" /> 或 <Fact k="pgPort" />。`deploy.sh` 不会停止不属于本项目的容器：请释放端口，或修改本项目的端口。 |
 | Compose 拒绝具名卷（`Host path binding is rejected`） | Docker 以 rootless 或加固模式运行。把 <OssLink path="compose.override.yaml.example" /> 复制为 `compose.override.yaml`，并创建其中列出的目录。 |
-| 拉取镜像失败，或构建时无法访问 Docker Hub | Docker Hub 无响应时，`deploy.sh` 会改用 `docker.1ms.run` 镜像源；只有在完全拉取不到镜像时才会在本地构建。通过代理上网时，需要为 Docker 守护进程本身配置代理，只配置 shell 不够。 |
+| 拉取镜像失败，或构建时无法访问 Docker Hub | Docker Hub 无响应时，`deploy.sh` 会依次尝试镜像源 `mirror.gcr.io` 和 `docker.1ms.run`；只有在完全拉取不到镜像时才会在本地构建。通过代理上网时，需要为 Docker 守护进程本身配置代理，只配置 shell 不够。 |
 | 首次启动耗时很长 | 镜像没能拉取到，`deploy.sh` 于是从本地检出构建。请在运行 `./deploy.sh` 的 shell 里设置 `PIP_INDEX_URL`（它作为构建参数传入，不从 `.env` 读取），改用更近的包索引。 |
 | 设置 `PRODUCTION: true` 后服务端拒绝启动 | 仍有预置登录码或 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值，日志会写明是哪些，见[在服务器上部署](/zh/deployment/production#production-posture)。 |
 | `mirobody dev` 退出并要求提供 Postgres | 传入 `--pg-url`，或设置 `PG_URL` 或 `DATABASE_URL`。数据库需要 pgvector 扩展。 |

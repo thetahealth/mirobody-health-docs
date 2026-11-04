@@ -102,6 +102,26 @@ export const facts = {
           "what": "智能体调用工具查这张表来回答，而不是凭模型记忆：看趋势、跨医院和设备比较、画图。每个数字都能追溯到原始文件，可以核对，不必盲信。"
         }
       ]
+    },
+    "ja": {
+      "tagline": "あなたのからだを、データに映す。",
+      "stages": [
+        {
+          "mark": "①",
+          "name": "収集 Collect",
+          "what": "レポート、デバイス、写真、遺伝子ファイル、日記をあらゆる出どころから取り込みます。どの測定値も元のファイルを保持します。"
+        },
+        {
+          "mark": "②",
+          "name": "標準化 Standardize",
+          "what": "`A1c`、`HbA1c`、`ヘモグロビンA1c` を同じコードに、単位を1つの標準にそろえます。すべてオフラインです。出どころも書き方もばらばらな指標が、1つの表に整った行として並びます。特定できない名前は未解決のまま残します。"
+        },
+        {
+          "mark": "③",
+          "name": "エージェント Agent",
+          "what": "モデルの記憶ではなく、この表を検索するツールを呼んで答えます。推移、検査機関やデバイスをまたいだ比較、グラフ。どの数値も元のファイルまでたどれるので、うのみにせず確かめられます。"
+        }
+      ]
     }
   },
   "source": {
@@ -111,7 +131,7 @@ export const facts = {
 };
 
 export const Fact = ({ k, code = false, sep = ", " }) => {
-  const facts = {"version":"1.5.10","commit":"b37cd7b24af5251a4364aab30905a7497fc69dcb","commitShort":"b37cd7b","repo":"https://github.com/thetahealth/mirobody","python":"3.12","port":18060,"url":"http://localhost:18060","pgPort":18062,"redisPort":null,"account":"you@mirobody.ai","accounts":["you@mirobody.ai","mom@mirobody.ai"],"code":"111111","mcpUrlTtlDays":10,"llmKeys":["OPENROUTER_API_KEY","DASHSCOPE_API_KEY","GOOGLE_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","DEEPSEEK_API_KEY"],"cli":["serve","dev","worker","doctor","fetch","parse","import","resolve","device-bundle","mcp","migrate-observations","migrate-genotypes","recode"],"tools":{"mcp":["query_genetic_data","query_health_indicators","search_medical_knowledge","read_medical_source","query_medications","query_pharmacogenomics","resolve_indicator","convert_unit","normalize_unit"],"gated":["query_genetic_data","query_pharmacogenomics","query_health_indicators","query_medications"]},"readme":{"en":{"tagline":"Mirror your body in data.","stages":[{"mark":"①","name":"Collect","what":"Lab reports, devices, photos, genetic files and journal entries come in from every source; each reading keeps the file it came from."},{"mark":"②","name":"Standardize","what":"`A1c`, `HbA1c` and `Glycated Hemoglobin` resolve to one code, units to one standard, offline: readings from scattered sources land as clean rows in one table. A name it cannot place stays unresolved."},{"mark":"③","name":"Agent","what":"Answers come from tools that query that table, not from the model's memory: trends, comparisons across labs and devices, a chart. Every number traces to its file, so you can check it instead of taking it on trust."}]},"zh":{"tagline":"你的健康数字分身。","stages":[{"mark":"①","name":"收集 Collect","what":"化验单、设备、照片、基因文件和日记从各个来源汇入；每条读数都保留它来自的文件。"},{"mark":"②","name":"标准化 Standardize","what":"`A1c`、`HbA1c`、`糖化血红蛋白` 解析为同一个编码，单位统一到同一标准，全程离线：来源各异、写法杂乱的指标，清晰统一地落进同一张表。无法确定的名称保持未解析。"},{"mark":"③","name":"智能体 Agent","what":"智能体调用工具查这张表来回答，而不是凭模型记忆：看趋势、跨医院和设备比较、画图。每个数字都能追溯到原始文件，可以核对，不必盲信。"}]}},"source":{"cli":"mirobody/cli.py","tools":"mirobody/agent/tools"}};
+  const facts = {"version":"1.5.10","commit":"b37cd7b24af5251a4364aab30905a7497fc69dcb","commitShort":"b37cd7b","repo":"https://github.com/thetahealth/mirobody","python":"3.12","port":18060,"url":"http://localhost:18060","pgPort":18062,"redisPort":null,"account":"you@mirobody.ai","accounts":["you@mirobody.ai","mom@mirobody.ai"],"code":"111111","mcpUrlTtlDays":10,"llmKeys":["OPENROUTER_API_KEY","DASHSCOPE_API_KEY","GOOGLE_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","DEEPSEEK_API_KEY"],"cli":["serve","dev","worker","doctor","fetch","parse","import","resolve","device-bundle","mcp","migrate-observations","migrate-genotypes","recode"],"tools":{"mcp":["query_genetic_data","query_health_indicators","search_medical_knowledge","read_medical_source","query_medications","query_pharmacogenomics","resolve_indicator","convert_unit","normalize_unit"],"gated":["query_genetic_data","query_pharmacogenomics","query_health_indicators","query_medications"]},"readme":{"en":{"tagline":"Mirror your body in data.","stages":[{"mark":"①","name":"Collect","what":"Lab reports, devices, photos, genetic files and journal entries come in from every source; each reading keeps the file it came from."},{"mark":"②","name":"Standardize","what":"`A1c`, `HbA1c` and `Glycated Hemoglobin` resolve to one code, units to one standard, offline: readings from scattered sources land as clean rows in one table. A name it cannot place stays unresolved."},{"mark":"③","name":"Agent","what":"Answers come from tools that query that table, not from the model's memory: trends, comparisons across labs and devices, a chart. Every number traces to its file, so you can check it instead of taking it on trust."}]},"zh":{"tagline":"你的健康数字分身。","stages":[{"mark":"①","name":"收集 Collect","what":"化验单、设备、照片、基因文件和日记从各个来源汇入；每条读数都保留它来自的文件。"},{"mark":"②","name":"标准化 Standardize","what":"`A1c`、`HbA1c`、`糖化血红蛋白` 解析为同一个编码，单位统一到同一标准，全程离线：来源各异、写法杂乱的指标，清晰统一地落进同一张表。无法确定的名称保持未解析。"},{"mark":"③","name":"智能体 Agent","what":"智能体调用工具查这张表来回答，而不是凭模型记忆：看趋势、跨医院和设备比较、画图。每个数字都能追溯到原始文件，可以核对，不必盲信。"}]},"ja":{"tagline":"あなたのからだを、データに映す。","stages":[{"mark":"①","name":"収集 Collect","what":"レポート、デバイス、写真、遺伝子ファイル、日記をあらゆる出どころから取り込みます。どの測定値も元のファイルを保持します。"},{"mark":"②","name":"標準化 Standardize","what":"`A1c`、`HbA1c`、`ヘモグロビンA1c` を同じコードに、単位を1つの標準にそろえます。すべてオフラインです。出どころも書き方もばらばらな指標が、1つの表に整った行として並びます。特定できない名前は未解決のまま残します。"},{"mark":"③","name":"エージェント Agent","what":"モデルの記憶ではなく、この表を検索するツールを呼んで答えます。推移、検査機関やデバイスをまたいだ比較、グラフ。どの数値も元のファイルまでたどれるので、うのみにせず確かめられます。"}]}},"source":{"cli":"mirobody/cli.py","tools":"mirobody/agent/tools"}};
   const value = k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), facts);
   if (value === undefined) return <span>{"[unknown fact " + k + "]"}</span>;
   const items = Array.isArray(value) ? value : [value];
@@ -145,9 +165,9 @@ export const OssSource = ({ path, lang = "en" }) => {
   const href = "https://github.com/thetahealth/mirobody/blob/b37cd7b24af5251a4364aab30905a7497fc69dcb/" + path;
   return (
     <p className="text-sm text-gray-500 dark:text-gray-400">
-      {lang === "zh" ? "对应 mirobody " : "For mirobody "}
+      {{ zh: "对应 mirobody ", ja: "対象 mirobody " }[lang] ?? "For mirobody "}
       <code>1.5.10</code>
-      {lang === "zh" ? " · 源文件 " : " · source "}
+      {{ zh: " · 源文件 ", ja: " · 元ファイル " }[lang] ?? " · source "}
       <a href={href}>
         <code>{path}</code>
       </a>
@@ -157,7 +177,7 @@ export const OssSource = ({ path, lang = "en" }) => {
 
 export const OssVersion = ({ lang = "en" }) => (
   <p className="text-sm text-gray-500 dark:text-gray-400">
-    {lang === "zh" ? "对应 mirobody " : "Written for mirobody "}
+    {{ zh: "对应 mirobody ", ja: "対象 mirobody " }[lang] ?? "Written for mirobody "}
     <a href="https://github.com/thetahealth/mirobody/tree/b37cd7b24af5251a4364aab30905a7497fc69dcb">
       <code>1.5.10</code>
     </a>
@@ -165,7 +185,7 @@ export const OssVersion = ({ lang = "en" }) => (
 );
 
 export const Stages = ({ lang = "en" }) => {
-  const readme = {"en":{"tagline":"Mirror your body in data.","stages":[{"mark":"①","name":"Collect","what":"Lab reports, devices, photos, genetic files and journal entries come in from every source; each reading keeps the file it came from."},{"mark":"②","name":"Standardize","what":"`A1c`, `HbA1c` and `Glycated Hemoglobin` resolve to one code, units to one standard, offline: readings from scattered sources land as clean rows in one table. A name it cannot place stays unresolved."},{"mark":"③","name":"Agent","what":"Answers come from tools that query that table, not from the model's memory: trends, comparisons across labs and devices, a chart. Every number traces to its file, so you can check it instead of taking it on trust."}]},"zh":{"tagline":"你的健康数字分身。","stages":[{"mark":"①","name":"收集 Collect","what":"化验单、设备、照片、基因文件和日记从各个来源汇入；每条读数都保留它来自的文件。"},{"mark":"②","name":"标准化 Standardize","what":"`A1c`、`HbA1c`、`糖化血红蛋白` 解析为同一个编码，单位统一到同一标准，全程离线：来源各异、写法杂乱的指标，清晰统一地落进同一张表。无法确定的名称保持未解析。"},{"mark":"③","name":"智能体 Agent","what":"智能体调用工具查这张表来回答，而不是凭模型记忆：看趋势、跨医院和设备比较、画图。每个数字都能追溯到原始文件，可以核对，不必盲信。"}]}};
+  const readme = {"en":{"tagline":"Mirror your body in data.","stages":[{"mark":"①","name":"Collect","what":"Lab reports, devices, photos, genetic files and journal entries come in from every source; each reading keeps the file it came from."},{"mark":"②","name":"Standardize","what":"`A1c`, `HbA1c` and `Glycated Hemoglobin` resolve to one code, units to one standard, offline: readings from scattered sources land as clean rows in one table. A name it cannot place stays unresolved."},{"mark":"③","name":"Agent","what":"Answers come from tools that query that table, not from the model's memory: trends, comparisons across labs and devices, a chart. Every number traces to its file, so you can check it instead of taking it on trust."}]},"zh":{"tagline":"你的健康数字分身。","stages":[{"mark":"①","name":"收集 Collect","what":"化验单、设备、照片、基因文件和日记从各个来源汇入；每条读数都保留它来自的文件。"},{"mark":"②","name":"标准化 Standardize","what":"`A1c`、`HbA1c`、`糖化血红蛋白` 解析为同一个编码，单位统一到同一标准，全程离线：来源各异、写法杂乱的指标，清晰统一地落进同一张表。无法确定的名称保持未解析。"},{"mark":"③","name":"智能体 Agent","what":"智能体调用工具查这张表来回答，而不是凭模型记忆：看趋势、跨医院和设备比较、画图。每个数字都能追溯到原始文件，可以核对，不必盲信。"}]},"ja":{"tagline":"あなたのからだを、データに映す。","stages":[{"mark":"①","name":"収集 Collect","what":"レポート、デバイス、写真、遺伝子ファイル、日記をあらゆる出どころから取り込みます。どの測定値も元のファイルを保持します。"},{"mark":"②","name":"標準化 Standardize","what":"`A1c`、`HbA1c`、`ヘモグロビンA1c` を同じコードに、単位を1つの標準にそろえます。すべてオフラインです。出どころも書き方もばらばらな指標が、1つの表に整った行として並びます。特定できない名前は未解決のまま残します。"},{"mark":"③","name":"エージェント Agent","what":"モデルの記憶ではなく、この表を検索するツールを呼んで答えます。推移、検査機関やデバイスをまたいだ比較、グラフ。どの数値も元のファイルまでたどれるので、うのみにせず確かめられます。"}]}};
   const stages = (readme[lang] || readme.en).stages;
   const inline = (text) =>
     text.split("`").map((part, i) => (i % 2 ? <code key={i}>{part}</code> : <span key={i}>{part}</span>));

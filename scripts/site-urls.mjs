@@ -14,7 +14,7 @@ import { DOCS_JSON, navEntries } from "./lib/pages.mjs";
 const WILDCARD = /\/:[A-Za-z]\w*\*$/;
 
 export function siteUrls() {
-  const urls = new Set(["/", "/en", "/zh"]);
+  const urls = new Set(["/", "/en", "/zh", "/ja"]);
   for (const { page } of navEntries()) {
     urls.add(`/${page.replace(/\/index$/, "")}`);
   }

@@ -15,7 +15,7 @@ For most deployments, add secrets to `.env` and choose a model in the setup page
 | --- | --- | --- |
 | `config.yaml` | Server, database, sign-in, extension directories | No: override its values in the overlay |
 | `config.llm.yaml` | The model table (`MODELS`), which entry each surface uses, and what the first-run page offers for running locally (`LOCAL_SETUP`) | To add a model |
-| `config.devices.yaml` | Garmin, Oura and Whoop credentials; Google and Apple sign-in | To turn a provider on |
+| `config.devices.yaml` | Garmin, Oura and Whoop credentials | To turn a provider on |
 | `config.{ENV}.yaml` | Your overlay for `config.yaml`. Optional: point `.env`'s `MIROBODY_CONFIG_FILE` at one; `./deploy.sh` only reuses an overlay already present from an earlier release | Yes |
 | `.env` | `ENV`, the generated secrets and the setup token, a model API key or a local server's address, and the Compose profile that runs the models | Yes |
 
@@ -105,7 +105,7 @@ The keys that decide how the agent behaves are described in [The Agent](/en/tool
 
 | Secret | Where | Set by |
 | --- | --- | --- |
-| `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `LOG_ENCRYPTION_KEY`, `JWT_KEY` | `.env` | `./deploy.sh`, generated with `openssl rand -hex 32` on first run |
+| `PG_PASSWORD`, `PG_ENCRYPTION_KEY`, `CONFIG_ENCRYPTION_KEY`, `JWT_KEY` | `.env` | `./deploy.sh`, generated with `openssl rand -hex 32` on first run |
 | `SETUP_TOKEN` | `.env` | `./deploy.sh`. The first-run page requires it before it changes where health data is sent; once a model is set up, a signed-in session is required as well, and the link carrying the token is no longer printed. |
 | `DATABASE_DECRYPTION_KEY` | `config.devices.yaml`, or `.env` to override it | You. Ships as a `REPLACE_THIS_VALUE_IN_PRODUCTION` placeholder; environment variables take precedence over every config file. |
 

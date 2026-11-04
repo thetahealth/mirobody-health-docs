@@ -1,0 +1,132 @@
+---
+title: "MCP 連携"
+description: "個人 MCP リンクで健康記録に接続するか、ローカルの用語サーバーでコードと単位を調べます。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+**`/mcp`** から、Claude Code、Codex、Cursor など MCP クライアントを自分の記録に接続できます。個人の記録を使わず、オフラインで用語を調べるだけなら、後述の stdio サーバーを使ってください。
+
+取得したデータをどこへ送るかはクライアント側が決めます。Mirobody が[ローカルモデル](/ja/local-models)を使っていても、クラウド型のアシスタントは自分が要求した測定値を受け取ります。やり取りを完全にローカルに保つには、クライアント側もローカルモデルを使う必要があります。
+
+## エンドポイント
+
+| ルート | 呼び出し元の識別方法 | 用途 |
+| --- | --- | --- |
+| `POST /mcp` | `Authorization: Bearer <access token>` | ヘッダーを送れるクライアント |
+| `POST /mcp/<secret>` | パス内の secret | ヘッダーを送れないクライアント向けの個人 URL |
+| `GET /personal/mcp` | `Authorization: Bearer <access token>` | 呼び出し元が作成したリンクと、呼び出し元の記録を読めるリンクを一覧表示 |
+| `POST /personal/mcp` | `Authorization: Bearer <access token>` | 呼び出し元の個人 URL を置き換える（body に `user_id` があれば、その人に対する家族のリンクを置き換える） |
+| `DELETE /personal/mcp` | `Authorization: Bearer <access token>` | 呼び出し元がその人のために作成したリンクを無効化する（自分自身の、または body に `user_id` があれば家族のリンク） |
+| `DELETE /personal/mcp/<id>` | `Authorization: Bearer <access token>` | id を指定して1件のリンクを無効化する。呼び出し元が作成したリンクか、呼び出し元の記録を読めるリンクのいずれか |
+
+`HTTP_URI_PREFIX` を設定している場合、これらはすべてそのプレフィックスの下に置かれます。Docker スタックでは、サーバーはポート <Fact k="port" /> で待ち受けます。
+
+## 個人 MCP URL
+
+個人 URL はそれ自体に認証情報を含むため、デスクトップクライアントにログインの手順は要りません。Web クライアントでは**設定 → MCP リンク**に表示され、自分のクライアントでは、すでに保持しているアクセストークンで発行できます。
+
+```bash
+# デモアカウントでログインする（実際のデプロイではそのユーザーの方法でログインする）
+TOKEN=$(curl -s -X POST http://localhost:18060/email/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "you@mirobody.ai", "code": "111111"}' | jq -r .data.access_token)
+
+curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{ "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
+```
+
+新しい URL を発行すると、同じ作成者・同じ記録に対する直前のリンクは無効になります。リンクは `MCP_URL_TTL_DAYS` 日で期限切れになり（既定で <Fact k="mcpUrlTtlDays" /> 日）、使用しても期限は延長されません。リンクの確認と無効化には、設定ページまたは上記のエンドポイントを使ってください。
+
+共有の権限または作成者の認証が終了すると、リンクは使えなくなります。記録を再共有しても、無効化済みのリンクは復活しません。
+
+<Warning>
+個人 URL はパスワードと同じように扱ってください。持っている人なら誰でも、リンク先の記録を読めます。スクリーンショットや公開設定ファイルに残さず、デバイスを紛失したら無効化し、ネットワーク越しにアクセスする場合は HTTPS を使ってください。
+</Warning>
+
+URL は、リクエストが到着した時点のオリジンで始まります。リバースプロキシの背後にある場合、サーバーがプロキシの転送ヘッダーを信頼していないと、このオリジンは正しくなりません。[サーバーへのデプロイ](/ja/deployment/production#public-url-and-https)を参照してください。
+
+## アカウントに表示されるツール
+
+このエンドポイントは次のツールを提供します。
+
+<Fact k="tools.mcp" code sep="、" />
+
+`tools/list` はアカウントごとにフィルタされます。該当するデータを1件も持たないアカウントにはデータツールが表示されないため、クライアントが「データなし」としか答えられないツールを目にすることはありません。フィルタ対象のツールは <Fact k="tools.gated" code sep="、" /> です。各ツールが何を受け取り何を返すかは[健康データツール](/ja/tools/overview)に、自分で追加したツールも同じ方法で提供されることは[ツールの追加](/ja/tools/adding-tools)に記載しています。
+
+チャット専用のツール（ファイルツール、`code_exec`、`ask_user`）は MCP では提供されません。
+
+## クライアントを接続する
+
+以下の URL は、自分の個人 URL に置き換えてください。
+
+<Tabs>
+  <Tab title="Cursor">
+    Cursor はリモートサーバーに直接接続できます。`~/.cursor/mcp.json`、またはプロジェクト内の `.cursor/mcp.json` に追加してください。
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": { "url": "http://localhost:18060/mcp/<secret>" }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http mirobody http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```bash
+    codex mcp add mirobody --url http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
+  <Tab title="Gemini CLI">
+    ```bash
+    gemini mcp add --transport http mirobody http://localhost:18060/mcp/<secret>
+    ```
+  </Tab>
+  <Tab title="Claude Desktop">
+    Claude Desktop はリモートサーバーをカスタムコネクタとして追加し、到達できる HTTPS URL が必要です。自分のマシン上のエンジンに対しては、代わりに `claude_desktop_config.json` で URL を stdio にブリッジしてください。
+
+    ```json
+    {
+      "mcpServers": {
+        "mirobody": {
+          "command": "npx",
+          "args": ["-y", "mcp-remote", "http://localhost:18060/mcp/<secret>"]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+ChatGPT と claude.ai もクラウドから接続するため、到達できる HTTPS アドレスが必要です。まず[スタックをサーバーにデプロイ](/ja/deployment/production)してください。自分のエージェントループからは、任意の MCP クライアントライブラリでこのエンドポイントを呼び出せます。サーバーは現行のステートレスなプロトコルリビジョンを話し、まだ `initialize` ハンドシェイクを使うクライアントにはバージョンを下げて合わせます。
+
+## stdio でローカルの用語ツールを使う {#local-terminology-over-stdio}
+
+サーバーも個人の記録も使わず用語を調べるだけなら、`uvx --python 3.12 mirobody mcp` を実行してください。公開済みのパッケージから、stdio で MCP を提供します。`--python 3.12` を付けるのは、古いデフォルトでは 1.2 より前のリリースが選ばれてしまうため、uv にパッケージが必要とするインタプリタを取得させるためです。すでに Mirobody をインストール済みなら、`mirobody mcp` でも同じサーバーが起動します。読数・主訴・指標・単位の標準化には、データベースもモデルキーも要りません。
+
+ローカルの MCP プロセスを起動できるクライアントでは、次の設定を使ってください。
+
+```json
+{
+  "mcpServers": {
+    "mirobody": {
+      "command": "uvx",
+      "args": ["--python", "3.12", "mirobody", "mcp"]
+    }
+  }
+}
+```
+
+このサーバーは、LOINC と UCUM のコードを持つ FHIR Observation 用の `standardize_reading`、ICPC-3 用の `standardize_complaint`、用語を調べる `resolve_indicator`、`normalize_unit`、`convert_unit` を提供します。`standardize_report` ツールは PDF・画像・表計算・テキストの報告書を読み取りますが、これには加えて `mirobody[parse]` エクストラと設定済みのモデルキーが必要で、文書は選択したモデル提供元に送信されます。uvx でこれを有効にするには、`uvx --python 3.12 --from 'mirobody[parse]' mirobody mcp` を実行してください。クライアントが本人の保存済み健康記録を必要とする場合は、上記の個人 URL を使ってください。
+
+プロトコルの実装とアカウントごとのフィルタは <OssLink path="mirobody/mcp/" /> にあります。

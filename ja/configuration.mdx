@@ -1,0 +1,126 @@
+---
+title: "設定"
+description: "モデル、環境変数、デプロイ設定、シークレットを設定します。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+ほとんどのデプロイでは、シークレットを `.env` に追加し、セットアップページでモデルを選ぶだけで十分です。既定値と異なる設定にしたい場合は `config.{ENV}.yaml` を使います。
+
+## 設定ファイル
+
+| ファイル | 内容 | 編集するか |
+| --- | --- | --- |
+| `config.yaml` | サーバー、データベース、ログイン、拡張ディレクトリ | しない：値はオーバーレイで上書きします |
+| `config.llm.yaml` | モデル表（`MODELS`）、各用途が使う条目、初回設定ページがローカル実行向けに示す選択肢（`LOCAL_SETUP`） | モデルを追加するとき |
+| `config.devices.yaml` | Garmin、Oura、Whoop の認証情報 | provider を有効にするとき |
+| `config.{ENV}.yaml` | `config.yaml` に対する自分のオーバーレイ。任意：`.env` の `MIROBODY_CONFIG_FILE` で指定します。`./deploy.sh` は以前のリリースから既にあるオーバーレイを再利用するだけです | する |
+| `.env` | `ENV`、自動生成されたシークレットとセットアップトークン、モデル API キーまたはローカルサーバーのアドレス、モデルを動かす Compose profile | する |
+
+設定の優先順位は、高い順に環境変数、オーバーレイ、`config.devices.yaml` と `config.llm.yaml`、そして `config.yaml` です。**辞書はファイルをまたいでマージされません**：オーバーレイで設定したキーは値全体を置き換えるため、オーバーレイで `EMAIL_PREDEFINE_CODES` を設定すると、追加ではなくデモアカウントがまるごと置き換わります。
+
+`ENV` はオーバーレイファイルを選び、ログにも記録されます。本番モードを有効にするには `PRODUCTION` を設定してください。環境名を `prod` にするだけでは有効になりません。
+
+オーバーレイでは、名前に `_KEY`、`_PASSWORD`、`_PASS`、`_PWD`、`_SECRET`、`_SK`、`_TOKEN` のいずれかを含む値が、`.env` の `CONFIG_ENCRYPTION_KEY` で暗号化されます。
+
+## モデル {#the-model-key}
+
+各用途は、1つのベンダーキー**か**ローカルモデルのどちらかで動きます。初回設定ページ（モデルが未設定の間は `./deploy.sh` がそのリンクを表示し、以降は **設定 › モデル** から）は、どちらを選んでもデータベースに暗号化して保存し、再起動なしに適用します。そして `.env` で設定済みの値を上書きすることはありません。保存には `.env` の `SETUP_TOKEN` が必要で、モデルを設定済みのあとはログイン済みのセッションも必要になります。
+
+### ベンダーキー
+
+次のいずれかを `compose.yaml` のそばの `.env` に書き、反映させます：
+
+<Fact k="llmKeys" code sep="、" />
+
+```bash
+docker compose up -d
+```
+
+`docker compose restart` は `.env` を読み直しませんが、`up -d` は読み直します。`./deploy.sh` は、自分の環境変数として渡されたキーを `.env` に書き込むため（`OPENROUTER_API_KEY=sk-or-... ./deploy.sh`）、初回実行では追加の手順は要りません。
+
+それぞれのキーは、対話（モデル選択）、視覚（検査報告の写真やスキャンページ）、テキスト（指標抽出、ファイルのタイトル、要約、日記の文）という3つの用途でモデルを選びます。各キーが選ぶモデルと、その取得先は <OssLink path="config.llm.yaml" /> 冒頭の表にまとまっています。モデル名は自由に変更できます。初回設定ページではキーの横に表示され、`.env` では各条目が `model_env` として名指す変数（たとえば `OPENROUTER_CHAT_MODEL`）で置き換えられます。ベンダーのモデルは、実際のリクエストが1回成功してから保存されます。
+
+### ローカルモデル {#local-models}
+
+キーがない場合、`local`、`local-utils`、`local-ocr` の各条目が、この端末上の OpenAI 互換サーバーからすべての用途にモデルを提供します。Mirobody が同梱するプリセットのランタイムは [llama.cpp](/ja/local-models) の `llama-server` です。初回設定ページがサーバーを見つけ、提供しているモデルを一覧し、選んだサイズを読み込みます。同じ選択を `.env` に書くと次のようになります：
+
+```bash
+LOCAL_BASE_URL=http://host.docker.internal:8080/v1        # アプリは Docker、llama-server はホスト側
+LOCAL_OCR_BASE_URL=http://host.docker.internal:8080/v1    # Compose profile を使うときはどちらも http://llama:8080/v1
+LOCAL_MODEL=minicpm5-2b                                   # 回答モデル：minicpm5-2b（Small、既定）または qwen3.8-27b（Large）
+LOCAL_OCR_MODEL=glm-ocr                                   # 文書読み取りモデル
+COMPOSE_PROFILES=local-cpu                                # CPU で llama.cpp をスタックと一緒に動かす。NVIDIA GPU では `local`
+```
+
+`UTILS_OCR_MODEL` は4つ目の用途です。ほかのどのモデルより先に検査報告の写真やスキャンページを読む文書 OCR モデルで、その中の表組みはモデルを使わず見出しで読み取ります。出荷時の値は `local-ocr` 条目です。`.env` の `HF_ENDPOINT` で、一度きりのモデルダウンロード先を Hugging Face のミラーに指定できます。
+
+`.env` にベンダーキーがあると、ローカルの条目より優先されます。キーがある間、初回設定ページは **100% この端末で動かす** を拒否します。キーを残したままローカルモデルを動かすには：
+
+```bash
+DEFAULT_MODEL=local
+UTILS_VISION_MODEL=local-utils
+UTILS_TEXT_MODEL=local-utils
+```
+
+### doctor レポート
+
+`mirobody doctor` は見つかったキーとローカルサーバー、各用途が選んだ条目を表示し、使えるものがない用途には直し方を示します。`--probe` を付けると各用途に実際のリクエストを1回送り（ツール呼び出し、スキーマに沿った回答、画像、OCR の各パス）、ローカルサーバーがその条目の指すモデルを実際に動かしているか確認します。ベンダーでは数トークン、ローカルモデルでは数分かかります。
+
+```bash
+docker compose exec mirobody mirobody doctor           # Docker スタック
+docker compose exec mirobody mirobody doctor --probe   # 各用途に実際のリクエストを1回
+mirobody doctor                                        # チェックアウトまたは pip install
+```
+
+サーバーと worker も、起動時に同じレポートをログに出力します。
+
+### モデルを変更する
+
+- **ある用途を別の条目に向ける。** `UTILS_VISION_MODEL`、`UTILS_TEXT_MODEL`、`UTILS_OCR_MODEL` は、条目名、条目名のリスト（キーかサーバーがあるものを先頭から採用）、`provider/model` 形式の文字列、インライン条目のいずれかを取ります。同名の環境変数はファイルより優先されます。例：`UTILS_VISION_MODEL=qwen-utils`。
+- **対話の既定モデルを変更する。** `DEFAULT_MODEL` に `MODELS` の条目名を指定します。未設定の場合は、キーかサーバーがある最初の条目が既定になります。
+- **キーを別のゲートウェイ経由にする。** `.env` の `<PREFIX>_BASE_URL`（`PREFIX` はキー名から `_API_KEY` を除いたもの）は、そのキーを読むすべての条目を別の OpenAI 互換エンドポイントへ振り向けます。例：`OPENROUTER_BASE_URL`。`ANTHROPIC_BASE_URL` は Anthropic 自身の SDK も読むため、他のツール用にすでに設定済みのマシンでは Mirobody も一緒に向け先が変わります。`mirobody doctor` は各用途が実際に解決したエンドポイントを表示します。
+- **ベンダーを追加する。** `config.llm.yaml` の `MODELS` に条目を追加し、`llm_type: openai`、`base_url`、`model`、そしてシークレットを保持する `.env` 変数の*名前*を `api_key` に設定します。視覚用途に使う条目は `supports_image: true` を宣言する必要があります。追加は `config.llm.yaml` 自体に対して行ってください。オーバーレイに `MODELS` ブロックを書くと表全体が置き換わってしまいます。
+
+## デプロイ設定
+
+| キー | 既定値 | 変更するとき |
+| --- | --- | --- |
+| `PRODUCTION` | `false` | 自分以外の誰かに公開するとき。事前設定のログインコードや `REPLACE_THIS_VALUE_IN_PRODUCTION` のプレースホルダーが残っているとサーバーは起動を拒否し、デモデータも投入しません。 |
+| `SEED_DEMO_DATA` | `true` | 実データを保存するデプロイにするとき。最初の起動前に `.env` で `false` に設定すると、どちらのデモアカウントも作成されません。 |
+| `EMAIL_PREDEFINE_CODES` | 2つのデモアカウント | ネットワークに公開する前は必ず：削除して実際のログインに切り替えます。 |
+| `BOOTSTRAP_SCHEMA` | `true` | スキーマを自分で用意するとき。`true` のままだと、起動のたびにスキーマファイルが再実行されます。 |
+| `MCP_PUBLIC_URL` | 未設定 | 公開の HTTPS オリジンを持つデプロイのとき。[サーバーへのデプロイ](/ja/deployment/production#public-url-and-https)を参照してください。 |
+| `MCP_URL_TTL_DAYS` | <Fact k="mcpUrlTtlDays" /> | 個人用 MCP URL の有効期間（日数）を短く、または長くしたいとき。 |
+| `DEFAULT_TIMEZONE` | `America/Los_Angeles` | 利用者の多くが別の地域にいるとき。IANA のタイムゾーン名を指定します。利用者自身の設定が優先されます。 |
+| `HTTP_HEADERS` | 未設定 | 別オリジンのブラウザクライアントに CORS ヘッダーが必要なとき。 |
+| `REQUEST_RATE_LIMITER` | パスごとの上限 | ログインや対話の制限（1分あたりのリクエスト数）を調整したいとき。 |
+| `ENABLE_INDICATOR_EXTRACTION` | `1` | 読数を抽出せずアップロードだけ保存したいとき（`0`）。 |
+
+エージェントの挙動を決めるキーは[エージェント](/ja/tools/agents#configuration)で説明しています。
+
+## シークレット
+
+| シークレット | 場所 | 設定するのは |
+| --- | --- | --- |
+| `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`JWT_KEY` | `.env` | `./deploy.sh`。初回実行時に `openssl rand -hex 32` で生成します |
+| `SETUP_TOKEN` | `.env` | `./deploy.sh`。初回設定ページは、健康データの送信先を変更する前にこれを要求します。モデルを設定済みのあとはログイン済みのセッションも必要になり、トークン入りのリンクは表示されなくなります。 |
+| `DATABASE_DECRYPTION_KEY` | `config.devices.yaml`、または `.env` で上書き | 自分で設定します。出荷時は `REPLACE_THIS_VALUE_IN_PRODUCTION` のプレースホルダーで、環境変数はどの設定ファイルよりも優先されます。 |
+
+`PG_ENCRYPTION_KEY` は `CONFIG_ENCRYPTION_KEY` とは別の値で、チャットメッセージやアップロードしたファイルなど、保存されたコンテンツを暗号化します。`DATABASE_DECRYPTION_KEY`（16進数）は各 provider が保存するデバイスの認証情報を暗号化します。どちらのキーも環境間でコピーしないでください。これらのシークレットを自分で生成し、別のホストへ移す方法は[サーバーへのデプロイ](/ja/deployment/production#secrets)で説明しています。
+
+## 拡張ディレクトリ
+
+エンジンは起動時に3種類のディレクトリ一覧を走査します。追加するだけで、パッケージを編集せずにエンジンを拡張できます。
+
+| キー | 既定値 | 内容 |
+| --- | --- | --- |
+| `MCP_TOOL_DIRS` | `mirobody/agent/tools` | ツールモジュール。[ツールを追加する](/ja/tools/adding-tools)を参照 |
+| `AGENT_DIRS` | `mirobody/agent` | エージェントクラス。[エージェント](/ja/tools/agents#replacing-the-agent)を参照 |
+| `PROVIDER_DIRS` | `mirobody/collect/providers` | デバイス provider。[Provider を書く](/ja/development/provider-integration)を参照 |
+
+オーバーレイでこれらのいずれかを設定するとリスト全体が置き換わるため、既定の条目を自分の条目と一緒に書いてください。インストール済みのパッケージは、`mirobody.tools`、`mirobody.agents`、`mirobody.providers` の各エントリーポイントを通じて同じ3つを拡張できます。
+
+すべての設定キーの完全なリファレンスは <OssLink path="mirobody/utils/config/README.md" /> にあります。

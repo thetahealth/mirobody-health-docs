@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { ROOT } from "./lib/oss.mjs";
 import { generatedPages, pagesOnDisk, snippetFiles, stripId } from "./lib/pages.mjs";
 
-const QUESTION_ALLOWLIST = new Set(["What is Mirobody?", "什么是 Mirobody？"]);
+const QUESTION_ALLOWLIST = new Set(["What is Mirobody?", "什么是 Mirobody？", "Mirobody とは？"]);
 
 const BANNED = {
   zh: [
@@ -34,6 +34,10 @@ const BANNED = {
     [/\bverbs?\b|\blanes?\b/i, "retired vocabulary (use 'stage')"],
     [/^Where to go next$/, "use 'Next steps' as the closing section"],
   ],
+  ja: [
+    [/どう(やって|すれば|する)|どこ[でにへから]|なぜ|ですか|ますか|でしょうか/, "narrative question form — name the subject instead"],
+    [/^次に読む|^次はどこ/, "use 「次のステップ」 as the closing section"],
+  ],
 };
 
 /** Retired in body text too. The console's own labels (`③ Answers`, `③ 问答`) are product UI and stay. */
@@ -50,6 +54,10 @@ const RETIRED = {
     [/③ ?(Use|Answer)\b(?!s)/, "stage ③ is Agent"],
     [/[Mm]intlify/, "readers never meet the site's tooling — keep it out of page prose"],
   ],
+  ja: [
+    [/③ ?(回答|応答|使用|利用)/, "stage ③ is エージェント (Agent)"],
+    [/[Mm]intlify/, "readers never meet the site's tooling — keep it out of page prose"],
+  ],
 };
 
 function proseLength(heading) {
@@ -59,7 +67,7 @@ function proseLength(heading) {
     .replace(/\s+/g, "").length;
 }
 
-const LIMITS = { zh: { prose: 18 }, en: { words: 9 } };
+const LIMITS = { zh: { prose: 18 }, ja: { prose: 22 }, en: { words: 9 } };
 
 const generated = generatedPages();
 const pages = pagesOnDisk().filter((p) => !generated.has(p));
@@ -67,7 +75,7 @@ const snippets = snippetFiles().filter((f) => f.endsWith(".mdx"));
 const problems = [];
 
 for (const file of [...pages.map((p) => `${p}.mdx`), ...snippets]) {
-  const locale = /(^|\/)zh\//.test(file) ? "zh" : "en";
+  const locale = /(^|\/)(zh|ja)\//.exec(file)?.[2] ?? "en";
   readFileSync(join(ROOT, file), "utf8").split("\n").forEach((line, i) => {
     for (const [pattern, why] of RETIRED[locale]) {
       if (pattern.test(line)) problems.push({ at: `${file}:${i + 1}`, text: line.trim().slice(0, 90), why });
@@ -76,7 +84,7 @@ for (const file of [...pages.map((p) => `${p}.mdx`), ...snippets]) {
 }
 
 for (const page of pages) {
-  const locale = page.startsWith("zh/") ? "zh" : "en";
+  const locale = /^(zh|ja)\//.exec(page)?.[1] ?? "en";
   let inFence = false;
   readFileSync(join(ROOT, `${page}.mdx`), "utf8").split("\n").forEach((line, i) => {
     if (line.trimStart().startsWith("```")) { inFence = !inFence; return; }
@@ -89,8 +97,8 @@ for (const page of pages) {
     for (const [pattern, why] of BANNED[locale]) {
       if (pattern.test(heading)) problems.push({ at, text: heading, why });
     }
-    if (locale === "zh" && proseLength(heading) > LIMITS.zh.prose) {
-      problems.push({ at, text: heading, why: `${proseLength(heading)} prose chars > ${LIMITS.zh.prose}` });
+    if (LIMITS[locale].prose && proseLength(heading) > LIMITS[locale].prose) {
+      problems.push({ at, text: heading, why: `${proseLength(heading)} prose chars > ${LIMITS[locale].prose}` });
     }
     if (locale === "en" && heading.split(/\s+/).length > LIMITS.en.words) {
       problems.push({ at, text: heading, why: `${heading.split(/\s+/).length} words > ${LIMITS.en.words}` });

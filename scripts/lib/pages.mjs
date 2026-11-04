@@ -9,7 +9,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, readMap } from "./oss.mjs";
+import { LOCALES, ROOT, readMap } from "./oss.mjs";
 
 export const DOCS_JSON = JSON.parse(readFileSync(join(ROOT, "docs.json"), "utf8"));
 
@@ -55,25 +55,28 @@ export function frontmatter(text) {
   return out;
 }
 
-/** The generated files: en/<slug> always, zh/<slug> unless it is a hand-written translation. */
+/** The generated files: en/<slug> always, zh/ and ja/<slug> unless it is a hand-written translation. */
 export function generatedPages() {
   const set = new Set();
   for (const page of readMap().pages) {
-    set.add(`en/${page.slug}`);
-    if (page.zh !== "translation") set.add(`zh/${page.slug}`);
+    for (const locale of LOCALES) {
+      if (page[locale] !== "translation") set.add(`${locale}/${page.slug}`);
+    }
   }
   return set;
 }
 
-/** Hand-written translations of generated pages: zh/<slug>. */
+/** Hand-written translations of generated pages: zh/<slug> or ja/<slug>. */
 export function translatedPages() {
-  return new Set(readMap().pages.filter((p) => p.zh === "translation").map((p) => `zh/${p.slug}`));
+  return new Set(
+    readMap().pages.flatMap((p) => LOCALES.filter((l) => p[l] === "translation").map((l) => `${l}/${p.slug}`)),
+  );
 }
 
-/** Every .mdx under en/ and zh/, as `en/foo/bar` (no extension). */
+/** Every .mdx under each language's folder, as `en/foo/bar` (no extension). */
 export function pagesOnDisk() {
   const out = [];
-  for (const locale of ["en", "zh"]) {
+  for (const locale of LOCALES.filter((l) => existsSync(join(ROOT, l)))) {
     for (const file of readdirSync(join(ROOT, locale), { recursive: true })) {
       const rel = String(file).split("\\").join("/");
       if (rel.endsWith(".mdx")) out.push(`${locale}/${rel.slice(0, -4)}`);
@@ -90,7 +93,7 @@ export function selfWrittenOssPages() {
     .filter((page) => !generated.has(page));
 }
 
-/** Snippet files (both languages). */
+/** Snippet files (every language). */
 export function snippetFiles() {
   return readdirSync(join(ROOT, "snippets"), { recursive: true })
     .map((f) => `snippets/${String(f).split("\\").join("/")}`)

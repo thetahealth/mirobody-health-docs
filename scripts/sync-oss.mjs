@@ -1,7 +1,7 @@
 /**
  * Render the mirobody repository's own documentation into the Open Source pages.
  *
- *   npm run oss:sync     write en/<slug>.mdx + zh/<slug>.mdx, images/oss/, snippets/oss-facts.jsx
+ *   npm run oss:sync     write en/, zh/ and ja/<slug>.mdx, images/oss/, snippets/oss-facts.jsx
  *   npm run check:sync   render in memory and fail if anything committed differs
  *
  * Facts about the engine are written once, in the repository, next to the code
@@ -10,13 +10,14 @@
  * a committed copy differs from what the pinned commit renders to.
  *
  * What the conversion does, markdown → Mintlify MDX:
- * - the first `# ` heading becomes the frontmatter title; the "English · 中文"
+ * - the first `# ` heading becomes the frontmatter title; the "English · 中文 · 日本語"
  *   switcher line is dropped (the site has its own language switcher)
  * - every heading gets an explicit `{#id}` with GitHub's slug, so the repository's
  *   own `#anchor` links keep working unchanged
  * - `x.md` links go to the site page that file became, or to the file on GitHub at
  *   the pinned commit; docs.mirobody.ai links become site-relative
- * - images are copied under images/oss/ (replaced wholesale on every sync);
+ * - images are copied under images/oss/ (replaced wholesale on every sync), along
+ *   with the ones a hand-written page names there;
  *   `<picture>` light/dark pairs become Mintlify's light/dark image pair
  * - raw HTML is rewritten as JSX, and HTML comments are dropped
  */
@@ -35,7 +36,7 @@ import { unified } from "unified";
 import { visit, SKIP } from "unist-util-visit";
 import { readFacts } from "./lib/facts.mjs";
 import {
-  LOCALES, ROOT, VENDOR, assertVendor, githubUrl, pageIndex, readMap, readVendor, resolveRepoPath, vendorTree,
+  LOCALES, ROOT, VENDOR, assertVendor, editionOf, githubUrl, pageIndex, readMap, readVendor, resolveRepoPath, vendorTree,
 } from "./lib/oss.mjs";
 
 const CHECK = process.argv.includes("--check");
@@ -136,8 +137,7 @@ function repoLink(target, hash, ctx) {
     const locale = page.locale ?? ctx.locale;
     const entry = map.pages.find((p) => p.slug === page.slug);
     // A hand-written translation keeps the English page's heading ids.
-    const targetFile = locale === "zh" && entry.zhSource ? entry.zhSource : entry.source;
-    return sitePath(page.slug, locale, checkAnchor(hash, targetFile, ctx));
+    return sitePath(page.slug, locale, checkAnchor(hash, editionOf(entry, locale), ctx));
   }
   const tree = vendorTree();
   if (target && !tree.files.has(target) && !tree.dirs.has(target)) {
@@ -276,6 +276,12 @@ function inlineHtml(value, ctx) {
 
 // ── one page ─────────────────────────────────────────────────────────────────
 
+/** A page whose repository file has no edition in this language shows the English text under this notice. */
+const FALLBACK = {
+  zh: { suffix: "（英文）", note: "<Note>本页暂无完整中文版。以下先提供中文导读，随后是英文原文。</Note>" },
+  ja: { suffix: "（英語）", note: "<Note>このページの日本語版はまだありません。以下は英語の原文です。</Note>" },
+};
+
 const INLINE_PARENTS = new Set(["paragraph", "heading", "tableCell", "emphasis", "strong", "delete", "link", "linkReference"]);
 const idToken = (id) => `MBHID${Buffer.from(id).toString("hex")}MBHID`;
 
@@ -303,10 +309,10 @@ async function render(page, locale, { repoPath, fallback = false }) {
   const h1 = tree.children.findIndex((n) => n.type === "heading" && n.depth === 1);
   const headingTitle = h1 >= 0 ? toString(tree.children[h1]).trim() : page.slug;
   if (h1 >= 0) tree.children.splice(h1, 1);
-  const title = (locale === "zh" && page.zhSource ? headingTitle : page.title ?? headingTitle)
+  const title = (repoPath !== page.source ? headingTitle : page.title ?? headingTitle)
     .replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, "");
 
-  const counterparts = [page.source, page.zhSource].filter(Boolean).filter((p) => p !== repoPath);
+  const counterparts = [page.source, page.zhSource, page.jaSource].filter(Boolean).filter((p) => p !== repoPath);
   tree.children = tree.children.filter((node, i) => !(i < 3 && isLanguageSwitcher(node, counterparts)));
 
   const slugger = new GithubSlugger();
@@ -354,8 +360,8 @@ async function render(page, locale, { repoPath, fallback = false }) {
 
   const description = page.description?.[locale] ?? page.description?.en;
   const label = page.label?.[locale] ?? page.label?.en;
-  if (fallback && !page.zhIntro) throw new Error(`${page.slug}: missing zhIntro for the Chinese fallback`);
-  const sidebarLabel = fallback ? `${label}（英文）` : label;
+  if (fallback && locale === "zh" && !page.zhIntro) throw new Error(`${page.slug}: missing zhIntro for the Chinese fallback`);
+  const sidebarLabel = fallback ? `${label}${FALLBACK[locale].suffix}` : label;
   const front = [
     "---",
     `title: ${yamlString(title)}`,
@@ -371,14 +377,12 @@ async function render(page, locale, { repoPath, fallback = false }) {
     `<OssSource path="${repoPath}" lang="${locale}" />`,
     "",
   ];
-  if (fallback) header.push(
-    "<Note>本页暂无完整中文版。以下先提供中文导读，随后是英文原文。</Note>",
-    "",
-    `**中文导读：** ${page.zhIntro}`,
-    "",
-  );
+  if (fallback) header.push(FALLBACK[locale].note, "");
+  // The Japanese notice adds no orientation of its own: the frontmatter description,
+  // shown under the title, already says what the page is for.
+  if (fallback && locale === "zh") header.push(`**中文导读：** ${page.zhIntro}`, "");
   if (page.jumpTo) header.push(
-    locale === "zh" ? "**按任务跳转**" : "**Jump by task**",
+    { zh: "**按任务跳转**", ja: "**目的から探す**" }[locale] ?? "**Jump by task**",
     "",
     ...page.jumpTo.map((entry) => `- [${entry[locale]}](#${entry.anchor})`),
     "",
@@ -448,9 +452,9 @@ export const OssSource = ({ path, lang = "en" }) => {
   const href = "${lock.repo}/blob/${lock.commit}/" + path;
   return (
     <p className="text-sm text-gray-500 dark:text-gray-400">
-      {lang === "zh" ? "对应 mirobody " : "For mirobody "}
+      {{ zh: "对应 mirobody ", ja: "対象 mirobody " }[lang] ?? "For mirobody "}
       <code>${lock.version}</code>
-      {lang === "zh" ? " · 源文件 " : " · source "}
+      {{ zh: " · 源文件 ", ja: " · 元ファイル " }[lang] ?? " · source "}
       <a href={href}>
         <code>{path}</code>
       </a>
@@ -460,7 +464,7 @@ export const OssSource = ({ path, lang = "en" }) => {
 
 export const OssVersion = ({ lang = "en" }) => (
   <p className="text-sm text-gray-500 dark:text-gray-400">
-    {lang === "zh" ? "对应 mirobody " : "Written for mirobody "}
+    {{ zh: "对应 mirobody ", ja: "対象 mirobody " }[lang] ?? "Written for mirobody "}
     <a href="${lock.repo}/tree/${lock.commit}">
       <code>${lock.version}</code>
     </a>
@@ -490,21 +494,51 @@ export const Stages = ({ lang = "en" }) => {
 
 // ── run ──────────────────────────────────────────────────────────────────────
 
+/** Japanese editions oss-map.json declares that the pinned commit does not have yet. */
+const jaPending = [];
+
 for (const page of map.pages) {
   outputs.set(`en/${page.slug}.mdx`, await render(page, "en", { repoPath: page.source }));
-  if (page.zhSource) {
-    outputs.set(`zh/${page.slug}.mdx`, await render(page, "zh", { repoPath: page.zhSource }));
-  } else if (page.zh !== "translation") {
-    outputs.set(`zh/${page.slug}.mdx`, await render(page, "zh", { repoPath: page.source, fallback: true }));
+  for (const locale of LOCALES.filter((l) => l !== "en")) {
+    if (page[locale] === "translation") continue;
+    const repoPath = editionOf(page, locale);
+    if (locale === "ja" && page.jaSource && repoPath === page.source) jaPending.push(page.jaSource);
+    outputs.set(`${locale}/${page.slug}.mdx`, await render(page, locale, { repoPath, fallback: repoPath === page.source }));
   }
 }
 outputs.set(FACTS_FILE, factsSnippet());
+
+/**
+ * A hand-written page may show an image from the repository by its images/oss/ path
+ * (the Japanese stage diagram on the home page): copy it too, and fail when the pinned
+ * commit does not have it.
+ */
+const handImagesMissing = [];
+for (const file of handWrittenFiles()) {
+  for (const [, path] of readFileSync(join(ROOT, file), "utf8").matchAll(/\/images\/oss\/([^"'()\s]+)/g)) {
+    if (vendorTree().files.has(path)) images.add(path);
+    else handImagesMissing.push(`${file} → ${path}`);
+  }
+}
+
+function handWrittenFiles() {
+  const generated = new Set(outputs.keys());
+  const found = [];
+  for (const dir of [...LOCALES, "snippets"].filter((d) => existsSync(join(ROOT, d)))) {
+    for (const file of readdirSync(join(ROOT, dir), { recursive: true })) {
+      const rel = `${dir}/${String(file).split("\\").join("/")}`;
+      if (rel.endsWith(".mdx") && !generated.has(rel)) found.push(rel);
+    }
+  }
+  return found;
+}
 
 /** Generated pages already on disk, so a page dropped from oss-map.json is removed too. */
 function generatedOnDisk() {
   const found = [];
   for (const locale of LOCALES) {
     const dir = join(ROOT, locale);
+    if (!existsSync(dir)) continue;
     for (const file of readdirSync(dir, { recursive: true })) {
       const rel = `${locale}/${String(file).split("\\").join("/")}`;
       if (!rel.endsWith(".mdx")) continue;
@@ -537,6 +571,13 @@ if (brokenAnchors.length) {
   console.log("anchors that match no heading or anchor (fix upstream):");
   for (const m of [...new Set(brokenAnchors)]) console.log(`  ! ${m}`);
 }
+if (jaPending.length) {
+  console.log(`Japanese editions not in ${lock.version} yet, English shown under a notice: ${jaPending.length}`);
+}
+if (handImagesMissing.length) {
+  console.log(`images hand-written pages name that ${lock.version} does not have:`);
+  for (const m of handImagesMissing) console.log(`  ! ${m}`);
+}
 
 if (CHECK) {
   const problems = [];
@@ -546,6 +587,7 @@ if (CHECK) {
     else if (readFileSync(abs, "utf8") !== text) problems.push(`${file}: differs from what ${lock.version} (${lock.commit.slice(0, 7)}) renders — edit it upstream, then run npm run oss:sync`);
   }
   for (const file of stale) problems.push(`${file}: generated page no longer in oss-map.json`);
+  for (const m of handImagesMissing) problems.push(`${m}: image not in ${lock.version}`);
   const onDisk = new Set(filesUnder(IMAGE_DIR));
   for (const [file, src] of expectedImages) {
     if (!onDisk.has(file)) problems.push(`${file}: missing image`);

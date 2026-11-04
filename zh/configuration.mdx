@@ -15,7 +15,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
 | --- | --- | --- |
 | `config.yaml` | 服务端、数据库、登录、扩展目录 | 不修改：在覆盖文件中覆盖它的值 |
 | `config.llm.yaml` | 模型表（`MODELS`）、每个用途使用哪个条目，以及首次设置页为本地运行提供的选项（`LOCAL_SETUP`） | 需要新增模型时 |
-| `config.devices.yaml` | Garmin、Oura、Whoop 的凭据；Google 与 Apple 登录 | 需要启用某个 provider 时 |
+| `config.devices.yaml` | Garmin、Oura、Whoop 的凭据 | 需要启用某个 provider 时 |
 | `config.{ENV}.yaml` | `config.yaml` 的覆盖文件，可选：在 `.env` 的 `MIROBODY_CONFIG_FILE` 中指定一份；`./deploy.sh` 只会沿用旧版本已经生成的覆盖文件 | 修改 |
 | `.env` | `ENV`、自动生成的各项密钥与设置令牌、模型 API 密钥或本地模型服务的地址，以及运行模型的 Compose profile | 修改 |
 
@@ -105,7 +105,7 @@ mirobody doctor                                        # 源码检出或 pip 安
 
 | 密钥 | 位置 | 由谁设置 |
 | --- | --- | --- |
-| `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`LOG_ENCRYPTION_KEY`、`JWT_KEY` | `.env` | `./deploy.sh`，首次运行时用 `openssl rand -hex 32` 生成 |
+| `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`JWT_KEY` | `.env` | `./deploy.sh`，首次运行时用 `openssl rand -hex 32` 生成 |
 | `SETUP_TOKEN` | `.env` | `./deploy.sh`。首次设置页改变健康数据的去向之前必须出示它；一旦设置过模型，还需要已登录的会话，带令牌的链接也不再打印。 |
 | `DATABASE_DECRYPTION_KEY` | `config.devices.yaml`，或在 `.env` 中覆盖 | 你自己。随仓库提供的是 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值；环境变量的优先级高于任何配置文件。 |
 

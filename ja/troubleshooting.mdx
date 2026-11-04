@@ -1,0 +1,67 @@
+---
+title: "トラブルシューティング"
+description: "doctor レポートの読み方、セルフホストしたデプロイが起動しないよくある理由、ローカルモデルがうまく動かないときに確認すべきことをまとめます。"
+---
+
+import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+まずモデルの診断レポートと直近のコンテナログを確認します：
+
+```bash
+docker compose exec mirobody mirobody doctor   # 各用途が選んだモデル
+docker compose logs --tail 80 mirobody         # サーバー自身のログ
+```
+
+## doctor レポート
+
+`mirobody doctor` は、見つかったキーとローカルサーバーについて1行、続けて各用途について1行ずつ表示します：
+
+| 行 | 意味 |
+| --- | --- |
+| `keys present : none` | ベンダーキーもローカルモデルサーバーもありません。① 収集と ② 標準化は動きますが、ファイル抽出とエージェントは動きません。`./deploy.sh` が表示した初回設定ページのリンクを開くか、`.env` にキーまたは `LOCAL_BASE_URL` を書いて `docker compose up -d` を実行してください。 |
+| `OK` と表示された用途 | その用途が選んだ条目とモデルです。 |
+| `--` と表示された用途 | その用途に使えるものがありません。次の行に、足りないキー、サーバー、条目が示されます。 |
+| `retired keys` | 以前のリリースのキーで、もう読み込まれません。設定は `config.llm.yaml` の `MODELS` 条目か `UTILS_*` のルートに移してください。 |
+| `unread fields` | `MODELS` 条目の中にある、どこからも読まれていないフィールドです。たいていはスペルミスです。 |
+
+`mirobody doctor --probe` で実際のモデルリクエストをテストできます。モデルは選ばれているのにプローブが失敗する場合は、エンドポイント、ネットワーク接続、モデルの対応能力を確認してください。
+
+## 起動時の失敗
+
+| 症状 | 原因と対処 |
+| --- | --- |
+| `deploy.sh` が中断する：ポートを別のコンテナが使っている | 別のプロジェクトが <Fact k="port" /> または <Fact k="pgPort" /> を公開しています。`deploy.sh` は自分が所有しないコンテナを止めません。ポートを空けるか、このプロジェクトのポートを変更してください。 |
+| Compose が名前付きボリュームを拒否する（`Host path binding is rejected`） | Rootless または強化構成の Docker です。<OssLink path="compose.override.yaml.example" /> を `compose.override.yaml` としてコピーし、そこに列挙されているディレクトリを作成してください。 |
+| イメージの取得に失敗する、またはビルド中に Docker Hub に到達できない | Docker Hub が応答しないとき、`deploy.sh` はミラー `mirror.gcr.io`、続いて `docker.1ms.run` の順に試します。まったく取得できない場合のみローカルでビルドします。プロキシ環境では、shell だけでなく Docker デーモン自体にプロキシ設定が必要です。 |
+| 最初の起動に何分もかかる | イメージを取得できなかったため、`deploy.sh` がこのチェックアウトからビルドしました。`./deploy.sh` を実行する shell で `PIP_INDEX_URL` を設定すると（ビルド引数として渡され、`.env` からは読まれません）、より近いパッケージインデックスを使えます。 |
+| `PRODUCTION: true` でサーバーが起動を拒否する | 事前設定のログインコードか `REPLACE_THIS_VALUE_IN_PRODUCTION` のプレースホルダーが残っています。どれが原因かはログに出ます。[サーバーへのデプロイ](/ja/deployment/production#production-posture)を参照してください。 |
+| `mirobody dev` が Postgres を要求して終了する | `--pg-url` を渡すか、`PG_URL` または `DATABASE_URL` を設定してください。データベースには pgvector 拡張が必要です。 |
+
+## 実行時の問題
+
+| 症状 | 原因と対処 |
+| --- | --- |
+| クローン直後に LOINC の検索でエラーになる | 用語バンドルは Git LFS で保存されており、クローン直後はポインタファイルのままです。`git lfs install && git lfs pull` を実行してください。 |
+| デバイス同期だけが一度も動かない | worker のログと Postgres 接続を確認してください。デバイスの取得もタスクの状態も、どちらも Postgres を使っています。 |
+| プロキシ環境でモデル呼び出しが `Cannot connect to host` になる | コンテナは shell のプロキシ設定を引き継ぎません。`.env` で `HTTP_PROXY` と `HTTPS_PROXY` を設定してください。`compose.yaml` がそれをサーバーに渡し、この端末上のモデルサーバーだけはプロキシの対象から外します。 |
+| アップロードは保存されるが読数が出てこない | 視覚・OCR・テキストのいずれのモデルも選ばれていない（doctor レポートを確認）か、`ENABLE_INDICATOR_EXTRACTION` が `0` です。 |
+| デモアカウントでのログインに失敗する | 最初の起動時に `SEED_DEMO_DATA` が `false` だったか、オーバーレイが `EMAIL_PREDEFINE_CODES` を置き換えています。オーバーレイの辞書は置き換えであり、マージではありません。 |
+| デバイス provider が表示されない | 認証情報が足りず、起動時に自分自身をスキップしています。どれが原因かは起動ログに出ます。[デバイス Provider](/ja/providers/using-providers#troubleshooting)を参照してください。 |
+
+## ローカルモデル
+
+セットアップの手順は[ローカルで実行](/ja/local-models)にあります。ここでは、うまくいかないときのパターンをまとめます。
+
+| 症状 | 原因と対処 |
+| --- | --- |
+| 初回設定ページが**100% この端末で動かす**を拒否する | `.env` のベンダーキーは常にローカルの条目より優先されます。キーを削除して `docker compose up -d` を実行し、もう一度ローカルを選ぶか、キーを残したまま[設定](/ja/configuration#local-models)の3つの上書き設定を行ってください。 |
+| Linux ホストで、ページがサーバーを見つけられない | Linux では `host.docker.internal` が Docker のブリッジを指すため、ホスト側の `llama-server` は `127.0.0.1` ではなくブリッジのアドレス（`--host 172.17.0.1`。`ip -4 addr show docker0` で調べます）で待ち受ける必要があります。`local` と `local-cpu` の Compose profile にはホストネットワーキングは不要です。 |
+| モデルサービスのログに `failed to initialize router models: ... Is a directory` が出る | Docker からチェックアウトが見えず、プリセットがあるべき場所に空のディレクトリがマウントされています。Colima は既定でホームディレクトリしか共有しないため、チェックアウトをその配下に置くか、パスを mounts に追加してください。 |
+| サイズを選んだあと、最初の質問になかなか答えが返らない | モデルを Hugging Face からダウンロード中です。初回設定ページに各モデルの状態が表示され、Compose profile でモデルを動かしている場合は `docker compose logs -f llama_cpu`（NVIDIA GPU では `llama`）でダウンロードの様子が見られます。huggingface.co に到達できない環境では、`.env` の `HF_ENDPOINT` をミラーに設定してください。 |
+| 回答に数分かかり、何も流れてこない | ローカルモデルでは想定どおりの挙動です。プロンプトを読んでいる間は何も流れず、読み込み直後の最初のやり取りがもっとも遅くなります。`local` 条目は、あきらめるまで 600 秒の沈黙を許容します。 |
+| `llama-server` がモデルの重みよりはるかに多くのメモリを使う | llama.cpp のプロンプトキャッシュは、既定でモデルサーバーごとに 8 GiB です。出荷時のプリセットは、各回答モデルで 1 GiB、文書読み取りモデルで 0 に制限しています（<OssLink path="docker/local-models.ini" /> の `cache-ram`）。自分で作るプリセットにも同じ行が必要です。でなければマシンがスワップし始めます。 |
+| チャットの写真が、印刷された文字だけをもとに回答される | 回答モデルは画像を見られず、代わりに写真の OCR テキストを渡されています。Small サイズはテキストのみに対応します。写真を見られる Large か、ベンダーキーを選んでください。 |
+
+ここに載っていない問題は、[GitHub](https://github.com/thetahealth/mirobody/issues) に issue を立ててください。doctor レポートとコンテナログの末尾を、個人データを除いたうえで添えてください。

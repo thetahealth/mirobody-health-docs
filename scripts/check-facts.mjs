@@ -96,7 +96,7 @@ for (const file of new Set(files)) {
     for (const [, sub] of line.matchAll(/(?:^\s*(?:\$\s+)?|&&\s*|;\s*|`|\buvx |-m )mirobody ([a-z][a-z-]+)\b/g)) {
       if (!cli.has(sub)) problems.push(`${at}: \`mirobody ${sub}\` is not a CLI subcommand at ${facts.version}`);
     }
-    for (const [, name] of line.matchAll(/`((?:query|resolve|convert|normalize|get|search|fetch)_[a-z_]+|eval|python_exec|ask_user)`/g)) {
+    for (const [, name] of line.matchAll(/`((?:query|resolve|convert|normalize|get|search|fetch)_[a-z_]+|eval|python_exec|code_exec|ask_user)`/g)) {
       if (!tools.has(name)) problems.push(`${at}: \`${name}\` is not a declared tool at ${facts.version}`);
     }
     for (const [, path] of line.matchAll(/(?:`|path=")(mirobody\/[\w./-]*?)\/?(?:`|")/g)) {

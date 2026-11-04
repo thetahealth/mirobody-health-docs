@@ -1,0 +1,64 @@
+---
+title: "Mirobody"
+sidebarTitle: "概要"
+description: "あなたのからだを、データに映す。ひとつの標準で、あらゆる情報源をまとめ、あなたの全体像を映し出す。検査報告・ウェアラブル・遺伝子ファイルを1つの記録にまとめ、モデルキー1つか、ローカルモデルでセルフホストできます。"
+keywords: ["健康データ", "LOINC", "UCUM", "セルフホスト", "ローカルモデル", "llama.cpp", "オープンソース"]
+---
+
+import NameOrigin from "/snippets/ja/name-origin.mdx";
+
+<div className="mb-hero not-prose mt-2 mb-10">
+  <p className="text-sm font-semibold tracking-wide text-primary dark:text-primary-light">オープンソース · セルフホスト · Apache 2.0</p>
+  <p className="mb-headline mt-3 text-gray-900 dark:text-white">あなたのからだを、データに映す。</p>
+  <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">ひとつの標準で、あらゆる情報源をまとめ、あなたの全体像を映し出す。健康の行方を理解するための、長く続く記録です。オープンソース版は Docker で動かし、クラウドのモデルも、自分のマシン上のモデルも選べます。</p>
+  <div className="mt-6 flex flex-wrap gap-3">
+    <a className="mb-button mb-button-primary" href="/ja/self-host">Docker で始める →</a>
+    <a className="mb-button mb-button-secondary" href="https://github.com/thetahealth/mirobody">GitHub</a>
+  </div>
+</div>
+
+<Frame caption="3つの報告、同じ検査に3つの名前。それを1本の推移に。どの数値にも元のファイルが付いています。">
+  <img alt="コレステロールの変化を尋ねると、エージェントが同じ検査を別々の名前で記録した3つのファイルを見つけて1本の推移にまとめ、それぞれの数値の元ファイルを示す様子" src="/images/oss/docs/images/ask-own-demo.ja.gif" />
+</Frame>
+
+## Mirobody とは
+
+Mirobody は、検査報告、デバイスのデータ、写真、遺伝子ファイルを1つの記録にまとめ、認識した名称と単位を[共通の言語](/ja/concepts/indicators)に変換して、記録を時間をまたいで比較できるようにします。質問すると、元の出典を示したうえで答えます。十分なデータを、十分長く標準化すれば、ひとつのからだについての完全で連続した記録、あなたの Mirobody が得られます。オープンソース版は、この一連の処理を自分のインフラ上で、[Apache 2.0 ライセンス](https://github.com/thetahealth/mirobody)のもとで行います。開発元は Theta Health で、Theta を支える健康データエンジンでもあります。
+
+Mirobody は診断や処方を行わず、回答は医学的な助言ではありません。
+
+<NameOrigin />
+
+<Frame caption="収集・標準化・質問：元のファイルが、出典をたどれる回答になるまでの3段階。">
+  <img alt="報告書、デバイスのデータ、遺伝子データを収集し、名称と単位を標準化して出どころの違うデータを比べられるようにし、履歴全体に質問して各回答を出典までたどる" src="/images/oss/docs/images/collect-standardize-agent.ja.svg" className="block dark:hidden" />
+  <img alt="報告書、デバイスのデータ、遺伝子データを収集し、名称と単位を標準化して出どころの違うデータを比べられるようにし、履歴全体に質問して各回答を出典までたどる" src="/images/oss/docs/images/collect-standardize-agent-dark.ja.svg" className="hidden dark:block" />
+</Frame>
+
+## はじめ方
+
+<CardGroup cols={2}>
+  <Card title="Docker で実行する" icon="docker" href="/ja/self-host">
+    `./deploy.sh` で Web アプリとデモデータを起動し、クラウドかローカルのモデルを選びます。記録は自分の Postgres データベースに残ります。
+  </Card>
+  <Card title="ウォークスルーを試す" icon="play" href="/ja/walkthrough">
+    アップロード、標準化、複数の報告をまたいだ質問、家族との共有、日記の記録まで。
+  </Card>
+  <Card title="すべてのモデルを手元に置く" icon="microchip" href="/ja/local-models">
+    llama.cpp でモデルをローカルに実行します。プラットフォームごとのハードウェア要件とセットアップ手順を確認できます。
+  </Card>
+  <Card title="自分のエージェントを接続する" icon="plug" href="/ja/tools/mcp-integration">
+    Claude Code、Codex、Cursor、Gemini CLI から MCP 経由で記録に問い合わせます。
+  </Card>
+  <Card title="アプリなしでエンジンを使う" icon="code" href="/ja/tools/mcp-integration#local-terminology-over-stdio">
+    名称・測定値・単位を扱うオフラインのエンジンを、MCP クライアントや Python スクリプトからキーなしで使えます。
+  </Card>
+  <Card title="サーバーにデプロイする" icon="server" href="/ja/deployment/production">
+    本番設定、シークレット、HTTPS、アップグレードとバックアップ。
+  </Card>
+</CardGroup>
+
+## インストールせずに使う
+
+[Theta Web](https://dr.thetahealth.ai/?utm_source=mirobody&utm_medium=docs&utm_campaign=mirobody-to-theta&utm_content=docs_home) や Theta のモバイルアプリで Mirobody を試すと、何もデプロイせずに自分の記録を残せます。合成データの[ライブデモ](https://chat.mirobody.ai/demo?ref=mirobody-docs&lang=ja)は、アカウントなしで試せます。
+
+ソースコード、リリース、サポートは [GitHub](https://github.com/thetahealth/mirobody) にあります。

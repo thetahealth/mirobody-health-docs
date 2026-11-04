@@ -1,0 +1,92 @@
+---
+title: "バックアップの確認と復元"
+description: "セルフホストのバックアップを一時データベースに復元して確認し、必要に応じて Postgres とローカルのアップロードファイルを復元します。"
+---
+
+import { OssVersion } from '/snippets/oss-facts.jsx';
+
+<OssVersion lang="ja" />
+
+この手順は、エンジンの詳しい[バックアップと復元リファレンス](/ja/deployment/backup)を補うものです。Docker スタックを持つエンジンのチェックアウトで実行してください。バックアップと、対応する `.env`・設定の上書きファイル・`.key.yaml` ファイル・`compose.override.yaml` は、まとめて保護された場所に保管してください。アップロードファイルに外部バケットを使っている場合は、そのバケットも別途バックアップしてください。
+
+## バックアップを作成して確認する
+
+`pg` サービスが動いている間にスクリプトを実行し、その出力をホストの外にコピーしてください。
+
+```bash
+git rev-parse HEAD    # このコミットをこのバックアップと一緒に記録する
+shell/backup.sh
+```
+
+表示されたコミットを、このバッチのデータベースダンプ・アップロードアーカイブ・キーファイルと一緒に保管してください。バックアップスクリプトは、アーカイブにコードのバージョンを埋め込みません。
+
+スクリプトはデータベースアーカイブの一覧とローカルのアップロードアーカイブを確認します。記録・ファイル・キーが揃って機能することを確かめるには、完全な復元を演習してください。
+
+データベースの演習では、テストするダンプを選び、チェックアウト内で次のコマンドを実行します。これらは新しい一時データベースを作成するだけで、稼働中のアプリケーションは既存のデータベースを使い続けます。
+
+```bash
+backup_file="backups/mirobody-db-YYYYMMDD-HHMMSS.dump"  # 作成したファイルに置き換える
+check_db="mirobody_restore_check_$(date +%Y%m%d%H%M%S)"
+docker compose cp "$backup_file" pg:/tmp/restore-check.dump
+docker compose exec -T pg pg_restore --list /tmp/restore-check.dump > /dev/null
+docker compose exec -T pg createdb -U holistic_user "$check_db"
+docker compose exec -T pg pg_restore -U holistic_user -d "$check_db" --no-owner /tmp/restore-check.dump
+docker compose exec -T pg psql -U holistic_user -d "$check_db" -c \
+  "select count(*) from information_schema.tables where table_schema='theta_ai'"
+```
+
+この件数はゼロより大きいはずです。復元全体を確認済みと呼ぶ前に、**隔離したテストデプロイ**で代表的な記録を確認してください。テーブル数だけでは、データとアップロードファイルが使えることの証明にはなりません。一時データベースが不要になったら、明示的に削除してください。
+
+```bash
+docker compose exec -T pg dropdb -U holistic_user "$check_db"
+```
+
+ローカルのアップロードファイルがある場合は、ファイル名を置き換えたうえで `tar tzf backups/mirobody-uploads-YYYYMMDD-HHMMSS.tar.gz` でアーカイブを確認してください。外部バケットには、それ専用の復元演習が必要です。
+
+**完全な演習**には、保護された隔離のテストホストを使ってください。バックアップと一緒に記録したコードのバージョンをクローンし、公開アクセスのない新しい[サーバーデプロイ](/ja/deployment/production)として設定し、バックアップと対応するキー・設定をコピーします。空のスタックを起動し、アップロードアーカイブまたは外部バケットの復元も含めて、**そのテストホストで**[デプロイを復旧する](#recover-a-deployment)を実行してください。ログインし、復元された代表的な記録とアップロードファイルを開き、health レスポンスを確認してください。本番のボリュームとネットワークはこのテストに使わないでください。上記の一時データベース確認はより速いアーカイブ確認であり、この完全な演習の代わりにはなりません。
+
+## デプロイを復旧する {#recover-a-deployment}
+
+アプリケーションの書き込みを止めますが、Postgres は動かしたままにしてください。例のダンプ名は、選んだバックアップに置き換えてください。
+
+```bash
+docker compose stop mirobody mirobody_worker
+docker compose cp backups/mirobody-db-YYYYMMDD-HHMMSS.dump pg:/tmp/restore.dump
+docker compose exec -T pg createdb -U holistic_user holistic_db_restored
+docker compose exec -T pg pg_restore -U holistic_user -d holistic_db_restored --no-owner /tmp/restore.dump
+docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
+  'TRUNCATE theta_ai.th_ephemeral'
+docker compose exec -T pg psql -U holistic_user -d holistic_db_restored -c \
+  "select count(*) from information_schema.tables where table_schema='theta_ai'"
+```
+
+新しいデータベースは、古いデータベースをそのまま残します。`holistic_db_restored` がすでに存在する場合は、別の名前を選んでください。Compose とアプリケーションの両方が復元後のデータベースを選ぶよう、`.env` に `PG_DBNAME=holistic_db_restored` を設定してください。アプリを起動する前に、**対応する暗号化キーと設定**を復元してください。新しく生成したキーでは、暗号化された記録を読めません。
+
+ファイルをローカルに保存していた場合は、`docker volume ls` で実際のアップロードボリューム名を確認してください。`mirobody` という名前のチェックアウトなら、通常は `mirobody_mirobody_upload` です。復元前に、その名前のボリュームがすでに存在することを確認してください。存在しないと `docker run -v` が黙って空のボリュームを作成してしまいます。対応するアーカイブをそのボリュームに復元します。
+
+```bash
+upload_volume=mirobody_mirobody_upload  # 見つけたボリュームに置き換える
+docker volume inspect "$upload_volume"
+docker run --rm \
+  -v "$upload_volume":/data \
+  -v "$PWD/backups":/backup \
+  alpine tar xzf /backup/mirobody-uploads-YYYYMMDD-HHMMSS.tar.gz -C /data
+```
+
+ボリューム名とアーカイブ名は、自分のデプロイのものに置き換えてください。アップロードファイルに外部バケットを使っている場合は、代わりにそのストレージ提供元の手順でバケットを復元してください。**起動する前に**、これが以前のリリースへのロールバックなら、アプリを停止したまま、そのバックアップと一緒に記録されたコミットにチェックアウトを切り替えてください。
+
+```bash
+backup_ref="PASTE_RECORDED_COMMIT_HERE"  # ロールバックのときだけ
+git fetch --tags origin
+git checkout "$backup_ref"
+```
+
+有効な上書きファイル、`.env`、暗号化キーが復元したデータと一致することを確認してから、アプリを起動してください。
+
+```bash
+docker compose up -d
+docker compose ps
+curl -fsS http://127.0.0.1:18060/api/health
+```
+
+Web クライアントで、復元された記録と、該当する場合は復元されたアップロードファイルを確認してください。スキーマのアップグレードに自動的なダウンマイグレーションはありません。古いコードだけを戻すと、新しいデータベースを読んでしまうことがあります。[デプロイのアップグレード](/ja/deployment/upgrade)を参照してください。

@@ -13,7 +13,7 @@ import { dirname, join, normalize, posix } from "node:path";
 
 export const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const VENDOR = join(ROOT, "vendor/mirobody");
-export const LOCALES = ["en", "zh"];
+export const LOCALES = ["en", "zh", "ja"];
 
 export function readLock() {
   const lock = JSON.parse(readFileSync(join(ROOT, "oss.lock"), "utf8"));
@@ -110,6 +110,18 @@ export function resolveRepoPath(fromPath, target) {
 }
 
 /**
+ * The repository file a page renders from in one language: its edition there
+ * (`zhSource`, or `jaSource` once the pinned commit has it), else the English source.
+ * A Japanese edition is declared ahead of the release that ships it; until then the
+ * page shows the English text under a notice.
+ */
+export function editionOf(page, locale) {
+  if (locale === "zh" && page.zhSource) return page.zhSource;
+  if (locale === "ja" && page.jaSource && vendorTree().files.has(page.jaSource)) return page.jaSource;
+  return page.source;
+}
+
+/**
  * Which site page a repository file became, if any.
  * `docs/walkthrough.zh-CN.md` → { slug: "walkthrough", locale: "zh" }.
  */
@@ -118,6 +130,7 @@ export function pageIndex(map = readMap()) {
   for (const page of map.pages) {
     index.set(page.source, { slug: page.slug, locale: null });
     if (page.zhSource) index.set(page.zhSource, { slug: page.slug, locale: "zh" });
+    if (page.jaSource) index.set(page.jaSource, { slug: page.slug, locale: "ja" });
   }
   return index;
 }

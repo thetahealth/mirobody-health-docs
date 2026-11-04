@@ -23,7 +23,9 @@ import NameOrigin from "/snippets/name-origin.mdx";
 
 ## What is Mirobody?
 
-Mirobody brings reports, device data, photos and genetic files into one record, puts recognized names and units into a shared language so the record can be compared over time, and lets you ask questions with references to the original sources. Standardize enough of your data, for long enough, and you have a complete, continuous account of one body: your Mirobody. This open-source edition does it on your own infrastructure under the [Apache 2.0 license](https://github.com/thetahealth/mirobody). Built by Theta Health, it is the health data engine behind Theta.
+Mirobody brings reports, device data, photos and genetic files into one record, puts recognized names and units into [a shared language](/en/concepts/indicators) so the record can be compared over time, and lets you ask questions with references to the original sources. Standardize enough of your data, for long enough, and you have a complete, continuous account of one body: your Mirobody. This open-source edition does it on your own infrastructure under the [Apache 2.0 license](https://github.com/thetahealth/mirobody). Built by Theta Health, it is the health data engine behind Theta.
+
+Mirobody does not diagnose or prescribe, and its answers are not medical advice.
 
 <NameOrigin />
 
@@ -47,8 +49,8 @@ Mirobody brings reports, device data, photos and genetic files into one record, 
   <Card title="Connect your own agent" icon="plug" href="/en/tools/mcp-integration">
     Query your records from Claude Code, Codex, Cursor or Gemini CLI through MCP.
   </Card>
-  <Card title="Resolve names in Python" icon="code" href="/en/quickstart#a--the-library">
-    `pip install mirobody`: names to LOINC and units to UCUM, offline, with no key.
+  <Card title="Use the engine without the app" icon="code" href="/en/tools/mcp-integration#local-terminology-over-stdio">
+    Give any MCP client or Python script the offline engine: names, readings and units, with no key.
   </Card>
   <Card title="Deploy on a server" icon="server" href="/en/deployment/production">
     Production settings, secrets, HTTPS, upgrades and backups.

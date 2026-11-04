@@ -1,18 +1,18 @@
 /**
- * en/zh parity + navigation gate.
+ * en/zh/ja parity + navigation gate.
  *
  *   npm run check:parity
  *
- * The two language trees mirror each other page for page, and the sidebar is
+ * The language trees mirror the English one page for page, and the sidebar is
  * docs.json plus each page's frontmatter. Checks:
- *   A. both navigations list the same pages in the same order, every listed page
- *      exists, and every page on disk is listed
- *   B. per hand-written page pair (a translation of a generated page included):
- *      the same count of headings, code fences, labelled fences, internal links,
- *      imports and components — a faithful translation keeps the structure.
- *      Generated pages are exempt: their Chinese edition is the repository's own,
+ *   A. every navigation lists the same pages as the English one, in the same order;
+ *      every listed page exists, and every page on disk is listed
+ *   B. per hand-written page pair with English (a translation of a generated page
+ *      included): the same count of headings, code fences, labelled fences, internal
+ *      links, imports and components — a faithful translation keeps the structure.
+ *      Generated pages are exempt: their other editions are the repository's own,
  *      or the English text under a notice.
- *   C. frontmatter has a title and a description in both languages
+ *   C. frontmatter has a title and a description in every language
  *   D. no two pages in one sidebar (a tab's, or the language's when it has no
  *      tabs) share a sidebar label (sidebarTitle, else title)
  *   E. each page has one place in its language's navigation. A page listed in two
@@ -22,6 +22,7 @@
  *      pages has a Next link that points at itself.
  *   F. no listed page is the source of a redirect: the redirect hides the page
  */
+import { LOCALES } from "./lib/oss.mjs";
 import { DOCS_JSON, frontmatter, generatedPages, navEntries, pagesOnDisk, read } from "./lib/pages.mjs";
 
 const COMPONENTS = ["Card", "CardGroup", "Columns", "Step", "Steps", "Accordion", "AccordionGroup", "Tab", "Tabs", "CodeGroup", "Frame", "ParamField", "ResponseField", "Note", "Info", "Tip", "Warning", "Check", "Fact", "OssLink", "OssSource", "OssVersion", "Stages"];
@@ -42,15 +43,22 @@ function profile(text) {
 const problems = [];
 const entries = navEntries();
 const en = entries.filter((e) => e.locale === "en");
-const zh = entries.filter((e) => e.locale === "zh");
+const others = LOCALES.filter((l) => l !== "en");
 const generated = generatedPages();
 
-// A. the two navigations line up
-if (en.length !== zh.length) problems.push(`navigation: en lists ${en.length} pages, zh lists ${zh.length}`);
-en.forEach((e, i) => {
-  const expected = e.page.replace(/^en\//, "zh/");
-  if (zh[i]?.page !== expected) problems.push(`navigation position ${i}: en ${e.page} ↔ zh ${zh[i]?.page ?? "(none)"}`);
-});
+// A. every navigation lines up with the English one
+const navLocales = DOCS_JSON.navigation.languages.map((l) => l.language);
+for (const locale of LOCALES) {
+  if (!navLocales.includes(locale)) problems.push(`navigation: docs.json has no ${locale} language`);
+}
+for (const locale of others) {
+  const list = entries.filter((e) => e.locale === locale);
+  if (en.length !== list.length) problems.push(`navigation: en lists ${en.length} pages, ${locale} lists ${list.length}`);
+  en.forEach((e, i) => {
+    const expected = e.page.replace(/^en\//, `${locale}/`);
+    if (list[i]?.page !== expected) problems.push(`navigation position ${i}: en ${e.page} ↔ ${locale} ${list[i]?.page ?? "(none)"}`);
+  });
+}
 for (const e of entries) {
   if (!read(e.page)) problems.push(`${e.page}: listed in docs.json but missing on disk`);
 }
@@ -60,21 +68,25 @@ for (const page of pagesOnDisk()) {
 }
 
 // B + C
+for (const e of entries) {
+  const text = read(e.page);
+  if (!text) continue;
+  const fm = frontmatter(text);
+  if (!fm.title) problems.push(`${e.page}: missing frontmatter title`);
+  if (!fm.description) problems.push(`${e.page}: missing frontmatter description`);
+}
 for (const e of en) {
-  const zhPage = e.page.replace(/^en\//, "zh/");
   const a = read(e.page);
-  const b = read(zhPage);
-  if (!a || !b) continue;
-  for (const [page, text] of [[e.page, a], [zhPage, b]]) {
-    const fm = frontmatter(text);
-    if (!fm.title) problems.push(`${page}: missing frontmatter title`);
-    if (!fm.description) problems.push(`${page}: missing frontmatter description`);
-  }
-  if (generated.has(zhPage)) continue;
+  if (!a) continue;
   const pa = profile(a);
-  const pb = profile(b);
-  for (const key of Object.keys(pa)) {
-    if (pa[key] !== pb[key]) problems.push(`${e.page.slice(3)}: ${key} differ — en=${pa[key]} zh=${pb[key]}`);
+  for (const locale of others) {
+    const page = e.page.replace(/^en\//, `${locale}/`);
+    const b = read(page);
+    if (!b || generated.has(page)) continue;
+    const pb = profile(b);
+    for (const key of Object.keys(pa)) {
+      if (pa[key] !== pb[key]) problems.push(`${e.page.slice(3)}: ${key} differ — en=${pa[key]} ${locale}=${pb[key]}`);
+    }
   }
 }
 
@@ -108,7 +120,7 @@ for (const page of places.keys()) {
   if (redirected.has(path)) problems.push(`${page} is in the navigation but /${path} redirects elsewhere`);
 }
 
-console.log(`parity check: ${en.length} page pairs (${[...generated].filter((p) => p.startsWith("en/")).length} generated)`);
+console.log(`parity check: ${en.length} pages × ${LOCALES.length} languages (${[...generated].filter((p) => p.startsWith("en/")).length} generated)`);
 if (problems.length === 0) {
   console.log("✓ clean");
 } else {

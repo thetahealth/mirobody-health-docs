@@ -42,7 +42,7 @@ import { Fact, OssLink, OssVersion } from '/snippets/oss-facts.jsx';
     ```bash
     ./deploy.sh
     ```
-    `deploy.sh` 会在 `.env` 缺少 `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`LOG_ENCRYPTION_KEY`、`JWT_KEY` 时补上，拉取应用镜像（拉取不到时从本地检出构建），并启动 Postgres、服务端与 worker。把用户指向这台主机之前，继续完成下方验证。
+    `deploy.sh` 会在 `.env` 缺少 `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`JWT_KEY`、`SETUP_TOKEN` 时补上，拉取应用镜像（拉取不到时从本地检出构建），并启动 Postgres、服务端与 worker。把用户指向这台主机之前，继续完成下方验证。
   </Step>
 </Steps>
 
@@ -66,7 +66,7 @@ EMAIL_PREDEFINE_CODES: {}
 
 设置 `PRODUCTION: true` 后，只要还有预置登录码或任何 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值，服务端就拒绝启动，也不会写入演示数据；报错会写明还剩哪些。`EMAIL_PREDEFINE_CODES: {}` 会移除两个演示账号，因为覆盖文件会替换整个值。
 
-之后用户可以通过三种方式登录：在 Web 客户端用密码注册（`POST /password/register`）；配置邮件服务器后用邮箱验证码登录（`EMAIL_FROM` 以及 `EMAIL_SMTP_HOST`、`EMAIL_SMTP_PORT`、`EMAIL_SMTP_USER`、`EMAIL_SMTP_PASS`）；或使用在 `config.devices.yaml` 中配置的 Google、Apple 登录。
+之后用户可以通过两种方式登录：在 Web 客户端用密码注册（`POST /password/register`），或配置邮件服务器后用邮箱验证码登录（`EMAIL_FROM` 以及 `EMAIL_SMTP_HOST`、`EMAIL_SMTP_PORT`、`EMAIL_SMTP_USER`、`EMAIL_SMTP_PASS`）。
 
 如果你自行管理数据库 schema，同时设置 `BOOTSTRAP_SCHEMA: false`。
 
@@ -74,7 +74,7 @@ EMAIL_PREDEFINE_CODES: {}
 
 ## 密钥 {#secrets}
 
-`./deploy.sh` 首次运行时会把 `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`LOG_ENCRYPTION_KEY` 与 `JWT_KEY` 写进 `.env`，每一项都用 `openssl rand -hex 32` 生成，且不会覆盖已经存在的值（`.env` 本身以 `chmod 600` 写入）。Compose 通过 `env_file` 把 `.env` 传给每个容器，因此 `PG_PASSWORD` 会同时到达 `pg` 服务（`POSTGRES_PASSWORD`）与应用本身，不需要在别处再写一遍。
+`./deploy.sh` 首次运行时会把 `PG_PASSWORD`、`PG_ENCRYPTION_KEY`、`CONFIG_ENCRYPTION_KEY`、`JWT_KEY` 与 `SETUP_TOKEN` 写进 `.env`，每一项都用 `openssl rand -hex 32` 生成，且不会覆盖已经存在的值（`.env` 本身以 `chmod 600` 写入）。Compose 通过 `env_file` 把 `.env` 传给每个容器，因此 `PG_PASSWORD` 会同时到达 `pg` 服务（`POSTGRES_PASSWORD`）与应用本身，不需要在别处再写一遍。
 
 `DATABASE_DECRYPTION_KEY` 是唯一一个 `deploy.sh` 不会自动生成的密钥：它以 `REPLACE_THIS_VALUE_IN_PRODUCTION` 占位值的形式存在于 `config.devices.yaml` 中，而 `PRODUCTION: true` 只要发现这个占位值还在，就会拒绝启动。请自己在 `.env` 中设置它，以覆盖配置文件里的值（环境变量的优先级高于任何配置来源）：
 
@@ -136,4 +136,4 @@ curl -fsS http://127.0.0.1:18060/api/health
 
 数据保存在 Postgres 数据卷中；当上传文件存放在本地磁盘而不是存储桶时，还保存在上传卷中。恢复演练与恢复操作见[核验与恢复备份](/zh/deployment/restore)；引擎的[备份与恢复参考](/zh/deployment/backup)详细解释各数据卷。
 
-请按[升级部署](/zh/deployment/upgrade)的顺序操作：备份数据与密钥、检查目标版本、切换代码、重启和验证。`deploy.sh` 运行 `docker compose up -d --remove-orphans`，会原地重建发生变化的服务；请为这次短暂重启安排维护时段。
+请按[升级部署](/zh/deployment/upgrade)的顺序操作：备份数据与密钥、检查目标版本、切换代码、重启和验证。`deploy.sh` 运行 `docker compose up -d --wait --remove-orphans`，会原地重建发生变化的服务并等待其变为 healthy；请为这次短暂重启安排维护时段。
