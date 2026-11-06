@@ -41,6 +41,8 @@ curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $T
 { "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
 ```
 
+One link reads one person's record. **Settings → MCP link** has a row for your record and one for each family member whose record you can read. To use a family member's record from an MCP client, make a link on their row and add it as a second server. Through the API, put that person's `user_id` in the body of `POST /personal/mcp`.
+
 Generating a new URL revokes the previous link for the same creator and record. Links expire after `MCP_URL_TTL_DAYS` days (<Fact k="mcpUrlTtlDays" /> by default); using a link does not extend it. Use Settings or the endpoints above to view and revoke links.
 
 A link stops working when its sharing permissions or creator authorization end. Sharing the record again does not reactivate a revoked link.
