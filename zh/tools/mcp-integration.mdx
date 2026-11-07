@@ -41,6 +41,8 @@ curl -s -X POST http://localhost:18060/personal/mcp -H "Authorization: Bearer $T
 { "code": 0, "msg": "ok", "data": { "url": "http://localhost:18060/mcp/<secret>" } }
 ```
 
+一条链接只读一个人的记录。**设置 → MCP 链接**里，你自己的记录一行，每位允许你查看记录的家人各一行。要在 MCP 客户端里查家人的记录，就在对方那一行生成链接，作为另一个服务器添加。通过 API 生成时，在 `POST /personal/mcp` 的请求体里传入对方的 `user_id`。
+
 为同一份记录重新生成链接后，原链接立即失效。链接有效期由 `MCP_URL_TTL_DAYS` 设置，默认 <Fact k="mcpUrlTtlDays" /> 天，使用过程中不会自动续期。可在设置页或通过上方接口查看、撤销链接。
 
 共享权限或创建者授权失效后，链接也会失效。之后重新共享记录，不会恢复已经撤销的旧链接。
