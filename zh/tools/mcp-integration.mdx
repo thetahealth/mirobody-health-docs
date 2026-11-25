@@ -88,6 +88,8 @@ URL 的开头是请求到达时使用的源。位于反向代理之后时，只�
     ```bash
     codex mcp add mirobody --url http://localhost:18060/mcp/<secret>
     ```
+
+    随后 Codex（0.164 实测）会发现这台服务器为 `/mcp` 提供的登录，并打开浏览器请你授权。URL 里的密钥已经能访问：关掉这个页面，按 Ctrl+C 结束命令即可。服务器仍然已添加，`codex mcp list` 显示 `Not logged in`，工具照常可用。
   </Tab>
   <Tab title="Gemini CLI">
     ```bash
