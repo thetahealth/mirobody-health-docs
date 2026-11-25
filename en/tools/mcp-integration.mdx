@@ -88,6 +88,8 @@ Replace the URL below with your personal URL.
     ```bash
     codex mcp add mirobody --url http://localhost:18060/mcp/<secret>
     ```
+
+    Codex (checked with 0.164) then finds the sign-in this server offers for `/mcp` and opens a browser to authorize it. The secret in the URL already grants access: close that page and stop the command with Ctrl+C. The server stays added, `codex mcp list` shows it as `Not logged in`, and its tools work.
   </Tab>
   <Tab title="Gemini CLI">
     ```bash

@@ -88,6 +88,8 @@ URL は、リクエストが到着した時点のオリジンで始まります�
     ```bash
     codex mcp add mirobody --url http://localhost:18060/mcp/<secret>
     ```
+
+    続いて Codex（0.164 で確認）は、このサーバーが `/mcp` 向けに用意しているサインインを見つけ、ブラウザーで認可を求めます。URL のシークレットだけでアクセスできるので、そのページを閉じて Ctrl+C でコマンドを止めてください。サーバーは追加されたままで、`codex mcp list` には `Not logged in` と表示され、ツールはそのまま使えます。
   </Tab>
   <Tab title="Gemini CLI">
     ```bash
